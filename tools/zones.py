@@ -92,6 +92,9 @@ class Zones:
             return
         if not np.array_equal(self.id, np.arange(n)):
             self.warnings.append("ids are not dense from 0 in file order")
+        # NON-INCREASING, not strictly descending: radii come off the square
+        # root of an integer squared distance and 98% of rows tie with the
+        # row above on the writer's real file. Only a rise is a fault.
         if n > 1 and (np.diff(self.r) > 1e-6).any():
             self.warnings.append("radii are not descending")
         bad = 0
@@ -111,14 +114,35 @@ class Zones:
                 except ValueError:
                     pass
 
-    def check_bake(self, bake):
-        """Provenance against the bake in memory: the `written` the zone map
-        was cut from must be the bake's own. Missing on either side is not
-        a mismatch - the key is new and older bakes do not carry it."""
-        mine = self.header.get("bake_meta_written")
-        theirs = getattr(bake, "meta", {}).get("written")
-        if mine and theirs and mine != theirs:
-            self.warnings.append("cut from a bake written %s; the bake on disk says %s" % (mine, theirs))
+    # A zone map is cut moments after its bake in the same load (three
+    # seconds apart on the writer's run), so a small gap is normal and the
+    # thing worth catching is a zone CSV left over from an EARLIER session -
+    # hours apart. Warn past this.
+    STALE_S = 600.0
+
+    def check_bake(self, bake, meta_path=None):
+        """Provenance: what the zone map was cut from against the bake on
+        disk. `bake_meta_written` is the writer's best evidence today - the
+        LAST-WRITE time of <map>_meta.txt in UTC, not a key the bake carries
+        (none exists yet). So: against the bake meta's own `written` when the
+        writer has landed it, else against the meta file's mtime, which is
+        weak (it moves on a copy, and it is the meta's, not the arrays') but
+        catches the case that matters. Missing on either side is not a
+        mismatch."""
+        mine = _parse_utc(self.header.get("bake_meta_written"))
+        if mine is None:
+            return True
+        theirs = _parse_utc(getattr(bake, "meta", {}).get("written"))
+        source = "the bake's written key"
+        if theirs is None and meta_path and os.path.exists(meta_path):
+            theirs = os.path.getmtime(meta_path)
+            source = "the meta file's mtime"
+        if theirs is None:
+            return True
+        gap = abs(theirs - mine)
+        if gap > self.STALE_S:
+            self.warnings.append("cut from a bake %.0f min away from %s - a zone map from another session?"
+                                 % (gap / 60.0, source))
             return False
         return True
 
@@ -136,6 +160,24 @@ class Zones:
             for j in nb:
                 if j > i:
                     yield i, j
+
+
+def _parse_utc(text):
+    """An ISO time as the writer spells it (2026-09-11T22:22:45Z) to seconds
+    since the epoch; None for nothing or anything else."""
+    if not text:
+        return None
+    import datetime
+    t = text.strip()
+    try:
+        if t.endswith("Z"):
+            t = t[:-1] + "+00:00"
+        d = datetime.datetime.fromisoformat(t)
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=datetime.timezone.utc)
+        return d.timestamp()
+    except ValueError:
+        return None
 
 
 def zones_path(folder, map_name, mask="tank"):
@@ -165,7 +207,7 @@ def load_zones(folder, map_name, bake=None):
             print("zones: %s would not read: %s" % (path, e))
             continue
         if bake is not None:
-            z.check_bake(bake)
+            z.check_bake(bake, os.path.join(folder, map_name + "_meta.txt"))
         print(z.summary())
         out[mask] = z
     return out
