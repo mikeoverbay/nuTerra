@@ -146,6 +146,30 @@ monastery are lifted by fewer than a quarter of their texels) and
 `CANOPY_H` 3.0 then padding an honest 3.1 m bush as a canopy; both are
 measured in `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` and untouched.
 
+## The zone map (2026-09-11, read, not cut)
+
+The owner's radius zoning - "draw rings and find areas as large as we can
+that the ring fits without hitting something; that whole area is safe; only
+zone radius checks" - is cut in nuTerra by the Tank AI session (distance
+transform of the free mask, maximal discs greedily largest-first with a 0.6
+cover fraction, every radius half a cell back, links WALKED between centres
+with full clearance) and written beside the bake as
+`<map>_zones_<mask>.csv`: a `key=value` header (map, mask, mask_rule, grid,
+cell_m, body_r_m, the world frame, radius_rule, link_rule,
+bake_meta_written, written, zones, links), then `id,x,z,r_m,y_m,neighbours`
+with ids dense in descending radius and neighbours space-separated,
+symmetric; an empty list is an island. `tools/zones.py` reads it
+(`load_zones(folder, map, bake)` -> `{mask: Zones}`), checks it (ids dense
+and radii descending, links symmetric, `bake_meta_written` against the
+bake's own `written` - a stale zone map warns, never refuses), and Path
+Studio's **Zones** checkbox draws every disc and link over the mask and as
+rings on the ground in 3D, one colour per mask. Path Studio never cuts a
+second zone map; the tank's mask and the camera's are different rules (a
+camera flies over what a tank cannot drive through), so the camera's, when
+wanted, is exported from `radar_commit.build_world`'s blocked mask for the
+same extractor to cut. Both `Bake` classes keep the whole meta as
+`bake.meta` for the provenance check.
+
 ## Step 3 — look-ahead
 
 March an integer (Bresenham) line from the current position out to a maximum

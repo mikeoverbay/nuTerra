@@ -202,6 +202,10 @@ class Bake:
                     continue
                 k, _, v = line.partition("=")
                 meta[k] = v
+        # Kept whole: the zone map checks the `written` it was cut from
+        # against this, and the Studio shows the provenance keys (exe, built,
+        # written, commit) when the writer carries them.
+        self.meta = dict(meta)
 
         self.map_name = meta["map"]
         self.w = int(meta["width"])

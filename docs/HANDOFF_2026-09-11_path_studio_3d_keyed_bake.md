@@ -434,6 +434,15 @@ shipped route, never slipped in. Their monastery numbers, for shape only
 (tank mask, 4.5 m hull, 1024): 10,334 zones, 64,429 links, widest 57.6 m,
 mean 8.1 m, 103 isolated, 722 ms.
 
+The reader is in: `tools/zones.py` (`Zones`, `load_zones`, `zones_path`),
+`bake.meta` on both Bake classes, the **Zones** checkbox in the Studio
+(discs and walked links over the mask, rings on the ground in 3D, islands
+filled). Tested on a synthetic bake with a synthetic zone file in the exact
+spelling: the three checks, the provenance warning, a broken file (dense
+ids, radius order, one-sided links, header counts), the canvas and the 3D
+view. The real file appears in the flight folder once the writer is on
+master and the owner builds.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
