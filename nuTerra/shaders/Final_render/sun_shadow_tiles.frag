@@ -1,5 +1,9 @@
 #version 450 core
 #extension GL_ARB_shading_language_include : require
+// The PerView block (invView) in common.h is behind this define, as
+// deferred.frag sets it; without it the block is compiled out and invView
+// does not exist - C1503, and the whole resolve fails to compile.
+#define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
 // THE SUN SHADOW FROM FOUR TILES, resolved once a frame.

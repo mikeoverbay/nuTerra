@@ -392,8 +392,11 @@ class Bake:
             # the height is untouched - and the trunk mask is carried for the
             # day a ground vehicle plans on this bake. Mask before indexing,
             # or a trunk texel reads as kind 128 + k and falls off the legend.
-            self.kind = (key & 0x07).astype(np.uint8)
-            self.trunk = (key & 0x80) != 0
+            kmask = int(meta.get("kind_mask", 7))
+            tbit = int(meta.get("trunk_bit", 128))
+            self.kind = (key & kmask).astype(np.uint8)
+            self.trunk = (key & tbit) != 0
+            self.trunk_radius = float(meta.get("trunk_radius", 0.0))
             # G is the high byte and B the low; A is 255 so the file still
             # opens as a picture. (The spec said G/A - the writer chose G/B
             # and the file on disk is the authority.)
