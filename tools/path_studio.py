@@ -1666,6 +1666,8 @@ class GLView:
     SIDE_X = 0.62
     SIDE_Z = 0.45
     WALL_MIN = 1.0
+    GROUND_LIFT = 62           # the open ground comes off the canvas near black;
+                               # lifted to a dark grey so blocks in shade still read
     HIDDEN = False             # a test sets this to open the window unseen
 
     VERT = """#version 330 core
@@ -1822,13 +1824,19 @@ void main() { o_rgb = v_rgb; }
             col = np.ascontiguousarray(arr[..., :3]).copy()
         if objc is not None:
             col[objc] = self.OBJ_RGB
+        colf = col.astype(np.float32)
+        # Ground only - the boxes keep their colour. A cell at 14 comes up
+        # to ~72, at 100 to ~138: dark grey, with the map's tone still in it.
+        ground = np.ones((G, G), dtype=bool) if objc is None else ~objc
+        colf[ground] = self.GROUND_LIFT + colf[ground] * (1.0 - self.GROUND_LIFT / 255.0)
         gz, gx = np.gradient(H, cs, cs)
         nx, ny, nz = -gx, np.ones_like(gx), gz
         nl = np.sqrt(nx * nx + ny * ny + nz * nz)
         L = np.array([-0.5, 0.75, 0.45])
         L /= np.linalg.norm(L)
-        shade = (0.45 + 0.55 * np.clip((nx * L[0] + ny * L[1] + nz * L[2]) / nl, 0.0, 1.0))
-        colf = col.astype(np.float32)
+        # The shade floor at 0.55, not 0.45: a slope facing away from the
+        # light is darker, not black.
+        shade = (0.55 + 0.45 * np.clip((nx * L[0] + ny * L[1] + nz * L[2]) / nl, 0.0, 1.0))
         topc = np.clip(colf * shade[..., None], 0, 255).astype(np.uint8)
 
         x_edge = self.wx_min + np.arange(G + 1, dtype=np.float32) * cs
