@@ -31,6 +31,7 @@ writes those on map load. A map nuTerra has never opened has no bake and cannot
 be planned.
 """
 
+import ctypes
 import math
 import os
 import struct
@@ -46,6 +47,18 @@ import shutil
 import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk, ImageDraw
+
+# The GPU for the 3D view. Optional: without pygame or PyOpenGL the view
+# falls back to the PIL renderer (View3D), which is what the launcher's
+# preflight checks for. pygame is asked not to print its banner.
+try:
+    os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+    import pygame
+    from OpenGL import GL
+    from OpenGL.GL import shaders as glshaders
+    HAVE_GL = True
+except Exception:          # ImportError, or a pygame that cannot start
+    HAVE_GL = False
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -1606,6 +1619,9 @@ class View3D:
         self.top.after(250, lambda: self.schedule(full=True) if self.terrain is None
                        or not self.terrain[4] else None)
 
+    def lift(self):
+        self.top.lift()
+
     def close(self):
         if self._job is not None:
             self.top.after_cancel(self._job)
@@ -1613,6 +1629,496 @@ class View3D:
         self.studio.show_3d.set(False)
         self.studio.view3d = None
         self.top.destroy()
+
+
+# --------------------------------------------------------------------------
+# The 3D view on the GPU
+# --------------------------------------------------------------------------
+# A pygame window with a GL 3.3 core context, pumped from Tk's event loop
+# every 16 ms so the two windows share one thread and neither blocks the
+# other. The whole mesh - every cell's top and every wall that stands more
+# than WALL_MIN over its neighbour, at 512 or 1024 cells a side - lives in
+# ONE vertex buffer (position float32 x3 + colour uint8 x4, 16 bytes a
+# vertex) and ONE index buffer, uploaded when the map, the grid or the
+# colours change, and drawn with a single glDrawElements. Nothing is merged
+# and nothing is culled by hand: a few million triangles is what the board
+# is for, and the depth test does the rest. Measured: 155k triangles in a
+# millisecond; the 1024 grid is about 3M.
+#
+# Picking is the depth buffer: hit_at(px, py) reads one depth value back and
+# unprojects it through the inverse of the frame's matrix - the exact world
+# point under the pixel. read_buffers() does the same for every pixel at
+# once, into depth and hit like View3D keeps.
+#
+# Keys in the window: B toggles objects-as-boxes, G cycles the grid, R puts
+# the camera back. Drag orbits, wheel zooms, middle-drag pans.
+
+class GLView:
+    SIZE = (960, 640)
+    FOV = 60.0                 # horizontal, degrees
+    NEAR, FAR = 1.0, 8000.0
+    SKY = (11 / 255.0, 13 / 255.0, 18 / 255.0)
+    GRIDS = (256, 512, 1024)
+    OBJ_H = 2.0
+    OBJ_RGB = (205, 150, 40)
+    SIDE_X = 0.62
+    SIDE_Z = 0.45
+    WALL_MIN = 1.0
+    HIDDEN = False             # a test sets this to open the window unseen
+
+    VERT = """#version 330 core
+layout(location = 0) in vec3 a_pos;
+layout(location = 1) in vec4 a_rgb;
+uniform mat4 u_mvp;
+uniform float u_psize;
+out vec4 v_rgb;
+void main() {
+    gl_Position = u_mvp * vec4(a_pos, 1.0);
+    gl_PointSize = u_psize;
+    v_rgb = a_rgb;
+}
+"""
+    FRAG = """#version 330 core
+in vec4 v_rgb;
+out vec4 o_rgb;
+void main() { o_rgb = v_rgb; }
+"""
+    VTYPE = np.dtype([("pos", "<f4", 3), ("rgb", "u1", 4)])
+
+    def __init__(self, studio):
+        self.studio = studio
+        self.boxes = True
+        self.grid = 512
+        self.cam = None
+        self.drag = None
+        self.dirty = True
+        self.overlay_dirty = True
+        self.mvp = np.eye(4, dtype=np.float32)
+        self._job = None
+        self._boxed = None
+        self.lv = None
+        self.n_idx = 0
+        self.ov_runs = []
+        self.tri_count = 0
+        self.depth = None
+        self.hit = None
+        self.open = False
+
+        pygame.init()
+        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
+        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
+        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK,
+                                        pygame.GL_CONTEXT_PROFILE_CORE)
+        pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 24)
+        flags = pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE
+        if self.HIDDEN:
+            flags |= pygame.HIDDEN
+        self.W, self.H = self.SIZE
+        pygame.display.set_mode(self.SIZE, flags)
+        pygame.display.set_caption("3D view")
+
+        self.prog = glshaders.compileProgram(
+            glshaders.compileShader(self.VERT, GL.GL_VERTEX_SHADER),
+            glshaders.compileShader(self.FRAG, GL.GL_FRAGMENT_SHADER))
+        self.u_mvp = GL.glGetUniformLocation(self.prog, "u_mvp")
+        self.u_psize = GL.glGetUniformLocation(self.prog, "u_psize")
+        self.vao, self.vbo, self.ebo = self._make_vao()
+        self.ov_vao, self.ov_vbo, _ = self._make_vao(index=False)
+        GL.glEnable(GL.GL_DEPTH_TEST)
+        GL.glEnable(GL.GL_PROGRAM_POINT_SIZE)
+        GL.glClearColor(*self.SKY, 1.0)
+
+        self.open = True
+        self.set_bake(render=True)
+        self.pump()
+
+    def _make_vao(self, index=True):
+        vao = GL.glGenVertexArrays(1)
+        GL.glBindVertexArray(vao)
+        vbo = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
+        ebo = None
+        if index:
+            ebo = GL.glGenBuffers(1)
+            GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, ebo)
+        st = self.VTYPE.itemsize
+        GL.glEnableVertexAttribArray(0)
+        GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, False, st, ctypes.c_void_p(0))
+        GL.glEnableVertexAttribArray(1)
+        GL.glVertexAttribPointer(1, 4, GL.GL_UNSIGNED_BYTE, True, st, ctypes.c_void_p(12))
+        GL.glBindVertexArray(0)
+        return vao, vbo, ebo
+
+    def lift(self):
+        pass                   # pygame has no raise; the window is where it is
+
+    # ---- the mesh -------------------------------------------------------
+
+    def set_bake(self, render=True):
+        b = self.studio.bake
+        self.bake = b
+        self.lv = None
+        if b is None:
+            self.n_idx = 0
+            self.dirty = True
+            return
+        self.wx_min, self.wx_max = float(b.wx_min), float(b.wx_max)
+        self.wz_min, self.wz_max = float(b.wz_min), float(b.wz_max)
+        self.build_mesh()
+        if self.cam is None:
+            self.reset_camera()
+        self.overlay_dirty = True
+        self.dirty = True
+
+    def reset_camera(self):
+        ext = max(self.wx_max - self.wx_min, self.wz_max - self.wz_min)
+        self.cam = {"tx": 0.5 * (self.wx_min + self.wx_max),
+                    "tz": 0.5 * (self.wz_min + self.wz_max),
+                    "yaw": 0.0, "pitch": 50.0, "dist": ext * 0.9}
+        self.dirty = True
+
+    def boxed_top(self):
+        """The bake's top with every object above OBJ_H flattened to the
+        95th percentile of its own top over its footprint. Cached per bake."""
+        b = self.bake
+        if self._boxed is not None and self._boxed[0] is b:
+            return self._boxed[1], self._boxed[2]
+        obj = b.obstacle > self.OBJ_H
+        lab, n = ndimage.label(obj, structure=np.ones((3, 3), dtype=bool))
+        top = b.top.astype(np.float32).copy()
+        if n:
+            idx = np.arange(1, n + 1)
+            level = ndimage.labeled_comprehension(
+                b.top, lab, idx, lambda v: np.percentile(v, 95.0), np.float32, 0.0)
+            lut = np.zeros(n + 1, dtype=np.float32)
+            lut[1:] = level
+            top[obj] = lut[lab[obj]]
+        self._boxed = (b, top, obj)
+        return top, obj
+
+    def build_mesh(self):
+        """Every cell's top, and a wall on every edge where the two cells
+        differ by WALL_MIN or more, facing the lower one - all of it in one
+        vertex array and one index array, vectorised, then uploaded."""
+        b = self.bake
+        G = self.grid
+        top, obj = (self.boxed_top() if self.boxes else (b.top, None))
+        fy, fx = max(1, b.h // G), max(1, b.w // G)
+        H = top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
+        F = b.floor[:G * fy, :G * fx].reshape(G, fy, G, fx).mean(axis=(1, 3)).astype(np.float32)
+        cs = (self.wx_max - self.wx_min) / G
+        objc = (obj[:G * fy, :G * fx].reshape(G, fy, G, fx).any(axis=(1, 3))
+                if obj is not None else None)
+        self.lv = {"G": G, "H": H, "F": F, "cs": cs}
+
+        # colours off the canvas picture, boxes in one colour, tops lit by slope
+        m = self.studio.mask_full
+        if m is None:
+            col = np.full((G, G, 3), 90, np.uint8)
+        else:
+            arr = np.asarray(m.resize((G, G), Image.BILINEAR))[:, ::-1]
+            col = np.ascontiguousarray(arr[..., :3]).copy()
+        if objc is not None:
+            col[objc] = self.OBJ_RGB
+        gz, gx = np.gradient(H, cs, cs)
+        nx, ny, nz = -gx, np.ones_like(gx), gz
+        nl = np.sqrt(nx * nx + ny * ny + nz * nz)
+        L = np.array([-0.5, 0.75, 0.45])
+        L /= np.linalg.norm(L)
+        shade = (0.45 + 0.55 * np.clip((nx * L[0] + ny * L[1] + nz * L[2]) / nl, 0.0, 1.0))
+        colf = col.astype(np.float32)
+        topc = np.clip(colf * shade[..., None], 0, 255).astype(np.uint8)
+
+        x_edge = self.wx_min + np.arange(G + 1, dtype=np.float32) * cs
+        z_edge = self.wz_max - np.arange(G + 1, dtype=np.float32) * cs
+        X0, Z0 = np.meshgrid(x_edge[:-1], z_edge[:-1])
+        X1, Z1 = np.meshgrid(x_edge[1:], z_edge[1:])
+        quads = [np.stack([np.stack([X0, H, Z0], -1), np.stack([X1, H, Z0], -1),
+                           np.stack([X1, H, Z1], -1), np.stack([X0, H, Z1], -1)],
+                          axis=2).reshape(-1, 4, 3)]
+        qrgb = [topc.reshape(-1, 3)]
+
+        # x walls: between column c and c+1
+        hl, hr = H[:, :-1], H[:, 1:]
+        r, c = np.nonzero(np.abs(hl - hr) >= self.WALL_MIN)
+        if r.size:
+            lo = np.minimum(hl[r, c], hr[r, c])
+            hi = np.maximum(hl[r, c], hr[r, c])
+            xe = x_edge[c + 1]
+            za, zb = z_edge[r], z_edge[r + 1]
+            quads.append(np.stack([np.stack([xe, hi, za], -1), np.stack([xe, hi, zb], -1),
+                                   np.stack([xe, lo, zb], -1), np.stack([xe, lo, za], -1)], axis=1))
+            high_c = np.where(hl[r, c] >= hr[r, c], c, c + 1)
+            qrgb.append(np.clip(colf[r, high_c] * self.SIDE_X, 0, 255).astype(np.uint8))
+        # z walls: between row r (north) and r+1
+        hn, hs = H[:-1, :], H[1:, :]
+        r, c = np.nonzero(np.abs(hn - hs) >= self.WALL_MIN)
+        if r.size:
+            lo = np.minimum(hn[r, c], hs[r, c])
+            hi = np.maximum(hn[r, c], hs[r, c])
+            ze = z_edge[r + 1]
+            xa, xb = x_edge[c], x_edge[c + 1]
+            quads.append(np.stack([np.stack([xa, hi, ze], -1), np.stack([xb, hi, ze], -1),
+                                   np.stack([xb, lo, ze], -1), np.stack([xa, lo, ze], -1)], axis=1))
+            high_r = np.where(hn[r, c] >= hs[r, c], r, r + 1)
+            qrgb.append(np.clip(colf[high_r, c] * self.SIDE_Z, 0, 255).astype(np.uint8))
+
+        Q = np.concatenate(quads).astype(np.float32)          # (N, 4, 3)
+        RGB = np.concatenate(qrgb)                            # (N, 3)
+        N = len(Q)
+        verts = np.empty(N * 4, dtype=self.VTYPE)
+        verts["pos"] = Q.reshape(-1, 3)
+        verts["rgb"][:, :3] = np.repeat(RGB, 4, axis=0)
+        verts["rgb"][:, 3] = 255
+        q = np.arange(N, dtype=np.uint32)[:, None] * 4
+        idx = np.concatenate([q + [0, 1, 2], q + [0, 2, 3]], axis=1).reshape(-1).astype(np.uint32)
+
+        GL.glBindVertexArray(self.vao)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts, GL.GL_STATIC_DRAW)
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
+        GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, idx.nbytes, idx, GL.GL_STATIC_DRAW)
+        GL.glBindVertexArray(0)
+        self.n_idx = len(idx)
+        self.tri_count = len(idx) // 3
+        self.vbo_bytes = verts.nbytes + idx.nbytes
+        self.caption()
+
+    def caption(self):
+        pygame.display.set_caption(
+            "3D view - grid %d, boxes %s - %s triangles, %.0f MB on the GPU - B boxes, G grid, R reset"
+            % (self.grid, "on" if self.boxes else "off", format(self.tri_count, ","),
+               getattr(self, "vbo_bytes", 0) / 1e6))
+
+    def set_colours(self):
+        """The canvas recoloured: the mesh carries its colours, so rebuild."""
+        if self.lv is not None:
+            self.build_mesh()
+            self.dirty = True
+
+    def invalidate(self):
+        self.dirty = True
+
+    def overlay(self):
+        self.overlay_dirty = True
+
+    def sample_floor(self, x, z):
+        lv = self.lv
+        G = lv["G"]
+        col = int(np.clip((x - self.wx_min) / lv["cs"], 0, G - 1))
+        row = int(np.clip((self.wz_max - z) / lv["cs"], 0, G - 1))
+        return float(lv["F"][row, col])
+
+    # ---- camera ---------------------------------------------------------
+
+    def basis(self):
+        c = self.cam
+        yaw, pitch = math.radians(c["yaw"]), math.radians(c["pitch"])
+        E = np.array([-1.0, 0.0, 0.0])
+        N = np.array([0.0, 0.0, 1.0])
+        fh = math.cos(yaw) * N + math.sin(yaw) * E
+        right = math.cos(yaw) * E - math.sin(yaw) * N
+        fwd = math.cos(pitch) * fh - math.sin(pitch) * np.array([0.0, 1.0, 0.0])
+        up = np.cross(right, fwd)
+        up /= np.linalg.norm(up)
+        target = np.array([c["tx"], self.sample_floor(c["tx"], c["tz"]), c["tz"]])
+        eye = target - fwd * c["dist"]
+        return eye, fwd, right, up, fh
+
+    def matrices(self):
+        eye, fwd, right, up, _fh = self.basis()
+        V = np.eye(4, dtype=np.float64)
+        V[0, :3], V[1, :3], V[2, :3] = right, up, -fwd
+        V[:3, 3] = -V[:3, :3] @ eye
+        tanf = math.tan(math.radians(self.FOV) * 0.5)
+        P = np.zeros((4, 4), dtype=np.float64)
+        P[0, 0] = 1.0 / tanf
+        P[1, 1] = (self.W / float(self.H)) / tanf
+        P[2, 2] = (self.FAR + self.NEAR) / (self.NEAR - self.FAR)
+        P[2, 3] = 2.0 * self.FAR * self.NEAR / (self.NEAR - self.FAR)
+        P[3, 2] = -1.0
+        return (P @ V).astype(np.float32)
+
+    # ---- the frame ------------------------------------------------------
+
+    def build_overlays(self):
+        """The route, the other direction, the splits, the points and the
+        lights as lines and points in one small buffer, depth-tested against
+        the mesh so the blocks hide what they should."""
+        st = self.studio
+        agl = float(st.vars["agl"].get())
+        parts = []            # (mode, verts (n,3), rgb, psize)
+
+        def fly(pts):
+            return np.array([(x, self.sample_floor(x, z) + agl, z) for (x, z) in pts], dtype=np.float32)
+
+        if st.route_other and len(st.route_other) > 1:
+            p = fly(st.route_other)
+            seg = np.stack([p, np.roll(p, -1, axis=0)], axis=1)[::2].reshape(-1, 3)   # every other link
+            parts.append((GL.GL_LINES, seg, (150, 120, 200), 1.0))
+        if st.route and len(st.route) > 1:
+            parts.append((GL.GL_LINE_LOOP, fly(st.route), (255, 46, 168), 1.0))
+        if st.diverge:
+            parts.append((GL.GL_POINTS, fly([(x, z) for (x, z, _d) in st.diverge]), (120, 255, 205), 14.0))
+        if st.targets:
+            p = np.array([(x, self.sample_floor(x, z) + 1.0, z) for (x, z) in st.targets], dtype=np.float32)
+            parts.append((GL.GL_POINTS, p, (70, 210, 245), 9.0))
+        if st.start:
+            x, z = st.start
+            parts.append((GL.GL_POINTS, np.array([(x, self.sample_floor(x, z) + 1.0, z)], dtype=np.float32),
+                          (80, 255, 130), 11.0))
+        for lt in st.lights:
+            y = self.sample_floor(lt["x"], lt["z"]) + float(lt.get("height", 3.0))
+            parts.append((GL.GL_POINTS, np.array([(lt["x"], y, lt["z"])], dtype=np.float32),
+                          _hex_rgb(lt["color"]), 9.0))
+
+        n = sum(len(p[1]) for p in parts)
+        verts = np.empty(n, dtype=self.VTYPE)
+        runs = []
+        at = 0
+        for mode, p, rgb, ps in parts:
+            k = len(p)
+            verts["pos"][at:at + k] = p
+            verts["rgb"][at:at + k, :3] = rgb
+            verts["rgb"][at:at + k, 3] = 255
+            runs.append((mode, at, k, ps))
+            at += k
+        GL.glBindVertexArray(self.ov_vao)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.ov_vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, max(verts.nbytes, 16), verts if n else None, GL.GL_DYNAMIC_DRAW)
+        GL.glBindVertexArray(0)
+        self.ov_runs = runs
+        self.overlay_dirty = False
+
+    def draw(self, flip=True):
+        if not self.open or self.cam is None:
+            return
+        if self.overlay_dirty and self.lv is not None:
+            self.build_overlays()
+        self.mvp = self.matrices()
+        GL.glViewport(0, 0, self.W, self.H)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+        GL.glUseProgram(self.prog)
+        GL.glUniformMatrix4fv(self.u_mvp, 1, True, self.mvp)
+        GL.glUniform1f(self.u_psize, 1.0)
+        if self.n_idx:
+            GL.glBindVertexArray(self.vao)
+            GL.glDrawElements(GL.GL_TRIANGLES, self.n_idx, GL.GL_UNSIGNED_INT, None)
+        if self.ov_runs:
+            GL.glBindVertexArray(self.ov_vao)
+            GL.glLineWidth(2.0)
+            for mode, first, count, ps in self.ov_runs:
+                GL.glUniform1f(self.u_psize, ps)
+                GL.glDrawArrays(mode, first, count)
+        GL.glBindVertexArray(0)
+        if flip:
+            pygame.display.flip()
+        self.dirty = False
+
+    # ---- picking --------------------------------------------------------
+
+    def unproject(self, px, py, d):
+        """Window pixel (y down) and depth-buffer value -> world point."""
+        ndc = np.array([2.0 * (px + 0.5) / self.W - 1.0, 1.0 - 2.0 * (py + 0.5) / self.H,
+                        2.0 * d - 1.0, 1.0], dtype=np.float64)
+        w = np.linalg.inv(self.mvp.astype(np.float64)) @ ndc
+        return w[:3] / w[3]
+
+    def hit_at(self, px, py):
+        """The exact world point under a window pixel, or None for sky.
+        Redraws without presenting, so the depth read is of this camera."""
+        if not self.open or self.lv is None:
+            return None
+        self.draw(flip=False)
+        d = float(GL.glReadPixels(int(px), self.H - 1 - int(py), 1, 1,
+                                  GL.GL_DEPTH_COMPONENT, GL.GL_FLOAT)[0][0])
+        if d >= 1.0:
+            return None
+        return tuple(float(v) for v in self.unproject(px, py, d))
+
+    def read_buffers(self):
+        """depth (H, W) as camera-space distance, inf for sky, and hit
+        (H, W, 3) world points, nan for sky - every pixel at once."""
+        self.draw(flip=False)
+        raw = GL.glReadPixels(0, 0, self.W, self.H, GL.GL_DEPTH_COMPONENT, GL.GL_FLOAT)
+        d = np.frombuffer(raw, dtype=np.float32).reshape(self.H, self.W)[::-1].astype(np.float64)
+        m = d < 1.0
+        xs = 2.0 * (np.arange(self.W) + 0.5) / self.W - 1.0
+        ys = 1.0 - 2.0 * (np.arange(self.H) + 0.5) / self.H
+        X, Y = np.meshgrid(xs, ys)
+        ndc = np.stack([X, Y, 2.0 * d - 1.0, np.ones_like(d)], axis=-1)
+        w = ndc @ np.linalg.inv(self.mvp.astype(np.float64)).T
+        hit = w[..., :3] / w[..., 3:4]
+        hit[~m] = np.nan
+        eye = self.basis()[0]
+        depth = np.where(m, np.linalg.norm(hit - eye, axis=-1), np.inf).astype(np.float32)
+        self.depth, self.hit = depth, hit.astype(np.float32)
+        return depth, self.hit
+
+    # ---- the pump: pygame's events from Tk's loop -----------------------
+
+    def pump(self):
+        self._job = None
+        if not self.open:
+            return
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                self.close()
+                return
+            elif e.type == pygame.VIDEORESIZE:
+                self.W, self.H = max(64, e.w), max(64, e.h)
+                self.dirty = True
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 2):
+                self.drag = e.pos
+            elif e.type == pygame.MOUSEBUTTONUP:
+                self.drag = None
+            elif e.type == pygame.MOUSEMOTION and self.drag is not None and self.cam is not None:
+                dx, dy = e.rel
+                if e.buttons[0]:
+                    self.cam["yaw"] = (self.cam["yaw"] + dx * 0.4) % 360.0
+                    self.cam["pitch"] = float(np.clip(self.cam["pitch"] + dy * 0.3, 5.0, 89.0))
+                elif e.buttons[1]:
+                    _eye, _fwd, right, _up, fh = self.basis()
+                    k = self.cam["dist"] * 0.0015
+                    move = -right * dx * k + fh * dy * k
+                    self.cam["tx"] = float(np.clip(self.cam["tx"] + move[0], self.wx_min, self.wx_max))
+                    self.cam["tz"] = float(np.clip(self.cam["tz"] + move[2], self.wz_min, self.wz_max))
+                self.dirty = True
+            elif e.type == pygame.MOUSEWHEEL and self.cam is not None:
+                self.cam["dist"] = float(np.clip(self.cam["dist"] * (1.15 ** (-e.y)), 10.0, 6000.0))
+                self.dirty = True
+            elif e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_b:
+                    self.boxes = not self.boxes
+                    self.build_mesh()
+                    self.dirty = True
+                elif e.key == pygame.K_g:
+                    self.grid = self.GRIDS[(self.GRIDS.index(self.grid) + 1) % len(self.GRIDS)]
+                    self.build_mesh()
+                    self.dirty = True
+                elif e.key == pygame.K_r:
+                    self.reset_camera()
+        if self.dirty or self.overlay_dirty:
+            self.draw()
+        if self.open:
+            self._job = self.studio.root.after(16, self.pump)
+
+    def close(self):
+        if not self.open:
+            return
+        self.open = False
+        if self._job is not None:
+            try:
+                self.studio.root.after_cancel(self._job)
+            except Exception:
+                pass
+            self._job = None
+        try:
+            pygame.display.quit()
+        except Exception:
+            pass
+        self.studio.show_3d.set(False)
+        self.studio.view3d = None
 
 
 class Studio:
@@ -2084,9 +2590,10 @@ class Studio:
         # a bare key with nothing on screen to discover it from - the buttons
         # document themselves, this half does not.
         ttk.Label(right, justify="left", style="Note.TLabel", text=(
-            "3D view        the bake as a surface, in\n"
-            "               its own window: drag orbits,\n"
-            "               wheel zooms, middle-drag pans\n"
+            "3D view        the bake as blocks on the\n"
+            "               GPU: drag orbits, wheel\n"
+            "               zooms, middle-drag pans;\n"
+            "               B boxes, G grid, R reset\n"
             "Edit path      unlock the path controls\n"
             "Direction      auto flies the loop both\n"
             "               ways and keeps the better;\n"
@@ -2914,9 +3421,10 @@ class Studio:
                 self.status.set("the 3D view needs a map with a bake")
                 return
             if self.view3d is None:
-                self.view3d = View3D(self)
+                # The GPU when it is there; PIL when it is not.
+                self.view3d = GLView(self) if HAVE_GL else View3D(self)
             else:
-                self.view3d.top.lift()
+                self.view3d.lift()
         elif self.view3d is not None:
             self.view3d.close()
 
