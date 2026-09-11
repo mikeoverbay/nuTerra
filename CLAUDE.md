@@ -24,7 +24,7 @@ the same time, with the owner.
 - Building from the agent shell WORKS, despite what older notes say:
   `dotnet build nuTerra/nuTerra.vbproj -c Debug -p:Platform=x64
   -p:BuildProjectReferences=false "-p:VCTargetsPath=C:\Program
-  Files\Microsoft Visual Studio8\Community\MSBuild\Microsoft\VC180\\"`
+  Files\Microsoft Visual Studio\18\Community\MSBuild\Microsoft\VC\v180\\"`
   (v170 works too). The C++ project cannot compile on this machine at all -
   `MSBuild.exe` dies on an assembly mismatch, `dotnet` cannot import the
   .vcxproj - so its DLL is reused as built, which is fine: nobody edits it.

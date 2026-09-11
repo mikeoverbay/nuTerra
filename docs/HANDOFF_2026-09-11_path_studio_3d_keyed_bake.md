@@ -177,7 +177,8 @@ The owner: split the baked sun shadow into four areas in the sun space,
 16k x 16k each, use them all with an on-screen check, as a SECOND shadow
 shader so deferred.frag is not overloaded. Built on the nuTerra side of the
 split with the other session named on the files first; that session compiled
-and ran every step, since this shell cannot. Commits `4aee4494`, `09eb3c06`,
+and ran every step - this shell had not yet found the dotnet recipe
+(`CLAUDE.md` has it now; the C++ DLL is reused as built). Commits `4aee4494`, `09eb3c06`,
 `bd4e2d61`, `88bbe553`. The authoritative write-up is now
 `docs/shadows.md` (theirs, `3386fa1e`); this is the session record.
 
