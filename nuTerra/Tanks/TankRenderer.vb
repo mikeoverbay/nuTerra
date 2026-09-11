@@ -177,7 +177,8 @@ Public Class MapTanks
                     .vehicle = v, .position = New Vector3(x, y, z),
                     .headingRad = heading,
                     .team = If(team = 1, TankTeam.Green, TankTeam.Red),
-                    .label = r.Item2, .id = k + 1})
+                    .label = r.Item2, .id = k + 1,
+                    .fireIn = 0.21F * i})
                 LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
                         team, k, r.Item1, v.tag, x, y, z, obstacle_at(x, z),
                         armor_text(r.Item1))
@@ -234,6 +235,7 @@ Public Class MapTanks
                     End If
                     GL.UniformMatrix4(shader("u_model"), False, model)
                     upload_bones(part, m)
+                    upload_recoil(part, m, inst)
                     Dim mat = part.MaterialFor(m)
                     upload_uv_scroll(m, mat)
                     BindMaterial(mat)
@@ -689,16 +691,68 @@ Public Class MapTanks
         ' Not SHUTTLE_M: VB is case-insensitive, so that name and the
         ' shuttle_m field below are the SAME identifier.
         Const SHUTTLE_RANGE_M As Single = 10.0F
-        Dim step_m = TANK_SPEED * DELTA_TIME * shuttle_dir
+
+        ' ANIM_DELTA, NOT DELTA_TIME. The two are the same while the app is
+        ' just running; they part company during a capture, where ANIM_DELTA is
+        ' pinned to one frame of the output rate and is zero while the recorder
+        ' waits for the virtual texture to settle. Driving the tanks off the
+        ' real frame time meant a still shot the same build twice caught them
+        ' at two different points of the run - the tanks had walked on during
+        ' however long the VT took that time - so nothing about the tank pass
+        ' could be compared between two captures. Everything animated here now
+        ' runs on the recorder's clock.
+        Dim step_m = TANK_SPEED * ANIM_DELTA * shuttle_dir
         shuttle_m += step_m
         track_distance_m += step_m
+
+        Dim reversed = False
         If shuttle_m >= SHUTTLE_RANGE_M Then
             shuttle_m = SHUTTLE_RANGE_M
             shuttle_dir = -1.0F
+            reversed = True
         ElseIf shuttle_m <= 0.0F Then
             shuttle_m = 0.0F
             shuttle_dir = 1.0F
+            reversed = True
         End If
+
+        advance_guns(reversed)
+    End Sub
+
+    ''' <summary>
+    ''' Tick every gun, and pull the triggers.
+    '''
+    ''' TWO TRIGGERS, both live. The end of the shuttle run is a volley - the
+    ''' whole line fires as it turns round - and between turns each gun runs
+    ''' its own cadence. The reversal on its own comes about every twenty
+    ''' seconds at the default crawl, which is far too sparse to judge a
+    ''' recoil by; the cadence on its own loses the moment where they all go
+    ''' at once.
+    '''
+    ''' The cadence timers are seeded APART, in Load, and each gun reloads to
+    ''' the full period after firing, so they stay spread. Seeding them all at
+    ''' zero makes thirty barrels move in lockstep, which reads as one object
+    ''' rather than thirty tanks.
+    '''
+    ''' TankRecoil.Fire ignores a trigger while a cycle is running, so the two
+    ''' sources landing on the same frame fire one shot rather than restarting
+    ''' the stroke and leaving the barrel stuck out.
+    ''' </summary>
+    Private Sub advance_guns(reversed As Boolean)
+        For Each inst In instances
+            inst.recoil.Update(ANIM_DELTA)
+            If Not TANK_FIRING Then Continue For
+
+            If reversed Then inst.recoil.Fire()
+
+            If TANK_FIRE_PERIOD > 0.0F Then
+                inst.fireIn -= ANIM_DELTA
+                If inst.fireIn <= 0.0F Then
+                    inst.fireIn = TANK_FIRE_PERIOD
+                    inst.recoil.Fire()
+                End If
+            End If
+        Next
     End Sub
 
     ''' <summary>
@@ -736,7 +790,7 @@ Public Class MapTanks
     ''' </summary>
     Private Sub advance_demo_hp()
         If Not TANK_HP_DEMO Then Return
-        demo_t += DELTA_TIME
+        demo_t += ANIM_DELTA
         For i = 0 To instances.Count - 1
             Dim rate = 0.030F + 0.004F * ((i * 7) Mod 11)
             Dim phase = CSng((demo_t * rate + i * 0.137F) Mod 1.0F)
@@ -766,6 +820,56 @@ Public Class MapTanks
 
     Private Shared shuttle_m As Single
     Private Shared shuttle_dir As Single = 1.0F
+
+    ''' <summary>
+    ''' Tell the shader whether this mesh recoils, and by how much.
+    '''
+    ''' THE GUN PART, AND ONLY WHEN IT IS SKINNED. An unskinned gun has no
+    ''' bone bytes at all, so the byte test in the shader would read whatever
+    ''' the unused attribute defaults to - which is zero, and zero is a real
+    ''' classification, not an absence. -1 turns the branch off outright.
+    '''
+    ''' +Z IS BACKWARD. The gun is authored pointing down mesh-local -Z, so
+    ''' sliding the barrel into the mantlet is +Z. This survives FlipSkinnedZ
+    ''' without a sign change, and that is worth stating because it looks like
+    ''' it should not: the flip is applied to the model matrix, so it acts on
+    ''' the offset and the geometry together. Reverse the flip and the barrel
+    ''' still goes into the tank.
+    '''
+    ''' AND THE DEFORM IS NOT HERE, because the thing it deforms with does not
+    ''' exist yet. TEPY gets the mantlet cover to stretch by overriding ONE
+    ''' palette slot - byte 6, palette index 2, which is the cloth slot by WoT
+    ''' convention - with the INVERSE of the gun's pitch matrix. Ordinary
+    ''' weighted skinning then interpolates: a pure barrel vertex (3,3,3,0)
+    ''' skins to identity and pitches with the model matrix; a pure cloth
+    ''' vertex (6,6,6,0) skins to the inverse and the two cancel, so it stays
+    ''' anchored to the mantlet; a blended vertex lands between them and the
+    ''' fabric stretches in proportion to the angle. One matrix, three
+    ''' behaviours, no extra uniform. nuTerra's guns do not pitch - there is no
+    ''' aim - so there is nothing for that to interpolate against and writing
+    ''' it now would be writing an identity. When pitch arrives it is this:
+    ''' bones(2) = inverse of the mesh-local pitch, and the stretch follows.
+    ''' </summary>
+    Private Sub upload_recoil(part As TankPart, m As TankMesh, inst As TankInstance)
+        Dim is_gun = (part.label = "gun") AndAlso m.layout IsNot Nothing AndAlso
+                     m.layout.offBoneIdx >= 0
+        If Not is_gun Then
+            GL.Uniform1(shader("u_recoil_byte"), -1)
+            Return
+        End If
+        GL.Uniform1(shader("u_recoil_byte"), RECOIL_BYTE)
+        GL.Uniform3(shader("u_recoil_t"), 0.0F, 0.0F, inst.recoil.offset_m)
+    End Sub
+
+    ''' <summary>
+    ''' The raw bone byte that marks a barrel vertex, on every tank.
+    '''
+    ''' Three, not one. The byte is palette_index * 3 - SC_UBYTE4_REVERSE_
+    ''' PADDED, because the engine binds a flat vec4 array of three rows per
+    ''' bone - so this is palette slot 1. But the shader compares the byte
+    ''' WITHOUT dividing, on purpose: see TankRecoil.
+    ''' </summary>
+    Private Const RECOIL_BYTE As Integer = 3
 
     ''' <summary>How much clear ground a tank needs, metres from its centre.
     ''' A hull is about 7 m long, so this is half of it plus a margin.</summary>

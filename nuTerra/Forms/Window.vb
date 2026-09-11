@@ -1686,6 +1686,22 @@ try_again:
                                          "exactly as the tank drew before the path" & vbLf &
                                          "existed. The null test.")
                     End If
+                    ImGui.Checkbox("Fire the guns", TANK_FIRING)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Barrel recoil: 0.40 m back over 60 ms," & vbLf &
+                                         "held 40 ms, eased home over 300 ms." & vbLf &
+                                         "Fires at each end of the shuttle run" & vbLf &
+                                         "and on the cadence below.")
+                    End If
+                    ImGui.SliderFloat("Fire every", TANK_FIRE_PERIOD, 0.0, 10.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Seconds between shots. 0 fires only at" & vbLf &
+                                         "the ends of the run - about every 20 s" & vbLf &
+                                         "at the default crawl." & vbLf &
+                                         "Timers are seeded apart so the line" & vbLf &
+                                         "ripples instead of volleying.")
+                    End If
+
                     ImGui.Separator()
                     ImGui.Checkbox("ID markers", TANK_TAGS)
                     If ImGui.IsItemHovered() Then

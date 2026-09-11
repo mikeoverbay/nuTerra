@@ -1076,6 +1076,20 @@ Module modGlobalVars
     ''' </summary>
     Public TANK_SKINNING As Boolean = True
 
+    ''' <summary>Run the guns.</summary>
+    Public TANK_FIRING As Boolean = True
+
+    ''' <summary>
+    ''' Seconds between shots on the free-running cadence. 0 fires only at
+    ''' the ends of the shuttle run.
+    '''
+    ''' The shuttle turns round about every twenty seconds at the default
+    ''' crawl, which is too sparse to watch a recoil by, so the two triggers
+    ''' are both live: the reversal is a volley, the cadence is the ripple in
+    ''' between. A gun already running its cycle ignores either.
+    ''' </summary>
+    Public TANK_FIRE_PERIOD As Single = 2.0F
+
     ''' <summary>Draw the ID and condition card over each tank.</summary>
     Public TANK_TAGS As Boolean = True
 

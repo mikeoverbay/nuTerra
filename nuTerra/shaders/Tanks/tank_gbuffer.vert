@@ -58,7 +58,30 @@ uniform vec2 uv_scroll;
 // and clamps rather than overflowing.
 const int MAX_TANK_BONES = 64;
 uniform mat4 u_bones[MAX_TANK_BONES];
-uniform int  u_skinned;      // 0 = identity skin, exactly as before   // 1: a_normal is 8/8/8 bytes (b/127.5 - 1); 0: a_normal.x carries a packed 11/10/10 (unused so far)
+uniform int  u_skinned;
+
+// ---- GUN RECOIL ------------------------------------------------------------
+//
+// THE BYTE IS THE CLASSIFIER, and it is read RAW - not divided by three, never
+// used to index the palette. TEPY arrived here after every palette-based rule
+// failed on some nation or other (see TankRecoil.vb for the full account); the
+// short version is that bone ORDER varies per tank, WoT's names are the
+// inverse of the intuition, and the obvious weighted rule breaks the single
+// largest vertex family in the game.
+//
+//     a_bone_idx.x == u_recoil_byte  ->  recoils, by the FULL amount
+//     anything else                  ->  does not move
+//
+// Binary, not blended: (0, 3, 3, 0) is 100% mantlet though two slots name the
+// recoil bone, and (3, 6, 6, 0) is 100% barrel though two name the mantlet.
+// Only slot x decides.
+//
+// -1 disables the branch, which is what every non-gun mesh uploads.
+uniform int  u_recoil_byte;
+
+// Mesh-local metres, BACKWARD along the barrel. Added after the skin as a
+// plain offset, which is what lets it bypass the palette.
+uniform vec3 u_recoil_t;      // 0 = identity skin, exactly as before   // 1: a_normal is 8/8/8 bytes (b/127.5 - 1); 0: a_normal.x carries a packed 11/10/10 (unused so far)
 
 // TWO FRAMES, ON PURPOSE.
 //
@@ -130,6 +153,14 @@ void main(void)
     // and view matrices, the normal matrices, the winding - is untouched.
     mat4 skin = skin_matrix();
     vec3 p_local = vec3(skin * vec4(a_pos, 1.0));
+
+    // AFTER the skin, and only the position. The recoil is a pure slide, so
+    // the tangent frame below is the bind frame rotated by the bones and
+    // nothing else - shifting a barrel does not turn its surface.
+    if (u_recoil_byte >= 0 && int(a_bone_idx.x) == u_recoil_byte) {
+        p_local += u_recoil_t;
+    }
+
     mat3 skin3 = mat3(skin);
     n_local = normalize(skin3 * n_local);
     t_local = normalize(skin3 * t_local);

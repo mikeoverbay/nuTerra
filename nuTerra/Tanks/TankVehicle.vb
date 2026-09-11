@@ -79,6 +79,16 @@ Public Class TankInstance
     ''' </summary>
     Public hullHp As Single = 1.0F
     Public crewHp As Single = 1.0F
+
+    ''' <summary>This gun's own recoil cycle. Per INSTANCE rather than per
+    ''' vehicle: two tanks of the same model fire independently, and the
+    ''' offset is read once per draw.</summary>
+    Public ReadOnly recoil As New TankRecoil
+
+    ''' <summary>Seconds until this gun fires on the free-running cadence.
+    ''' Seeded apart per tank so a line of them ripples rather than
+    ''' volleying - thirty barrels moving as one reads as a glitch.</summary>
+    Public fireIn As Single
 End Class
 
 ''' <summary>
