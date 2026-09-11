@@ -320,6 +320,19 @@ Public Class Window
         '-----------------------------------------------------------------------------------------
         'Check if the game path is set
         If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+            ' THE SIDECAR FIRST, before troubling anybody. My.Settings lives in
+            ' a store keyed to the EXE'S PATH, so a build that lands in a
+            ' different folder - bind\Debug rather than bin\Debug, or a
+            ' second checkout - reads a user.config that has never seen this
+            ' machine's game folder, and Upgrade() cannot bridge it: that
+            ' searches earlier VERSIONS of one identity, and a different path
+            ' is a different identity. There are 21 such stores on this
+            ' machine. The sidecar is one file in one place that every build
+            ' can find, so the answer is remembered once rather than per exe.
+            adopt_game_path_sidecar()
+        End If
+
+        If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
             MsgBox("Path to game is not set!" + vbCrLf +
                     "Lets set it now.", MsgBoxStyle.OkOnly, "Game Path not set")
             m_set_game_path()
@@ -456,7 +469,53 @@ try_again:
                 ' Never let a settings write take the app down.
                 LogThis("could not persist the game path - {0}", ex.Message)
             End Try
+            write_game_path_sidecar(picked)
         End If
+    End Sub
+
+    ''' <summary>Where the game folder is remembered independently of where the
+    ''' executable happens to live. Not under Temp - this must outlive a cleanup
+    ''' - and not versioned, because there is only ever one answer.</summary>
+    Private Shared Function game_path_sidecar() As String
+        Return IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "nuTerra", "game_path.txt")
+    End Function
+
+    ''' <summary>Remember the folder somewhere every build can find it. Best
+    ''' effort: a failure here costs the next run a prompt, and must never cost
+    ''' this one anything.</summary>
+    Private Shared Sub write_game_path_sidecar(p As String)
+        Try
+            Dim f = game_path_sidecar()
+            IO.Directory.CreateDirectory(IO.Path.GetDirectoryName(f))
+            IO.File.WriteAllText(f, p)
+        Catch ex As Exception
+            LogThis("could not write the game path sidecar - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>Take the sidecar's folder if it still holds a game. VALIDATED
+    ''' before it is adopted, so a stale file from a moved or deleted install
+    ''' falls through to the prompt rather than being believed.</summary>
+    Private Shared Sub adopt_game_path_sidecar()
+        Try
+            Dim f = game_path_sidecar()
+            If Not IO.File.Exists(f) Then Return
+            Dim p = IO.File.ReadAllText(f).Trim()
+            If p = "" OrElse Not Directory.Exists(Path.Combine(p, "res")) Then
+                LogThis("game path sidecar names {0}, which has no res\ - ignoring it", p)
+                Return
+            End If
+            My.Settings.GamePath = p
+            Try
+                My.Settings.Save()
+            Catch
+            End Try
+            LogThis("game path adopted from the sidecar: {0}", p)
+        Catch ex As Exception
+            LogThis("could not read the game path sidecar - {0}", ex.Message)
+        End Try
     End Sub
 
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
@@ -610,7 +669,9 @@ try_again:
         End If
 
         If NEED_TO_INVALIDATE_VIEWPORT Then
-            _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
+            ' Same reason as OnMouseWheel: a resize can land before OnLoad has
+            ' built the controller.
+            If _controller IsNot Nothing Then _controller.WindowResized(SCR_WIDTH, SCR_HEIGHT)
             MainFBO.Initialize(SCR_WIDTH, SCR_HEIGHT)
 
             NEED_TO_INVALIDATE_VIEWPORT = False
@@ -1534,15 +1595,29 @@ try_again:
         MOVE_MOD = False
     End Sub
 
+    ''' <summary>
+    ''' Input arrives BEFORE the UI exists, and used to kill the app.
+    '''
+    ''' _controller is built at the END of OnLoad, after build_shaders and
+    ''' load_assets - seconds of work on a cold package cache - and the window
+    ''' is already up and pumping events for all of it. One scroll of the wheel
+    ''' or one keypress in that gap dereferenced Nothing and took the process
+    ''' down with an unhandled NullReferenceException, which is exactly what an
+    ''' impatient person does while a map loads.
+    '''
+    ''' It is also unreachable-by-design on one path: the SCAN_LIGHTS_OUT branch
+    ''' returns from OnLoad before the controller is ever constructed, so in that
+    ''' mode every scroll was fatal.
+    ''' </summary>
     Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
         MyBase.OnMouseWheel(e)
-
+        If _controller Is Nothing Then Return
         _controller.MouseScroll(e.Offset)
     End Sub
 
     Protected Overrides Sub OnTextInput(e As TextInputEventArgs)
         MyBase.OnTextInput(e)
-
+        If _controller Is Nothing Then Return
         _controller.PressChar(ChrW(e.Unicode))
     End Sub
 
