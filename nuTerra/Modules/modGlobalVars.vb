@@ -1099,6 +1099,14 @@ Module modGlobalVars
     ''' the `tanks` argument sets this for a debugging run that wants them up
     ''' without a click.
     ''' </summary>
+    ''' <summary>Write the navigation grid out as a PNG when it is built.
+    ''' One pixel a cell, coloured by WHY a cell is closed - open, wall,
+    ''' slope, water, trunk, outland, or learned. Off by default: it is a
+    ''' megabyte a map load and only wanted when the tanks are behaving
+    ''' oddly and the question is what they think the map looks like.
+    ''' </summary>
+    Public TANK_NAV_DUMP As Boolean = False
+
     Public TANK_AUTOLOAD As Boolean = False
 
     ''' <summary>Set by the button. Cleared once the load has run.</summary>

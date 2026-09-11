@@ -71,6 +71,10 @@ Public Class MapTanks
         End Get
     End Property
 
+    ''' <summary>Where the vehicles may go. Built from the flight bake the
+    ''' first time they load, then pinned by what actually stops them.</summary>
+    Public ReadOnly nav As New TankNav
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -94,6 +98,16 @@ Public Class MapTanks
         loaded = True
         Try
             shader = New Shader("tank_gbuffer")
+
+            ' THE GRID FIRST, because placement is the first thing that wants
+            ' to know where the ground is good. Built from the bake that is
+            ' already on the card by the time anything can press the button.
+            nav.Build(map_scene.flight_bake, MAP_NAME_NO_PATH)
+            If nav.ready AndAlso TANK_NAV_DUMP Then
+                nav.DumpPng(IO.Path.Combine(
+                    IO.Path.GetTempPath(), "nuTerra", "tanks",
+                    MAP_NAME_NO_PATH & "_nav.png"))
+            End If
 
             ' THE ROSTER IS TIER 10, and it is taken from the package layout
             ' rather than from a list anyone typed. The game ships vehicle
@@ -1586,6 +1600,7 @@ Public Class MapTanks
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
+        nav.Save()
         cards?.Dispose()
         cards = Nothing
         fx.Dispose()

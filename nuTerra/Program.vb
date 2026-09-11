@@ -51,6 +51,9 @@ Module Program
                 ' them cost seconds and hundreds of megabytes on a map that
                 ' otherwise has nothing to do with them.
                 TANK_AUTOLOAD = True
+            ElseIf a.Equals("navdump", StringComparison.OrdinalIgnoreCase) Then
+                ' Write the tank navigation grid as a PNG when it is built.
+                TANK_NAV_DUMP = True
             ElseIf a.Equals("treetrace", StringComparison.OrdinalIgnoreCase) Then
                 ' Print every tree species' per draw call verdict at load: LOD,
                 ' part kind, vertex and index counts, and the texture it named.
