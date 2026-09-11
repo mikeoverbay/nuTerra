@@ -157,11 +157,36 @@ Public Class TankNav
                             f = f Or WATER
                         End If
 
-                        ' The canopy is NOT an obstacle, so a texel whose only
-                        ' height is a tree is skipped here and answered by the
-                        ' trunk bit instead. Without this every wood on the map
-                        ' is a solid block and the tanks stay on the roads.
-                        If (k And MapFlightBake.KIND_MASK) <> MapFlightBake.KIND_TREE Then
+                        ' WHAT STOPS A HULL IS WHAT THE THING IS, and only
+                        ' then how tall it is. A single height threshold over
+                        ' every kind judges a curb and a boulder the same way,
+                        ' and the kind byte is already here in the same loop.
+                        '
+                        ' TREE - the canopy is not an obstacle, so a texel
+                        ' whose only height is a tree is answered by the trunk
+                        ' bit instead. Without this every wood on the map is a
+                        ' solid block and the tanks stay on the roads.
+                        '
+                        ' FENCE and PROP - a tank goes through a fence and over
+                        ' a curb, and a barrel or a vase is smashed rather than
+                        ' driven around. Judged by height they block freely:
+                        ' a 1.7 m fence clears MAX_OBSTACLE comfortably while
+                        ' stopping nothing. On monastery, exempting the two
+                        ' kinds frees 2,028 cells - 0.4% of the play area, and
+                        ' 69.5% open becomes 69.9% - with steep, trunk and
+                        ' water all unchanged to the cell, which is what says
+                        ' only the height test moved. Routing a tank around
+                        ' scenery it would flatten costs real ground, and the
+                        ' player can see that nothing was there.
+                        '
+                        ' ROCK, BUILDING and OTHER keep the height test. Those
+                        ' genuinely stop a hull, and OTHER is the unidentified
+                        ' case - the one to be careful with rather than
+                        ' generous toward.
+                        Dim k7 = k And MapFlightBake.KIND_MASK
+                        If k7 <> MapFlightBake.KIND_TREE AndAlso
+                           k7 <> MapFlightBake.KIND_FENCE AndAlso
+                           k7 <> MapFlightBake.KIND_PROP Then
                             If b.top_m(i) - fl > TankNavLimits.MAX_OBSTACLE Then f = f Or BLOCKED
                         End If
                     Next
