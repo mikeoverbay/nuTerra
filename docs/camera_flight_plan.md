@@ -76,6 +76,25 @@ over several steps instead of snapping.
 Build a debug view of these before trusting them. Do not write flight logic on
 top of an unverified bake.
 
+### The bake at 8192, and why the models are drawn twice (2026-09-11)
+
+`MapFlightBake.SIZE` is 8192 - 0.15 m a texel on the monastery, two 268 MB
+`.r32` files per map. The planners do not work at that: `flight_plan.Bake`
+and `radar_commit.Bake` bring any bake down to `WORK_RES` 2048 on load,
+block MAX for the top and block MEAN for the floor, so the dilations, the
+distance transform and the radar march cost what they always did.
+
+The resolution was not what caught the fences. A fence, a railing, a grape
+vine rail is a vertical plane, and from straight above a vertical plane has
+no area, so the fill pass never wrote a texel for one at any size. The bake
+now draws the models a second time in `PolygonMode.Line`: every edge
+rasterises along its length at its own depth, so the top map carries the
+rail at the rail height, one texel wide - and the block max on load keeps it
+at 2048. Verified by the owner on the monastery: fences and the vine rails
+are in the map now, and the navigator routes round them like walls.
+
+The mask PNG is written at 2048 (block-any) - it is for looking at.
+
 ## Step 3 — look-ahead
 
 March an integer (Bresenham) line from the current position out to a maximum
