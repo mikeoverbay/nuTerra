@@ -1642,8 +1642,10 @@ class View3D:
 # vertex) and ONE index buffer, uploaded when the map, the grid or the
 # colours change, and drawn with a single glDrawElements. Nothing is merged
 # and nothing is culled by hand: a few million triangles is what the board
-# is for, and the depth test does the rest. Measured: 155k triangles in a
-# millisecond; the 1024 grid is about 3M.
+# is for, and the depth test does the rest. Measured on an RTX 2070: the
+# 1024 grid is 2.3M triangles in 1 ms a frame; the 2048 grid - the bake
+# itself, every 0.7 m texel a cell - is 8.7M triangles and 384 MB in 3 ms,
+# built and uploaded in 1.6 s. 2048 is the default.
 #
 # Picking is the depth buffer: hit_at(px, py) reads one depth value back and
 # unprojects it through the inverse of the frame's matrix - the exact world
@@ -1658,7 +1660,7 @@ class GLView:
     FOV = 60.0                 # horizontal, degrees
     NEAR, FAR = 1.0, 8000.0
     SKY = (11 / 255.0, 13 / 255.0, 18 / 255.0)
-    GRIDS = (256, 512, 1024)
+    GRIDS = (256, 512, 1024, 2048)   # 2048 is the bake itself, 0.7 m a cell
     OBJ_H = 2.0
     OBJ_RGB = (205, 150, 40)
     SIDE_X = 0.62
@@ -1688,7 +1690,7 @@ void main() { o_rgb = v_rgb; }
     def __init__(self, studio):
         self.studio = studio
         self.boxes = True
-        self.grid = 512
+        self.grid = 2048
         self.cam = None
         self.drag = None
         self.dirty = True
