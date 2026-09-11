@@ -1,259 +1,196 @@
-﻿Imports OpenTK.Mathematics
+Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL4
 
 ''' <summary>
-''' The flash at the muzzle and the burst where the round lands.
+''' Every sprite the guns throw: the flame at a muzzle, the smoke under it, the
+''' vapour behind the round, and the explosion where it lands.
 '''
-''' A FIXED POOL, NOT A LIST. A slot is armed when a gun fires and freed when
-''' its oldest component has burned out; nothing is allocated while the guns are
-''' running. Thirty tanks firing every two seconds with a half-second burst is
-''' about eight live at once, so sixty-four slots is room to spare and a hard
-''' ceiling if the fire rate is wound up - a burst that cannot find a slot is
-''' dropped, which is a missing flash rather than a growing list.
+''' NOTHING IS DRAWN PER PARTICLE. One buffer is refilled each frame from
+''' whatever is alive anywhere on the map and drawn in two instanced calls -
+''' thirty tanks in a firefight is thousands of sprites, and a draw call each
+''' would cost more than the sprites do.
 '''
-''' DRAWN INTO THE FX BUFFER, not over the finished frame. gFX_HDR is float16
-''' and the bright pass and blur that already turn fire and lamp bulbs into
-''' glare run over it - so a muzzle flash written there gets its halo from the
-''' machinery that is there, and does not have to fake one. Writing to gColor
-''' instead would clamp at 1.0 and the flash would be a flat white lozenge.
+''' TWO CALLS BECAUSE THE ORDER IS LOAD-BEARING. Smoke goes down first and
+''' BLENDS, so it covers what is behind it; the flames and explosions go over it
+''' and ADD. That way the fire is visible through its own smoke - which is also
+''' why the smoke fades in rather than starting opaque. TEPY states the same
+''' ordering and the same reason.
 '''
-''' The camera-facing quad is built from gl_VertexID against the empty VAO, the
-''' same as the lamp bulbs and the ID cards; there is no buffer to keep in step
-''' with the pool.
+''' Into gFX_HDR, before the bright pass, so the glare comes from the machinery
+''' that already serves fire and lamp bulbs rather than being faked.
+'''
+''' The impacts are a flat list, not per tank and not indexed to the shots: a
+''' round from one vehicle lands on another, a shot at the sky lands nowhere,
+''' and one round will produce several once spall exists.
 ''' </summary>
 Public Class TankFx
     Implements IDisposable
 
-    Private Const SLOTS As Integer = 64
+    ''' <summary>Impacts that can be burning at once. Thirty guns at a round
+    ''' every two seconds with a second of burn is a handful; this is room to
+    ''' spare, and a burst that finds no slot is dropped rather than growing a
+    ''' list while the guns run.</summary>
+    Private Const SLOTS As Integer = 48
 
-    ''' <summary>Muzzle flash: brief and bright. A tank gun's flash is gone
-    ''' inside a couple of frames at 60 fps, and a longer one reads as a flare
-    ''' hanging off the barrel.</summary>
-    Private Const FLASH_S As Single = 0.10F
+    Private ReadOnly impacts(SLOTS - 1) As TankPuffs
 
-    ''' <summary>The burst at the far end. Longer, because it is dust and fire
-    ''' expanding rather than a single event.</summary>
-    Private Const BURST_S As Single = 0.55F
-
-    Private Structure Puff
-        Public pos As Vector3
-        Public colour As Vector3
-        Public life As Single        ' seconds it lives for
-        Public age As Single
-        Public r0 As Single          ' metres at birth
-        Public r1 As Single          ' metres at death
-        Public active As Boolean
-    End Structure
-
-    Private ReadOnly pool(SLOTS - 1) As Puff
-    Private shader As Shader
-
-    ' ---- the trail batch -----------------------------------------------------
-    '
-    ' ONE BUFFER AND ONE DRAW for every trail on the map. Rewritten each frame
-    ' from whatever is alive, which costs one upload rather than a draw call
-    ' per particle - and with thirty tanks in a firefight the particles are
-    ' cheap and the draw calls would not be.
-    Private Const BATCH As Integer = 24000      ' particles
-    Private Const FLOATS As Integer = 8         ' pos.xyz + radius, rgba
-    ' batch_buf, not batch: VB is case blind and BATCH above is the same
-    ' identifier to it.
+    ' ---- the batch -----------------------------------------------------------
+    Private Const BATCH As Integer = 24000       ' sprites
+    Private Const FLOATS As Integer = 12         ' pos.xyz+radius, rgba, uv rect
     Private ReadOnly batch_buf(BATCH * FLOATS - 1) As Single
-    Private partShader As Shader
-    Private partVbo As GLBuffer
-    Private partVao As GLVertexArray
+    Private shader As Shader
+    Private vbo As GLBuffer
+    Private vao As GLVertexArray
 
-    ''' <summary>How many are alive, for the log and the sliders.</summary>
-    Public ReadOnly Property live As Integer
-        Get
-            Dim n = 0
-            For i = 0 To SLOTS - 1
-                If pool(i).active Then n += 1
-            Next
-            Return n
-        End Get
-    End Property
+    Public Sub New()
+        For i = 0 To SLOTS - 1
+            impacts(i) = New TankPuffs(12)
+        Next
+    End Sub
 
     ''' <summary>
-    ''' Arm the burst where a round landed.
+    ''' Set off the burst where a round landed.
     '''
-    ''' THE IMPACTS ARE NOT PER TANK and are not indexed to the shots. A round
-    ''' from one vehicle lands on another, and one shot can produce no impact at
-    ''' all - fired at the sky - or later more than one, once spall and
-    ''' ricochets exist. So this is one flat list of hit events that anything
-    ''' can add to, which is the same split TEPY makes between its ShotPool and
-    ''' its ImpactPool and for the same reason.
+    ''' TWO SEQUENCES, PICKED BY WHAT WAS HIT, and the choice is TEPY's: the
+    ''' atlas holds the same fireball twice, once cleaner and oranger and once
+    ''' browner and rougher, and its note says the first is for an object and
+    ''' the second for the ground. Armour gets the fire, earth gets the dust.
     '''
-    ''' THE BURST IS PUSHED OFF THE SURFACE by a fraction of its own radius
-    ''' along the surface normal. Centred exactly on the impact point, half of a
-    ''' ground burst is under the ground and the visible half is a semicircle
-    ''' with a hard straight edge along the terrain.
+    ''' PUSHED OFF THE SURFACE by a fraction of its own size along the normal.
+    ''' Centred exactly on the hit, half the burst is inside what it hit and
+    ''' what shows is a semicircle with a straight edge along the ground.
+    '''
+    ''' It is thrown back ALONG THE NORMAL rather than outward from a point,
+    ''' because that is the direction the material actually leaves in - a round
+    ''' into a hillside throws dirt up the slope, not back down the barrel.
     ''' </summary>
     Public Sub Impact(hit As ShotHit)
         If hit.kind = HitKind.NoHit Then Return
 
-        ' Earth throws up dust, armour throws sparks. Same burst, different
-        ' colour, because the two reading alike is the thing that would make
-        ' thirty impacts a frame look like one effect.
-        Dim col = If(hit.kind = HitKind.Tank,
-                     New Vector3(1.0F, 0.85F, 0.55F),
-                     New Vector3(0.72F, 0.62F, 0.48F))
+        Dim b = free_impact()
+        If b Is Nothing Then Return
+
         Dim n = If(hit.normal.LengthSquared > 1.0E-6F,
                    Vector3.Normalize(hit.normal), Vector3.UnitY)
-        arm(hit.point + n * 0.6F, col, BURST_S, 0.4F, 2.6F)
+        Dim armour = (hit.kind = HitKind.Tank)
+
+        b.grid = If(armour, TankAtlas.EXPLOSION_FIRE, TankAtlas.EXPLOSION_DUST)
+        b.lifeS = If(armour, 0.75F, 1.0F)
+        b.size0 = If(armour, 0.6F, 0.9F)
+        b.size1 = If(armour, 2.2F, 3.4F)
+        b.drag = 3.0F
+        b.opacity = 1.0F
+        b.fadeIn = 0.0F
+        b.tint = Vector3.One
+        b.Burst(hit.point + n * 0.35F, n, If(armour, 3.5F, 2.4F), 0.7F, 0.25F)
     End Sub
 
-    Private Sub arm(p As Vector3, colour As Vector3, life As Single,
-                    r0 As Single, r1 As Single)
+    Private Function free_impact() As TankPuffs
         For i = 0 To SLOTS - 1
-            If pool(i).active Then Continue For
-            pool(i).pos = p
-            pool(i).colour = colour
-            pool(i).life = life
-            pool(i).age = 0.0F
-            pool(i).r0 = r0
-            pool(i).r1 = r1
-            pool(i).active = True
-            Return
+            If Not impacts(i).alive Then Return impacts(i)
         Next
-        ' Full. Dropped on purpose - see the class note.
-    End Sub
+        Return Nothing
+    End Function
 
     Public Sub Update(dt As Single)
         For i = 0 To SLOTS - 1
-            If Not pool(i).active Then Continue For
-            pool(i).age += dt
-            If pool(i).age >= pool(i).life Then pool(i).active = False
+            impacts(i).Update(dt)
         Next
-    End Sub
-
-    ''' <summary>
-    ''' Draw every live puff into whatever buffer is bound.
-    '''
-    ''' Called from the FX block with gFX_HDR bound, so the blend is the
-    ''' premultiplied one the rest of that buffer uses: the shader emits alpha
-    ''' 0, which under One / OneMinusSrcAlpha reduces to dst + src. It adds
-    ''' light and attenuates nothing, which is what a flash does and what lets
-    ''' overlapping bursts brighten rather than cover each other.
-    ''' </summary>
-    ''' <summary>
-    ''' Gather every live trail particle and draw them all at once.
-    '''
-    ''' The buffer is orphaned and refilled rather than updated in place, which
-    ''' is what keeps the GPU from having to wait on last frame's draw before
-    ''' the write can land.
-    ''' </summary>
-    Private Sub draw_trails(instances As List(Of TankInstance))
-        If instances Is Nothing Then Return
-
-        Dim at = 0
-        Dim total = 0
-        For Each inst In instances
-            For Each sh In inst.shots.shots
-                If Not sh.active Then Continue For
-                total += sh.trail.Collect(batch_buf, at, BATCH * FLOATS)
-            Next
-        Next
-        If total = 0 Then Return
-
-        If partShader Is Nothing Then
-            partShader = New Shader("tank_particle")
-            partVbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tank_trail")
-            partVbo.StorageNullData(BATCH * FLOATS * 4,
-                                    BufferStorageFlags.DynamicStorageBit)
-            partVao = GLVertexArray.Create("tank_trail")
-            partVao.VertexBuffer(0, partVbo, IntPtr.Zero, FLOATS * 4)
-            partVao.AttribFormat(0, 4, VertexAttribType.Float, False, 0)
-            partVao.AttribBinding(0, 0)
-            partVao.EnableAttrib(0)
-            partVao.AttribFormat(1, 4, VertexAttribType.Float, False, 16)
-            partVao.AttribBinding(1, 0)
-            partVao.EnableAttrib(1)
-            ' One set of attributes per INSTANCE, not per vertex - the quad's
-            ' four corners all read the same particle.
-            partVao.BindingDivisor(0, 1)
-        End If
-
-        partVbo.SubData(IntPtr.Zero, total * FLOATS * 4, batch_buf)
-        partShader.Use()
-        partVao.Bind()
-        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, total)
-        partShader.StopUse()
     End Sub
 
     Public Sub Draw(instances As List(Of TankInstance))
-        Dim any = live > 0
-        If Not any AndAlso instances IsNot Nothing Then
+        Dim at = 0
+        Dim cap = BATCH * FLOATS
+
+        ' SMOKE FIRST and on its own, because it is the only thing here that
+        ' blends. Collected into the front of the buffer so the two draws are
+        ' two ranges of one upload rather than two uploads.
+        Dim nSmoke = 0
+        If instances IsNot Nothing Then
             For Each inst In instances
                 For Each sh In inst.shots.shots
-                    If sh.active Then any = True : Exit For
+                    If sh.active Then nSmoke += sh.smoke.Collect(batch_buf, at, cap)
                 Next
-                If any Then Exit For
             Next
         End If
-        If Not any Then Return
-        If shader Is Nothing Then shader = New Shader("tank_fx")
+
+        Dim nAdd = 0
+        If instances IsNot Nothing Then
+            For Each inst In instances
+                For Each sh In inst.shots.shots
+                    If Not sh.active Then Continue For
+                    nAdd += sh.trail.Collect(batch_buf, at, cap)
+                    nAdd += sh.flame.Collect(batch_buf, at, cap)
+                Next
+            Next
+        End If
+        For i = 0 To SLOTS - 1
+            nAdd += impacts(i).Collect(batch_buf, at, cap)
+        Next
+
+        If nSmoke + nAdd = 0 Then Return
+        ensure_gl()
 
         GL_PUSH_GROUP("tank_fx")
         GL.Disable(EnableCap.DepthTest)
         GL.DepthMask(False)
         GL.Disable(EnableCap.CullFace)
         GL.Enable(EnableCap.Blend)
+        ' Premultiplied. With an alpha it is "over"; with the shader's alpha
+        ' forced to zero the same equation is pure addition, so one blend
+        ' function serves both passes.
         GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha)
 
+        vbo.SubData(IntPtr.Zero, (nSmoke + nAdd) * FLOATS * 4, batch_buf)
         shader.Use()
-        defaultVao.Bind()
-        GL.Uniform1(shader("gain"), TANK_FX_GAIN)
+        Dim atlas = TankAtlas.texture
+        If atlas IsNot Nothing Then atlas.BindUnit(0)
+        vao.Bind()
 
-        ' EVERY TANK'S OWN SHOTS FIRST. Each carries the muzzle it left, the
-        ' direction it left along, and its own gun's timing and size - so a
-        ' 15 cm and an autocannon differ here without this loop knowing which
-        ' is which.
-        If instances IsNot Nothing Then
-            For Each inst In instances
-                For Each sh In inst.shots.shots
-                    If Not sh.active Then Continue For
-                    Dim c = If(sh.spec IsNot Nothing,
-                               sh.spec.Sample(sh.lightPhase) * 0.05F,
-                               New Vector3(1.0F, 0.6F, 0.2F))
-                    ' Grows along the barrel as it burns, and sits half its
-                    ' own length out so the root is at the muzzle rather than
-                    ' the middle.
-                    Dim r = sh.thickness + (sh.length - sh.thickness) * sh.flashPhase
-                    Dim p = sh.pos + sh.fwd * (sh.length * 0.5F)
-                    GL.Uniform3(shader("centre"), p.X, p.Y, p.Z)
-                    GL.Uniform3(shader("colour"), c.X, c.Y, c.Z)
-                    GL.Uniform1(shader("radius"), r)
-                    GL.Uniform1(shader("phase"), sh.flashPhase)
-                    GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-                Next
-            Next
+        If nSmoke > 0 Then
+            GL.Uniform1(shader("additive"), 0)
+            vao.VertexBuffer(0, vbo, IntPtr.Zero, FLOATS * 4)
+            GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, nSmoke)
+        End If
+        If nAdd > 0 Then
+            GL.Uniform1(shader("additive"), 1)
+            vao.VertexBuffer(0, vbo, New IntPtr(nSmoke * FLOATS * 4), FLOATS * 4)
+            GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, nAdd)
         End If
 
-        draw_trails(instances)
-
-        shader.Use()
-        defaultVao.Bind()
-        For i = 0 To SLOTS - 1
-            If Not pool(i).active Then Continue For
-            Dim u = pool(i).age / Math.Max(pool(i).life, 1.0E-4F)
-            GL.Uniform3(shader("centre"), pool(i).pos.X, pool(i).pos.Y, pool(i).pos.Z)
-            GL.Uniform3(shader("colour"), pool(i).colour.X, pool(i).colour.Y, pool(i).colour.Z)
-            GL.Uniform1(shader("radius"), pool(i).r0 + (pool(i).r1 - pool(i).r0) * u)
-            GL.Uniform1(shader("phase"), u)
-            GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
-        Next
         shader.StopUse()
-
         GL.BindVertexArray(0)
+        GL.BindTextureUnit(0, 0)
         GL.Disable(EnableCap.Blend)
         GL.DepthMask(True)
         GL_POP_GROUP()
     End Sub
 
+    Private Sub ensure_gl()
+        If shader IsNot Nothing Then Return
+        shader = New Shader("tank_particle")
+        vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tank_fx")
+        vbo.StorageNullData(BATCH * FLOATS * 4, BufferStorageFlags.DynamicStorageBit)
+        vao = GLVertexArray.Create("tank_fx")
+        vao.VertexBuffer(0, vbo, IntPtr.Zero, FLOATS * 4)
+        vao.AttribFormat(0, 4, VertexAttribType.Float, False, 0)
+        vao.AttribBinding(0, 0)
+        vao.EnableAttrib(0)
+        vao.AttribFormat(1, 4, VertexAttribType.Float, False, 16)
+        vao.AttribBinding(1, 0)
+        vao.EnableAttrib(1)
+        vao.AttribFormat(2, 4, VertexAttribType.Float, False, 32)
+        vao.AttribBinding(2, 0)
+        vao.EnableAttrib(2)
+        ' One record per INSTANCE, not per vertex - the quad's four corners all
+        ' read the same sprite.
+        vao.BindingDivisor(0, 1)
+    End Sub
+
     Public Sub Dispose() Implements IDisposable.Dispose
-        For i = 0 To SLOTS - 1
-            pool(i).active = False
-        Next
+        vbo?.Dispose()
+        vao?.Dispose()
+        vbo = Nothing
+        vao = Nothing
     End Sub
 End Class

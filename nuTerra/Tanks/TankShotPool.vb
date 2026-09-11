@@ -60,6 +60,18 @@ Public Class TankShot
     ''' <summary>This shot's own trail particles.</summary>
     Public ReadOnly trail As New TankTrail
 
+    ''' <summary>The flame at the muzzle: eight sprites of the game's own
+    ''' gun_flash flipbook, thrown out along the barrel in a wide cone and
+    ''' added rather than blended.</summary>
+    Public ReadOnly flame As New TankPuffs(8)
+
+    ''' <summary>The gunpowder cloud under it: more sprites, bigger, slower,
+    ''' living seven times as long, and BLENDED rather than added because smoke
+    ''' obscures. It fades IN over the first part of its life so that during
+    ''' the flame's quarter second the cloud is barely there and the fire is
+    ''' seen through it.</summary>
+    Public ReadOnly smoke As New TankPuffs(14)
+
     Public Sub Fire(p As Vector3, d As Vector3, s As BlastSpec, h As ShotHit,
                     v As Single)
         active = True
@@ -92,6 +104,30 @@ Public Class TankShot
         ' point-blank shot visible for a moment.
         Dim dist = (targetPos - p).Length
         trail.Begin(dist, Math.Max(0.45F, dist / speed))
+
+        ' TEPY's numbers, which were arrived at against a reference shot of the
+        ' game: the flame explodes out and is dragged to a halt inside a
+        ' quarter second, the smoke drifts gently and hangs for nearly two.
+        Dim scale = If(s IsNot Nothing, s.flashLength, 1.2F)
+        flame.grid = TankAtlas.GUN_FLASH
+        flame.lifeS = 0.25F
+        flame.size0 = scale * 0.85F
+        flame.size1 = scale * 1.55F
+        flame.drag = 5.0F
+        flame.opacity = 1.0F
+        flame.fadeIn = 0.0F
+        flame.tint = If(s IsNot Nothing, s.Sample(0.15F) * 0.06F, Vector3.One)
+        flame.Burst(p, fwd, 2.0F, 0.6F, 0.08F)
+
+        smoke.grid = TankAtlas.SMOKE_WHITE
+        smoke.lifeS = 1.8F
+        smoke.size0 = scale * 1.2F
+        smoke.size1 = scale * 2.7F
+        smoke.drag = 1.2F
+        smoke.opacity = 0.5F
+        smoke.fadeIn = 0.4F
+        smoke.tint = New Vector3(0.62F, 0.6F, 0.58F)
+        smoke.Burst(p, fwd, 0.9F, 0.55F, 0.1F)
     End Sub
 
     Public Sub Update(dt As Single)
@@ -118,11 +154,14 @@ Public Class TankShot
         End If
 
         trail.Update(dt)
+        flame.Update(dt)
+        smoke.Update(dt)
 
         ' THE SLOT IS RENTED UNTIL THE SMOKE HAS GONE. Freeing it when the
         ' flame burns out cuts the trail off mid-air, because the round is
         ' still flying and its particles are still fading.
-        If flashPhase >= 1.0F AndAlso Not inFlight AndAlso Not trail.alive Then
+        If flashPhase >= 1.0F AndAlso Not inFlight AndAlso
+           Not trail.alive AndAlso Not smoke.alive Then
             active = False
         End If
     End Sub

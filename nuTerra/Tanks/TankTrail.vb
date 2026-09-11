@@ -129,7 +129,7 @@ Public Class TankTrail
         Dim written = 0
         For i = 0 To n - 1
             If Not p(i).alive Then Continue For
-            If at + 8 > capacity Then Exit For
+            If at + 12 > capacity Then Exit For
             Dim u = p(i).age / lifeS
             ' Born bright at the round, gone by the time it lands.
             Dim a = 1.0F - u
@@ -142,7 +142,14 @@ Public Class TankTrail
             buf(at + 5) = 0.60F
             buf(at + 6) = 0.58F
             buf(at + 7) = a * a * 0.55F
-            at += 8
+            ' A degenerate rectangle: no artwork, draw the soft round puff.
+            ' The trail reads better as a plain haze than as sixty copies of a
+            ' smoke sprite strung along a line.
+            buf(at + 8) = 0.0F
+            buf(at + 9) = 0.0F
+            buf(at + 10) = 0.0F
+            buf(at + 11) = 0.0F
+            at += 12
             written += 1
         Next
         Return written
