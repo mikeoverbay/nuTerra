@@ -43,6 +43,7 @@ out VS_OUT
     vec3 worldPosition;
     mat3 worldTBN;         // WORLD space, for the exporter's shading
     vec3 worldNormal;      // un-perturbed; the exporter reflects off THIS
+    flat float winding;    // +1 normal, -1 where u_model mirrors
 } vs_out;
 
 // The exporter's unpackNormal, bit for bit: x in bits 0..10, y in 11..20,
@@ -100,6 +101,21 @@ void main(void)
     vs_out.worldPosition = vec3(u_model * vec4(a_pos, 1.0));
     vs_out.worldTBN = mat3(wt, wb, wn);
     vs_out.worldNormal = wn;
+
+    // DOES THIS MODEL MATRIX MIRROR?
+    //
+    // TankRenderer ships MirrorX = True and FlipSkinnedZ = True, so u_model
+    // carries CreateScale(-1,1,1) and, on skinned parts only, another
+    // CreateScale(1,1,-1). A negative determinant REVERSES TRIANGLE WINDING,
+    // and gl_FrontFacing is decided by winding - so on the singly-mirrored
+    // parts (hull, turret) it reports the opposite of the truth, while the
+    // doubly-mirrored skinned parts (chassis, tracks, gun) are unaffected.
+    //
+    // The fragment stage uses gl_FrontFacing to flip the normal for back faces
+    // - culling is off, so it must - and without this sign that flip inverted
+    // every normal on the hull and turret. The sun then lit them from
+    // underneath while the tracks stayed correct.
+    vs_out.winding = (determinant(mat3(u_model)) < 0.0) ? -1.0 : 1.0;
 
     gl_Position = projection * modelView * vec4(a_pos, 1.0);
 }

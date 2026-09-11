@@ -1028,8 +1028,14 @@ Module modGlobalVars
     ''' flat fill. Both default to 1.0, which is what the exporter's sliders
     ''' start at, so nuTerra opens on the look the exporter opens on.
     ''' </summary>
-    Public TANK_LIGHT As Single = 1.0F
-    Public TANK_AMBIENT As Single = 1.0F
+    ''' 1.5, which is the ORIGINAL's direct gain. tank_fragment.glsl scales its
+    ''' direct term by a flat * 5.0 per light; the Python port rewrote that as
+    ''' 10.0 * metal_scale / NUM_LIGHTS, which is 3.33 at metal_scale 1. 5.0/3.33
+    ''' is 1.5, so this is the same light, expressed in the port's units.
+    Public TANK_LIGHT As Single = 1.5F
+    ''' 0.5 - the exporter's A_level, shipped at 50 of 100. Mine defaulted to
+    ''' 1.0, which is double, on top of every other term also being double.
+    Public TANK_AMBIENT As Single = 0.5F
     Public TANK_NORMAL_MAP As Boolean = True
     Public TANK_AO As Boolean = True
     ''' <summary>
@@ -1039,11 +1045,40 @@ Module modGlobalVars
     ''' </summary>
     Public TANK_IBL As Boolean = True
     ''' <summary>
+    ''' Total level - the exporter's T_level, a scale on the ENCODED colour
+    ''' after the gamma rather than on the light going in. Shipped at 50 of 100.
+    ''' The Python port has no equivalent, which is one reason nuTerra's tank
+    ''' read so much hotter than the exporter's at the same slider settings.
+    ''' </summary>
+    ''' 0.925, which is the exporter's 0.5 times 1.85.
+    '''
+    ''' The original ACCUMULATES GAMMA-ENCODED, once per light:
+    '''     gColor += vec4(pow(colorMix, vec3(1.0 / 2.2)), 1.0) * T_level;
+    ''' inside the light loop. Three lights are encoded separately and summed.
+    ''' This shader sums first and encodes once, and pow is concave, so the two
+    ''' differ by 3^(1 - 1/2.2) = 1.85 for the same light. Measured against the
+    ''' owner's reference the gap was 0.660/0.396 = 1.67, which is that factor.
+    ''' 0.5 * 1.85 puts the same light on screen without restructuring the loop.
+    ''' 0.70, set against a MEASURED reference rather than an estimate.
+    '''
+    ''' Two things fold into it. The original accumulates GAMMA-ENCODED once per
+    ''' light - gColor += pow(colorMix, 1/2.2) * T_level inside the loop - so
+    ''' three lights are encoded separately and summed, where this shader sums
+    ''' first and encodes once. pow is concave, so the two differ by
+    ''' 3^(1 - 1/2.2) = 1.85 for the same light, and 0.5 * 1.85 = 0.925 matches
+    ''' it. Then readme_images/TE_Ref_render.png was measured directly rather
+    ''' than eyeballed: the reference tank is RGB 0.534/0.500/0.423 over 172k
+    ''' pixels, not the 0.660/0.630/0.510 I had guessed from looking at it, so
+    ''' 0.925 was 1.32x too hot. 0.925 * 0.759 is this.
+    Public TANK_TOTAL As Single = 0.70F
+    ''' <summary>
     ''' Specular level. Scales the highlight terms only - the Phong scratch and
     ''' the microfacet lobe - and never the diffuse, so the paint's brightness
     ''' is unaffected. 1.0 is the original's own weight.
     ''' </summary>
-    Public TANK_SPECULAR As Single = 1.0F
+    ''' 0.5 - the exporter's S_level, shipped at 50 of 100. It gates the
+    ''' specular AND the environment, exactly as tank_fragment.glsl does.
+    Public TANK_SPECULAR As Single = 0.5F
 
     Public LAMP_SHADOW_ENABLED As Boolean = True
 

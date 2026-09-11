@@ -58,6 +58,7 @@ in VS_OUT
     vec3 worldPosition;
     mat3 worldTBN;
     vec3 worldNormal;
+    flat float winding;
 } fs_in;
 
 layout(location = 0) out vec4 gColor;
@@ -126,7 +127,13 @@ uniform float shine_scale;
 // catches the light without touching how bright the paint reads. 1.0 is the
 // original's own weight: tank_fragment.glsl gates its specContrib with
 // `* mrSample.g * 6.0`, which this multiplies.
-uniform float spec_scale;          // A_level : flat ambient fill
+uniform float spec_scale;
+// Total level - tank_fragment.glsl's T_level, which the Python port dropped.
+// The original ends its light loop with
+//     gColor += vec4(pow(colorMix, vec3(1.0 / 2.2)), 1.0) * T_level;
+// so it is a scale on the ENCODED result, after the gamma, not on the light
+// going in. Its shipped value is 50/100 = 0.5.
+uniform float total_level;          // A_level : flat ambient fill
 uniform int   apply_normal_map;     // exporter: invert_metal  (checkbox: NMap)
 uniform int   apply_ao;             // exporter: invert_shine  (checkbox: AO)
 
@@ -276,10 +283,16 @@ vec3 getIBLContribution(PBRInfo pbr, vec3 N_dir, vec3 R_dir)
     vec3 diffuse  = diffuseLight  * pbr.diffuseColor;
     vec3 specular = specularLight * (pbr.specularColor * brdf_val.x + brdf_val.y);
 
-    // !! Intentionally NOT scaled by metal_scale.  The Light slider controls
-    // the direct (sun) light intensity only -- the environment contribution is
-    // a property of the scene, not the sun.
-    return diffuse + specular;
+    // SCALED BY THE SPECULAR LEVEL, because the original scales it.
+    //
+    // The Python port refuses this on the reasoning that "a brighter sun is not
+    // a brighter sky" - defensible, but it is a DEVIATION, and it is why the
+    // environment stayed at full strength while everything else came down.
+    // tank_fragment.glsl lines 177-178, inside its own getIBLContribution:
+    //     diffuse  *= S_level;
+    //     specular *= S_level;
+    // S_level is the exporter's Specular slider, shipped at 0.5.
+    return (diffuse + specular) * spec_scale;
 }
 
 // =============================================================================
@@ -422,10 +435,27 @@ void main()
     // own Rec.601 luminance so the tint vector has perceived brightness ~1;
     // multiplying the diffuse by it shifts HUE without dimming the surface, and
     // texture detail is fully preserved.
+    // THE ORIGINAL'S TINT, not the Python port's.
+    //
+    // tank_fragment.glsl:369 is
+    //     baseColor.rgb = mix(baseColor.rgb, baseColor.rgb * armorcolor.rgb,
+    //                         GMM.b * 0.55);
+    // - a MASKED multiply. GMM.b is the camo-mask channel, which decides where
+    // the nation colour lands, at 55% strength. Both my port and
+    // docs/game_PBS_tank.md called that channel "not used here"; the original
+    // uses it, and this is the one place it does.
+    //
+    // The Python port instead divides the colour by its own luminance and
+    // multiplies globally at full strength - a hue shift that preserves
+    // brightness. That is a different effect: it never darkens, and it ignores
+    // the mask entirely. Measured on the owner's reference shot, the masked
+    // version is the one that lands: it takes B/R from 0.861 to 0.769 against
+    // the reference's 0.773.
     if (has_armor_color == 1) {
-        float armor_luma = dot(armor_color, vec3(0.299, 0.587, 0.114));
-        vec3  armor_tint = armor_color / max(armor_luma, 0.05);
-        color.rgb       *= armor_tint;
+        float camo_mask = (has_maps.z != 0)
+                        ? texture(gmmMap, fs_in.TC1).b : 1.0;
+        color.rgb = mix(color.rgb, color.rgb * armor_color,
+                        camo_mask * 0.55);
     }
 
     // ---- sRGB -> linear  (WoT: after AO + armor tint) ------------------------
@@ -491,7 +521,11 @@ void main()
     // Only the N component negates, so the tangent frame keeps its orientation
     // and only the FACING flips. With a flat tangent normal that reduces to
     // negating the geometric normal, which is the un-bumped case below.
-    float facing = gl_FrontFacing ? 1.0 : -1.0;
+    // gl_FrontFacing IS DECIDED BY WINDING, and u_model mirrors - see the
+    // vertex stage. On a singly-mirrored part it reports the opposite of the
+    // truth, so it has to be corrected by the determinant's sign before it can
+    // be used to flip anything.
+    float facing = (gl_FrontFacing ? 1.0 : -1.0) * fs_in.winding;
     tangent_n.z *= facing;
 
     vec3 N_geom = normalize(fs_in.worldNormal) * facing;
@@ -605,7 +639,24 @@ void main()
 
         vec3 diff_i  = (1.0 - F_i) * diffuseTerm(pbr_i);
         vec3 spec_i  = F_i * G_i * D_i / (4.0 * NdotL * NdotV);
-        vec3 sSpec_i = vec3(1.0) * pow(max(dot(R_bump, l), 0.0), 10.0) * scrach;
+        // HUE TINTED, the way the GAME tints its specular - not white.
+        //
+        // The exporter's scratch term is vec3(1.0), a pure white highlight, and
+        // it has no counterpart in PBS_tank.fx. White added over khaki paint
+        // drags the colour toward grey: measured on the lit surfaces here, B/R
+        // sits at 0.879 where the reference shot is 0.773, and 0.879 squared is
+        // 0.773 - the paint's own ratio, diluted back out by something neutral.
+        //
+        // docs/GAME_LIGHTING_MODEL.md, the sun block:
+        //     specTint = lerp(1, albedo / (max(albedo) + eps),
+        //                     saturate(metal^2 * 3.2))
+        //     F        = specTint * metal + (1 - metal * specTint) * Fexp
+        // so the game's highlight carries the albedo's hue in proportion to how
+        // metallic the surface is, and only a dielectric reflects white.
+        float amax_s = max(max(color.r, color.g), color.b);
+        vec3  specTint = mix(vec3(1.0), color.rgb / (amax_s + 1e-4),
+                             clamp(metallic * metallic * 3.2, 0.0, 1.0));
+        vec3 sSpec_i = specTint * pow(max(dot(R_bump, l), 0.0), 10.0) * scrach;
 
         vec3 spec_all = (sSpec_i + spec_i * perceptualRoughness * 6.0)
                       * spec_scale;
@@ -633,7 +684,7 @@ void main()
 
     // ACES filmic tonemap then sRGB gamma
     result = ACESFilm(result);
-    result = pow(clamp(result, 0.0, 1.0), vec3(1.0 / 2.2));
+    result = pow(clamp(result, 0.0, 1.0), vec3(1.0 / 2.2)) * total_level;
 
     // ---- Out, into the G-buffer -----------------------------------------------
     // gColor carries the FINISHED colour and gGMF.b is GFLAG_UNLIT, so the

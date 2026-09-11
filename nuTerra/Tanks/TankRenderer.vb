@@ -164,6 +164,7 @@ Public Class MapTanks
         GL.Uniform1(shader("apply_normal_map"), CInt(If(TANK_NORMAL_MAP, 1, 0)))
         GL.Uniform1(shader("apply_ao"), CInt(If(TANK_AO, 1, 0)))
         GL.Uniform1(shader("spec_scale"), TANK_SPECULAR)
+        GL.Uniform1(shader("total_level"), TANK_TOTAL)
 
         ' THE ENVIRONMENT. Without it metal reflects nothing and the vehicle
         ' reads as plastic - not a figure of speech, it is what the first port
@@ -205,7 +206,17 @@ Public Class MapTanks
         ' and PBS_tank_crash to mean anything, nuTerra has no nation armour
         ' colour for a tank, and nothing is firing a gun.
         GL.Uniform1(shader("has_crash_tile"), 0)
-        GL.Uniform1(shader("has_armor_color"), 0)
+        ' THE NATION'S ARMOUR COLOUR. Straight from the original's own
+        ' table - frmMain.vb:1350 hardcodes these, with the comment "these
+        ' color strings are located in each nations customization.xml file".
+        ' Bytes over 255. TankVehicle already carries the nation.
+        Dim ac As Vector3 = nation_armor_color()
+        If ac.LengthSquared > 0.0F Then
+            GL.Uniform3(shader("armor_color"), ac.X, ac.Y, ac.Z)
+            GL.Uniform1(shader("has_armor_color"), 1)
+        Else
+            GL.Uniform1(shader("has_armor_color"), 0)
+        End If
         GL.Uniform1(shader("u_mflash_intensity"), 0.0F)
         GL.Uniform1(shader("alpha_in_normal_red"), 0)
         GL.Uniform1(shader("ao_in_diffuse_alpha"), 0)
@@ -261,6 +272,32 @@ Public Class MapTanks
         Next
         GL.Uniform3(shader("light_pos"), 3, lp)
     End Sub
+
+    ''' <summary>
+    ''' The armour colour for the loaded vehicle's nation, 0..1.
+    '''
+    ''' Values are the original Tank Exporter's, frmMain.vb:1350,
+    ''' which notes they come from each nation's customization.xml.
+    ''' Kept as a table rather than read from the game because that
+    ''' is what the reference build does, and matching it is the
+    ''' point. Zero means 'no colour for this nation' and the shader
+    ''' is told to skip the tint entirely.
+    ''' </summary>
+    Private Function nation_armor_color() As Vector3
+        If vehicles.Count = 0 Then Return Vector3.Zero
+        Dim n = vehicles(0).nation
+        If String.IsNullOrEmpty(n) Then Return Vector3.Zero
+        Dim c As Vector3
+        Select Case n.ToLowerInvariant()
+            Case "usa", "uk" : c = New Vector3(82, 72, 51)
+            Case "china", "ussr" : c = New Vector3(61, 62, 42)
+            Case "germany" : c = New Vector3(90, 103, 94)
+            Case "czech", "france", "japan", "poland", "sweden", "italy"
+                c = New Vector3(15, 36, 36)
+            Case Else : Return Vector3.Zero
+        End Select
+        Return c / 255.0F
+    End Function
 
     ''' <summary>Units 0..3: AM, ANM, GMM, AO. A missing map binds nothing and the shader is told.</summary>
     Private Sub BindMaterial(mat As TankMaterial)

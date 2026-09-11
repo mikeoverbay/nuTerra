@@ -1651,6 +1651,13 @@ try_again:
                                          "or the environment.")
                     End If
                     ImGui.SliderFloat("Specular", TANK_SPECULAR, 0.0, 2.0)
+                    ImGui.SliderFloat("Total", TANK_TOTAL, 0.0, 2.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The exporter's T_level - a scale on the" & vbLf &
+                                         "ENCODED colour, after the gamma, not on" & vbLf &
+                                         "the light going in. Shipped at 0.5 there;" & vbLf &
+                                         "the Python port has no equivalent at all.")
+                    End If
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Highlight level - the Phong scratch and the" & vbLf &
                                          "microfacet lobe. Never the diffuse, so the" & vbLf &
