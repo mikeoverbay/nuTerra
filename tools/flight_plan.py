@@ -229,7 +229,15 @@ class Bake:
             off = float(meta.get("height_offset", 0.0))
             raw = np.fromfile(os.path.join(folder, map_name + "_top.rgba"),
                               dtype=np.uint8).reshape(self.h, self.w, 4)
-            self.kind = raw[..., 0].copy()
+            key = raw[..., 0]
+            # The low three bits are the kind. Bit 0x80 marks a tree TRUNK
+            # (the nuTerra session, 2026-09-11): a tank drives under a canopy
+            # but not through its trunk. The camera planner keeps the canopy -
+            # the height is untouched - and the trunk mask is carried for the
+            # day a ground vehicle plans on this bake. Mask before indexing,
+            # or a trunk texel reads as kind 128 + k and falls off the legend.
+            self.kind = (key & 0x07).astype(np.uint8)
+            self.trunk = (key & 0x80) != 0
             # G is the high byte and B the low; A is 255 so the file still
             # opens as a picture. (The spec said G/A - the writer chose G/B
             # and the file on disk is the authority.)
@@ -245,6 +253,7 @@ class Bake:
             self.top = self._r32(os.path.join(folder, map_name + "_top.r32"))
             self.floor = self._r32(os.path.join(folder, map_name + "_floor.r32"))
             self.kind = None
+            self.trunk = None
 
     def kind_at(self, x, z):
         """The kind key of the tallest thing at a world point, 0 without a
@@ -285,6 +294,9 @@ class Bake:
                   .transpose(0, 2, 1, 3).reshape(H, W, fy * fx))
             self.kind = np.take_along_axis(kb, am[..., None], axis=2)[..., 0].copy()
             del flat, kb
+        if getattr(self, "trunk", None) is not None:
+            # a trunk anywhere in the block is a trunk in the cell
+            self.trunk = self.trunk[:H * fy, :W * fx].reshape(H, fy, W, fx).any(axis=(1, 3))
         self.top = blocks.max(axis=(1, 3)).astype(np.float64)
         self.floor = (self.floor[:H * fy, :W * fx].reshape(H, fy, W, fx)
                       .mean(axis=(1, 3)).astype(np.float64))
