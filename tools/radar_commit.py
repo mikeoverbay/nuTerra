@@ -835,50 +835,15 @@ def pick_level(bake, nx, nz):
     return float(max(g)) + LEVEL_CLEAR
 
 
-TRAP_STATS = {"object": 0, "terrain": 0, "bend": 0, "zone": 0}
+TRAP_STATS = {"object": 0, "terrain": 0, "bend": 0}
 
-# The zone map (tools/zones.py; the Tank AI session cuts it, Path Studio
-# reads it), handed in by the Studio or main() when one exists beside the
-# bake. The owner's rule (2026-09-11): "we can move that way if the next
-# move point is in a zone ring." A disc is free space by construction -
-# every point of it is at least its radius from anything the mask blocks -
-# so a bearing whose NEXT STEP lands inside a disc, with BODY_R kept from
-# the rim, needs neither the near probe nor the trap test, and the step
-# itself fits. Everything outside a disc is judged exactly as before; with
-# no zone map loaded not one branch here runs. Which mask the map was cut
-# for is the caller's business: the tank's exempts foliage a camera at
-# canopy height would not, so it is only honest for the camera down at
-# AGL, under the canopies, where the two rules agree.
-ZONES = None
-
-
-def set_zones(z):
-    """Hand the navigator a zones.Zones (or None to switch the fast path off)."""
-    global ZONES
-    ZONES = z
-    if z is not None:
-        z.index()
-
-
-def in_zone(x, z):
-    """The point sits inside a zone disc with the body standoff to spare."""
-    return ZONES is not None and ZONES.contains(x, z, BODY_R)
-
-
-def zone_step_ok(radar, x, z, ux, uz):
-    """The zone fast path, and its guard. The disc says the step lands in
-    free space UNDER THE MASK THE ZONE MAP WAS CUT FOR; the camera's own
-    mask can disagree - the tank's exempts fences and every tree without
-    a trunk, which the camera at canopy height must fly round. Measured
-    on the monastery with the tank map alone: the route went 4571 -> 5964 m
-    with 1006 backups, because the fast path walked the camera into cells
-    its own radar then refused. So the step itself is still tested on the
-    camera's mask - one 2 m probe - and what the disc buys is the 9 m near
-    probe, the 22 m trap probe and the bend search, which is most of the
-    cost. With a zone map cut from the camera's own mask the guard is
-    redundant and free."""
-    return (in_zone(x + ux * STEP, z + uz * STEP)
-            and radar.clear(x, z, ux, uz, STEP))
+# The zone map (tools/zones.py) is NOT used here. It was tried as a fast
+# accept - a bearing whose next step lands in a disc skips the near and far
+# probes - and measured worse on the shipped monastery plan (4571 -> 4903 m,
+# backups 42 -> 182): a disc says the ground around a step is free, not that
+# it leads anywhere, and the far probe it replaced is what keeps the camera
+# out of pockets. The owner: "if the discs do not aid AI or path creation,
+# we can toss them." The numbers are in the 2026-09-11 handoff, section 11.
 
 
 def bearing_ok(radar, x, z, a, two_point):
@@ -891,11 +856,6 @@ def bearing_ok(radar, x, z, a, two_point):
     control run.
     """
     ux, uz = math.cos(a), math.sin(a)
-    # The zone fast path: the next step lands in a disc and the step itself
-    # is clear on our own mask - go, no near / far probing.
-    if zone_step_ok(radar, x, z, ux, uz):
-        TRAP_STATS["zone"] += 1
-        return True
     if not radar.clear(x, z, ux, uz, NEAR_D):
         return False
     if not two_point:
@@ -1754,12 +1714,6 @@ def main():
     bake = Bake(FOLDER, MAP)
     cell_m = bake.mx
     nx, nz = load_plan(os.path.join(FOLDER, MAP + "_plan.csv"))
-    try:
-        import zones as _zn
-        zs = _zn.load_zones(FOLDER, MAP, bake)
-        set_zones(zs.get("camera") or zs.get("tank"))
-    except Exception as e:
-        print("zones: not used -", e)
 
     terrace_of = None
     worlds = None

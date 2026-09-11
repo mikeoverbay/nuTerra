@@ -504,6 +504,16 @@ withdrawn: the straight edge in the picture was the sheet's own edge at the
 rock band, and the base-ring test (nearest disc 1.6 m from the team-1 base)
 shows the frames agree with no mirror. Their offmap rule is right.
 
+**Verdict (19:50).** The owner: "if the discs do not aid AI or path
+creation, we can toss them." On the camera side they do not, so the
+navigator hook (`set_zones` / `zone_step_ok`, the `Fly by zones` switch) is
+REMOVED; `bearing_ok` is exactly what it was before the experiment. What
+stays: `tools/zones.py` (the reader and its checks) and the Studio's
+**Zones** overlay, because the picture is what verified the Tank AI
+session's graph and it costs nothing. Whether the zone graph earns its
+place for the TANKS - faster or better drives than the grid A*, with a
+number - is that session's to show the owner.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
