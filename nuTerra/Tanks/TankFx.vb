@@ -139,11 +139,34 @@ Public Class TankFx
             nAdd += impacts(i).Collect(batch_buf, at, cap)
         Next
 
+        ' ORDER MATTERS FOR THE SMOKE AND NOT FOR THE REST, which is the whole
+        ' reason they are separate draws. Alpha "over" is not commutative: two
+        ' clouds composited near-first come out differently from far-first, and
+        ' the wrong order puts a distant puff in front of a near one. Addition
+        ' IS commutative, so the flames, the trail and the explosions can go
+        ' down in whatever order they were collected and come out identical.
+        If nSmoke > 1 Then sort_back_to_front(nSmoke)
+
         If nSmoke + nAdd = 0 Then Return
         ensure_gl()
 
         GL_PUSH_GROUP("tank_fx")
-        GL.Disable(EnableCap.DepthTest)
+
+        ' TESTED AGAINST THE SCENE, NOT WRITING TO IT.
+        '
+        ' The test is what stops a flame burning through the hill in front of
+        ' it. Reversed Z, so the comparison is Greater - the same convention
+        ' the rest of the frame uses and the same one MapParticles sets for
+        ' exactly this pass.
+        '
+        ' The WRITE has to stay off, and that is the half that bites. A sprite
+        ' that writes depth occludes every sprite behind it, so the nearest
+        ' card of a burst would discard the fragments of the ones behind it
+        ' that are supposed to be blending through - the cloud loses its
+        ' interior and reads as one flat card. Transparent geometry tests
+        ' against opaque depth and never contributes to it.
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Greater)
         GL.DepthMask(False)
         GL.Disable(EnableCap.CullFace)
         GL.Enable(EnableCap.Blend)
@@ -270,6 +293,43 @@ Public Class TankFx
         GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, n)
         flashShader.StopUse()
     End Sub
+
+    ''' <summary>
+    ''' Put the first `count` records in farthest-first order.
+    '''
+    ''' Sorted on the SQUARED distance, because only the ordering is wanted and
+    ''' a square root per sprite per frame buys nothing. Negated so an ascending
+    ''' sort puts the farthest first - the same trick, for the same reason, as
+    ''' MapParticles.
+    ''' </summary>
+    Private Sub sort_back_to_front(count As Integer)
+        If sortKeys Is Nothing OrElse sortKeys.Length < count Then
+            ReDim sortKeys(count * 2)
+            ReDim sortIdx(count * 2)
+            ReDim scratch((count * 2 + 1) * FLOATS)
+        End If
+
+        Dim cam = map_scene.camera.CAM_POSITION
+        For i = 0 To count - 1
+            Dim b = i * FLOATS
+            Dim dx = batch_buf(b) - cam.X
+            Dim dy = batch_buf(b + 1) - cam.Y
+            Dim dz = batch_buf(b + 2) - cam.Z
+            sortKeys(i) = -(dx * dx + dy * dy + dz * dz)
+            sortIdx(i) = i
+        Next
+        Array.Sort(sortKeys, sortIdx, 0, count)
+
+        Array.Copy(batch_buf, scratch, count * FLOATS)
+        For i = 0 To count - 1
+            Array.Copy(scratch, sortIdx(i) * FLOATS,
+                       batch_buf, i * FLOATS, FLOATS)
+        Next
+    End Sub
+
+    Private sortKeys() As Single
+    Private sortIdx() As Integer
+    Private scratch() As Single
 
     Private Sub ensure_gl()
         If shader IsNot Nothing Then Return
