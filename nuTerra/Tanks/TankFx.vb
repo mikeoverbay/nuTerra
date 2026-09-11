@@ -1,4 +1,4 @@
-Imports OpenTK.Mathematics
+﻿Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL4
 
 ''' <summary>
@@ -43,6 +43,9 @@ Public Class TankFx
         Public r0 As Single          ' metres at birth
         Public r1 As Single          ' metres at death
         Public active As Boolean
+        ''' <summary>When set, the colour comes from the game's own keys for
+        ''' this gun's effect rather than from the flat one above.</summary>
+        Public spec As BlastSpec
     End Structure
 
     Private ReadOnly pool(SLOTS - 1) As Puff
@@ -71,9 +74,17 @@ Public Class TankFx
     ''' gets its muzzle flash and no burst, rather than a burst hanging in the
     ''' air two kilometres out.
     ''' </summary>
-    Public Sub Shot(muzzle As Vector3, dir As Vector3, hit As ShotHit)
-        arm(muzzle + dir * 0.35F, New Vector3(1.0F, 0.72F, 0.34F),
-            FLASH_S, 0.35F, 1.15F)
+    Public Sub Shot(muzzle As Vector3, dir As Vector3, hit As ShotHit,
+                    blast As BlastSpec)
+        ' THE GAME'S OWN LIGHT. Radii, duration and all four colour keys come
+        ' from gun_effects.xml, so a 122 mm and an autocannon differ because
+        ' their entries differ rather than because anything here was tuned.
+        ' The flash sits at the muzzle, pushed forward by the inner radius so
+        ' the core is clear of the barrel it came out of.
+        Dim life = If(blast IsNot Nothing, blast.durationS, FLASH_S)
+        Dim r_in = If(blast IsNot Nothing, blast.innerRadius, 1.0F)
+        Dim r_out = If(blast IsNot Nothing, blast.outerRadius, 4.0F)
+        arm_spec(muzzle + dir * (r_in * 0.5F), life, r_in * 0.55F, r_out * 0.42F, blast)
 
         If hit.kind = HitKind.NoHit Then Return
 
@@ -88,6 +99,21 @@ Public Class TankFx
         arm(hit.point + n * 0.6F, col, BURST_S, 0.4F, 2.6F)
     End Sub
 
+    Private Sub arm_spec(p As Vector3, life As Single, r0 As Single,
+                         r1 As Single, spec As BlastSpec)
+        For i = 0 To SLOTS - 1
+            If pool(i).active Then Continue For
+            pool(i).pos = p
+            pool(i).life = Math.Max(life, 0.02F)
+            pool(i).age = 0.0F
+            pool(i).r0 = r0
+            pool(i).r1 = r1
+            pool(i).spec = spec
+            pool(i).active = True
+            Return
+        Next
+    End Sub
+
     Private Sub arm(p As Vector3, colour As Vector3, life As Single,
                     r0 As Single, r1 As Single)
         For i = 0 To SLOTS - 1
@@ -98,6 +124,7 @@ Public Class TankFx
             pool(i).age = 0.0F
             pool(i).r0 = r0
             pool(i).r1 = r1
+            pool(i).spec = Nothing
             pool(i).active = True
             Return
         Next
@@ -138,8 +165,23 @@ Public Class TankFx
         For i = 0 To SLOTS - 1
             If Not pool(i).active Then Continue For
             Dim u = pool(i).age / Math.Max(pool(i).life, 1.0E-4F)
+
+            ' A blast's colour MOVES: the game's keys carry hue and multiplier
+            ' together - 255 150 0 at x20 into 255 200 100 at x25 - so the
+            ' flash whitens as it peaks and falls to a dull red. Sampling the
+            ' spec per frame is what gives that; a fixed colour times a fade
+            ' gives a shrinking orange dot.
+            Dim c = pool(i).colour
+            Dim extra = 1.0F
+            If pool(i).spec IsNot Nothing Then
+                c = pool(i).spec.Sample(u)
+                ' The multiplier is already in it, and it is 5 to 25. Bring it
+                ' back to a sane scale for the FX buffer and let the gain
+                ' slider carry the rest.
+                extra = 0.05F
+            End If
             GL.Uniform3(shader("centre"), pool(i).pos.X, pool(i).pos.Y, pool(i).pos.Z)
-            GL.Uniform3(shader("colour"), pool(i).colour.X, pool(i).colour.Y, pool(i).colour.Z)
+            GL.Uniform3(shader("colour"), c.X * extra, c.Y * extra, c.Z * extra)
             GL.Uniform1(shader("radius"), pool(i).r0 + (pool(i).r1 - pool(i).r0) * u)
             GL.Uniform1(shader("phase"), u)
             GL.Uniform1(shader("gain"), TANK_FX_GAIN)

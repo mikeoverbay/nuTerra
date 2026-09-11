@@ -961,56 +961,82 @@ Public Class MapTanks
         For Each p In inst.vehicle.parts
             If p.label = "gun" Then gunPart = p : Exit For
         Next
-        If gunPart Is Nothing OrElse gunPart.meshes.Count = 0 Then Return
+        If gunPart Is Nothing Then Return
 
+        Dim world = world_matrix(inst, inst.livePosition)
+        Dim model = part_model(inst, gunPart, world)
+
+        Dim muzzle As Vector3, dir As Vector3
+        If inst.vehicle.hasMuzzle Then
+            ' THE GAME'S OWN MUZZLE, and through the UNFLIPPED matrix. The node
+            ' tree is in the visual's frame; only the vertex streams are stored
+            ' Z-reversed, so pushing a node position through FlipSkinnedZ puts
+            ' the blast at the breech.
+            Dim m0 = inst.vehicle.muzzleLocal
+            muzzle = Vector3.TransformPosition(m0, model)
+            dir = Vector3.TransformPosition(m0 + Vector3.UnitZ, model) - muzzle
+        ElseIf Not measured_muzzle(inst, gunPart, model, muzzle, dir) Then
+            Return
+        End If
+
+        If dir.LengthSquared < 1.0E-6F Then Return
+        dir = Vector3.Normalize(dir)
+
+        Dim hit = TankShots.Cast(muzzle, dir, instances, inst)
+        fx.Shot(muzzle, dir, hit, inst.vehicle.blast)
+
+        ' THE FIRST FEW IN FULL, then a tally. Thirty guns at a round every two
+        ' seconds is fifteen lines a second forever, which buries the load log
+        ' it shares - but two dozen lines is enough to see that the muzzle is on
+        ' the barrel and the rounds are landing on things, and a running count
+        ' every hundred says whether that is still true an hour later.
+        shots_fired += 1
+        shots_by_kind(CInt(hit.kind)) += 1
+        If shots_fired <= 24 Then
+            LogThis("tank: {0} #{1} fired from ({2:0.0}, {3:0.0}, {4:0.0}) pitch {5:0.0} -> {6} at {7:0.0} m{8}",
+                    inst.vehicle.tag, inst.id, muzzle.X, muzzle.Y, muzzle.Z,
+                    inst.gunPitch, hit.kind.ToString(), hit.range,
+                    If(hit.kind = HitKind.Tank AndAlso hit.tank IsNot Nothing,
+                       " (" & hit.tank.vehicle.tag & " #" & hit.tank.id & ")", ""))
+        ElseIf shots_fired Mod 100 = 0 Then
+            LogThis("tank: {0} shots - {1} ground, {2} scenery, {3} tank, {4} away",
+                    shots_fired, shots_by_kind(CInt(HitKind.Ground)),
+                    shots_by_kind(CInt(HitKind.Scenery)),
+                    shots_by_kind(CInt(HitKind.Tank)),
+                    shots_by_kind(CInt(HitKind.NoHit)))
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' The muzzle for a gun whose visual does not name HP_gunFire.
+    '''
+    ''' Every stock gun does name it, so this is the path for a modded or
+    ''' malformed visual rather than the normal one. It takes the barrel bone's
+    ''' own vertices - the weighted centroid and the furthest they reach along Z
+    ''' - and goes through the FLIPPED matrix, because unlike the node tree the
+    ''' vertex data is stored Z-reversed.
+    ''' </summary>
+    Private Function measured_muzzle(inst As TankInstance, gunPart As TankPart,
+                                     model As Matrix4, ByRef muzzle As Vector3,
+                                     ByRef dir As Vector3) As Boolean
+        If FlipSkinnedZ Then model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * model
         For Each m In gunPart.meshes
             If m.layout Is Nothing OrElse m.layout.offBoneIdx < 0 Then Continue For
             Dim plan = resolve_recoil(gunPart, m)
             If plan Is Nothing OrElse plan.barrel < 0 Then Continue For
             If m.boneHubs Is Nothing OrElse m.boneTipZ Is Nothing Then Continue For
             If plan.barrel >= m.boneHubs.Length Then Continue For
-
             Dim hub = m.boneHubs(plan.barrel)
             If Single.IsNaN(hub.X) Then Continue For
-            Dim tip = m.boneTipZ(plan.barrel)
-
-            Dim world = world_matrix(inst, inst.livePosition)
-            Dim model = part_model(inst, gunPart, world)
-            If FlipSkinnedZ Then model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * model
 
             Dim back = Vector3.TransformPosition(New Vector3(hub.X, hub.Y, hub.Z), model)
-            Dim muzzle = Vector3.TransformPosition(New Vector3(hub.X, hub.Y, tip), model)
-            Dim dir = muzzle - back
-            If dir.LengthSquared < 1.0E-6F Then Continue For
-            dir = Vector3.Normalize(dir)
-
-            Dim hit = TankShots.Cast(muzzle, dir, instances, inst)
-            fx.Shot(muzzle, dir, hit)
-
-            ' THE FIRST FEW IN FULL, then a tally. Thirty guns at a round
-            ' every two seconds is fifteen lines a second forever, which
-            ' buries the load log it shares - but two dozen lines is enough to
-            ' see that the muzzle is on the barrel and the rounds are landing
-            ' on things, and a running count every hundred says whether that
-            ' is still true an hour later.
-            shots_fired += 1
-            shots_by_kind(CInt(hit.kind)) += 1
-            If shots_fired <= 24 Then
-                LogThis("tank: {0} #{1} fired from ({2:0.0}, {3:0.0}, {4:0.0}) pitch {5:0.0} -> {6} at {7:0.0} m{8}",
-                        inst.vehicle.tag, inst.id, muzzle.X, muzzle.Y, muzzle.Z,
-                        inst.gunPitch, hit.kind.ToString(), hit.range,
-                        If(hit.kind = HitKind.Tank AndAlso hit.tank IsNot Nothing,
-                           " (" & hit.tank.vehicle.tag & " #" & hit.tank.id & ")", ""))
-            ElseIf shots_fired Mod 100 = 0 Then
-                LogThis("tank: {0} shots - {1} ground, {2} scenery, {3} tank, {4} away",
-                        shots_fired, shots_by_kind(CInt(HitKind.Ground)),
-                        shots_by_kind(CInt(HitKind.Scenery)),
-                        shots_by_kind(CInt(HitKind.Tank)),
-                        shots_by_kind(CInt(HitKind.NoHit)))
-            End If
-            Return
+            muzzle = Vector3.TransformPosition(
+                New Vector3(hub.X, hub.Y, m.boneTipZ(plan.barrel)), model)
+            dir = muzzle - back
+            Return True
         Next
-    End Sub
+        Return False
+    End Function
 
     ''' <summary>Base dwell at the end of a traverse. Staggered per tank on
     ''' top of this, so a line of them does not pause as one.</summary>

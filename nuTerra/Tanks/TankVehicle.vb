@@ -239,6 +239,26 @@ Public Class TankVehicle
     Public pitchRate As Single = 20.0F
     Public pitchRateFromFile As Boolean
 
+    ''' <summary>The muzzle blast the gun names, from gun_effects.xml.</summary>
+    Public blast As BlastSpec
+
+    ''' <summary>
+    ''' Where the game starts the blast: the gun visual's own HP_gunFire node,
+    ''' accumulated down the tree, in the VISUAL's frame.
+    '''
+    ''' Not measured - named. Every gun visual carries it, under
+    ''' Scene Root / nodes_01 / Gun / G / HP_gunFire, and it is where the XML
+    ''' attaches both the pixie and the light. On the 121 it accumulates to
+    ''' z = 5.560, which is the gun's own bbMax.Z to six figures.
+    '''
+    ''' IN THE VISUAL'S FRAME, which is not the vertex data's. The skinned
+    ''' streams are stored with Z reversed and FlipSkinnedZ undoes that at draw,
+    ''' so a point taken from the node tree must NOT go through the flip or it
+    ''' comes out at the breech.
+    ''' </summary>
+    Public muzzleLocal As Vector3
+    Public hasMuzzle As Boolean
+
     ''' <summary>
     ''' The pitch envelope at a given turret yaw: X is the lowest the gun may
     ''' point, Y the highest, degrees, POSITIVE IS UP.
@@ -325,11 +345,28 @@ Public Class TankVehicle
         Dim gunOff = turretOff + v.gunPosition
 
         v.ReadAimLimits(turretEl, gunEl)
+        v.blast = TankBlast.Lookup(TankVisual.TextOf(
+            If(gunEl Is Nothing, Nothing, gunEl.SelectSingleNode("effects"))))
 
         v.AddPart("chassis", ModelOf(chassisEl), Vector3.Zero)
         v.AddPart("hull", TankVisual.TextOf(root.SelectSingleNode("hull/models/undamaged")), hullOff)
         v.AddPart("turret", ModelOf(turretEl), turretOff)
         v.AddPart("gun", ModelOf(gunEl), gunOff)
+
+        For Each p In v.parts
+            If p.label <> "gun" OrElse p.visual Is Nothing Then Continue For
+            Dim mp As Vector3
+            If p.visual.nodePos.TryGetValue("HP_gunFire", mp) Then
+                v.muzzleLocal = mp
+                v.hasMuzzle = True
+            End If
+        Next
+        LogThis("tank:   blast {0} light {1:0.00}s inner {2:0.0} outer {3:0.0}, muzzle {4}",
+                If(v.blast Is Nothing, "-", v.blast.name),
+                If(v.blast Is Nothing, 0.0F, v.blast.durationS),
+                If(v.blast Is Nothing, 0.0F, v.blast.innerRadius),
+                If(v.blast Is Nothing, 0.0F, v.blast.outerRadius),
+                If(v.hasMuzzle, v.muzzleLocal.ToString(), "not named - barrel tip"))
         Return v
     End Function
 
