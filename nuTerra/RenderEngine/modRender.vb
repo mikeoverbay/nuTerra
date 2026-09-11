@@ -474,6 +474,12 @@ Module modRender
             If SHOW_CAM_PATH Then map_scene.cam_path.DrawPath()
             If SHOW_CAM_LIGHTS Then map_scene.cam_path.DrawLights()
 
+            ' The tank markers, with the other world-space overlays and for the
+            ' same reason they are here: a marker is information, and fog
+            ' mixing it toward the fog tint would make a distant tank's card
+            ' read as faded rather than as far away.
+            map_scene.tanks.DrawBillboards()
+
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)
             GL.Disable(EnableCap.CullFace)

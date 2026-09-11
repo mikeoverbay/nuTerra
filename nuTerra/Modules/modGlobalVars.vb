@@ -1075,6 +1075,30 @@ Module modGlobalVars
     ''' else is a plumbing fault rather than an animation one.
     ''' </summary>
     Public TANK_SKINNING As Boolean = True
+
+    ''' <summary>Draw the ID and condition card over each tank.</summary>
+    Public TANK_TAGS As Boolean = True
+
+    ''' <summary>
+    ''' How tall a marker wants to be on screen, in pixels.
+    '''
+    ''' In PIXELS rather than metres because a marker is read, not looked at:
+    ''' the whole job of the ID is to be legible from across the map. The
+    ''' billboard clamps the metre size either side of this so it still
+    ''' recedes a little up close and cannot grow larger than its own tank
+    ''' far away.
+    ''' </summary>
+    Public TANK_TAG_PX As Single = 46.0F
+
+    ''' <summary>
+    ''' Sweep the two condition bars so they can be seen working.
+    '''
+    ''' A STAND-IN, NOT DATA. There is no damage model, so with this off
+    ''' every bar sits at 100% and neither the bar drawing nor the re-bake
+    ''' that follows a change can be checked at all. The values it writes are
+    ''' a per-tank sawtooth and mean nothing about the vehicle.
+    ''' </summary>
+    Public TANK_HP_DEMO As Boolean = True
     ''' <summary>
     ''' Track speed in m/s, which the wheels are spun from. The tank does not
     ''' move - this drives the ROTATION only, so the wheels turn as if it were

@@ -63,6 +63,22 @@ Public Class TankInstance
     Public headingRad As Single
     Public team As TankTeam = TankTeam.Green
     Public label As String = ""
+
+    ''' <summary>The number on the marker: 1..15 within a team, so the
+    ''' two sides read as two teams rather than as one list of thirty.</summary>
+    Public id As Integer
+
+    ''' <summary>
+    ''' Condition, 0..1, for the two bars on the marker.
+    '''
+    ''' NOTHING SIMULATES THESE YET - there is no damage model, and these
+    ''' are the hooks it will write to. Full by default; TANK_HP_DEMO drives
+    ''' them with an obvious sawtooth so the bars can be seen working, and
+    ''' turning it off leaves every tank at 100% until something real sets
+    ''' them. Whatever that turns out to be only has to assign here.
+    ''' </summary>
+    Public hullHp As Single = 1.0F
+    Public crewHp As Single = 1.0F
 End Class
 
 ''' <summary>
@@ -77,6 +93,36 @@ Public Class TankVehicle
     Public nation As String
     Public tag As String
     Public parts As New List(Of TankPart)
+
+    Private _topY As Single = Single.MinValue
+
+    ''' <summary>
+    ''' The highest point on the vehicle, metres above its own origin.
+    '''
+    ''' Each part's visual carries the bounding box the exporter wrote, so
+    ''' this is the box the game itself uses rather than a measurement of the
+    ''' vertices. Taken over the parts AT THEIR OFFSETS - the turret's box is
+    ''' in turret space and is metres below the hull's until the offset is
+    ''' added, which would put a marker inside the roof of everything with a
+    ''' tall turret.
+    '''
+    ''' Computed once on first ask: the parts do not move relative to each
+    ''' other, so this is a property of the vehicle and not of the frame.
+    ''' </summary>
+    Public ReadOnly Property topY As Single
+        Get
+            If _topY = Single.MinValue Then
+                Dim t = 0.0F
+                For Each p In parts
+                    If p.visual Is Nothing Then Continue For
+                    Dim y = p.offset.Y + p.visual.bbMax.Y
+                    If y > t Then t = y
+                Next
+                _topY = t
+            End If
+            Return _topY
+        End Get
+    End Property
     Public hullPosition As Vector3
     Public turretPosition As Vector3   ' hull-local
     Public gunPosition As Vector3      ' turret-local

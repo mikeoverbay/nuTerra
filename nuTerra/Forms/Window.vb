@@ -1687,6 +1687,29 @@ try_again:
                                          "existed. The null test.")
                     End If
                     ImGui.Separator()
+                    ImGui.Checkbox("ID markers", TANK_TAGS)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The card over each tank: its number in" & vbLf &
+                                         "the team and two condition bars." & vbLf &
+                                         "Drawn into an off-screen atlas and hung" & vbLf &
+                                         "on a camera-facing quad, so what is on" & vbLf &
+                                         "a card is ordinary 2D drawing.")
+                    End If
+                    ImGui.SliderFloat("Marker size", TANK_TAG_PX, 16.0, 120.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Card height in PIXELS, not metres - a" & vbLf &
+                                         "marker is read, not looked at. Clamped" & vbLf &
+                                         "in metres either side so it still" & vbLf &
+                                         "recedes up close.")
+                    End If
+                    ImGui.Checkbox("Demo condition bars", TANK_HP_DEMO)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("A STAND-IN. Nothing simulates damage yet," & vbLf &
+                                         "so this sweeps each tank's bars at its" & vbLf &
+                                         "own rate to show them working." & vbLf &
+                                         "Off parks every bar at 100%.")
+                    End If
+                    ImGui.Separator()
                     ImGui.Checkbox("Normal map", TANK_NORMAL_MAP)
                     ImGui.Checkbox("AO", TANK_AO)
                     ImGui.Checkbox("Environment (IBL)", TANK_IBL)

@@ -2,11 +2,12 @@
 Imports OpenTK.Graphics.OpenGL4
 
 ''' <summary>
-''' The tank module's face to the rest of nuTerra. The core touches it in two
-''' places only: MapScene owns one (construct / dispose) and draw_scene calls
-''' Draw() once, after the static models. Everything else - the vehicle XML,
-''' the primitives, the visuals, the textures, the shader - lives under
-''' nuTerra\Tanks and shaders\Tanks.
+''' The tank module's face to the rest of nuTerra. The core touches it in three
+''' places only: MapScene owns one (construct / dispose), draw_scene calls
+''' Draw() once after the static models, and calls DrawBillboards() once more
+''' late in the frame with the other world-space overlays. Everything else -
+''' the vehicle XML, the primitives, the visuals, the textures, the shaders -
+''' lives under nuTerra\Tanks and shaders\Tanks.
 '''
 ''' Loading is lazy, on the first Draw after the map is up, so no load-order
 ''' hook is needed in the map loader.
@@ -39,6 +40,7 @@ Public Class MapTanks
     Public Shared FlipSkinnedZ As Boolean = True
 
     Private ReadOnly scene As MapScene
+    Private cards As TankCards
     Private shader As Shader
     Private loaded As Boolean
     Private failed As Boolean
@@ -175,7 +177,7 @@ Public Class MapTanks
                     .vehicle = v, .position = New Vector3(x, y, z),
                     .headingRad = heading,
                     .team = If(team = 1, TankTeam.Green, TankTeam.Red),
-                    .label = r.Item2})
+                    .label = r.Item2, .id = k + 1})
                 LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
                         team, k, r.Item1, v.tag, x, y, z, obstacle_at(x, z),
                         armor_text(r.Item1))
@@ -700,6 +702,52 @@ Public Class MapTanks
     End Sub
 
     ''' <summary>
+    ''' The ID and condition card over each tank.
+    '''
+    ''' SEPARATE FROM Draw, and late in the frame. Draw writes the G-buffer and
+    ''' its pixels are then lit, fogged and tonemapped like any model's - which
+    ''' is right for a hull and wrong for a marker, whose whole job is to be
+    ''' read. This runs after all of that, straight into the finished frame,
+    ''' with no depth test so a card is never lost behind the tank in front.
+    '''
+    ''' The positions come from shuttle_position, the same call Draw uses, so a
+    ''' card cannot lag its tank by a frame.
+    ''' </summary>
+    Public Sub DrawBillboards()
+        If Not TANK_TAGS OrElse Not Enabled Then Return
+        If failed OrElse Not loaded OrElse instances.Count = 0 Then Return
+
+        advance_demo_hp()
+        If cards Is Nothing Then cards = New TankCards()
+        cards.Bake(instances)
+        cards.Draw(instances, Function(inst) shuttle_position(inst))
+    End Sub
+
+    ''' <summary>
+    ''' Move the demo condition bars.
+    '''
+    ''' Each tank drains at its OWN rate from its own starting phase, so thirty
+    ''' markers show thirty different bars instead of one value copied thirty
+    ''' times - which is the only arrangement that would show a card baking the
+    ''' wrong slot. Crew falls more slowly than hull because two bars that move
+    ''' together are indistinguishable from one bar drawn twice.
+    '''
+    ''' Nothing here is a measurement. See TANK_HP_DEMO.
+    ''' </summary>
+    Private Sub advance_demo_hp()
+        If Not TANK_HP_DEMO Then Return
+        demo_t += DELTA_TIME
+        For i = 0 To instances.Count - 1
+            Dim rate = 0.030F + 0.004F * ((i * 7) Mod 11)
+            Dim phase = CSng((demo_t * rate + i * 0.137F) Mod 1.0F)
+            instances(i).hullHp = 1.0F - phase
+            instances(i).crewHp = 1.0F - phase * 0.55F
+        Next
+    End Sub
+
+    Private Shared demo_t As Single
+
+    ''' <summary>
     ''' Where an instance is this frame: its parked spot, walked forward along
     ''' its own heading, re-seated on the terrain.
     '''
@@ -890,6 +938,8 @@ Public Class MapTanks
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
+        cards?.Dispose()
+        cards = Nothing
         For Each v In vehicles
             v.Dispose()
         Next
