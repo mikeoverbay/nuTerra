@@ -107,6 +107,20 @@ uniform float sh_grid_floor;
 // which the PBS_tank decode proves is (GLOSS, METALLIC). The block below uses
 // its own g_gloss / g_metal so the mistake cannot ride along.
 uniform int pbr_spec;
+// The tank shader's material model on map MODELS (tank_gbuffer.frag is the
+// reference - the milk cans are meant to read like the hulls). PBR path
+// only; with tank_mat 0 nothing below that reads it runs. gmm_curve is the
+// Tank Exporter's curve on the gloss/metal map; tank_env the gain on the
+// environment term, 1 being the tank's own weighting.
+uniform int   tank_mat;
+uniform int   gmm_curve;
+uniform float tank_env;
+// How the cube is read for the environment term: 0 sRGB, as the tank shader
+// reads it; 1 the game's PMREM decode. The cube on disk IS the game's
+// probes/global/pmrem.dds (DXT5, HDR exponent in alpha; the monastery's
+// spans alpha 25..255, decoded mean 2.8 against 0.64 read as sRGB), so 1 is
+// the encoding the texture actually has and 0 is a quarter of the light.
+uniform int   env_pmrem;
 
 // --------------------------------------------------------------------------
 // Point lights loaded from the map's .campath, placed in Path Studio.
@@ -1029,6 +1043,32 @@ void main (void)
 
             float metal = GM_in.r;
 
+            // Tank material (tank_mat, models only, PBR path): the gloss and
+            // metal the tank shader would see. The Tank Exporter curves -
+            //   gloss = pow(R / 0.8, 7) floored 0.02, metal = min(pow(G / 0.5, 5) * 1.5, 1)
+            // - crush the low end and pull the top out: the milk cans sit at
+            // R 0.29 / G 0.24 on the body and go matte dielectric, their rims
+            // at G 0.8 go full metal. Read once here, shared by the diffuse
+            // energy term and the PBR block below.
+            const bool tank_pbr = (tank_mat != 0) && is_model && (pbr_spec != 0);
+            float t_gloss = clamp(GM_in.r, 0.0, 1.0);
+            float t_metal = clamp(GM_in.g, 0.0, 1.0);
+            // gmm_curve: 0 raw bytes; 1 the Tank Exporter curves; 2 the
+            // GAME's decode - pow(x, 2.2) on both, the sRGB-to-linear read
+            // its resolve does before it lights anything (GAME_LIGHTING_MODEL,
+            // "pow(GB0.x, gamma)"). On the milk cans' body, G 0.45: the tank
+            // curve says 0.79 metal, the game says 0.17. Measured with the
+            // curve, the body lost its diffuse and went dark in the wall's
+            // shade; the game's reading keeps it a painted can with a metal
+            // rim, which is the frame the owner held up.
+            if (tank_pbr && gmm_curve == 1) {
+                t_gloss = clamp(pow(t_gloss / 0.8, 7.0), 0.02, 1.0);
+                t_metal = clamp(pow(t_metal / 0.5, 5.0) * 1.5, 0.0, 1.0);
+            } else if (tank_pbr && gmm_curve == 2) {
+                t_gloss = pow(t_gloss, 2.2);
+                t_metal = pow(t_metal, 2.2);
+            }
+
             if ((FLAG & 192u) != 0u) {
                 //---------------------------------------------
                 // Poor mans PBR :)
@@ -1275,7 +1315,22 @@ void main (void)
 
                 // sun_shadow was computed above, before ambient was weighted -
                 // the two have to agree on how much sun arrives here.
-                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_shadow;
+                // Tank material: a metal has no diffuse. The tank shader's
+                // diffuseColor is albedo * (1 - F0) * (1 - metal), and
+                // final_color holds only the SH ambient at this point - the
+                // same diffuse response - so it is scaled the same way. The
+                // environment term in the PBR block is what a metal gets
+                // instead of this.
+                // (The tank's 1 - F0 on the dielectric is left out: it is a
+                // 4% darkening of every wall that the tank rig's own light
+                // levels absorb and this scene's do not.)
+                // The game's energy term, not the tank's linear one:
+                // 1 - min(metal^2 * 3.2, 1) is flat until ~0.3 and gone by
+                // 0.56, so a body at 0.17 keeps 91% of its diffuse and a rim
+                // at 0.66 keeps none.
+                float t_diff = tank_pbr ? (1.0 - min(t_metal * t_metal * 3.2, 1.0)) : 1.0;
+                if (tank_pbr) final_color.xyz *= t_diff;
+                final_color.xyz += max(lambertTerm * color_in.xyz * color.xyz ,0.0) * sun_shadow * t_diff;
 
 
 
@@ -1300,8 +1355,8 @@ void main (void)
                 if (pbr_spec != 0) {
                     // ---- the game's specular, sections 3 and 4 -------------
                     // Channels named straight - see the uniform's comment.
-                    float g_gloss = clamp(GM_in.r, 0.0, 1.0);
-                    float g_metal = clamp(GM_in.g, 0.0, 1.0);
+                    float g_gloss = tank_pbr ? t_gloss : clamp(GM_in.r, 0.0, 1.0);
+                    float g_metal = tank_pbr ? t_metal : clamp(GM_in.g, 0.0, 1.0);
 
                     float alphaR = 1.0 - g_gloss * g_gloss;
                     float NdotV  = abs(dot(N, V));
@@ -1353,6 +1408,64 @@ void main (void)
                                          * (lambertTerm * (1.0 - k) + k), 1e-4);
 
                     specular = lambertTerm * D * Vis * F * props.SPECULAR;
+
+                    if (tank_pbr) {
+                        // ---- the tank shader's material composite ----------
+                        // F0 is 0.04 for a dielectric and the albedo for a
+                        // metal - the tank's specularColor, used by the
+                        // environment term below.
+                        //
+                        // The direct sun lobe stays the GAME's, above: GGX
+                        // with its low-gloss floor, which is a broad sheen on
+                        // every sunlit model. The tank gates its own lobe by
+                        // the raw gloss byte and 6 x the curved gloss, and
+                        // on these maps (R ~0.3) that is x0.035 - measured
+                        // as -17 levels on the sunlit table top, -19 on the
+                        // cans. The tank rig hides that under three lights;
+                        // one sun does not. Its softer Fresnel (F0 -> F90
+                        // over (1 - VdotH)^2) is left out for the same
+                        // reason the owner dragged Fresnel off on 09-08.
+                        vec3  specColor = mix(vec3(0.04), color_in.rgb, g_metal);
+                        // Its scratch highlight: specTint * (R.V)^10 * metal.
+                        // The tank reads a detail map for the scratch; a map
+                        // model has none, so the exporter's fallback (0.4,
+                        // which collapses it to the metal) applies.
+                        specular += specTint * pow(max(dot(R, V), 0.0), 10.0) * g_metal * props.SPECULAR;
+
+                        // ---- the environment, as the tank reads this cube --
+                        // World-space reflection off the geometry, x negated
+                        // for the D3D cube (839ccd25 / env_dir), sRGB decoded,
+                        // the mip walked by roughness over the tank's 4 levels,
+                        // the split-sum LUT on (alphaRoughness, NdotV), then
+                        // weighted by NdotV and gloss exactly as the tank
+                        // weights its IBL. A rough surface gets almost none -
+                        // the whole difference from the term computed above
+                        // and thrown away, which every wall took at full
+                        // strength.
+                        vec3  R_wt    = normalize(mat3(invView) * R_env_raw);
+                        R_wt.x = -R_wt.x;
+                        float rough_t = 1.0 - g_gloss;
+                        vec4  cube_t  = textureLod(cubeMap, R_wt, rough_t * 4.0);
+                        vec3  env_t   = (env_pmrem != 0)
+                                      ? cube_t.rgb * cube_t.rgb * exp2(9.0 * cube_t.a) * 0.125
+                                      : SRGBtoLINEAR(cube_t).rgb;
+                        vec2  ab_t    = texture(env_brdf_lut, vec2(rough_t * rough_t, NdotV)).xy;
+                        // Weighted by NdotV x gloss for a DIELECTRIC, as the
+                        // tank weights its IBL - a rough wall gets almost none,
+                        // no grazing flare - but at FULL weight for a METAL, as
+                        // the game's specAmbient does: a rough metal with no
+                        // diffuse left has nothing else to show, and its blurred
+                        // sky at full strength is the aluminium in the game
+                        // frame. The tank's own weighting under one sun leaves a
+                        // rough metal dark - measured on the milk cans: -70%.
+                        float env_w   = mix(NdotV * g_gloss, 1.0, g_metal);
+                        vec3  ibl_t   = env_t * (specColor * ab_t.x + ab_t.y) * env_w;
+                        // Occluded by the model's baked AO, scaled by Ambient
+                        // Level - the cube is the sky, and that is what the
+                        // sky is worth in this frame - and by the gain. Not
+                        // shadowed by the sun: it is the sky, not the sun.
+                        final_color.xyz += ibl_t * (1.0 - model_occl) * props.AMBIENT * tank_env;
+                    }
                     prefilteredColor = vec4(specAmbient, c.a);
                 } else {
                     vec4 brdf = SRGBtoLINEAR( texture2D( env_brdf_lut,

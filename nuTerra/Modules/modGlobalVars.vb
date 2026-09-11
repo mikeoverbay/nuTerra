@@ -814,6 +814,36 @@ Module modGlobalVars
     ''' </summary>
     Public PBR_SPEC As Boolean = False
 
+    ''' <summary>
+    ''' The tank shader's material model on map models, in the PBR path: the
+    ''' Tank Exporter GMM curves, no diffuse on a metal, its Fresnel and its
+    ''' gloss-gated lobe, and the environment read off the sky cube the way
+    ''' tank_gbuffer.frag reads it. Off: not one instruction of it runs.
+    ''' Persisted as tank_mat.
+    ''' </summary>
+    Public TANK_MAT As Boolean = False
+
+    ''' <summary>
+    ''' How a model's gloss/metal bytes are read under TANK_MAT: 0 raw, 1 the
+    ''' Tank Exporter curves (gloss = pow(R / 0.8, 7), metal = min(pow(G / 0.5,
+    ''' 5) * 1.5, 1)), 2 the game's own decode (pow(x, 2.2) on both). Persisted
+    ''' as gmm_curve.
+    ''' </summary>
+    Public GMM_CURVE As Integer = 2
+
+    ''' <summary>
+    ''' Gain on the environment term under TANK_MAT. 1 is the tank's own
+    ''' weighting (NdotV x gloss, times Ambient Level). Persisted as tank_env.
+    ''' </summary>
+    Public TANK_ENV As Single = 1.0F
+
+    ''' <summary>
+    ''' Under TANK_MAT, read the sky cube for the environment term with the
+    ''' game's PMREM decode (rgb^2 * 2^(9a) / 8 - the encoding the file has)
+    ''' rather than as sRGB the way the tank shader does. Persisted as env_pmrem.
+    ''' </summary>
+    Public ENV_PMREM As Boolean = True
+
     Public SH_GRID_CURVE As Single = 1.0F
     Public SH_GRID_FLOOR As Single = 0.0F
 

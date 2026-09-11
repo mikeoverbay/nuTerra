@@ -193,6 +193,10 @@ Public Module modMapSettings
         Yield ("sh_grid_curve", Function() SH_GRID_CURVE, Sub(v) SH_GRID_CURVE = v)
         Yield ("sh_grid_floor", Function() SH_GRID_FLOOR, Sub(v) SH_GRID_FLOOR = v)
         Yield ("pbr_spec", Function() B2F(PBR_SPEC), Sub(v) PBR_SPEC = F2B(v))
+        Yield ("tank_mat", Function() B2F(TANK_MAT), Sub(v) TANK_MAT = F2B(v))
+        Yield ("gmm_curve", Function() CSng(GMM_CURVE), Sub(v) GMM_CURVE = CInt(Math.Round(v)))
+        Yield ("tank_env", Function() TANK_ENV, Sub(v) TANK_ENV = v)
+        Yield ("env_pmrem", Function() B2F(ENV_PMREM), Sub(v) ENV_PMREM = F2B(v))
 
         ' booleans, stored as 0/1 so the file stays one shape throughout
         Yield ("use_sh_ambient", Function() B2F(USE_SH_AMBIENT), Sub(v) USE_SH_AMBIENT = F2B(v))

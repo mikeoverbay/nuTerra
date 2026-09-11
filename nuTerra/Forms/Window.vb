@@ -2639,6 +2639,45 @@ try_again:
                     ImGui.Text("   GGX + Schlick-Gaussian F + Smith-Schlick Vis")
                     ImGui.Text("   env LUT indexed (alphaRoughness, NdotV)")
 
+                    ' ---- the tank shader's material model on models ---------
+                    ' Needs PBR specular on. Off: the frame is what it was.
+                    If ImGui.Checkbox("Tank material (models)", TANK_MAT) Then
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Light map models with the tank shader's material" & vbLf &
+                                         "model: no diffuse on a metal, its Fresnel, its" & vbLf &
+                                         "gloss-gated lobe, and the sky cube reflected the" & vbLf &
+                                         "way tank_gbuffer.frag reads it. PBR path only." & vbLf &
+                                         "Models only - terrain and trees are untouched.")
+                    End If
+                    If TANK_MAT Then
+                        Dim v_gmm = GMM_CURVE
+                        If ImGui.SliderInt("   GMM decode", v_gmm, 0, 2, If(v_gmm = 0, "raw bytes", If(v_gmm = 1, "Tank Exporter curves", "game (pow 2.2)"))) Then
+                            GMM_CURVE = v_gmm
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("How the gloss/metal bytes are read:" & vbLf &
+                                             "raw - as stored;" & vbLf &
+                                             "Tank Exporter - gloss = pow(R/0.8, 7), metal = pow(G/0.5, 5) x 1.5;" & vbLf &
+                                             "game - pow(x, 2.2) on both, the resolve's own decode." & vbLf &
+                                             "The milk cans' body is G 0.45: 0.79 metal by the curves," & vbLf &
+                                             "0.17 by the game.")
+                        End If
+                        If ImGui.SliderFloat("   Env specular", TANK_ENV, 0.0, 4.0) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Gain on the reflected sky. 1 is the tank's own" & vbLf &
+                                             "weighting; 0 is off.")
+                        End If
+                        If ImGui.Checkbox("   Env cube as PMREM (game decode)", ENV_PMREM) Then
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("The cube on disk is the game's HDR PMREM. On: decode it" & vbLf &
+                                             "as the game does (about 4x the light of the sRGB read)." & vbLf &
+                                             "Off: read it as sRGB, the way the tank shader does.")
+                        End If
+                    End If
+
                     Dim v_spec = CommonProperties.SPECULAR
                     If ImGui.SliderFloat("Spec Level", v_spec, 0.0, 1.0) Then
                         CommonProperties.SPECULAR = v_spec
