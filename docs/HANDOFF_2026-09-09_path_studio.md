@@ -168,3 +168,37 @@ the keeper is his call.
 - Bash heredocs with apostrophes fail in this harness; the Write tool with a
   Python patch script of exactly-once anchors is the reliable way to land a
   large edit.
+
+## 8. Added 2026-09-10/11: the 3D view (`View3D` in `path_studio.py`)
+
+A checkbox beside "Show Radar Imaging" opens a window drawing the bake in
+3D. It went through three renderers in a day, each measured on the monastery
+at 640 x 420; the numbers are why it is what it is:
+
+| renderer | full frame | drag preview | commit |
+|---|---|---|---|
+| per-pixel ray march over the height grid | 1.5 s, then 0.5 s two-level | 0.45 / 0.16 s | `0e214c9b`, `abda2f34` |
+| one box per grid cell, painter's order | 0.33 s | 0.05 s | `3d5d6c7a` |
+| **greedy-meshed faces** (current) | **0.22 s** | **0.03 s** | this commit |
+
+The current one: every object above 2 m is flattened to one level (95th
+percentile of its own top) so a house is a box with its footprint; heights
+are quantised to 0.5 m; then greedy meshing (Lysenko, "Meshing in a
+Minecraft Game", 0fps.net 2012) merges equal-height tops into rectangles
+and equal-span walls into runs, capped at 12 cells so the painter's order
+holds. No bottoms and no shared faces are ever made; ground steps under 1 m
+get no wall. Monastery at 256: 34k tops + 43k walls = 77k faces for 65k
+cells, ~25k drawn from a typical viewpoint. The mesh is built once per grid
+size (0.5 s at 256) and kept; a frame projects, culls, sorts, and PIL fills.
+
+**Picking is there.** On a full render every quad is also stamped with its
+face number into an integer image; each face is a plane, so the pixel's ray
+meets it at an exact point: `view3d.hit[y, x]` is the world point behind the
+pixel (nan for sky) and `view3d.depth[y, x]` its camera depth. Verified:
+100 % of hit points lie on a face plane. Previews (128 grid, during a drag)
+skip the pass; overlays return with the full frame.
+
+Controls in the window: objects as boxes on/off, grid 128 / 256; drag
+orbits, wheel zooms, middle-drag pans. Tk has no GL surface, which is why it
+is PIL and numpy; the shader version (PyOpenGL + pygame are both installed)
+is the next step if it ever needs to be real-time.

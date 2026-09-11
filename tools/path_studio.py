@@ -1009,28 +1009,30 @@ class AmGrid:
 
 
 # --------------------------------------------------------------------------
-# The 3D view: the bake as cubes, with a depth buffer under every pixel
+# The 3D view: the bake as a greedy-meshed block world, with a depth buffer
 # --------------------------------------------------------------------------
-# Geometry, drawn once per frame: one box per grid cell, its top at the cell
-# height, and of its four sides only the two that face the camera and only
-# where they stand above the neighbour - the rest is hidden by the cube
-# itself or by the next one. Painter's order, farthest cell first, so nothing
-# needs a per-pixel test; PIL fills the polygons. Tk has no GL surface, which
-# is why this is PIL and not a vertex shader, but the shape of it is the same:
-# a flat grid, the height read per cell, no mesh built anywhere.
+# Geometry, and only the geometry that can be seen. Every grid cell is a
+# column with a flat top; between two columns of different height there is
+# one wall, facing the lower one; there are no bottoms and no shared faces,
+# because they never get made. Then the faces are MERGED - greedy meshing,
+# Lysenko's "Meshing in a Minecraft Game" (0fps.net, 2012): sweep a plane,
+# grow the largest rectangle of identical faces from each unused cell, emit
+# one quad, mark it used. For a height field the two sweeps are: tops merge
+# into rectangles of equal height (heights quantised to QUANT so flat ground
+# merges too), walls merge into runs of equal top-and-bottom along an edge.
+# Rectangles are capped at MERGE_MAX cells a side, because the frame is
+# painter's order and a face that spans near to far has no single depth.
 #
-# Picking and occlusion come from an ID pass: on a full render every polygon
-# is stamped a second time with its cell number into an integer image. The
-# cell's camera depth looked up through that is the z-buffer, and the cell's
-# centre is the world point behind the pixel - what placing anything in this
-# window will read. A drag renders the coarse grid and skips the ID pass.
+# The mesh is built once per grid size and kept; a frame projects it, culls
+# the walls facing away and everything off screen, sorts by farthest corner,
+# and PIL fills the quads. Tk has no GL surface - this is the vertex shader
+# done by hand.
 #
-# What is drawn is what the 2D map shows: the TOP layer (terrain plus every
-# object) coloured from the mask picture the canvas uses, every object
-# flattened to one level and one colour so a house is a box with its own
-# footprint and height; the route in pink at flight height, the other
-# direction faint, the splits ringed, the points and the lights - each only
-# where the cubes do not hide it.
+# Picking and occlusion come from an ID pass on full renders: every quad is
+# stamped a second time with its face number into an integer image, and each
+# face is a plane the pixel's ray is intersected with - so the world point
+# behind a pixel is exact, not a cell centre, and the camera depth of that
+# point is the z-buffer. A drag renders the coarse grid and skips the pass.
 
 class View3D:
     GRIDS = (128, 256)   # cells a side: the choice for full frames
@@ -1040,8 +1042,13 @@ class View3D:
     SKY = (11, 13, 18)
     OBJ_H = 2.0          # an obstacle this far over its ground is an OBJECT, boxed
     OBJ_RGB = (205, 150, 40)   # one colour for every box; height is visible here
-    SIDE_X = 0.62        # the two side faces, darker than the top, unequal to each other
+    SIDE_X = 0.62        # the two wall directions, darker than the tops, unequal
     SIDE_Z = 0.45
+    QUANT = 0.5          # metres a height is rounded to before faces are compared
+    MERGE_MAX = 12       # cells a merged face may span, either way
+    WALL_MIN = 1.0       # a step between neighbours shorter than this gets no wall:
+                         # from above it is invisible, and on sloping ground it is
+                         # most of the walls there are
 
     def __init__(self, studio):
         self.studio = studio
@@ -1054,7 +1061,6 @@ class View3D:
         self.canvas = tk.Canvas(top, width=self.FULL[0], height=self.FULL[1],
                                 bg="#0b0d12", highlightthickness=0)
         self.canvas.pack()
-        # Objects as boxes, and the grid for full frames. Both rebuild.
         row = ttk.Frame(top)
         row.pack(fill="x", padx=6, pady=(4, 0))
         self.boxes = tk.BooleanVar(value=True)
@@ -1077,8 +1083,8 @@ class View3D:
         self.canvas.bind("<MouseWheel>", self.on_wheel)
         self.drag = None
         self.photo = None
-        self.levels = {}         # grid size -> everything prepared for it
-        self.terrain = None      # (image, depth, hit, camera, full) of the last render
+        self.levels = {}         # grid size -> the mesh and everything it needs
+        self.terrain = None      # (image, depth, hit, camera, full, level) of the last render
         self.depth = None        # camera depth per pixel, inf = sky (last FULL render)
         self.hit = None          # world x, y, z behind every pixel, nan = sky (last FULL render)
         self.cam = None
@@ -1115,44 +1121,161 @@ class View3D:
             self.invalidate()
 
     def prep(self, G, top, obj):
-        """Everything one grid size needs that does not depend on the
-        camera: heights, the cell corners in world, the neighbour heights the
-        side faces are cut to, the slope shading."""
+        """One grid size: the heights, the slope shading, and the merged
+        mesh - everything that does not depend on the camera."""
         b = self.bake
         fy, fx = max(1, b.h // G), max(1, b.w // G)
-        H = top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
+        Hraw = top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
         F = b.floor[:G * fy, :G * fx].reshape(G, fy, G, fx).mean(axis=(1, 3)).astype(np.float32)
         cs = (self.wx_max - self.wx_min) / G
         objc = (obj[:G * fy, :G * fx].reshape(G, fy, G, fx).any(axis=(1, 3))
                 if obj is not None else None)
-        # Lambert off the slope for the tops. Rows run with -z, so d/dz is -gz.
-        gz, gx = np.gradient(H, cs, cs)
+        # Quantised heights are what the faces are built from and compared
+        # by: two cells the same to QUANT share a top.
+        Hq = np.round(Hraw / self.QUANT).astype(np.int32)
+        H = Hq.astype(np.float32) * self.QUANT
+        # Lambert off the slope of the real heights, for the tops.
+        gz, gx = np.gradient(Hraw, cs, cs)
         nx, ny, nz = -gx, np.ones_like(gx), gz
         nl = np.sqrt(nx * nx + ny * ny + nz * nz)
         L = np.array([-0.5, 0.75, 0.45])
         L /= np.linalg.norm(L)
         shade = (0.45 + 0.55 * np.clip((nx * L[0] + ny * L[1] + nz * L[2]) / nl,
                                        0.0, 1.0)).astype(np.float32)
-        xs = self.wx_min + np.arange(G + 1, dtype=np.float32) * cs
-        zs = self.wz_max - np.arange(G + 1, dtype=np.float32) * cs
-        X0, Z0 = np.meshgrid(xs[:-1], zs[:-1])
-        X1, Z1 = np.meshgrid(xs[1:], zs[1:])
-        # the four top corners of every cell, in the order 0 (x0,z0) 1 (x1,z0)
-        # 2 (x1,z1) 3 (x0,z1) - z0 is the north edge (row above)
-        cxs = np.stack([X0, X1, X1, X0], axis=-1)
-        czs = np.stack([Z0, Z0, Z1, Z1], axis=-1)
-        Hp = np.pad(H, 1, mode="edge")
-        hn = (Hp[1:-1, :-2], Hp[1:-1, 2:],     # x- neighbour, x+ neighbour
-              Hp[2:, 1:-1], Hp[:-2, 1:-1])     # z- neighbour (row below), z+ (row above)
-        return {"G": G, "H": H, "F": F, "cs": cs, "objc": objc, "shade": shade,
-                "cxs": cxs, "czs": czs, "cx": 0.5 * (X0 + X1), "cz": 0.5 * (Z0 + Z1),
-                "hn": hn}
+        lv = {"G": G, "H": H, "Hq": Hq, "F": F, "cs": cs, "objc": objc, "shade": shade}
+        self.mesh(lv)
+        return lv
+
+    def mesh(self, lv):
+        """Greedy meshing of the column world into the fewest quads.
+
+        Tops: from each unused cell, grow a rectangle of equal Hq to the
+        right, then down, up to MERGE_MAX each way; emit it, mark it used.
+        Walls: along every column edge and every row edge, wherever the two
+        cells differ in height there is a wall from the lower top to the
+        higher, facing the lower cell; consecutive edges with the same span
+        and facing merge into one run, up to MERGE_MAX long. Nothing else is
+        made - no bottoms, no wall where the heights agree.
+
+        Stored as arrays: corners (N, 4, 3) world, kind (0 top, 1 x-wall,
+        2 z-wall), plane constant (the y, x or z the face lies in), normal
+        sign for walls, and the cell span for the colour.
+        """
+        G, Hq, H, cs = lv["G"], lv["Hq"], lv["H"], lv["cs"]
+        M = self.MERGE_MAX
+        x_edge = self.wx_min + np.arange(G + 1, dtype=np.float32) * cs
+        z_edge = self.wz_max - np.arange(G + 1, dtype=np.float32) * cs
+
+        # ---- tops -------------------------------------------------------
+        used = np.zeros((G, G), dtype=bool)
+        rects = []                      # (r0, c0, r1, c1) exclusive ends
+        Hl = Hq.tolist()
+        for r in range(G):
+            row = Hl[r]
+            urow = used[r]
+            c = 0
+            while c < G:
+                if urow[c]:
+                    c += 1
+                    continue
+                v = row[c]
+                w = 1
+                while c + w < G and w < M and not urow[c + w] and row[c + w] == v:
+                    w += 1
+                h = 1
+                while (r + h < G and h < M
+                       and not used[r + h, c:c + w].any()
+                       and (Hq[r + h, c:c + w] == v).all()):
+                    h += 1
+                used[r:r + h, c:c + w] = True
+                rects.append((r, c, r + h, c + w))
+                c += w
+        rects = np.asarray(rects, dtype=np.int32).reshape(-1, 4)
+        r0, c0, r1, c1 = rects.T
+        y = H[r0, c0]
+        x0, x1 = x_edge[c0], x_edge[c1]
+        z0, z1 = z_edge[r0], z_edge[r1]
+        top_corners = np.stack([np.stack([x0, y, z0], -1), np.stack([x1, y, z0], -1),
+                                np.stack([x1, y, z1], -1), np.stack([x0, y, z1], -1)], axis=1)
+
+        # ---- walls ------------------------------------------------------
+        def runs(keys, valid):
+            """Run-length merge along axis 1 of a (lines, n) key array, only
+            where valid; runs capped at M. Returns (line, start, end) arrays."""
+            lines, n = keys.shape
+            out = []
+            for li in range(lines):
+                k = keys[li]
+                ok = valid[li]
+                if not ok.any():
+                    continue
+                # boundaries where the key changes or validity changes
+                change = np.ones(n, dtype=bool)
+                change[1:] = (k[1:] != k[:-1]) | (ok[1:] != ok[:-1])
+                starts = np.nonzero(change)[0]
+                ends = np.append(starts[1:], n)
+                for s, e in zip(starts.tolist(), ends.tolist()):
+                    if not ok[s]:
+                        continue
+                    while s < e:
+                        out.append((li, s, min(e, s + M)))
+                        s += M
+            return np.asarray(out, dtype=np.int32).reshape(-1, 3)
+
+        # x-walls: between column c and c+1, along the rows. Facing +x when
+        # the right cell (c+1) is lower, else -x.
+        hl, hr = Hq[:, :-1], Hq[:, 1:]                       # (G, G-1)
+        lo = np.minimum(hl, hr)
+        hi = np.maximum(hl, hr)
+        fx_ = np.where(hr < hl, 1, -1).astype(np.int32)      # normal sign on x
+        key = (lo.astype(np.int64) << 24) ^ (hi.astype(np.int64) << 4) ^ (fx_ + 1)
+        wall_q = int(round(self.WALL_MIN / self.QUANT))
+        xw = runs(key.T, ((hi - lo) >= wall_q).T)             # lines = edge index (c+1), along r
+        ec, rs, re = xw.T
+        xe = x_edge[ec + 1]
+        wlo = lo[rs, ec].astype(np.float32) * self.QUANT
+        whi = hi[rs, ec].astype(np.float32) * self.QUANT
+        za, zb = z_edge[rs], z_edge[re]
+        xw_corners = np.stack([np.stack([xe, whi, za], -1), np.stack([xe, whi, zb], -1),
+                               np.stack([xe, wlo, zb], -1), np.stack([xe, wlo, za], -1)], axis=1)
+        xw_sign = fx_[rs, ec]
+        xw_high = np.where(xw_sign > 0, ec, ec + 1)          # the higher cell's column
+        # z-walls: between row r (north, larger z) and r+1, along the columns.
+        # Facing +z when the north cell (r) is lower, else -z.
+        hn, hs = Hq[:-1, :], Hq[1:, :]                       # (G-1, G)
+        lo = np.minimum(hn, hs)
+        hi = np.maximum(hn, hs)
+        fz_ = np.where(hn < hs, 1, -1).astype(np.int32)
+        key = (lo.astype(np.int64) << 24) ^ (hi.astype(np.int64) << 4) ^ (fz_ + 1)
+        zw = runs(key, (hi - lo) >= wall_q)                   # lines = edge index (r+1), along c
+        er, cs_, ce = zw.T
+        ze = z_edge[er + 1]
+        wlo = lo[er, cs_].astype(np.float32) * self.QUANT
+        whi = hi[er, cs_].astype(np.float32) * self.QUANT
+        xa, xb = x_edge[cs_], x_edge[ce]
+        zw_corners = np.stack([np.stack([xa, whi, ze], -1), np.stack([xb, whi, ze], -1),
+                               np.stack([xb, wlo, ze], -1), np.stack([xa, wlo, ze], -1)], axis=1)
+        zw_sign = fz_[er, cs_]
+        zw_high = np.where(zw_sign > 0, er + 1, er)          # the higher cell's row
+
+        nt, nx_, nz_ = len(rects), len(xw), len(zw)
+        lv["corners"] = np.concatenate([top_corners, xw_corners, zw_corners]).astype(np.float32)
+        lv["kind"] = np.concatenate([np.zeros(nt, np.int8), np.ones(nx_, np.int8),
+                                     np.full(nz_, 2, np.int8)])
+        lv["const"] = np.concatenate([y, xe, ze]).astype(np.float32)
+        lv["sign"] = np.concatenate([np.zeros(nt, np.int8), xw_sign.astype(np.int8),
+                                     zw_sign.astype(np.int8)])
+        # the cells each face takes its colour from
+        lv["tops"] = rects
+        lv["xw_cell"] = (rs, xw_high)      # (row, col) of the higher cell at the run start
+        lv["zw_cell"] = (zw_high, cs_)
+        lv["counts"] = (nt, nx_, nz_)
 
     def set_colours(self):
-        """The cube colours, off the same picture the 2D canvas shows -
-        mirrored back, since mask_full is mirrored on X for the canvas - with
-        every box in one colour, then the top and the two sides as the lists
-        of tuples the draw loop hands PIL."""
+        """Face colours off the same picture the 2D canvas shows - mirrored
+        back, since mask_full is mirrored on X for the canvas - with every
+        box in one colour; a merged top takes the mean of its cells, a wall
+        the colour of the higher cell it belongs to, darkened per direction."""
         m = self.studio.mask_full
         for lv in self.levels.values():
             G = lv["G"]
@@ -1163,13 +1286,21 @@ class View3D:
                 col = np.ascontiguousarray(arr[..., :3]).copy()
             if lv["objc"] is not None:
                 col[lv["objc"]] = self.OBJ_RGB
-            colf = col.astype(np.float32)
-            topc = np.clip(colf * lv["shade"][..., None], 0, 255).astype(np.uint8)
-            lv["top_rgb"] = [tuple(c) for c in topc.reshape(-1, 3).tolist()]
-            lv["sx_rgb"] = [tuple(c) for c in np.clip(colf * self.SIDE_X, 0, 255)
-                            .astype(np.uint8).reshape(-1, 3).tolist()]
-            lv["sz_rgb"] = [tuple(c) for c in np.clip(colf * self.SIDE_Z, 0, 255)
-                            .astype(np.uint8).reshape(-1, 3).tolist()]
+            colf = col.astype(np.float32) * lv["shade"][..., None]
+            # tops: mean over the rectangle, through a summed-area table so
+            # 30 000 rectangles cost one pass
+            S = np.zeros((G + 1, G + 1, 3), dtype=np.float64)
+            S[1:, 1:] = colf.cumsum(0).cumsum(1)
+            r0, c0, r1, c1 = lv["tops"].T
+            area = ((r1 - r0) * (c1 - c0))[:, None]
+            tot = S[r1, c1] - S[r0, c1] - S[r1, c0] + S[r0, c0]
+            top_rgb = np.clip(tot / area, 0, 255).astype(np.uint8)
+            xr, xc = lv["xw_cell"]
+            zr, zc = lv["zw_cell"]
+            xw_rgb = np.clip(col[xr, xc].astype(np.float32) * self.SIDE_X, 0, 255).astype(np.uint8)
+            zw_rgb = np.clip(col[zr, zc].astype(np.float32) * self.SIDE_Z, 0, 255).astype(np.uint8)
+            rgb = np.concatenate([top_rgb, xw_rgb, zw_rgb])
+            lv["rgb"] = [tuple(c) for c in rgb.tolist()]
 
     def boxed_top(self):
         """The bake's top with every object flattened to a single level.
@@ -1198,12 +1329,12 @@ class View3D:
         return top, obj
 
     def rebuild(self):
-        """Boxes toggled or the grid changed: resample and redraw."""
+        """Boxes toggled or the grid changed: resample, remesh, redraw."""
         if self.ready:
             self.set_bake(render=True)
 
     def invalidate(self):
-        """Colours or camera changed: the cubes have to be drawn again."""
+        """Colours or camera changed: draw again."""
         self.terrain = None
         self.schedule(full=True)
 
@@ -1254,93 +1385,73 @@ class View3D:
         py = Hpx * 0.5 - (rx * up[0] + ry * up[1] + rz * up[2]) / zs * k
         return px, py, zc
 
-    # ---- the cubes ----------------------------------------------------
+    # ---- the frame ----------------------------------------------------
 
-    def draw_cubes(self, lv, cam, want_ids):
-        """Every cell as a box, farthest first. Returns the picture, the
-        polygon count, and - with want_ids - the integer image of cell
-        numbers the depth buffer is read through."""
+    def draw_faces(self, lv, cam, want_ids):
+        """Project the mesh, cull, sort, fill. Returns the picture, the
+        number of quads drawn, and - with want_ids - the face-number image."""
         eye = cam[0]
         W, Hpx = cam[5], cam[6]
-        G, H = lv["G"], lv["H"]
-        cxs, czs = lv["cxs"], lv["czs"]
-
-        # the tops: four corners each
-        tpx, tpy, tzc = self.proj(cam, cxs, H[..., None], czs)
-        # the painter's order, by the depth of the cell centre
-        _px, _py, zcen = self.proj(cam, lv["cx"], H, lv["cz"])
-
-        # Which two sides face the eye: the x side the eye is on, and the z
-        # side the eye is on. Corner pairs along the top edge of each, in
-        # the corner order above, and the neighbour height the face is cut
-        # to - it only shows where this cell stands above that neighbour.
-        h_xm, h_xp, h_zm, h_zp = lv["hn"]
-        selx = lv["cx"] > eye[0]
-        selz = lv["cz"] > eye[2]
-        hx = np.where(selx, h_xm, h_xp)
-        hz = np.where(selz, h_zm, h_zp)
-        xa = np.where(selx, 0, 1)
-        xb = np.where(selx, 3, 2)
-        za = np.where(selz, 3, 0)
-        zb = np.where(selz, 2, 1)
-        ii, jj = np.indices((G, G))
-        # the bottom of each face: the same two corners at the neighbour height
-        bxa = self.proj(cam, cxs[ii, jj, xa], hx, czs[ii, jj, xa])
-        bxb = self.proj(cam, cxs[ii, jj, xb], hx, czs[ii, jj, xb])
-        bza = self.proj(cam, cxs[ii, jj, za], hz, czs[ii, jj, za])
-        bzb = self.proj(cam, cxs[ii, jj, zb], hz, czs[ii, jj, zb])
-
-        # cull: behind the camera, or wholly off screen
-        keep = ((tzc > 0.5).all(axis=2)
-                & (tpx.max(axis=2) >= 0) & (tpx.min(axis=2) <= W)
-                & (tpy.max(axis=2) >= 0) & (tpy.min(axis=2) <= Hpx)).ravel()
-        order = np.argsort(-zcen, axis=None)
-        order = order[keep[order]].tolist()
-
-        # to plain lists once - PIL takes tuples, and indexing numpy scalars
-        # in a loop this long costs more than the fills
-        tp = np.stack([tpx, tpy], axis=-1).reshape(-1, 4, 2).tolist()
-        bx = np.stack([bxa[0], bxa[1], bxb[0], bxb[1]], axis=-1).reshape(-1, 4).tolist()
-        bz = np.stack([bza[0], bza[1], bzb[0], bzb[1]], axis=-1).reshape(-1, 4).tolist()
-        Hf = H.ravel().tolist()
-        hxf = hx.ravel().tolist()
-        hzf = hz.ravel().tolist()
-        xaf, xbf = xa.ravel().tolist(), xb.ravel().tolist()
-        zaf, zbf = za.ravel().tolist(), zb.ravel().tolist()
-        top_rgb, sx_rgb, sz_rgb = lv["top_rgb"], lv["sx_rgb"], lv["sz_rgb"]
-
+        C = lv["corners"]
+        px, py, zc = self.proj(cam, C[..., 0], C[..., 1], C[..., 2])   # (N, 4)
+        kind, sign, const = lv["kind"], lv["sign"], lv["const"]
+        # walls facing away from the eye are the far side of a block
+        facing = np.ones(len(C), dtype=bool)
+        xw = kind == 1
+        zw = kind == 2
+        facing[xw] = (eye[0] - const[xw]) * sign[xw] > 0
+        facing[zw] = (eye[2] - const[zw]) * sign[zw] > 0
+        keep = (facing & (zc > 0.5).all(axis=1)
+                & (px.max(axis=1) >= 0) & (px.min(axis=1) <= W)
+                & (py.max(axis=1) >= 0) & (py.min(axis=1) <= Hpx))
+        # painter's order by the FARTHEST corner: a floor that runs under a
+        # box is then drawn before the box, whatever its centre says
+        order = np.argsort(-zc.max(axis=1))
+        order = order[keep[order]]
+        # Only what will be drawn is turned into Python lists - a third of
+        # the mesh from most viewpoints, and the conversion was most of the
+        # frame when it was all of it.
+        pts = np.stack([px[order], py[order]], axis=-1).tolist()
+        rgb_all = lv["rgb"]
+        ids = (order + 1).tolist()
         im = Image.new("RGB", (W, Hpx), self.SKY)
         poly = ImageDraw.Draw(im).polygon
         idim = Image.new("I", (W, Hpx), 0) if want_ids else None
         ipoly = ImageDraw.Draw(idim).polygon if want_ids else None
-        n_poly = 0
-        for i in order:
-            h = Hf[i]
-            t = tp[i]
-            if hxf[i] < h:
-                a, b = t[xaf[i]], t[xbf[i]]
-                q = bx[i]
-                pts = [(a[0], a[1]), (b[0], b[1]), (q[2], q[3]), (q[0], q[1])]
-                poly(pts, fill=sx_rgb[i])
-                if ipoly:
-                    ipoly(pts, fill=i + 1)
-                n_poly += 1
-            if hzf[i] < h:
-                a, b = t[zaf[i]], t[zbf[i]]
-                q = bz[i]
-                pts = [(a[0], a[1]), (b[0], b[1]), (q[2], q[3]), (q[0], q[1])]
-                poly(pts, fill=sz_rgb[i])
-                if ipoly:
-                    ipoly(pts, fill=i + 1)
-                n_poly += 1
-            pts = [(t[0][0], t[0][1]), (t[1][0], t[1][1]), (t[2][0], t[2][1]), (t[3][0], t[3][1])]
-            poly(pts, fill=top_rgb[i])
+        for n, q in enumerate(pts):
+            quad = [(q[0][0], q[0][1]), (q[1][0], q[1][1]), (q[2][0], q[2][1]), (q[3][0], q[3][1])]
+            poly(quad, fill=rgb_all[ids[n] - 1])
             if ipoly:
-                ipoly(pts, fill=i + 1)
-            n_poly += 1
-        return im, n_poly, idim, zcen
+                ipoly(quad, fill=ids[n])
+        return im, len(ids), idim
 
-    # ---- rendering ----------------------------------------------------
+    def pick_buffers(self, lv, cam, idim):
+        """The z-buffer and the world point behind every pixel, from the
+        face numbers: each face is a plane, and the pixel's ray meets it at
+        one exact point."""
+        eye, fwd, right, up, tanf, W, Hpx = cam
+        ids = np.asarray(idim, dtype=np.int64)
+        m = ids > 0
+        k = np.maximum(ids - 1, 0)
+        kind = lv["kind"][k]
+        const = lv["const"][k]
+        # rays with camera-z of 1 per unit t, so t IS the camera depth
+        xs = ((np.arange(W, dtype=np.float32) + 0.5) / W * 2.0 - 1.0) * tanf
+        ys = (1.0 - (np.arange(Hpx, dtype=np.float32) + 0.5) / Hpx * 2.0) * tanf * (Hpx / W)
+        sx, sy = np.meshgrid(xs, ys)
+        d = (fwd[None, None, :] + sx[..., None] * right[None, None, :]
+             + sy[..., None] * up[None, None, :])
+        axis = np.where(kind == 0, 1, np.where(kind == 1, 0, 2))
+        da = np.take_along_axis(d, axis[..., None], axis=2)[..., 0]
+        ea = eye[axis]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t = (const - ea) / da
+        ok = m & np.isfinite(t) & (t > 0)
+        depth = np.full((Hpx, W), np.inf, dtype=np.float32)
+        depth[ok] = t[ok]
+        hit = np.full((Hpx, W, 3), np.nan, dtype=np.float32)
+        hit[ok] = eye[None, :] + d[ok] * t[ok][:, None]
+        return depth, hit
 
     def schedule(self, full):
         """One render at a time: a drag asks for previews and only the last
@@ -1357,28 +1468,19 @@ class View3D:
         lv = self.full_level() if full else self.levels[self.PREVIEW_G]
         cam = self.camera(W, Hpx)
         t0 = time.time()
-        im, n_poly, idim, zcen = self.draw_cubes(lv, cam, want_ids=full)
+        im, n_drawn, idim = self.draw_faces(lv, cam, want_ids=full)
         depth = hit = None
         if full:
-            # The z-buffer and the world point behind every pixel, through
-            # the cell numbers: a pixel's depth is its cell's depth, its
-            # world point the cell's centre at the cell's height.
-            ids = np.asarray(idim, dtype=np.int64)
-            m = ids > 0
-            k = np.maximum(ids - 1, 0)
-            depth = np.full((Hpx, W), np.inf, dtype=np.float32)
-            depth[m] = zcen.ravel()[k[m]]
-            centres = np.stack([lv["cx"], lv["H"], lv["cz"]], axis=-1).reshape(-1, 3)
-            hit = np.full((Hpx, W, 3), np.nan, dtype=np.float32)
-            hit[m] = centres[k[m]]
+            depth, hit = self.pick_buffers(lv, cam, idim)
             self.depth, self.hit = depth, hit
         self.terrain = (im, depth, hit, cam, full, lv)
         self.overlay()
         c = self.cam
-        self.info.set("yaw %.0f  pitch %.0f  %.0f m out   %s: %d cubes, %d polygons in %.0f ms   -   "
+        nt, nx_, nz_ = lv["counts"]
+        self.info.set("yaw %.0f  pitch %.0f  %.0f m out   %s: %d of %d faces (%d tops, %d walls) in %.0f ms   -   "
                       "drag orbits, wheel zooms, middle-drag pans"
                       % (c["yaw"], c["pitch"], c["dist"], "full" if full else "preview",
-                         lv["G"] * lv["G"], n_poly, (time.time() - t0) * 1000.0))
+                         n_drawn, nt + nx_ + nz_, nt, nx_ + nz_, (time.time() - t0) * 1000.0))
 
     def project(self, pts, cam):
         """World points -> (px, py, camera depth), or None behind the camera."""
@@ -1389,9 +1491,9 @@ class View3D:
         return out
 
     def overlay(self):
-        """The route, the points and the lights over the cubes, each only
-        where the depth buffer says the cubes do not hide it. A preview has
-        no depth buffer, so a drag shows the cubes alone and the overlays
+        """The route, the points and the lights over the blocks, each only
+        where the depth buffer says the blocks do not hide it. A preview has
+        no depth buffer, so a drag shows the blocks alone and the overlays
         come back with the full frame."""
         if self.terrain is None:
             return
@@ -1412,7 +1514,7 @@ class View3D:
             px, py, zc = p
             i = int(np.clip(px, 0, W - 1))
             j = int(np.clip(py, 0, Hpx - 1))
-            return zc <= depth[j, i] + max(2.0 * cs, 0.03 * zc)
+            return zc <= depth[j, i] + max(1.5 * cs, 0.03 * zc)
 
         def fly_y(x, z):
             return float(self.sample_floor(x, z)) + agl
@@ -1501,7 +1603,6 @@ class View3D:
                                          20.0, 6000.0))
         self.terrain = None
         self.schedule(full=False)
-        # and the full one once the wheel stops
         self.top.after(250, lambda: self.schedule(full=True) if self.terrain is None
                        or not self.terrain[4] else None)
 
