@@ -1,17 +1,18 @@
 # nuTerra render settings for 19_monastery
-# Written 2026-09-07T23:50:10. Copy this into nuTerra\MapSettings to keep it.
+# Written 2026-09-11T18:23:24. Copy this into nuTerra\MapSettings to keep it.
 # Delete any line to fall back to that setting's default for this map.
+# Promoted from the work folder 2026-09-11 - it was newer than source and ten keys longer.
 
 ambient=0.268
 ambient_sat=0.021
-sun_tint=0.627
-sun_strength=0.781
+sun_tint=0.537
+sun_strength=1.376
 tonemap_exposure=1.842
-brightness=1.384
-specular=0.024
+brightness=1.02
+specular=0.11
 gray_level=1
 gamma_level=0.445
-fog_level=0.404
+fog_level=0.155
 fog_density=0.08
 fog_height=22.36
 fog_floor=-15.616
@@ -21,10 +22,16 @@ fog_noise_m=250
 fog_speed=0.155
 model_ao_power=1
 model_ao_sun=1.096
-fog_tint_r=0.683274
-fog_tint_g=0.671116
-fog_tint_b=0.671116
+fog_tint_r=-1
+fog_tint_g=-1
+fog_tint_b=-1
 lamp_shafts=1
+pane_gain=3
+pane_glow=4
+bulb_glare=6
+bulb_halo=0.02
+bulb_cross=0
+bulb_cross_sharp=12
 shaft_gain=1.387
 shaft_density=0
 shaft_phase=0.28
@@ -51,16 +58,16 @@ shadow_strength=1
 water_y_offset=0.41
 water_exclude_band=1.918
 water_fog_mul=2.094
-water_fresnel_mul=0.5
+water_fresnel_mul=0.38
 water_fresnel_pow=1
 mouse_damp=0.1
 outland_global_base=0.35
 outland_detail_tiles=64
 outland_spec=0.15
 msm_moment_bias=0
-water_depth=0.45
+water_depth=0
 water_mask_wet=1
-water_mask_min=0.5
+water_mask_min=0.507
 ssr_intensity=0.73
 ssr_steps=32
 ssr_thickness=1.5
@@ -73,6 +80,10 @@ sh_grid_offset=2.382
 sh_grid_curve=0.2
 sh_grid_floor=0
 pbr_spec=1
+tank_mat=1
+gmm_curve=2
+tank_env=1
+env_pmrem=1
 use_sh_ambient=1
 decal_edge_fade=1
 draw_decals=1
