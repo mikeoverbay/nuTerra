@@ -51,6 +51,14 @@ Module Program
                 ' them cost seconds and hundreds of megabytes on a map that
                 ' otherwise has nothing to do with them.
                 TANK_AUTOLOAD = True
+            ElseIf a.Equals("treetrace", StringComparison.OrdinalIgnoreCase) Then
+                ' Print every tree species' per draw call verdict at load: LOD,
+                ' part kind, vertex and index counts, and the texture it named.
+                ' The part classifier is heuristic - palmetto and olive both
+                ' misfiled trunks once - so when a species looks wrong this is
+                ' the first thing to read. Written already; it just had no way
+                ' to be switched on short of a rebuild.
+                TREES_DECODE_TRACE = True
             ElseIf a.Equals("freezefx", StringComparison.OrdinalIgnoreCase) Then
                 FREEZE_FX = True
             ElseIf a.Equals("clean", StringComparison.OrdinalIgnoreCase) Then

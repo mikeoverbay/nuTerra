@@ -262,7 +262,10 @@ Module MapLoader
                                 End Try
                                 If batch_outland Then
                                     shadowOutland.Add(scmd)
-                                    kindOutland.Add(bkind)
+                                    ' Keep the kind AND mark the place - see
+                                    ' MapFlightBake.OUTLAND_BIT for why this is
+                                    ' a bit and not a ninth key.
+                                    kindOutland.Add(CByte(bkind Or MapFlightBake.OUTLAND_BIT))
                                 Else
                                     shadowInland.Add(scmd)
                                     kindInland.Add(bkind)

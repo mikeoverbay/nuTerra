@@ -164,6 +164,29 @@ Public Class MapFlightBake
     ''' expensive way to say the same thing.
     ''' </summary>
     Public Const KIND_MASK As Byte = &H7
+
+    ''' <summary>
+    ''' Bit 4: this is OUTLAND - the scenery ring outside the playable area.
+    '''
+    ''' A BIT RATHER THAN A NINTH KIND, so nothing is lost. An outland cliff is
+    ''' still a cliff; giving it the key "outland" would answer where it is at
+    ''' the cost of what it is, and the map would stop being able to say either
+    ''' one on its own. With a bit, kind and place are separate questions.
+    '''
+    ''' It is worth marking because of how much of the map it is. On monastery
+    ''' 97.85% of everything standing over 40 m above its terrain is out here,
+    ''' and of the texels that are both tall and key 7 - the ones that made the
+    ''' unclassified bucket look enormous - exactly SIX are inside 500 m of
+    ''' centre. Without this bit a planner reading the far ring sees a wall of
+    ''' unexplained obstacles; with it, it sees the backdrop and ignores it.
+    '''
+    ''' NOT A GUESS. MapLoader partitions the shadow commands into inland and
+    ''' outland at load and MapSunShadow already skips the tail, so which draws
+    ''' are outland is something the app knows rather than something a folder
+    ''' name suggests.
+    ''' </summary>
+    Public Const OUTLAND_BIT As Byte = &H10
+
     Public Const TRUNK_BIT As Byte = &H80
 
     ''' <summary>
@@ -267,6 +290,7 @@ Public Class MapFlightBake
 
         read_heights(top_m)
         read_kinds()
+        despike_top()
 
         GL.Enable(EnableCap.CullFace)
         GL.DepthFunc(DepthFunction.Greater)
@@ -389,10 +413,12 @@ Public Class MapFlightBake
                     End If
                     If y > top_m(i) Then
                         top_m(i) = y
-                        ' OR, not assign: the trunk bit was stamped by a
-                        ' different pass and water raising the surface here
-                        ' does not mean the trunk stopped existing.
-                        kind_b(i) = CByte(KIND_WATER Or (kind_b(i) And TRUNK_BIT))
+                        ' OR, not assign: the flag bits were set by other
+                        ' passes and water raising the surface here does not
+                        ' mean the trunk stopped existing or the texel left
+                        ' the outland.
+                        kind_b(i) = CByte(KIND_WATER Or
+                                          (kind_b(i) And (TRUNK_BIT Or OUTLAND_BIT)))
                     End If
                 Next
             Next
@@ -429,6 +455,76 @@ Public Class MapFlightBake
 
     ''' <summary>The key channel, flipped the same way the heights are so row
     ''' 0 is the wz_max edge and the two arrays index alike.</summary>
+    ''' <summary>
+    ''' Above this much over the local ground, a texel is worth LOOKING at.
+    ''' Not worth condemning - see despike_top. Real things reach this height:
+    ''' the outland ring runs to 164 m and is excluded from the test outright,
+    ''' and a mast or a spire inland could too.
+    ''' </summary>
+    Private Const NEEDLE_LOOK_H As Single = 60.0F
+
+    ''' <summary>How far a texel must stand above its OWN NEIGHBOURS before it
+    ''' is called a needle. A real tower is surrounded by itself.</summary>
+    Private Const NEEDLE_OVER_NB As Single = 30.0F
+
+    ''' <summary>
+    ''' Pull down the isolated single texels that stand hundreds of metres over
+    ''' nothing.
+    '''
+    ''' Monastery bakes four of them - 602 m, 303 m, 214 m and 186 m above their
+    ''' own ground, each one texel wide with its eight neighbours at normal
+    ''' height. They are not a bug in this writer: the heights encode and decode
+    ''' exactly, nothing clamps, and the old bake simply never saw them. They
+    ''' are near-vertical slivers in a few source meshes whose footprint from
+    ''' straight above is about one texel, and the LINE pass in draw_models
+    ''' finds them precisely because finding thin vertical things is its job.
+    '''
+    ''' TWO TESTS, AND THE SECOND IS THE ONE THAT MATTERS. Height above ground
+    ''' alone would condemn any real mast; what marks a needle is that it is
+    ''' alone. A genuine tower is surrounded by more of itself, so its
+    ''' neighbours are nearly as high and it survives untouched.
+    '''
+    ''' THE OUTLAND IS EXEMPT. It is legitimately enormous - cliffs to 164 m -
+    ''' and clamping it would be inventing terrain, not removing an artefact.
+    '''
+    ''' Replaced with the neighbourhood maximum rather than a constant ceiling,
+    ''' so what is left is a height the surface actually reaches somewhere
+    ''' rather than a number this code chose. Counted and logged either way: a
+    ''' silent repair is how bad data becomes believed data.
+    ''' </summary>
+    Private Sub despike_top()
+        Dim fixed_n = 0
+        Dim worst = 0.0F
+        For r = 1 To SIZE - 2
+            Dim row = r * SIZE
+            For c = 1 To SIZE - 2
+                Dim i = row + c
+                If (kind_b(i) And OUTLAND_BIT) <> 0 Then Continue For
+                Dim h = top_m(i) - floor_m(i)
+                If h <= NEEDLE_LOOK_H Then Continue For
+
+                ' The tallest of the eight around it.
+                Dim nb = Single.MinValue
+                For dr = -1 To 1
+                    For dc = -1 To 1
+                        If dr = 0 AndAlso dc = 0 Then Continue For
+                        Dim j = i + dr * SIZE + dc
+                        If top_m(j) > nb Then nb = top_m(j)
+                    Next
+                Next
+
+                If top_m(i) - nb <= NEEDLE_OVER_NB Then Continue For
+                worst = Math.Max(worst, top_m(i) - nb)
+                top_m(i) = nb
+                fixed_n += 1
+            Next
+        Next
+        If fixed_n > 0 Then
+            LogThis("flight bake: pulled down {0} needle texel(s), worst stood {1:0.0} m over its neighbours",
+                    fixed_n, worst)
+        End If
+    End Sub
+
     Private Sub read_kinds()
         Dim d(SIZE * SIZE - 1) As Byte
         GL.GetTextureImage(kind_tex.texture_id, 0,
@@ -726,10 +822,14 @@ Public Class MapFlightBake
             sb.AppendLine(String.Format("kind_{0}={1}", k, KIND_NAMES(k)))
         Next
         sb.AppendLine(String.Format(inv, "kind_mask={0}", KIND_MASK))
+        sb.AppendLine(String.Format(inv, "outland_bit={0}", OUTLAND_BIT))
         sb.AppendLine(String.Format(inv, "trunk_bit={0}", TRUNK_BIT))
         sb.AppendLine(String.Format(inv, "trunk_radius={0:0.00}", TRUNK_RADIUS))
         sb.AppendLine("#")
-        sb.AppendLine("# R is TWO fields: kind = R & kind_mask, trunk = R & trunk_bit.")
+        sb.AppendLine("# R is THREE fields: kind = R & kind_mask, outland = R & outland_bit,")
+        sb.AppendLine("# trunk = R & trunk_bit. outland is the scenery ring outside the")
+        sb.AppendLine("# playable area - real geometry, but nothing should ever route into")
+        sb.AppendLine("# it; almost everything standing very tall on the map is out there.")
         sb.AppendLine("# trunk means a tree trunk stands at this texel whatever is above")
         sb.AppendLine("# it - the canopy still owns the height. A ground vehicle should")
         sb.AppendLine("# treat the trunk bit as solid and tree canopy as passable; a")
