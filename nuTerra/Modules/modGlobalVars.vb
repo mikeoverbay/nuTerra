@@ -1090,6 +1090,24 @@ Module modGlobalVars
     ''' effects are being judged, because a barrel that is sweeping moves the
     ''' flame between one frame and the next. The sweep, the envelope and the
     ''' rates all still work - this only stops them being driven.
+    ''' <summary>
+    ''' Load the vehicles at map load, without being asked.
+    '''
+    ''' OFF. Thirty tanks is a few seconds and several hundred megabytes on a
+    ''' map that otherwise has nothing to do with them, and most sessions here
+    ''' are not about the tanks at all. The Tank Lighting menu has a button, and
+    ''' the `tanks` argument sets this for a debugging run that wants them up
+    ''' without a click.
+    ''' </summary>
+    Public TANK_AUTOLOAD As Boolean = False
+
+    ''' <summary>Set by the button. Cleared once the load has run.</summary>
+    Public TANK_LOAD_NOW As Boolean = False
+
+    ''' <summary>Keep the per-vehicle load panel up after the load finishes -
+    ''' otherwise it is only on screen while the bars are filling.</summary>
+    Public TANK_SHOW_LOAD As Boolean = False
+
     Public TANK_AIM As Boolean = False
 
     Public TANK_FIRING As Boolean = True

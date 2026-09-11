@@ -47,6 +47,30 @@ Public Class MapTanks
     Public vehicles As New List(Of TankVehicle)
     Public instances As New List(Of TankInstance)
 
+    ''' <summary>One vehicle's place in the load: what it is, and how far in.
+    ''' Read by the panel in Window.vb.</summary>
+    Public Structure LoadRow
+        Public name As String
+        Public frac As Single
+        Public failed As Boolean
+    End Structure
+
+    ''' <summary>The whole roster with its progress, filled in before the load
+    ''' starts so the panel shows every vehicle from the first frame rather
+    ''' than growing a row at a time.</summary>
+    Public Shared ReadOnly LoadRows As New List(Of LoadRow)
+
+    ''' <summary>True while Load is running.</summary>
+    Public Shared Loading As Boolean
+
+    ''' <summary>Whether anything is on the map yet - what the button tests so
+    ''' it can turn itself into a label once it has been pressed.</summary>
+    Public ReadOnly Property HasTanks As Boolean
+        Get
+            Return loaded
+        End Get
+    End Property
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -126,6 +150,15 @@ Public Class MapTanks
             ' team 2 at PI looks back down -Z, and each block is set BEHIND its
             ' own marker along its own backward axis. That keeps the base ring
             ' itself clear and puts the tanks where a match would start them.
+            ' Every row up front, so the panel shows the whole roster from the
+            ' first frame instead of growing one line at a time under the
+            ' reader's eye.
+            Loading = True
+            LoadRows.Clear()
+            For i = 0 To Math.Min(roster.Length, PER_TEAM * 2) - 1
+                LoadRows.Add(New LoadRow With {.name = roster(i).Item2, .frac = 0.0F})
+            Next
+
             Dim placed As New List(Of Vector2)
             Dim from_spawn_count = 0
 
@@ -134,9 +167,32 @@ Public Class MapTanks
                 Dim team = If(i < PER_TEAM, 1, 2)
                 Dim k = i Mod PER_TEAM
 
-                Dim v = TankVehicle.Load(r.Item1, r.Item2)
+                ' A FRAME PER PART. ForceRender is what makes the bar fill
+                ' while the load blocks - the same call the map loader uses to
+                ' keep its own progress bar alive. Without it the whole load is
+                ' one frozen frame and the panel appears already finished.
+                ' Captured into its own local: the lambda outlives this
+                ' iteration and closing over the loop variable would have every
+                ' callback report against the last vehicle. `slot` and `pct`
+                ' rather than `row` and `f` because both of those names are
+                ' already taken further down this method and VB is case blind.
+                Dim slot = i
+                Dim v = TankVehicle.Load(r.Item1, r.Item2,
+                    Sub(pct)
+                        If slot < LoadRows.Count Then
+                            Dim e = LoadRows(slot)
+                            e.frac = pct
+                            LoadRows(slot) = e
+                        End If
+                        main_window.ForceRender()
+                    End Sub)
                 If v Is Nothing Then
                     LogThis("tank: {0}/{1} did not load - skipped", r.Item1, r.Item2)
+                    If i < LoadRows.Count Then
+                        Dim e = LoadRows(i)
+                        e.failed = True
+                        LoadRows(i) = e
+                    End If
                     Continue For
                 End If
                 vehicles.Add(v)
@@ -209,6 +265,8 @@ Public Class MapTanks
         Catch ex As Exception
             failed = True
             LogThis("tank: load failed - {0}", ex.Message)
+        Finally
+            Loading = False
         End Try
     End Sub
 
@@ -222,7 +280,14 @@ Public Class MapTanks
     Public Sub Draw()
         If Not Enabled Then Return
         If Not MAP_LOADED OrElse map_scene Is Nothing OrElse Not map_scene.TERRAIN_LOADED Then Return
-        If Not loaded Then Load()
+        ' NOT AT MAP LOAD unless asked. The button in Tank Lighting sets
+        ' TANK_LOAD_NOW; the `tanks` argument sets TANK_AUTOLOAD for a run that
+        ' wants them without a click.
+        If Not loaded Then
+            If Not (TANK_AUTOLOAD OrElse TANK_LOAD_NOW) Then Return
+            TANK_LOAD_NOW = False
+            Load()
+        End If
         If failed OrElse instances.Count = 0 OrElse shader Is Nothing Then Return
 
         GL_PUSH_GROUP("draw_tanks")

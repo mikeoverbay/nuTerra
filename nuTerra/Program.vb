@@ -45,6 +45,12 @@ Module Program
                     Next
                     If ok Then STARTUP_CAM = v
                 End If
+            ElseIf a.Equals("tanks", StringComparison.OrdinalIgnoreCase) Then
+                ' Load the vehicles without waiting for the button. For a
+                ' debugging run - they are off by default because thirty of
+                ' them cost seconds and hundreds of megabytes on a map that
+                ' otherwise has nothing to do with them.
+                TANK_AUTOLOAD = True
             ElseIf a.Equals("freezefx", StringComparison.OrdinalIgnoreCase) Then
                 FREEZE_FX = True
             ElseIf a.Equals("clean", StringComparison.OrdinalIgnoreCase) Then

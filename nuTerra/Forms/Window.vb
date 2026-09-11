@@ -517,6 +517,54 @@ try_again:
         End If
     End Sub
 
+    ''' <summary>
+    ''' One thin bar per vehicle while the tanks load.
+    '''
+    ''' TWO LINES BELOW THE MENU, top left, and sized to the roster rather than
+    ''' to the screen: thirty rows at one line each has to fit without
+    ''' scrolling, so the bar is four pixels tall and the name sits beside it
+    ''' rather than above.
+    '''
+    ''' IT FILLS WHILE THE LOAD BLOCKS. Loading a vehicle is a single call that
+    ''' does not return for a while, so this only animates because the loader
+    ''' calls ForceRender after each part - the same thing the map loader does
+    ''' to keep its own bar alive. Without that the whole load is one frozen
+    ''' frame and the panel would appear already finished.
+    '''
+    ''' Up while loading, and afterwards only if asked - a panel that stays on
+    ''' screen forever is in the way of the thing it just loaded.
+    ''' </summary>
+    Private Sub draw_tank_load_panel(viewport As ImGuiViewportPtr)
+        If MapTanks.LoadRows.Count = 0 Then Return
+        If Not (MapTanks.Loading OrElse TANK_SHOW_LOAD) Then Return
+
+        Dim line = ImGui.GetTextLineHeightWithSpacing()
+        ImGui.SetNextWindowPos(New Numerics.Vector2(
+            viewport.Pos.X + 8.0F,
+            viewport.Pos.Y + ImGui.GetFrameHeight() + line * 2.0F))
+        ImGui.SetNextWindowBgAlpha(0.55F)
+        If ImGui.Begin("##tank_load",
+                       ImGuiWindowFlags.NoDecoration Or ImGuiWindowFlags.NoMove Or
+                       ImGuiWindowFlags.AlwaysAutoResize Or
+                       ImGuiWindowFlags.NoSavedSettings Or
+                       ImGuiWindowFlags.NoFocusOnAppearing Or
+                       ImGuiWindowFlags.NoNav) Then
+
+            For Each r In MapTanks.LoadRows
+                ' The name in a fixed column so the bars line up in one edge
+                ' rather than stepping in and out with the length of the tag.
+                ImGui.TextUnformatted(r.name)
+                ImGui.SameLine(210.0F)
+                If r.failed Then
+                    ImGui.TextDisabled("not found")
+                Else
+                    ImGui.ProgressBar(r.frac, New Numerics.Vector2(150.0F, 4.0F), "")
+                End If
+            Next
+        End If
+        ImGui.End()
+    End Sub
+
     Public Sub ForceRender(Optional time As Single = 0.0)
         If SHADER_CHANGED Then
             SHADER_CHANGED = False
@@ -620,6 +668,7 @@ try_again:
         End If
 
         draw_lamp_inspector()
+        draw_tank_load_panel(viewport)
 
         If SHOW_LOADING_SCREEN Then
             ImGui.SetNextWindowPos(viewport.Pos)
@@ -1631,6 +1680,24 @@ try_again:
                     End If
                 End If
                 If ImGui.CollapsingHeader("Tank Lighting") Then
+                    ' THE VEHICLES ARE NOT LOADED AT MAP LOAD. Thirty of them
+                    ' is seconds and hundreds of megabytes on a map that
+                    ' otherwise has nothing to do with them, so it is a button.
+                    ' `tanks` on the command line does the same for a run that
+                    ' wants them up without a click.
+                    If map_scene Is Nothing OrElse Not map_scene.tanks.HasTanks Then
+                        If ImGui.Button("Load tanks") Then TANK_LOAD_NOW = True
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Read the vehicles and put them on" & vbLf &
+                                             "the bases. A few seconds." & vbLf &
+                                             "Launch with the `tanks` argument to" & vbLf &
+                                             "skip the click.")
+                        End If
+                    Else
+                        ImGui.TextDisabled("tanks loaded")
+                    End If
+                    ImGui.Checkbox("Show load panel", TANK_SHOW_LOAD)
+                    ImGui.Separator()
                     ' THE TANK LIGHTS ITSELF. It writes GFLAG_UNLIT and the
                     ' resolve passes its pixels through, so nothing here is
                     ' shared with the map - this is the vehicle's whole rig.

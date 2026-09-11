@@ -313,7 +313,17 @@ Public Class TankVehicle
         Return c((n - 1) * 2 + 1)
     End Function
 
-    Public Shared Function Load(nation As String, tag As String) As TankVehicle
+    ''' <summary>
+    ''' Build one vehicle, reporting after each part.
+    '''
+    ''' The progress callback is what lets a bar FILL rather than pop. A
+    ''' vehicle is one blocking call from the outside, so without it the only
+    ''' honest states are nothing and done, and thirty bars would each flick
+    ''' from empty to full with nothing in between. Four parts is four steps,
+    ''' and the caller draws a frame on each.
+    ''' </summary>
+    Public Shared Function Load(nation As String, tag As String,
+                                Optional progress As Action(Of Single) = Nothing) As TankVehicle
         Dim xmlPath = String.Format("scripts/item_defs/vehicles/{0}/{1}.xml", nation, tag)
         Dim entry = ResMgr.Lookup(xmlPath)
         If entry Is Nothing Then
@@ -353,9 +363,13 @@ Public Class TankVehicle
             If(gunEl Is Nothing, Nothing, gunEl.SelectSingleNode("effects"))))
 
         v.AddPart("chassis", ModelOf(chassisEl), Vector3.Zero)
+        progress?.Invoke(0.25F)
         v.AddPart("hull", TankVisual.TextOf(root.SelectSingleNode("hull/models/undamaged")), hullOff)
+        progress?.Invoke(0.5F)
         v.AddPart("turret", ModelOf(turretEl), turretOff)
+        progress?.Invoke(0.75F)
         v.AddPart("gun", ModelOf(gunEl), gunOff)
+        progress?.Invoke(1.0F)
 
         For Each p In v.parts
             If p.label <> "gun" OrElse p.visual Is Nothing Then Continue For
