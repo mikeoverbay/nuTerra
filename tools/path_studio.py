@@ -46,7 +46,7 @@ from scipy import ndimage
 import shutil
 import tkinter as tk
 from tkinter import ttk, messagebox
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 # The GPU for the 3D view. Optional: without pygame or PyOpenGL the view
 # falls back to the PIL renderer (View3D), which is what the launcher's
@@ -555,23 +555,74 @@ def foliage_at(bake, G):
 
 def paint_foliage(img, mask, bake, G):
     """Colour the foliage states over `mask` (cells that are drawn as
-    standing) into img at G a side. Only when the bake has the solid bit -
-    without it the single tree/bush colour stays."""
-    if getattr(bake, "solid", None) is None:
+    standing) into img at G a side. Needs the trunk bit at least. With the
+    solid bit too, a stamped blob splits into tree and thin stem; without
+    it a stamped blob is drawn as TREE - it is a tree or a stem and the bake
+    cannot yet say which - and only the unstamped bush is set apart. The
+    gate is untouched by any of this; it is colour."""
+    if getattr(bake, "trunk", None) is None:
         return
     st, trunk, solid = foliage_at(bake, G)
     if st is None:
         return
-    for val, rgb in FOLIAGE_RGB.items():
+    rgb_of = dict(FOLIAGE_RGB)
+    if solid is None:
+        rgb_of[nav.FOL_STEM] = FOLIAGE_RGB[nav.FOL_TREE]
+    for val, rgb in rgb_of.items():
         m = mask & (st == val)
         if m.any():
             img[m] = rgb
     if trunk is not None:
         m = mask & trunk & (st != 0)
-        img[m] = STEM_RGB
+        img[m] = STEM_RGB if solid is not None else SOLID_RGB
     if solid is not None:
         m = mask & solid & (st != 0)
         img[m] = SOLID_RGB
+
+
+def legend_rows(bake):
+    """The colour key for a keyed bake: (rgb, label) per kind present, with
+    the tree row opened into the foliage states the bake can support."""
+    kind = getattr(bake, "kind", None)
+    if kind is None:
+        return []
+    names = bake_kind_names(bake)
+    rows = [(BAKE_KIND_RGB[k], names.get(k, str(k)))
+            for k in sorted(BAKE_KIND_RGB) if (kind == k).any()]
+    trunk = getattr(bake, "trunk", None)
+    solid = getattr(bake, "solid", None)
+    if trunk is not None and (kind == nav.KIND_TREE).any():
+        rows = [r for r in rows if r[0] != BAKE_KIND_RGB[nav.KIND_TREE]]
+        if solid is not None:
+            rows += [(FOLIAGE_RGB[v], FOLIAGE_NAMES[v]) for v in (3, 2, 1)]
+            rows += [(SOLID_RGB, "solid trunk stamp"), (STEM_RGB, "thin stem stamp")]
+        else:
+            rows += [(FOLIAGE_RGB[3], "tree / stem (trunk stamp)"),
+                     (FOLIAGE_RGB[1], "bush / foliage (no stamp)"),
+                     (SOLID_RGB, "trunk stamp")]
+    return rows
+
+
+def legend_image(rows, pad=12):
+    """The key as an RGBA panel: a swatch and a label per row, `pad` px
+    inside the frame. One picture for the canvas and the 3D window."""
+    try:
+        font = ImageFont.load_default(size=13)
+    except Exception:
+        font = ImageFont.load_default()
+    probe = ImageDraw.Draw(Image.new("RGBA", (4, 4)))
+    tw = max(int(probe.textlength(label, font=font)) for _, label in rows) if rows else 0
+    rh = 17
+    w, h = pad * 2 + 24 + 8 + tw, pad * 2 + rh * len(rows)
+    im = Image.new("RGBA", (w, h), (8, 10, 16, 205))
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, w - 1, h - 1], outline=(70, 84, 104, 255))
+    y = pad
+    for rgb, label in rows:
+        d.rectangle([pad, y + 3, pad + 24, y + 13], fill=tuple(rgb) + (255,))
+        d.text((pad + 32, y), label, font=font, fill=(228, 236, 246, 255))
+        y += rh
+    return im
 
 
 def kind_of_tallest(top, kind, G):
@@ -1776,6 +1827,27 @@ void main() { o_rgb = v_rgb; }
 """
     VTYPE = np.dtype([("pos", "<f4", 3), ("rgb", "u1", 4)])
 
+    # The colour key, drawn over the finished frame as one textured quad in
+    # window pixels: a_pos is (x right, y down) from the top-left corner.
+    HUD_VERT = """#version 330 core
+layout(location = 0) in vec2 a_pos;
+layout(location = 1) in vec2 a_uv;
+uniform vec2 u_win;
+out vec2 v_uv;
+void main() {
+    vec2 p = a_pos / u_win * 2.0 - 1.0;
+    gl_Position = vec4(p.x, -p.y, 0.0, 1.0);
+    v_uv = a_uv;
+}
+"""
+    HUD_FRAG = """#version 330 core
+in vec2 v_uv;
+uniform sampler2D u_tex;
+out vec4 o_rgb;
+void main() { o_rgb = texture(u_tex, v_uv); }
+"""
+    LEGEND_BORDER = 12         # px from the window's top-left corner
+
     def __init__(self, studio):
         self.studio = studio
         self.boxes = True
@@ -1817,6 +1889,21 @@ void main() { o_rgb = v_rgb; }
         self.ov_vao, self.ov_vbo, _ = self._make_vao(index=False)
         self.fbo = self.fbo_rgb = self.fbo_depth = None
         self._make_fbo()
+        self.hud_prog = glshaders.compileProgram(
+            glshaders.compileShader(self.HUD_VERT, GL.GL_VERTEX_SHADER),
+            glshaders.compileShader(self.HUD_FRAG, GL.GL_FRAGMENT_SHADER))
+        self.hud_u_win = GL.glGetUniformLocation(self.hud_prog, "u_win")
+        self.hud_vao = GL.glGenVertexArrays(1)
+        self.hud_vbo = GL.glGenBuffers(1)
+        GL.glBindVertexArray(self.hud_vao)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.hud_vbo)
+        GL.glEnableVertexAttribArray(0)
+        GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, False, 16, ctypes.c_void_p(0))
+        GL.glEnableVertexAttribArray(1)
+        GL.glVertexAttribPointer(1, 2, GL.GL_FLOAT, False, 16, ctypes.c_void_p(8))
+        GL.glBindVertexArray(0)
+        self.legend_tex = None
+        self.legend_size = (0, 0)
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glEnable(GL.GL_PROGRAM_POINT_SIZE)
         GL.glClearColor(*self.SKY, 1.0)
@@ -1884,10 +1971,57 @@ void main() { o_rgb = v_rgb; }
         self.wx_min, self.wx_max = float(b.wx_min), float(b.wx_max)
         self.wz_min, self.wz_max = float(b.wz_min), float(b.wz_max)
         self.build_mesh()
+        self.build_legend()
         if self.cam is None:
             self.reset_camera()
         self.overlay_dirty = True
         self.dirty = True
+
+    def build_legend(self):
+        """The colour key as a texture - the same picture the canvas shows,
+        rebuilt when the bake changes. None when the bake has no kinds."""
+        if self.legend_tex is not None:
+            GL.glDeleteTextures(1, [self.legend_tex])
+            self.legend_tex = None
+        rows = legend_rows(self.bake) if self.bake is not None else []
+        if not rows:
+            return
+        im = legend_image(rows, pad=self.LEGEND_BORDER)
+        self.legend_size = im.size
+        self.legend_tex = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.legend_tex)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8, im.width, im.height, 0,
+                        GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, im.tobytes())
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+
+    def draw_legend(self):
+        """The key over the finished frame, LEGEND_BORDER px in from the
+        top-left corner. Straight into the window, after the blit."""
+        if self.legend_tex is None:
+            return
+        x0 = y0 = float(self.LEGEND_BORDER)
+        w, h = self.legend_size
+        q = np.array([[x0, y0, 0, 0], [x0 + w, y0, 1, 0],
+                      [x0, y0 + h, 0, 1], [x0 + w, y0 + h, 1, 1]], dtype=np.float32)
+        GL.glViewport(0, 0, self.W, self.H)
+        GL.glDisable(GL.GL_DEPTH_TEST)
+        GL.glEnable(GL.GL_BLEND)
+        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        GL.glUseProgram(self.hud_prog)
+        GL.glUniform2f(self.hud_u_win, float(self.W), float(self.H))
+        GL.glActiveTexture(GL.GL_TEXTURE0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.legend_tex)
+        GL.glBindVertexArray(self.hud_vao)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.hud_vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, q.nbytes, q, GL.GL_STREAM_DRAW)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        GL.glBindVertexArray(0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        GL.glDisable(GL.GL_BLEND)
+        GL.glEnable(GL.GL_DEPTH_TEST)
+        GL.glUseProgram(self.prog)
 
     def reset_camera(self):
         ext = max(self.wx_max - self.wx_min, self.wz_max - self.wz_min)
@@ -2155,6 +2289,7 @@ void main() { o_rgb = v_rgb; }
         GL.glBlitFramebuffer(0, 0, self.fbo_w, self.fbo_h, 0, 0, self.W, self.H,
                              GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        self.draw_legend()
         if flip:
             pygame.display.flip()
         self.dirty = False
@@ -2273,6 +2408,9 @@ void main() { o_rgb = v_rgb; }
                 GL.glDeleteFramebuffers(1, [self.fbo])
                 GL.glDeleteRenderbuffers(2, [self.fbo_rgb, self.fbo_depth])
                 self.fbo = None
+            if self.legend_tex is not None:
+                GL.glDeleteTextures(1, [self.legend_tex])
+                self.legend_tex = None
             pygame.display.quit()
         except Exception:
             pass
@@ -4189,26 +4327,10 @@ class Studio:
                 ky += 16
 
         # The kind legend, bottom left, when the bake is keyed.
-        kind = getattr(self.bake, "kind", None) if self.bake is not None else None
-        if kind is not None:
-            names = bake_kind_names(self.bake)
-            rows = [(BAKE_KIND_RGB[k], names.get(k, str(k)))
-                    for k in sorted(BAKE_KIND_RGB) if (kind == k).any()]
-            if getattr(self.bake, "solid", None) is not None:
-                # the tree row becomes the three foliage states, plus the stamps
-                rows = [r for r in rows if r[0] != BAKE_KIND_RGB[nav.KIND_TREE]]
-                rows += [(FOLIAGE_RGB[v], FOLIAGE_NAMES[v]) for v in (3, 2, 1)]
-                rows += [(SOLID_RGB, "solid trunk stamp"), (STEM_RGB, "thin stem stamp")]
-            if rows:
-                dk = ImageDraw.Draw(im, "RGBA")
-                ky0 = self.view - 12 - 16 * len(rows)
-                dk.rectangle([6, ky0 - 6, 170, self.view - 6],
-                             fill=(8, 10, 16, 205), outline=(70, 84, 104, 255))
-                ky = ky0
-                for rgb, label in rows:
-                    dk.rectangle([14, ky + 2, 38, ky + 12], fill=rgb + (255,))
-                    dk.text((46, ky), label, fill=(228, 236, 246, 255))
-                    ky += 16
+        rows = legend_rows(self.bake) if self.bake is not None else []
+        if rows:
+            panel = legend_image(rows, pad=8)
+            im.paste(panel, (6, self.view - 6 - panel.height), panel)
 
         self.photo = ImageTk.PhotoImage(im)
         self.canvas.delete("all")
