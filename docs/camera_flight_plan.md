@@ -95,6 +95,23 @@ are in the map now, and the navigator routes round them like walls.
 
 The mask PNG is written at 2048 (block-any) - it is for looking at.
 
+### The keyed bake (2026-09-11, writer in flight)
+
+Collision needs no 32-bit height, so the bake is moving to RGBA8:
+`<map>_top.rgba` with **R = a kind key** for what the tallest thing at the
+texel is (0 terrain, 1 building, 2 fence / rail, 3 tree / bush, 4 rock,
+5 vehicle / prop, 6 water, 7 other - keyed by the folder the model came
+from), **G / A = a 16-bit height** at `height_scale` 64 per metre over
+`height_offset`, B spare; `<map>_floor.r16` beside it; the meta says
+`format=rgba8` and names the keys as `kind_<n>=`. The nuTerra session writes
+it (the depth shaders emit the kind as colour from a per-draw key, so the
+depth test leaves the topmost kind); `flight_plan.Bake` and
+`radar_commit.Bake` read either format, carry the kind through the 2048
+downsample as the kind of the tallest texel, and offer `kind_at(x, z)`;
+Path Studio colours the mask and the 3D boxes by kind with a legend. The
+navigator does not use the kind yet - a tree could be flown over and a fence
+not, and that is the point of having it.
+
 ## Step 3 — look-ahead
 
 March an integer (Bresenham) line from the current position out to a maximum
@@ -283,7 +300,7 @@ gap centring it skips was worth 4.32 m -> 3.49 m of worst-case clearance.
 Measured against the UNDILATED mask at the bake's resolution, which is what
 that comparison needs. The switch is in and OFF.
 
-## Step 4c — both directions, compared (2026-09-10)
+## Step 4d — both directions, compared (2026-09-10)
 
 The loop is symmetric; the flight is not. Which side the navigator commits
 to, whether a lane is entered from its wide end or its narrow end, whether

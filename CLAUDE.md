@@ -56,7 +56,14 @@ by name), and wait for it. Never edit a file that shows as modified in
 The app is the Python in `tools/`; `PathStudio/Program.vb` only launches it.
 `radar_commit.py` is the navigator and its docstring is the authority on the
 flight rules; `docs/camera_flight_plan.md` is the design. `tools/lane_test.py`
-is the harness that measures a navigator change (step 4b there).
+is the harness that measures a navigator change (step 4b there). The 3D view
+is a pygame + PyOpenGL window (`GLView`), optional - without them the PIL
+`View3D` serves. Start the Studio on a map with `python path_studio.py
+19_monastery`.
+
+To reach the other session, use the session tools: `list_sessions` to find
+it by title (`nuTerra work`), `send_message` to deliver a user turn there.
+That is how a change to a file the other side owns is asked for.
 
 ### The map picker
 
