@@ -85,6 +85,10 @@ Public Class TankInstance
     ''' offset is read once per draw.</summary>
     Public ReadOnly recoil As New TankRecoil
 
+    ''' <summary>This tank's own shots. Per INSTANCE so a fast gun can only
+    ''' starve itself, and so each shot keeps its own gun's timing.</summary>
+    Public ReadOnly shots As New TankShotPool
+
     ''' <summary>Seconds until this gun fires on the free-running cadence.
     ''' Seeded apart per tank so a line of them ripples rather than
     ''' volleying - thirty barrels moving as one reads as a glitch.</summary>

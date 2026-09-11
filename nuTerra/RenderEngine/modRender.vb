@@ -389,7 +389,7 @@ Module modRender
             ' rather than faking one. gColor is Rgba8 and tonemapped by this
             ' point - the same flash there would clamp to a flat white lozenge.
             MainFBO.gDepth.BindUnit(0)
-            map_scene.tanks.fx.Draw()
+            map_scene.tanks.DrawFx()
             trace_state("tank fx")
 
             ' Glow, built from the accumulated buffer while it is still float.

@@ -1,4 +1,4 @@
-Imports System.Xml
+﻿Imports System.Xml
 Imports OpenTK.Mathematics
 
 ''' <summary>One key of the muzzle light's animation: when, what colour, how hard.</summary>
@@ -43,8 +43,47 @@ Public Class BlastSpec
     Public name As String = ""
     Public innerRadius As Single = 1.5F
     Public outerRadius As Single = 8.0F
+    ''' <summary>How long the LIGHT burns, from the timeline key the light's
+    ''' endKey names - lighting2 on every tank gun, 0.09 s.</summary>
     Public durationS As Single = 0.09F
+
+    ''' <summary>
+    ''' How long the FLASH burns: timeline.end, which is 0.5 s where the light
+    ''' is 0.09.
+    '''
+    ''' TWO CLOCKS, NOT ONE. The light is the sub-tenth-of-a-second stab that
+    ''' lights the hull; the flame at the muzzle outlives it by five times and
+    ''' is what the flipbook plays across. Running the sprite on the light's
+    ''' clock plays eight frames in ninety milliseconds and the plume is gone
+    ''' before the eye finds it.
+    ''' </summary>
+    Public endS As Single = 0.5F
+
     Public keys As New List(Of BlastKey)
+
+    ''' <summary>
+    ''' How long the flame reaches, in metres.
+    '''
+    ''' FROM outer_radius, which is not the flame's radius - it is the light's -
+    ''' but it is a true proxy for how big the gun is, and it is the one number
+    ''' in the entry that scales with calibre. The Tiger's 88 ships outer 8.0 and
+    ''' that is the reference at 1.2 m, so shot_huge at 15.0 reaches 2.25 m and
+    ''' an autocannon's small entry shrinks to match. Clamped at both ends so a
+    ''' missing or outlier value cannot produce a postage stamp or a city block.
+    ''' </summary>
+    Public ReadOnly Property flashLength As Single
+        Get
+            Return Math.Min(2.5F, Math.Max(0.4F, 1.2F * outerRadius / 8.0F))
+        End Get
+    End Property
+
+    ''' <summary>Half the length. A muzzle flame is roughly twice as long as it
+    ''' is wide on every reference TEPY was built against.</summary>
+    Public ReadOnly Property flashThickness As Single
+        Get
+            Return flashLength * 0.5F
+        End Get
+    End Property
 
     ''' <summary>
     ''' Colour times multiplier at a point through the light's life.
@@ -128,6 +167,10 @@ Public Module TankBlast
         If endKey = "" Then endKey = "lighting2"
         f = TankVisual.Floats(TankVisual.TextOf(el.SelectSingleNode("timeline/" & endKey)))
         If f IsNot Nothing AndAlso f.Length > 0 AndAlso f(0) > 0.0F Then s.durationS = f(0)
+
+        ' The flame's own clock, which is a different key.
+        f = TankVisual.Floats(TankVisual.TextOf(el.SelectSingleNode("timeline/end")))
+        If f IsNot Nothing AndAlso f.Length > 0 AndAlso f(0) > 0.0F Then s.endS = f(0)
 
         For Each a As XmlNode In lightEl.SelectNodes("animation")
             Dim k As New BlastKey

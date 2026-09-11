@@ -43,9 +43,6 @@ Public Class TankFx
         Public r0 As Single          ' metres at birth
         Public r1 As Single          ' metres at death
         Public active As Boolean
-        ''' <summary>When set, the colour comes from the game's own keys for
-        ''' this gun's effect rather than from the flat one above.</summary>
-        Public spec As BlastSpec
     End Structure
 
     Private ReadOnly pool(SLOTS - 1) As Puff
@@ -63,29 +60,21 @@ Public Class TankFx
     End Property
 
     ''' <summary>
-    ''' Arm the flash at the muzzle and the burst at whatever the round hit.
+    ''' Arm the burst where a round landed.
+    '''
+    ''' THE IMPACTS ARE NOT PER TANK and are not indexed to the shots. A round
+    ''' from one vehicle lands on another, and one shot can produce no impact at
+    ''' all - fired at the sky - or later more than one, once spall and
+    ''' ricochets exist. So this is one flat list of hit events that anything
+    ''' can add to, which is the same split TEPY makes between its ShotPool and
+    ''' its ImpactPool and for the same reason.
     '''
     ''' THE BURST IS PUSHED OFF THE SURFACE by a fraction of its own radius
-    ''' along the surface normal. Centred exactly on the impact point, half of
-    ''' a ground burst is under the ground and the visible half is a semicircle
+    ''' along the surface normal. Centred exactly on the impact point, half of a
+    ''' ground burst is under the ground and the visible half is a semicircle
     ''' with a hard straight edge along the terrain.
-    '''
-    ''' A shot that hit nothing - fired over the map edge or into the sky -
-    ''' gets its muzzle flash and no burst, rather than a burst hanging in the
-    ''' air two kilometres out.
     ''' </summary>
-    Public Sub Shot(muzzle As Vector3, dir As Vector3, hit As ShotHit,
-                    blast As BlastSpec)
-        ' THE GAME'S OWN LIGHT. Radii, duration and all four colour keys come
-        ' from gun_effects.xml, so a 122 mm and an autocannon differ because
-        ' their entries differ rather than because anything here was tuned.
-        ' The flash sits at the muzzle, pushed forward by the inner radius so
-        ' the core is clear of the barrel it came out of.
-        Dim life = If(blast IsNot Nothing, blast.durationS, FLASH_S)
-        Dim r_in = If(blast IsNot Nothing, blast.innerRadius, 1.0F)
-        Dim r_out = If(blast IsNot Nothing, blast.outerRadius, 4.0F)
-        arm_spec(muzzle + dir * (r_in * 0.5F), life, r_in * 0.55F, r_out * 0.42F, blast)
-
+    Public Sub Impact(hit As ShotHit)
         If hit.kind = HitKind.NoHit Then Return
 
         ' Earth throws up dust, armour throws sparks. Same burst, different
@@ -99,21 +88,6 @@ Public Class TankFx
         arm(hit.point + n * 0.6F, col, BURST_S, 0.4F, 2.6F)
     End Sub
 
-    Private Sub arm_spec(p As Vector3, life As Single, r0 As Single,
-                         r1 As Single, spec As BlastSpec)
-        For i = 0 To SLOTS - 1
-            If pool(i).active Then Continue For
-            pool(i).pos = p
-            pool(i).life = Math.Max(life, 0.02F)
-            pool(i).age = 0.0F
-            pool(i).r0 = r0
-            pool(i).r1 = r1
-            pool(i).spec = spec
-            pool(i).active = True
-            Return
-        Next
-    End Sub
-
     Private Sub arm(p As Vector3, colour As Vector3, life As Single,
                     r0 As Single, r1 As Single)
         For i = 0 To SLOTS - 1
@@ -124,7 +98,6 @@ Public Class TankFx
             pool(i).age = 0.0F
             pool(i).r0 = r0
             pool(i).r1 = r1
-            pool(i).spec = Nothing
             pool(i).active = True
             Return
         Next
@@ -148,9 +121,17 @@ Public Class TankFx
     ''' light and attenuates nothing, which is what a flash does and what lets
     ''' overlapping bursts brighten rather than cover each other.
     ''' </summary>
-    Public Sub Draw()
-        Dim n = live
-        If n = 0 Then Return
+    Public Sub Draw(instances As List(Of TankInstance))
+        Dim any = live > 0
+        If Not any AndAlso instances IsNot Nothing Then
+            For Each inst In instances
+                For Each sh In inst.shots.shots
+                    If sh.active Then any = True : Exit For
+                Next
+                If any Then Exit For
+            Next
+        End If
+        If Not any Then Return
         If shader Is Nothing Then shader = New Shader("tank_fx")
 
         GL_PUSH_GROUP("tank_fx")
@@ -162,29 +143,40 @@ Public Class TankFx
 
         shader.Use()
         defaultVao.Bind()
+        GL.Uniform1(shader("gain"), TANK_FX_GAIN)
+
+        ' EVERY TANK'S OWN SHOTS FIRST. Each carries the muzzle it left, the
+        ' direction it left along, and its own gun's timing and size - so a
+        ' 15 cm and an autocannon differ here without this loop knowing which
+        ' is which.
+        If instances IsNot Nothing Then
+            For Each inst In instances
+                For Each sh In inst.shots.shots
+                    If Not sh.active Then Continue For
+                    Dim c = If(sh.spec IsNot Nothing,
+                               sh.spec.Sample(sh.lightPhase) * 0.05F,
+                               New Vector3(1.0F, 0.6F, 0.2F))
+                    ' Grows along the barrel as it burns, and sits half its
+                    ' own length out so the root is at the muzzle rather than
+                    ' the middle.
+                    Dim r = sh.thickness + (sh.length - sh.thickness) * sh.flashPhase
+                    Dim p = sh.pos + sh.fwd * (sh.length * 0.5F)
+                    GL.Uniform3(shader("centre"), p.X, p.Y, p.Z)
+                    GL.Uniform3(shader("colour"), c.X, c.Y, c.Z)
+                    GL.Uniform1(shader("radius"), r)
+                    GL.Uniform1(shader("phase"), sh.flashPhase)
+                    GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+                Next
+            Next
+        End If
+
         For i = 0 To SLOTS - 1
             If Not pool(i).active Then Continue For
             Dim u = pool(i).age / Math.Max(pool(i).life, 1.0E-4F)
-
-            ' A blast's colour MOVES: the game's keys carry hue and multiplier
-            ' together - 255 150 0 at x20 into 255 200 100 at x25 - so the
-            ' flash whitens as it peaks and falls to a dull red. Sampling the
-            ' spec per frame is what gives that; a fixed colour times a fade
-            ' gives a shrinking orange dot.
-            Dim c = pool(i).colour
-            Dim extra = 1.0F
-            If pool(i).spec IsNot Nothing Then
-                c = pool(i).spec.Sample(u)
-                ' The multiplier is already in it, and it is 5 to 25. Bring it
-                ' back to a sane scale for the FX buffer and let the gain
-                ' slider carry the rest.
-                extra = 0.05F
-            End If
             GL.Uniform3(shader("centre"), pool(i).pos.X, pool(i).pos.Y, pool(i).pos.Z)
-            GL.Uniform3(shader("colour"), c.X * extra, c.Y * extra, c.Z * extra)
+            GL.Uniform3(shader("colour"), pool(i).colour.X, pool(i).colour.Y, pool(i).colour.Z)
             GL.Uniform1(shader("radius"), pool(i).r0 + (pool(i).r1 - pool(i).r0) * u)
             GL.Uniform1(shader("phase"), u)
-            GL.Uniform1(shader("gain"), TANK_FX_GAIN)
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
         Next
         shader.StopUse()

@@ -757,6 +757,7 @@ Public Class MapTanks
             inst.livePosition = shuttle_position(inst)
             advance_aim(inst)
             inst.recoil.Update(ANIM_DELTA)
+            inst.shots.Update(ANIM_DELTA)
             If Not TANK_FIRING Then Continue For
 
             Dim went = False
@@ -983,7 +984,13 @@ Public Class MapTanks
         dir = Vector3.Normalize(dir)
 
         Dim hit = TankShots.Cast(muzzle, dir, instances, inst)
-        fx.Shot(muzzle, dir, hit, inst.vehicle.blast)
+
+        ' The FLAME goes in this tank's own pool; the IMPACT goes in the shared
+        ' one. They are not linked and must not be: a round from one vehicle
+        ' lands on another, and TEPY makes the same split for the same reason -
+        ' one shot can produce no impact at all, or later more than one.
+        inst.shots.Fire(muzzle, dir, inst.vehicle.blast)
+        fx.Impact(hit)
 
         ' THE FIRST FEW IN FULL, then a tally. Thirty guns at a round every two
         ' seconds is fifteen lines a second forever, which buries the load log
@@ -1121,9 +1128,18 @@ Public Class MapTanks
 
     Private ReadOnly recoil_plans As New Dictionary(Of TankMesh, RecoilPlan)
 
-    ''' <summary>The muzzle flashes and impacts in flight. Owned here because
-    ''' the shots are fired here; drawn from the FX block, where the glow is.</summary>
+    ''' <summary>The impacts in flight, and the pass that draws them and
+    ''' every tank's own muzzle flames. Owned here because the shots are fired
+    ''' here; drawn from the FX block, where the glow is.</summary>
     Public ReadOnly fx As New TankFx
+
+    ''' <summary>Draw the muzzle flames and the impact bursts. One call from
+    ''' draw_scene's FX block, so the core still touches the tank module in a
+    ''' handful of named places rather than reaching into its pools.</summary>
+    Public Sub DrawFx()
+        If failed OrElse Not loaded Then Return
+        fx.Draw(instances)
+    End Sub
 
     ''' <summary>
     ''' Classify this gun's palette once, and work out which way the barrel
