@@ -77,9 +77,33 @@ void main(void)
     // mostly empty space, so the cutout is what makes the shadow leaf shaped.
     // Bark (flag bit 0) is exempt - trunks are opaque and some species' bark
     // alpha is a spec mask, not coverage.
-    if ((fs_in.flags & 1u) == 0u &&
-        texture(sampler2D(fs_in.texHandle), fs_in.uv).a < 0.5) {
-        discard;
+    //
+    // MIP AWARE, THE SAME CURVE tree.frag USES, and for the same reason -
+    // which this pass needed even more than the beauty pass does and did not
+    // have. Alpha mipmaps average toward the atlas mean, so a FIXED 0.5 stops
+    // passing anything once the sample is small enough. Measured on the four
+    // atlases, as the fraction of texels still clearing 0.5:
+    //
+    //              mip 3   mip 4   mip 5   mip 6
+    //   Olive       8.1%    3.3%    0.0%    0.0%
+    //   Cypress     9.4%    5.3%    1.2%    0.0%
+    //   Bush_Wild  19.4%   15.7%    8.6%    0.0%
+    //   Linden     15.9%   13.3%   10.9%    6.2%
+    //
+    // The bake rasterises the whole map top down at about 0.17 m a texel, so a
+    // metre-wide leaf card out of a 512 atlas is sampled around mip 7 - past
+    // the point every one of those reaches zero. The olive died first and the
+    // linden last, and that is exactly the order they came out of the bake:
+    // an olive bush with a 6.7 x 8.8 m canopy was reduced to a 1.9 x 1.7 m
+    // core setting 9% of its texels, while the linden beside it set 71%.
+    // Nothing was wrong with the geometry - both species' foliage faces the
+    // same way, mean |ny| 0.51 against 0.50 - it was this line.
+    if ((fs_in.flags & 1u) == 0u) {
+        float mip = textureQueryLod(sampler2D(fs_in.texHandle), fs_in.uv).x;
+        float cutoff = 0.5 / (1.0 + mip * 0.55);
+        if (texture(sampler2D(fs_in.texHandle), fs_in.uv).a < cutoff) {
+            discard;
+        }
     }
 
     float z  = gl_FragCoord.z;
