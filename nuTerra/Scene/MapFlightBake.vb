@@ -71,8 +71,58 @@ Public Class MapFlightBake
     ''' free.</summary>
     Public kind_b(SIZE * SIZE - 1) As Byte
 
-    Public top_m(SIZE * SIZE - 1) As Single
-    Public floor_m(SIZE * SIZE - 1) As Single
+    ''' <summary>
+    ''' The two height maps, SIXTEEN BIT, in the same encoding the files use.
+    '''
+    ''' These were float32, which at 8192 squared is 268 MB each and half a
+    ''' gigabyte resident for the life of the map. The export has always
+    ''' written 16-bit and nothing has ever wanted more: a step is
+    ''' 1/HEIGHT_SCALE = 1.6 cm, an order finer than the 17 cm texel the
+    ''' heights are sampled on, so the float precision was describing detail
+    ''' the grid could not hold. Storing what is exported also means there is
+    ''' one representation to be wrong rather than two to disagree.
+    '''
+    ''' Read and written through the top_m / floor_m properties below, which
+    ''' are indexed exactly as the arrays were - so every caller reads the
+    ''' same as it always did and none of them had to change.
+    ''' </summary>
+    Private top_u(SIZE * SIZE - 1) As UShort
+    Private floor_u(SIZE * SIZE - 1) As UShort
+
+    ''' <summary>Metres the stored counts are measured up from. Fixed by the
+    ''' FLOOR pass and used by both maps and by the export, so the numbers in
+    ''' memory and the numbers on disk cannot drift apart.</summary>
+    Public h_offset As Single
+
+    ''' <summary>The highest surface at a texel - terrain, models and trees
+    ''' together.</summary>
+    Public Property top_m(i As Integer) As Single
+        Get
+            Return h_offset + top_u(i) / HEIGHT_SCALE
+        End Get
+        Set(value As Single)
+            top_u(i) = quantise(value)
+        End Set
+    End Property
+
+    ''' <summary>The terrain alone, under whatever is standing on it.</summary>
+    Public Property floor_m(i As Integer) As Single
+        Get
+            Return h_offset + floor_u(i) / HEIGHT_SCALE
+        End Get
+        Set(value As Single)
+            floor_u(i) = quantise(value)
+        End Set
+    End Property
+
+    ''' <summary>Metres to a stored count, clamped. The clamp is the reason the
+    ''' offset is fitted to the map rather than assumed: 65535 counts is 1024 m
+    ''' of range, ample for any arena, but only if zero sits below the deepest
+    ''' point - otherwise a quarry encodes negative and reads as flat.</summary>
+    Private Function quantise(y As Single) As UShort
+        Dim v = CInt(Math.Round((y - h_offset) * HEIGHT_SCALE))
+        Return CUShort(Math.Min(Math.Max(v, 0), 65535))
+    End Function
     Public ready As Boolean
 
     ' The world footprint the two arrays span, and the constants that turn a
@@ -269,7 +319,7 @@ Public Class MapFlightBake
         ' floor - the ground on its own
         GL.Clear(ClearBufferMask.DepthBufferBit)
         draw_terrain(vp)
-        read_heights(floor_m)
+        read_heights(False)
 
         ' top - the ground and everything standing on it
         '
@@ -288,7 +338,7 @@ Public Class MapFlightBake
         ' disturb the heights the two passes above just settled.
         draw_trunks(vp)
 
-        read_heights(top_m)
+        read_heights(True)
         read_kinds()
         despike_top()
 
@@ -535,20 +585,39 @@ Public Class MapFlightBake
         Next
     End Sub
 
-    Private Sub read_heights(dst() As Single)
+    ''' <param name="into_top">False reads the floor, and FIXES THE OFFSET for
+    ''' both maps. It has to run first, which it does - the floor pass is the
+    ''' first of the two in Bake - because nothing can be quantised until the
+    ''' zero is known.</param>
+    Private Sub read_heights(into_top As Boolean)
         Dim d(SIZE * SIZE - 1) As Single
         GL.GetTextureImage(depth_tex.texture_id, 0,
                            OpenGL4.PixelFormat.DepthComponent, PixelType.Float,
                            d.Length * 4, d)
 
+        If Not into_top Then
+            ' THE MINIMUM IS FLIP INVARIANT, so it can be taken from the raw
+            ' read before the rows are turned over - which is what lets the
+            ' whole conversion happen without a second float array the size of
+            ' the map.
+            Dim lo = Single.MaxValue
+            For i = 0 To d.Length - 1
+                Dim y = eye_y - d(i) * far_d
+                If y < lo Then lo = y
+            Next
+            If lo = Single.MaxValue Then lo = 0.0F
+            h_offset = CSng(Math.Floor(lo) - 10.0F)
+        End If
+
         ' GL hands back row 0 = bottom = wz_min. Flip on the way out so row 0 is
         ' the wz_max edge - then the array reads like the picture you would draw
         ' of it, north up, and nobody downstream has to remember a convention.
+        Dim dst = If(into_top, top_u, floor_u)
         For r = 0 To SIZE - 1
             Dim src = (SIZE - 1 - r) * SIZE
             Dim dst_row = r * SIZE
             For c = 0 To SIZE - 1
-                dst(dst_row + c) = eye_y - d(src + c) * far_d
+                dst(dst_row + c) = quantise(eye_y - d(src + c) * far_d)
             Next
         Next
     End Sub
@@ -706,12 +775,10 @@ Public Class MapFlightBake
     ''' silently at zero - a whole quarry reading as flat ground.
     ''' </summary>
     Private Function height_offset() As Single
-        Dim lo = Single.MaxValue
-        For i = 0 To floor_m.Length - 1
-            If floor_m(i) < lo Then lo = floor_m(i)
-        Next
-        If lo = Single.MaxValue Then lo = 0.0F
-        Return CSng(Math.Floor(lo) - 10.0F)
+        ' Fixed when the floor was read - see read_heights. It used to be
+        ' rescanned here over 67 million texels to answer a question already
+        ' settled.
+        Return h_offset
     End Function
 
     Private Function encode16(y As Single, off As Single) As Integer
@@ -730,10 +797,12 @@ Public Class MapFlightBake
     ''' at 255 so the file also opens as a sane picture.
     ''' </summary>
     Private Sub write_top_rgba(path As String)
-        Dim off = height_offset()
-        Dim b(top_m.Length * 4 - 1) As Byte
-        For i = 0 To top_m.Length - 1
-            Dim h = encode16(top_m(i), off)
+        Dim b(SIZE * SIZE * 4 - 1) As Byte
+        For i = 0 To SIZE * SIZE - 1
+            ' STRAIGHT OUT OF STORAGE. The heights are already held in exactly
+            ' this encoding, so decoding them to metres and re-encoding would
+            ' be a round trip to the same number.
+            Dim h = CInt(top_u(i))
             Dim o = i * 4
             b(o) = kind_b(i)
             b(o + 1) = CByte((h >> 8) And &HFF)
@@ -746,10 +815,9 @@ Public Class MapFlightBake
     ''' <summary>The floor, same encoding, no kind - the ground is kind 0 by
     ''' definition and a byte a texel saying so is 67 MB of nothing.</summary>
     Private Sub write_floor_r16(path As String)
-        Dim off = height_offset()
-        Dim b(floor_m.Length * 2 - 1) As Byte
-        For i = 0 To floor_m.Length - 1
-            Dim h = encode16(floor_m(i), off)
+        Dim b(SIZE * SIZE * 2 - 1) As Byte
+        For i = 0 To SIZE * SIZE - 1
+            Dim h = CInt(floor_u(i))
             b(i * 2) = CByte(h And &HFF)
             b(i * 2 + 1) = CByte((h >> 8) And &HFF)
         Next
