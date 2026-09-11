@@ -374,8 +374,8 @@ table by a stone wall, `cam=-4.2564,5.2212,-0.3624,70.5601,0,48.1163`.
 The 09-08 pass had tried this reference and was reverted. Built this time as
 **Tank material (models)** in the deferred PBR path (`TANK_MAT`, off by
 default, bit-identical off), with the material block of `tank_gbuffer.frag`
-ported and measured with the 09-08 still protocol. Uncommitted at the time
-of writing, pending the owner's eye. Measured negatives worth keeping:
+ported and measured with the 09-08 still protocol. The owner: "rendering
+is better" - committed as `48c8b096`. Measured negatives worth keeping:
 
 - **The tanks do not go through the resolve.** `tank_gbuffer.frag` lights
   in linear space under three camera-following lights, ACES, gamma, and
@@ -403,6 +403,22 @@ of writing, pending the owner's eye. Measured negatives worth keeping:
 
 Controls: `tank_mat`, `gmm_curve` (0 raw / 1 Tank Exporter / 2 game),
 `tank_env`, `env_pmrem` - all persisted per map.
+
+**Zoning (evening, the owner's idea):** "draw rings and find areas as large
+as we can that the ring fits without hitting something; that whole area is
+safe; no collision checks, only zone radius checks." The Tank AI session
+builds the machinery (distance transform of the free mask, maximal discs
+greedily largest-first, overlap graph, A* on the graph) and Path Studio
+READS its zone map, the way it reads the bake - the owner: "wait for path
+AI to kick out the zone map". The contract asked for: one file per MASK
+beside the bake (tank and camera masks are deliberately separate - a camera
+flies over what a tank cannot drive through), per disc id / centre x z /
+radius / ground y, explicit adjacency, and a header with the mask, its
+rule, the cell size, the bake's `written` time and the count. The camera's
+free mask is `radar_commit.build_world(...)`'s `raw` with the gate applied.
+A radius field amplifies mask holes (one wrongly free cell inflates a disc
+through a wall and the planner PREFERS the wide corridor), which is why
+the canopy-over-rock hole is being fixed in the writer first.
 
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
