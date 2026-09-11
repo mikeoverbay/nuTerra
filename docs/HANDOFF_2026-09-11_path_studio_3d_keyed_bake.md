@@ -331,6 +331,41 @@ unexplained by this). Nobody has yet looked at an olive in the viewer beside
 its bake reading. No fixed per-species height table could have classified
 any of this; the component-size threshold for the solid bit stands.
 
+**The olive fault, found and fixed (16:08 bake).** With the `.srt` boxes
+beside the bake footprints, the olive was not trimmed, it was MISSING:
+`Olive_bush` (6.7 x 8.8 m box, 964 placed) came through as a 1.9 m core -
+24% of its footprint, 9% of the texels within 2.5 m of the base - and
+`Cypress_regular_small`, the most placed species on the map (1,386 saplings),
+was at 8% / 1%. Lindens were at 87% coverage. Cause: `sun_depth_tree.frag`
+alpha-tested at a fixed 0.5 while the beauty pass uses the mip-aware
+`0.5 / (1 + mip * 0.55)`; the top-down bake samples every leaf card near
+mip 7, where a sparse silvery atlas averages under 0.5 everywhere. Fix (the
+nuTerra session): the beauty pass's cutoff in the bake pass, one line.
+Verified per species with `verify_bake.py` (scratchpad; needs
+`<map>_trees.csv` and `<map>_tree_boxes.csv` from nuTerra's `treedump`):
+
+    species                height / footprint / cover   before  ->  after
+    Olive_bush               0.81 / 0.24 /  9%   ->  0.99 / 0.92 / 91%
+    Olive_01                 0.69 / 0.43 /  8%   ->  0.87 / 1.06 / 73%
+    Cypress_regular_small    1.13 / 0.08 /  1%   ->  1.08 / 0.93 / 14%
+    GrapeVine_01             0.78 / 0.75 /  8%   ->  0.80 / 0.97 / 12%
+    Bush_Wild_5m             0.91 / 0.85 / 31%   ->  1.03 / 0.97 / 88%
+    Linden_Regular_Small     0.96 / 1.11 / 87%   ->  0.97 / 1.26 / 100%
+    Linden_Regular_Tall      0.95 / 1.32 / 88%   ->  0.97 / 1.45 / 99%
+
+Whole map: tree texels 3.49% -> 6.75% (+94%), trunk stamps unchanged
+(bark was never alpha-tested - the control), 4,805 stamps that sat on
+terrain-keyed texels now sit under canopy. Leaf-card orientation was ruled
+out on the geometry (olive and linden authored alike, no billboarding in
+either pass). The navigator's gate still holds (bush open, tree blocked);
+the A* grid went from 24.1% to 21.3% blocked with the gate on.
+
+**Consequence for the shipped route:** `19_monastery.campath` (01:20, flown
+on the old bake) now has 11 of 2,110 points under the 0.5 m margin in 6
+stretches, worst 4.8 m short at (154, 113) under a 7.4 m top - foliage the
+old bake could not see. It needs regenerating in the Studio on this bake
+before it is flown again.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
