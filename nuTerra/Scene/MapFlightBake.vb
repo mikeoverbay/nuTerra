@@ -31,11 +31,25 @@ Public Class MapFlightBake
 
     ReadOnly scene As MapScene
 
-    ''' <summary>Texels a side. 2048 over a 1200 m map is 0.59 m per texel;
-    ''' at 1024 it was 1.17 and a 3 m wall covered two cells. Path Studio
-    ''' reads width and height from the meta, so this can move without
-    ''' breaking bakes already on disk.</summary>
-    Public Const SIZE As Integer = 2048
+    ''' <summary>Texels a side. 8192 over a 1200 m map is 0.15 m per texel.
+    ''' It was 2048 (0.59 m), and 1024 before that (1.17 m, a 3 m wall two
+    ''' cells wide). Path Studio reads width and height from the meta and
+    ''' works at 2048 whatever the bake is - block MAX for the top, so
+    ''' anything a finer bake caught survives the downsample - so this can
+    ''' move without breaking bakes already on disk. What it costs: two
+    ''' 268 MB .r32 files per map in TEMP and a 256 MB depth texture.
+    '''
+    ''' What it does NOT buy on its own is fences: a fence is a vertical
+    ''' plane, and from straight above a vertical plane has no area, so the
+    ''' fill pass writes nothing for it at any resolution. That is what the
+    ''' LINE pass in draw_models is for.</summary>
+    Public Const SIZE As Integer = 8192
+
+    ''' <summary>The mask PNG is for eyeballing, so it is written at this
+    ''' many texels a side: SIZE squared through GDI+ would be a quarter
+    ''' gigabyte bitmap and seconds of PNG on every map load. A block is
+    ''' white if ANY texel in it stands over OBSTACLE_MIN_H.</summary>
+    Public Const MASK_SIZE As Integer = 2048
 
     ''' <summary>Height above the terrain at which something counts as an
     ''' obstacle in the exported mask. The mask is for eyeballing only - the
@@ -350,6 +364,18 @@ Public Class MapFlightBake
         GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
                                      IntPtr.Zero, scene.static_models.indirectShadowMappingDrawCount, 0)
 
+        ' The same models again as LINES. Thin vertical geometry - fences,
+        ' railings, posts, wire - has no area from straight above, so the fill
+        ' pass above writes nothing for it, at any resolution; the navigator
+        ' then flies straight through a fence a tank cannot. Drawn as lines,
+        ' every edge rasterises at least one texel along its length, at the
+        ' edge's own depth, so the top map carries the fence at the fence's
+        ' height. Costs one more draw of the same buffers.
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt,
+                                     IntPtr.Zero, scene.static_models.indirectShadowMappingDrawCount, 0)
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+
         sunDepthModelShader.StopUse()
     End Sub
 
@@ -401,19 +427,36 @@ Public Class MapFlightBake
     End Sub
 
     Private Sub write_mask_png(path As String)
-        Dim px(SIZE * SIZE * 4 - 1) As Byte
-        For i = 0 To SIZE * SIZE - 1
-            Dim v As Byte = If(top_m(i) - floor_m(i) > OBSTACLE_MIN_H, CByte(255), CByte(0))
-            px(i * 4 + 0) = v
-            px(i * 4 + 1) = v
-            px(i * 4 + 2) = v
-            px(i * 4 + 3) = 255
+        ' Block-ANY down to MASK_SIZE: a block is an obstacle if one texel in
+        ' it is, so a fence the line pass drew one texel wide still shows.
+        Dim f = Math.Max(1, SIZE \ MASK_SIZE)
+        Dim n = SIZE \ f
+        Dim px(n * n * 4 - 1) As Byte
+        For r = 0 To n - 1
+            For c = 0 To n - 1
+                Dim v As Byte = 0
+                For rr = r * f To r * f + f - 1
+                    Dim base = rr * SIZE + c * f
+                    For cc = 0 To f - 1
+                        If top_m(base + cc) - floor_m(base + cc) > OBSTACLE_MIN_H Then
+                            v = 255
+                            Exit For
+                        End If
+                    Next
+                    If v = 255 Then Exit For
+                Next
+                Dim o = (r * n + c) * 4
+                px(o + 0) = v
+                px(o + 1) = v
+                px(o + 2) = v
+                px(o + 3) = 255
+            Next
         Next
 
         ' row 0 already holds the wz_max edge, and GDI+ row 0 is the top of the
         ' image, so this lands north up with no further flipping.
-        Using bmp As New Drawing.Bitmap(SIZE, SIZE, Drawing.Imaging.PixelFormat.Format32bppArgb)
-            Dim bd = bmp.LockBits(New Drawing.Rectangle(0, 0, SIZE, SIZE),
+        Using bmp As New Drawing.Bitmap(n, n, Drawing.Imaging.PixelFormat.Format32bppArgb)
+            Dim bd = bmp.LockBits(New Drawing.Rectangle(0, 0, n, n),
                                   Drawing.Imaging.ImageLockMode.WriteOnly,
                                   Drawing.Imaging.PixelFormat.Format32bppArgb)
             Marshal.Copy(px, 0, bd.Scan0, px.Length)

@@ -53,6 +53,10 @@ from scipy import ndimage
 # walls back on every hillside.
 SLOPE_TOL = 1.25
 
+# Texels a side the navigator works at, whatever the bake on disk is. See
+# Bake._work_res.
+WORK_RES = 2048
+
 from PIL import Image, ImageDraw
 
 # --------------------------------------------------------------------------
@@ -293,6 +297,7 @@ class Bake:
 
         self.top = self._r32(os.path.join(folder, map_name + "_top.r32"))
         self.floor = self._r32(os.path.join(folder, map_name + "_floor.r32"))
+        self._work_res()
 
         self.no_data = self.floor <= self.empty + 1.0
         if self.no_data.any():
@@ -325,10 +330,40 @@ class Bake:
 
 
     def _r32(self, path):
+        # float32 as stored; _work_res widens to float64 once the array is
+        # down to working size, so an 8192 bake never costs 537 MB a layer.
         with open(path, "rb") as f:
             raw = f.read()
-        a = np.frombuffer(raw, dtype="<f4").astype(np.float64)
+        a = np.frombuffer(raw, dtype="<f4")
         return a.reshape(self.h, self.w).copy()
+
+    def _work_res(self):
+        """Bring any bake down to WORK_RES a side, in place.
+
+        nuTerra bakes at 8192 so thin things leave a mark; the planners work
+        at 2048, where a 1200 m map is 0.59 m a texel and every dilation,
+        distance transform and radar march costs what it did. Block MAX for
+        the top, so a fence one 0.15 m texel wide is still there at 0.59 m;
+        block MEAN for the floor. The sentinel cells are filled first, from
+        a strided median, so they cannot drag a mean down. The world mapping
+        follows w and h, so nothing downstream knows.
+        """
+        if self.w <= WORK_RES and self.h <= WORK_RES:
+            self.top = self.top.astype(np.float64)
+            self.floor = self.floor.astype(np.float64)
+            return
+        no_data = self.floor <= self.empty + 1.0
+        if no_data.any():
+            fill = float(np.median(self.floor[::8, ::8][~no_data[::8, ::8]]))
+            self.floor[no_data] = fill
+            self.top[no_data] = fill
+        fy, fx = max(1, self.h // WORK_RES), max(1, self.w // WORK_RES)
+        H, W = self.h // fy, self.w // fx
+        self.top = (self.top[:H * fy, :W * fx].reshape(H, fy, W, fx)
+                    .max(axis=(1, 3)).astype(np.float64))
+        self.floor = (self.floor[:H * fy, :W * fx].reshape(H, fy, W, fx)
+                      .mean(axis=(1, 3)).astype(np.float64))
+        self.w, self.h = W, H
 
     def world_of(self, col, row):
         return (self.wx_min + (col + 0.5) * self.mx,
