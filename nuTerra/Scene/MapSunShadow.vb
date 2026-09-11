@@ -112,6 +112,49 @@ Public Class MapSunShadow
     Public bake_far As Single
     Public bake_ortho_w As Single
 
+    ''' <summary>
+    ''' FOUR TILES in the sun's projection space instead of one map (2026-09-11).
+    '''
+    ''' The fitted box is split 2 x 2 in light-space XY; each quadrant gets its
+    ''' own ortho projection and its own D16 texture of tile_size a side, so the
+    ''' box is covered at twice the texels each way of the single map. Every
+    ''' tile is drawn from the SAME command array as the single map - offset 0,
+    ''' the same count, outland skipped by the same prefix rule - and the ortho
+    ''' box does the culling on the GPU, so gl_DrawIDARB keeps indexing the
+    ''' bake's kinds buffer. Each tile overlaps its neighbours by TILE_PAD_TEXELS
+    ''' so the filter taps at a seam land on baked depth, not on the border.
+    '''
+    ''' All four are resident. Four 16k tiles are 2 GiB - to the byte what one
+    ''' 32k map costs - so the budget below counts them TOGETHER and steps every
+    ''' tile down a power of two when the sum will not fit; a map that reached
+    ''' 7842 of 8192 MiB with the single map gets smaller tiles, not an OOM.
+    '''
+    ''' The sampling does not live in deferred.frag. sun_shadow_tiles.frag is a
+    ''' pass of its own (modRender.render_sun_shadow_tiles): it picks the tile
+    ''' per pixel from the quadrant the point falls in, filters, and writes a
+    ''' shadow factor to a screen-sized R8 that deferred.frag reads back with
+    ''' one fetch (has_sun_shadow = 3). A per-frame frustum test against each
+    ''' tile's world box says which tiles are on screen (tile_mask); the pass
+    ''' skips the rest.
+    ''' </summary>
+    Public Shared TILED As Boolean = True
+    Public Shared TILE_SIZE As Integer = 16384
+    ''' <summary>Of the card's total, for ALL the tiles together; and of what is
+    ''' free when the bake runs. Higher than the single map's 0.25 / 0.5 on the
+    ''' owner's instruction - 2 GiB of an 8 GiB card is the design.</summary>
+    Public Shared TILES_VRAM_BUDGET As Single = 0.4F
+    Public Shared TILES_FREE_BUDGET As Single = 0.6F
+    Public Const TILES As Integer = 2            ' per axis
+    Public Const TILE_PAD_TEXELS As Integer = 2
+    Public tile_tex(TILES * TILES - 1) As GLTexture
+    Public tile_view_proj(TILES * TILES - 1) As Matrix4
+    ''' <summary>Each tile's box in WORLD space, for the on-screen test.</summary>
+    Public tile_bmin(TILES * TILES - 1) As Vector3
+    Public tile_bmax(TILES * TILES - 1) As Vector3
+    Public tile_size As Integer
+    Public tiles_ready As Boolean
+    Private tile_fbo As GLFramebuffer
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -166,6 +209,158 @@ Public Class MapSunShadow
     Private Shared Function depth_bytes(edge As Integer) As Long
         Return CLng(edge) * CLng(edge) * 2L   ' DepthComponent16
     End Function
+
+    ''' <summary>The tile edge that fits: TILE_SIZE, capped by the card, then
+    ''' stepped down while ALL the tiles together would exceed the budget.
+    ''' The single map's guard assumes one texture; this one does not.</summary>
+    Private Shared Function tile_size_fitting(want As Integer) As Integer
+        Dim cap = MAX_SIZE
+        If GLCapabilities.maxTextureSize > 0 Then
+            cap = Math.Min(cap, GLCapabilities.maxTextureSize)
+        End If
+        Dim s = MIN_SIZE
+        While s < want AndAlso s < cap
+            s *= 2
+        End While
+        s = Math.Min(s, cap)
+
+        Dim n = CLng(TILES * TILES)
+        If GLCapabilities.total_mem_mb > 0 Then
+            Dim budget = CLng(CLng(GLCapabilities.total_mem_mb) * 1024L * 1024L * TILES_VRAM_BUDGET)
+            If GLCapabilities.free_mem_mb > 0 Then
+                budget = Math.Min(budget,
+                    CLng(CLng(GLCapabilities.free_mem_mb) * 1024L * 1024L * TILES_FREE_BUDGET))
+            End If
+            Dim asked = s
+            While s > MIN_SIZE AndAlso depth_bytes(s) * n >= budget
+                s \= 2
+            End While
+            If s <> asked Then
+                LogThis("sun shadow tiles: {0} x {1}x{1} would be {2} MiB together, over the {3} MiB budget - using {0} x {4}x{4} ({5} MiB)",
+                        n, asked, depth_bytes(asked) * n \ (1024L * 1024L),
+                        budget \ (1024L * 1024L), s, depth_bytes(s) * n \ (1024L * 1024L))
+            End If
+        End If
+        Return s
+    End Function
+
+    Private Sub create_tiles()
+        For k = 0 To TILES * TILES - 1
+            Dim t = GLTexture.Create(TextureTarget.Texture2D, "SunShadowTile" & k)
+            t.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Linear)
+            t.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Linear)
+            t.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToBorder)
+            t.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToBorder)
+            Dim border() As Single = {1.0F, 1.0F, 1.0F, 1.0F}
+            GL.TextureParameter(t.texture_id, TextureParameterName.TextureBorderColor, border)
+            t.Parameter(TextureParameterName.TextureCompareMode, CInt(TextureCompareMode.CompareRefToTexture))
+            t.Parameter(TextureParameterName.TextureCompareFunc, CInt(All.Lequal))
+            t.Storage2D(1, DirectCast(InternalFormat.DepthComponent16, SizedInternalFormat), tile_size, tile_size)
+            tile_tex(k) = t
+        Next
+        ' One FBO, re-pointed at each tile as it is baked. Depth only - no
+        ' colour attachment, so nothing the depth shaders do not write is left
+        ' undefined.
+        tile_fbo = GLFramebuffer.Create("SunShadowTileFBO")
+        tile_fbo.Texture(FramebufferAttachment.DepthAttachment, tile_tex(0), 0)
+        GL.NamedFramebufferDrawBuffer(tile_fbo.fbo_id, DrawBufferMode.None)
+        GL.NamedFramebufferReadBuffer(tile_fbo.fbo_id, ReadBufferMode.None)
+        If Not tile_fbo.IsComplete Then
+            LogThis("sun shadow tiles: FBO incomplete at {0}x{0}", tile_size)
+        End If
+    End Sub
+
+    Private Sub Dispose_tiles()
+        For k = 0 To TILES * TILES - 1
+            tile_tex(k)?.Dispose()
+            tile_tex(k) = Nothing
+        Next
+        tile_fbo?.Dispose()
+        tile_fbo = Nothing
+        tiles_ready = False
+    End Sub
+
+    ''' <summary>The four tiles, one ortho render each of the same three
+    ''' passes the single map runs. Called from Bake with the fitted box.</summary>
+    Private Sub bake_tiles(view As Matrix4, mid_x As Single, mid_y As Single, half As Single,
+                           near_d As Single, far_d As Single, ortho_w As Single, extent As Single)
+        tiles_ready = False
+        Dim want = tile_size_fitting(TILE_SIZE)
+        If tile_tex(0) Is Nothing OrElse tile_size <> want Then
+            Dispose_tiles()
+            tile_size = want
+            create_tiles()
+        End If
+
+        ' A quadrant is half the box wide. The overlap is TILE_PAD_TEXELS of the
+        ' tile's own texels each side, so the taps at a seam are inside.
+        Dim q = half
+        Dim pad = q / CSng(tile_size) * TILE_PAD_TEXELS
+        Dim inv = Matrix4.Invert(view)
+        Dim full = sun_view_proj
+
+        For j = 0 To TILES - 1
+            For i = 0 To TILES - 1
+                Dim k = j * TILES + i
+                Dim x0 = mid_x - half + i * q
+                Dim y0 = mid_y - half + j * q
+                Dim proj = Matrix4.CreateOrthographicOffCenter(
+                    x0 - pad, x0 + q + pad,
+                    y0 - pad, y0 + q + pad,
+                    near_d, far_d)
+                proj.M33 *= 0.5F
+                proj.M43 = (proj.M43 + 1.0F) * 0.5F
+                tile_view_proj(k) = view * proj
+
+                ' The tile's box in world space, for the per-frame frustum test:
+                ' the eight corners of the quadrant across the depth range, back
+                ' through the light view.
+                Dim bmin As New Vector3(Single.MaxValue, Single.MaxValue, Single.MaxValue)
+                Dim bmax As New Vector3(Single.MinValue, Single.MinValue, Single.MinValue)
+                For c = 0 To 7
+                    Dim lc As New Vector3(If((c And 1) = 0, x0, x0 + q),
+                                          If((c And 2) = 0, y0, y0 + q),
+                                          If((c And 4) = 0, -far_d, -near_d))
+                    Dim w = (New Vector4(lc, 1.0F) * inv).Xyz
+                    bmin = Vector3.ComponentMin(bmin, w)
+                    bmax = Vector3.ComponentMax(bmax, w)
+                Next
+                tile_bmin(k) = bmin
+                tile_bmax(k) = bmax
+
+                tile_fbo.Bind(FramebufferTarget.Framebuffer)
+                tile_fbo.Texture(FramebufferAttachment.DepthAttachment, tile_tex(k), 0)
+                GL.Viewport(0, 0, tile_size, tile_size)
+                GL.ClearDepth(1.0)
+                GL.Clear(ClearBufferMask.DepthBufferBit)
+                GL.DepthFunc(DepthFunction.Less)
+                GL.Enable(EnableCap.DepthTest)
+                GL.DepthMask(True)
+                GL.Disable(EnableCap.CullFace)
+                GL.Enable(EnableCap.PolygonOffsetFill)
+                GL.PolygonOffset(1.5F, 4.0F)
+
+                ' The draw passes read sun_view_proj; point it at this tile.
+                sun_view_proj = tile_view_proj(k)
+                draw_terrain()
+                draw_models()
+                draw_trees()
+
+                GL.Disable(EnableCap.PolygonOffsetFill)
+            Next
+        Next
+        sun_view_proj = full
+
+        GL.Enable(EnableCap.CullFace)
+        GL.DepthFunc(DepthFunction.Greater)
+        GL.ClearDepth(0.0F)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+
+        tiles_ready = True
+        LogThis("sun shadow: baked {0} tiles of {1}x{1} 16 ({2} MiB together) over the {3:0} m box - {4:0.000} m per texel, depth {5:0}..{6:0} m, map {7:0} m",
+                TILES * TILES, tile_size, depth_bytes(tile_size) * TILES * TILES \ (1024L * 1024L),
+                ortho_w, (ortho_w / TILES) / tile_size, near_d, far_d, extent)
+    End Sub
 
     ''' <summary>
     ''' Renders the map's depth from the sun. Call once a map is loaded, and again
@@ -250,7 +445,12 @@ Public Class MapSunShadow
 
         ' Rebuild the targets when the size moves, and whenever the method moves -
         ' MSM needs a colour attachment the depth-only path does not have.
-        If depth_tex Is Nothing OrElse size <> want OrElse msm_ready <> MSM_SHADOW_ENABLED Then
+        If TILED Then
+            ' The single map is not baked in tiled mode - it would be another
+            ' 512 MiB nothing reads. Anything left from a previous mode goes.
+            If depth_tex IsNot Nothing Then Dispose_gl()
+            ready = False
+        ElseIf depth_tex Is Nothing OrElse size <> want OrElse msm_ready <> MSM_SHADOW_ENABLED Then
             Dispose_gl()
             size = want
             create_target()
@@ -280,6 +480,13 @@ Public Class MapSunShadow
         bake_near = near_d
         bake_far = far_d
         bake_ortho_w = ortho_w
+
+        If TILED Then
+            bake_tiles(view, mid_x, mid_y, half, near_d, far_d, ortho_w, extent)
+            Return
+        Else
+            Dispose_tiles()
+        End If
 
         fbo.Bind(FramebufferTarget.Framebuffer)
         GL.Viewport(0, 0, size, size)
@@ -610,6 +817,7 @@ Public Class MapSunShadow
     ''' wider than the map, so nearly all precision is being wasted.
     ''' </summary>
     Public Sub DebugDraw(rect As RectangleF)
+        If depth_tex Is Nothing Then Return   ' tiled mode: no single map to show
         If Not ready OrElse depth_tex Is Nothing Then Return
 
         GL_PUSH_GROUP("MapSunShadow::DebugDraw")
@@ -653,6 +861,7 @@ Public Class MapSunShadow
     End Sub
 
     Public Sub Dispose() Implements IDisposable.Dispose
+        Dispose_tiles()
         Dispose_gl()
     End Sub
 End Class

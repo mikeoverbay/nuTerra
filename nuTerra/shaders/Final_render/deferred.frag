@@ -364,6 +364,10 @@ layout(binding = 7) uniform sampler2DArrayShadow shadowMap;
 // default sun_shadow_factor returns 1.0 and the baked term below is the whole
 // answer, but turning the cascades on multiplies a second, moving factor in.
 layout(binding = 8) uniform sampler2DShadow sun_shadow_map;
+// The sun shadow already RESOLVED for this frame by sun_shadow_tiles.frag -
+// a factor per screen pixel from the four tiles (has_sun_shadow = 3). This
+// shader does no tile work; see MapSunShadow.TILED.
+layout(binding = 13) uniform sampler2D sun_shadow_pre;
 
 // Moment Shadow Map variant of the same bake - four power moments instead of a
 // comparison sampler. Plain sampler2D, mipmapped and pre-blurred.
@@ -602,6 +606,13 @@ float baked_sun_shadow(vec3 world_pos)
 {
     if (has_sun_shadow == 0) {
         return 1.0;
+    }
+
+    if (has_sun_shadow == 3) {
+        // The tiles: one fetch of the factor the tile pass wrote for this
+        // pixel, shaped exactly as the other two paths shape theirs.
+        float s = texelFetch(sun_shadow_pre, ivec2(gl_FragCoord.xy), 0).r;
+        return mix(1.0, shape_penumbra(s), props.horizon_strength);
     }
 
     vec4 sp = sunViewProj * vec4(world_pos, 1.0);

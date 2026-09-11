@@ -239,6 +239,7 @@ Module ShaderLoader
     Public shadowViewShader As Shader
     Public msmBlurShader As Shader
     Public ssrShader As Shader
+    Public sunShadowTilesShader As Shader
     Public waterShader As Shader
     Public MegaMixerShader As Shader
     Public MiniMapRingsShader As Shader
@@ -338,6 +339,7 @@ Module ShaderLoader
         shadowViewShader = New Shader("shadow_view")
         msmBlurShader = New Shader("msm_blur")
         ssrShader = New Shader("ssr")
+        sunShadowTilesShader = New Shader("sun_shadow_tiles")
         waterShader = New Shader("water")
         glassPassShader = New Shader("glassPass")
         'unused: gWriterShader = New Shader("gWriter")

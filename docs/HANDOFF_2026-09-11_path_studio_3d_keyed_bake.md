@@ -170,3 +170,48 @@ the IDE build, or the other session, is the check.
 4. From 09-09: the 26 m hairpin deviation on the shipped route; lane course
    3 (tree cluster) never closes; the A* still routes around lanes.
 5. Trees / leaf cards batching in nuTerra - the owner parked it ("not now").
+
+## 9. The sun shadow as four tiles (2026-09-11, NOT YET BUILT)
+
+The owner: split the baked sun shadow into four areas in the sun's
+projection space, 16k x 16k each, use them all with an on-screen check, as a
+SECOND shadow shader so deferred.frag is not overloaded. Built on the nuTerra
+side of the split with the other session's agreement (files named to it
+first); the agent shell cannot compile, so **the IDE build is the check**.
+
+- `MapSunShadow.TILED` (default True): the fitted box split 2 x 2 in
+  light-space XY, each quadrant an ortho render into its own D16 texture of
+  `tile_size` a side (`TILE_SIZE` 16384), overlapping its neighbours by
+  `TILE_PAD_TEXELS` 2 so the filter taps at a seam are inside. The same three
+  draw passes as the single map, the same command array at offset 0 - no
+  compaction, so `gl_DrawIDARB` keeps indexing the bake kinds buffer. The
+  single map is not baked in tiled mode.
+- **VRAM:** four 16k tiles are 2 GiB, to the byte what one 32k map costs.
+  All four resident on the owner's instruction (8 GiB card).
+  `tile_size_fitting` counts ALL the tiles against `TILES_VRAM_BUDGET` 0.4 of
+  total and `TILES_FREE_BUDGET` 0.6 of free, stepping every tile down a
+  power of two together - a map that reached 7842 of 8192 MiB with the
+  single map gets smaller tiles, not an OOM.
+- **The second shader:** `shaders/Final_render/sun_shadow_tiles.{vert,frag}`,
+  run by `modRender.render_sun_shadow_tiles` before the deferred pass:
+  gPosition -> world -> the FULL box with `sunViewProj` -> quadrant from
+  `sp.xy >= 0.5`, local uv through the pad, the same four taps as the single
+  map, written to a screen-sized R8 (`sun_shadow_pre`, bound at 13).
+  `deferred.frag` gets `has_sun_shadow == 3`: one `texelFetch` and the same
+  `shape_penumbra` as the other paths - nothing else in it changed.
+- **The on-screen check:** each tile's world box (its light-space quadrant
+  across the depth range, back through the light view) is tested against
+  the view frustum every frame (`BoxInFrustum`); the mask goes to the shader
+  as `tile_mask` and pixels on a tile that is off screen are lit without a
+  tap. A change of mask is logged: "sun shadow tiles: N of 4 on screen".
+
+What to look for after the build, on the monastery: the log line
+"sun shadow: baked 4 tiles of 16384x16384 16 (2048 MiB together) ..." at
+load, then "sun shadow tiles: N of 4 on screen" as the camera moves, and the
+shadows themselves - the same as before at a glance, twice as sharp up
+close, no seam along the middle of the map in either axis.
+
+Open: the tiles have no MSM path (`MSM_SHADOW_ENABLED` is ignored while
+`TILED`); `DebugDraw` shows nothing in tiled mode; `docs/shadows.md` is the
+nuTerra session's and has not been told yet (the paragraph above is what it
+needs).

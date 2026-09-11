@@ -252,6 +252,12 @@ Module modRender
         ' for the inspector rather than adding a branch inside deferred.frag,
         ' so the real lighting path has no knowledge of the probe grid at all.
         modGpuTimers.Begin("Deferred")
+        ' The tiled sun shadow, resolved before the deferred pass reads it.
+        If MapSunShadow.TILED AndAlso map_scene.sun_shadow IsNot Nothing AndAlso
+           map_scene.sun_shadow.tiles_ready AndAlso BAKED_SHADOW_ENABLED Then
+            render_sun_shadow_tiles()
+        End If
+
         If SH_GRID_DEBUG AndAlso SH_GRID_LOADED AndAlso SH_GRID_ID IsNot Nothing Then
             render_probe_field()
         Else
@@ -1074,7 +1080,14 @@ Module modRender
         ' what shadows terrain and static models - it has to be here rather than
         ' folded into the terrain albedo at page-bake time, or it reaches neither
         ' the models nor the ambient/direct split correctly.
-        If map_scene.sun_shadow.ready AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
+        If MapSunShadow.TILED AndAlso map_scene.sun_shadow.tiles_ready AndAlso
+           sun_shadow_pre IsNot Nothing AndAlso BAKED_SHADOW_ENABLED Then
+            ' The tiles, already resolved this frame by render_sun_shadow_tiles.
+            sun_shadow_pre.BindUnit(13)
+            GL.Uniform1(deferredShader("has_sun_shadow"), 3)
+            GL.Uniform1(deferredShader("shadow_penumbra_lo"), SHADOW_PENUMBRA_LO)
+            GL.Uniform1(deferredShader("shadow_penumbra_hi"), SHADOW_PENUMBRA_HI)
+        ElseIf map_scene.sun_shadow.ready AndAlso map_scene.sun_shadow.depth_tex IsNot Nothing Then
             GL.UniformMatrix4(deferredShader("sunViewProj"), False, map_scene.sun_shadow.sun_view_proj)
 
             ' 1 = PCF over the depth map, 2 = moment shadow map. The moment path
@@ -1202,6 +1215,85 @@ Module modRender
     Private Sub copy_default_to_gColor()
         GL.ReadBuffer(ReadBufferMode.Back)
         GL.CopyTextureSubImage2D(MainFBO.gColor.texture_id, 0, 0, 0, 0, 0, MainFBO.width, MainFBO.height)
+    End Sub
+
+    ' The sun shadow from the four tiles, resolved once a frame into a
+    ' screen-sized R8 that the deferred pass reads back with one fetch. Its own
+    ' shader (sun_shadow_tiles.frag), so deferred.frag carries none of the tile
+    ' logic. See MapSunShadow.TILED.
+    Private sun_shadow_pre As GLTexture
+    Private sun_shadow_pre_fbo As GLFramebuffer
+    Private sun_shadow_pre_w As Integer
+    Private sun_shadow_pre_h As Integer
+    Private sun_tile_mask_last As Integer = -1
+
+    Private Sub ensure_sun_shadow_pre()
+        If sun_shadow_pre IsNot Nothing AndAlso sun_shadow_pre_w = MainFBO.width AndAlso sun_shadow_pre_h = MainFBO.height Then Return
+        sun_shadow_pre?.Dispose()
+        sun_shadow_pre_fbo?.Dispose()
+        sun_shadow_pre = GLTexture.Create(TextureTarget.Texture2D, "SunShadowPre")
+        sun_shadow_pre.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        sun_shadow_pre.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        sun_shadow_pre.Parameter(TextureParameterName.TextureWrapS, TextureWrapMode.ClampToEdge)
+        sun_shadow_pre.Parameter(TextureParameterName.TextureWrapT, TextureWrapMode.ClampToEdge)
+        sun_shadow_pre.Storage2D(1, SizedInternalFormat.R8, MainFBO.width, MainFBO.height)
+        sun_shadow_pre_fbo = GLFramebuffer.Create("SunShadowPreFBO")
+        sun_shadow_pre_fbo.Texture(FramebufferAttachment.ColorAttachment0, sun_shadow_pre, 0)
+        GL.NamedFramebufferDrawBuffer(sun_shadow_pre_fbo.fbo_id, DrawBufferMode.ColorAttachment0)
+        sun_shadow_pre_w = MainFBO.width
+        sun_shadow_pre_h = MainFBO.height
+    End Sub
+
+    ''' <summary>Which tiles the view frustum touches this frame, one bit per
+    ''' tile. From ground level it is usually one, at a boundary two.</summary>
+    Private Function sun_tile_mask() As Integer
+        Dim ss = map_scene.sun_shadow
+        Dim mask = 0
+        For k = 0 To MapSunShadow.TILES * MapSunShadow.TILES - 1
+            If BoxInFrustum(ss.tile_bmin(k), ss.tile_bmax(k)) Then mask = mask Or (1 << k)
+        Next
+        Return mask
+    End Function
+
+    Private Sub render_sun_shadow_tiles()
+        GL_PUSH_GROUP("sun_shadow_tiles")
+        ensure_sun_shadow_pre()
+        Dim ss = map_scene.sun_shadow
+        Dim mask = sun_tile_mask()
+        If mask <> sun_tile_mask_last Then
+            LogThis("sun shadow tiles: {0} of 4 on screen (mask {1})",
+                    ((mask And 1) + ((mask >> 1) And 1) + ((mask >> 2) And 1) + ((mask >> 3) And 1)), mask)
+            sun_tile_mask_last = mask
+        End If
+
+        ' Remember what was bound, draw into the factor texture, put it back.
+        Dim prev_fbo = GL.GetInteger(GetPName.DrawFramebufferBinding)
+        sun_shadow_pre_fbo.Bind(FramebufferTarget.Framebuffer)
+        GL.Viewport(0, 0, sun_shadow_pre_w, sun_shadow_pre_h)
+        GL.Disable(EnableCap.DepthTest)
+        GL.DepthMask(False)
+
+        sunShadowTilesShader.Use()
+        MainFBO.gPosition.BindUnit(0)
+        For k = 0 To MapSunShadow.TILES * MapSunShadow.TILES - 1
+            ss.tile_tex(k).BindUnit(1 + k)
+        Next
+        GL.UniformMatrix4(sunShadowTilesShader("sunViewProj"), False, ss.sun_view_proj)
+        GL.Uniform1(sunShadowTilesShader("tile_mask"), mask)
+        GL.Uniform1(sunShadowTilesShader("tile_texel"), 1.0F / ss.tile_size)
+        GL.Uniform1(sunShadowTilesShader("tile_pad"), CSng(MapSunShadow.TILE_PAD_TEXELS) / ss.tile_size)
+
+        defaultVao.Bind()
+        GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
+
+        sunShadowTilesShader.StopUse()
+        unbind_textures(1 + MapSunShadow.TILES * MapSunShadow.TILES)
+
+        GL.DepthMask(True)
+        GL.Enable(EnableCap.DepthTest)
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, prev_fbo)
+        GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
+        GL_POP_GROUP()
     End Sub
 
     Private Sub render_ssr()
