@@ -97,6 +97,37 @@ might expect them:
 `bakedAOPower` / `bakedAOToShadowsMult` are **not applied here**; their whole
 containing struct is `[unused]`. They belong to the resolve.
 
+## The tank's LOOK is not the tank's material model
+
+**Read this before porting anything here into the map-model path.** Measured
+twice now, on the owner's two tin milk cans (`hd_env_EU_040_MilkCans`), and
+reverted both times — the 2026-09-08 shading pass and again on 09-11.
+
+`tank_gbuffer.frag` in nuTerra lights the vehicle **itself**: linear space,
+three camera-following lights, ACES, gamma — then writes `GFLAG_UNLIT` so
+the deferred resolve hands its pixels through untouched. Its `gGMF.rg` gloss
+and metal are a **by-product**, written for whatever downstream wants them.
+They are not what produced the look.
+
+So a map model cannot be made to read like a tank by giving it the tank's
+gloss and metal. The two go through different pipelines, and what the eye is
+responding to is the three-light rig, not the material curve. Ported
+faithfully into the deferred path, the Tank Exporter gloss curve reads the
+cans' G 0.45 body as 0.79 metal, takes the diffuse away, and the cans fall
+from 37 to 11 levels in the wall's shade — **black**, −70%, with the wood
+table down 47%. Under three camera lights that is invisible; under one sun
+it is the whole object.
+
+The measurements, the three curves compared, and what the environment read
+is worth instead are in
+`HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` §12. Kept deliberately in
+one place rather than copied — the numbers there are the record.
+
+Related trap, from the other end: anything keying off `GBUF_RENDER` treats a
+tank as a **third thing**. It is neither `MODEL` (64) nor `TERRAIN` (128) —
+`GFLAG_UNLIT` is 0. That is how the base rings came to paint over hulls
+parked inside them.
+
 ## Naming traps
 
 Every one of these was proven from arithmetic, and each contradicts the name:
