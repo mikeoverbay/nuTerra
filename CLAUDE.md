@@ -21,8 +21,16 @@ the same time, with the owner.
 - `nuTerra/cam_paths/*.campath` are committed with the work that made them;
   never hand-edit one.
 - No subagent fan-out or Workflow runs on this repo.
-- Three sessions as of 2026-09-11 evening: Path Studio (this file's owner),
-  nuTerra work (Tanks, render, bake), and Tank AI (`docs/HANDOFF_2026-09-11_tank_ai.md`).
+- Three sessions as of 2026-09-11 evening: Path Studio (this file's owner)
+  and nuTerra work (Tanks, render, bake) share THIS checkout on `master`;
+  Tank AI (`docs/HANDOFF_2026-09-11_tank_ai.md`) works by the owner's
+  decision in its OWN clone, `C:
+uTerra_tankai`, branch `tank-ai`, its own
+  build and its own running exe - it fetches from `C:
+uTerra` and never
+  pushes into it, so nothing it does can land here except by a merge the
+  owner performs. The "work on master here" rule above governs the two
+  sessions in this tree, not that one.
   The protocol that has held all day: NAME THE FILE before editing anything
   that is not yours, wait for the ack, and measure rather than argue. The
   flight bake's contract lives in `<map>_meta.txt` (kind_mask, outland_bit,
