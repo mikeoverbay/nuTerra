@@ -397,6 +397,13 @@ class Bake:
             self.kind = (key & kmask).astype(np.uint8)
             self.trunk = (key & tbit) != 0
             self.trunk_radius = float(meta.get("trunk_radius", 0.0))
+            # The outland is a bit too (outland_bit, 16): the scenery backdrop
+            # ringing the arena keeps its kind - a backdrop cliff is still a
+            # rock - and carries this flag for where it is. The planner never
+            # routes out there; the flag is the exact test for that, in place
+            # of any distance-from-centre guess.
+            obit = int(meta.get("outland_bit", 0))
+            self.outland = (key & obit) != 0 if obit else None
             # G is the high byte and B the low; A is 255 so the file still
             # opens as a picture. (The spec said G/A - the writer chose G/B
             # and the file on disk is the authority.)
@@ -413,6 +420,7 @@ class Bake:
             self.floor = self._r32(os.path.join(folder, map_name + "_floor.r32"))
             self.kind = None
             self.trunk = None
+            self.outland = None
 
     def kind_at(self, x, z):
         """The kind key of the tallest thing at a world point, 0 without a
@@ -456,6 +464,8 @@ class Bake:
         if getattr(self, "trunk", None) is not None:
             # a trunk anywhere in the block is a trunk in the cell
             self.trunk = self.trunk[:H * fy, :W * fx].reshape(H, fy, W, fx).any(axis=(1, 3))
+        if getattr(self, "outland", None) is not None:
+            self.outland = self.outland[:H * fy, :W * fx].reshape(H, fy, W, fx).any(axis=(1, 3))
         self.top = blocks.max(axis=(1, 3)).astype(np.float64)
         self.floor = (self.floor[:H * fy, :W * fx].reshape(H, fy, W, fx)
                       .mean(axis=(1, 3)).astype(np.float64))
