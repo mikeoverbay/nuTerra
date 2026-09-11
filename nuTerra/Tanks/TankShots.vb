@@ -41,16 +41,28 @@ Public Class TankShots
     ''' 1400 m across, so this reaches the far side from anywhere on it.</summary>
     Private Const MAX_RANGE_M As Single = 2000.0F
 
-    ''' <summary>March step. The bake's texel is 0.68 m at 2048 over 1400, so
-    ''' stepping much finer than this only re-reads the same texel; stepping
-    ''' coarser walks through a wall. The hit is then bisected, so this sets
-    ''' how thin an obstacle can be and still stop a round, not the accuracy of
-    ''' the impact point.</summary>
-    Private Const STEP_M As Single = 0.5F
+    ''' <summary>
+    ''' How far the march moves between samples: ONE TEXEL of the bake.
+    '''
+    ''' Not a constant, because the bake's resolution is not one. This was 0.5 m
+    ''' against a 2048 bake whose texel is 0.68 m over 1400 - sensible then, and
+    ''' wrong the moment the bake went to 8192 and the texel to 0.17: a round
+    ''' would step clean over anything less than three texels wide. That is
+    ''' exactly a fence, which is what the finer bake was raised to capture, so
+    ''' the two changes would have cancelled each other out silently.
+    '''
+    ''' Reading it off the bake means neither has to know about the other. The
+    ''' floor is there because the cost is per sample and a ray is up to two
+    ''' kilometres; at a tenth of a metre that is twenty thousand lookups, which
+    ''' is more than any obstacle in this world needs.
+    ''' </summary>
+    Private Shared Function step_m(b As MapFlightBake) As Single
+        Return Math.Max(0.1F, (b.wx_max - b.wx_min) / MapFlightBake.SIZE)
+    End Function
 
-    ''' <summary>Refinement passes after the step that went under. Eight halves
-    ''' 0.5 m down to 2 mm, which is past the point where the bake itself means
-    ''' anything.</summary>
+    ''' <summary>Refinement passes after the step that went under. Eight halvings
+    ''' take a step of half a metre down to two millimetres, which is past the
+    ''' point where the bake itself means anything.</summary>
     Private Const REFINE As Integer = 8
 
     ''' <summary>
@@ -111,7 +123,9 @@ Public Class TankShots
         Dim b = map_scene.flight_bake
         If b Is Nothing OrElse Not b.ready Then Return hit
 
-        Dim t = STEP_M
+        ' stride, not step: Step is a keyword in VB.
+        Dim stride = step_m(b)
+        Dim t = stride
         Dim prev = 0.0F
         While t < limit
             Dim p = origin + dir * t
@@ -130,7 +144,7 @@ Public Class TankShots
                 Return hit
             End If
             prev = t
-            t += STEP_M
+            t += stride
         End While
         Return hit
     End Function
