@@ -164,6 +164,29 @@ Public Class MapTanks
                         cat1.Build(zones, b1x, b1z, b2x, b2z, "team 1 -> team 2 base")
                         Dim cat2 As New TankRoutes
                         cat2.Build(zones, b2x, b2z, b1x, b1z, "team 2 -> team 1 base")
+
+                        ' HEAD TO HEAD, because the owner's condition on the
+                        ' zone map is "if the discs do not aid AI or path
+                        ' creation, we can toss them" and that is answered with
+                        ' a number rather than an argument.
+                        '
+                        ' Built to lose fairly: the grid search uses the SAME
+                        ' clearance field, so a cell is passable iff it clears
+                        ' the hull - equivalent to CanStand at one read instead
+                        ' of fifty. The distance transform is worth having
+                        ' either way; only the DISCS are on trial.
+                        Dim gms As Double = 0
+                        Dim gexp As Integer = 0
+                        Dim glen = TankRoutes.GridAStar(zones, TankDriveTune.HULL_R,
+                                                        b1x, b1z, b2x, b2z, gms, gexp)
+                        LogThis("tank routes: HEAD TO HEAD, base to base, {0:0.0} m hull",
+                                TankDriveTune.HULL_R)
+                        LogThis("tank routes:   zone A*  {0,7:0.00} ms  {1,6:0} m  over {2} disc(s)",
+                                cat1.first_ms,
+                                If(cat1.routes.Count > 0, cat1.routes(0).length_m, -1.0F),
+                                zones.zones.Count)
+                        LogThis("tank routes:   grid A*  {0,7:0.00} ms  {1,6:0} m  {2} cell(s) expanded",
+                                gms, glen, gexp)
                     Else
                         LogThis("tank routes: this map declares no ctf bases - no catalogue")
                     End If

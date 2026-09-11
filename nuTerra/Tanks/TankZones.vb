@@ -323,6 +323,29 @@ Public Class TankZones
         Return True
     End Function
 
+    ''' <summary>The frame the field was cut in, so a reader can map world to
+    ''' cell without going back to TankNav.</summary>
+    Public ReadOnly Property frame_wx0 As Single
+        Get
+            Return frame_x0
+        End Get
+    End Property
+    Public ReadOnly Property frame_wx1 As Single
+        Get
+            Return frame_x1
+        End Get
+    End Property
+    Public ReadOnly Property frame_wz0 As Single
+        Get
+            Return frame_z0
+        End Get
+    End Property
+    Public ReadOnly Property frame_wz1 As Single
+        Get
+            Return frame_z1
+        End Get
+    End Property
+
     ''' <summary>The cell size the field was cut at. Readers outside this
     ''' class need it to turn a radius in metres back into cells.</summary>
     Public ReadOnly Property cell_m As Single
