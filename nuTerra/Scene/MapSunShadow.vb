@@ -139,6 +139,14 @@ Public Class MapSunShadow
     ''' </summary>
     Public Shared TILED As Boolean = True
     Public Shared TILE_SIZE As Integer = 16384
+    ''' <summary>In tiled mode the deferred pass reads the tiles, but the
+    ''' forward passes that sample sun_shadow_map themselves - the water - and
+    ''' everything that reads `ready` still want ONE map. It is baked at this
+    ''' size on top of the tiles: 128 MiB at 8192, 0.24 m a texel on the
+    ''' monastery. Without it the water shader ran with nothing bound on its
+    ''' shadow unit and the driver logged undefined behaviour thousands of
+    ''' times a run.</summary>
+    Public Shared FORWARD_MAP_SIZE As Integer = 8192
     ''' <summary>Of the card's total, for ALL the tiles together; and of what is
     ''' free when the bake runs. Higher than the single map's 0.25 / 0.5 on the
     ''' owner's instruction - 2 GiB of an 8 GiB card is the design.</summary>
@@ -440,17 +448,21 @@ Public Class MapSunShadow
 
         ' Size from the box we actually ended up with, so TARGET_TEXEL means what
         ' it says. Sizing off the raw map extent measured a box we no longer use.
-        Dim want = pow2_at_least(ortho_w / TARGET_TEXEL)
+        ' Tiled: the single map is the small forward one, sized outright - the
+        ' texel-target sizer and its budget log are for the map the deferred
+        ' pass reads, and in tiled mode that is the tiles.
+        Dim want As Integer
+        If TILED Then
+            want = FORWARD_MAP_SIZE
+            If GLCapabilities.maxTextureSize > 0 Then want = Math.Min(want, GLCapabilities.maxTextureSize)
+        Else
+            want = pow2_at_least(ortho_w / TARGET_TEXEL)
+        End If
         If MSM_SHADOW_ENABLED Then want = Math.Min(want, MSM_MAX_SIZE)
 
         ' Rebuild the targets when the size moves, and whenever the method moves -
         ' MSM needs a colour attachment the depth-only path does not have.
-        If TILED Then
-            ' The single map is not baked in tiled mode - it would be another
-            ' 512 MiB nothing reads. Anything left from a previous mode goes.
-            If depth_tex IsNot Nothing Then Dispose_gl()
-            ready = False
-        ElseIf depth_tex Is Nothing OrElse size <> want OrElse msm_ready <> MSM_SHADOW_ENABLED Then
+        If depth_tex Is Nothing OrElse size <> want OrElse msm_ready <> MSM_SHADOW_ENABLED Then
             Dispose_gl()
             size = want
             create_target()
@@ -482,8 +494,8 @@ Public Class MapSunShadow
         bake_ortho_w = ortho_w
 
         If TILED Then
+            ' The tiles first; the small forward map follows below them.
             bake_tiles(view, mid_x, mid_y, half, near_d, far_d, ortho_w, extent)
-            Return
         Else
             Dispose_tiles()
         End If
@@ -817,7 +829,7 @@ Public Class MapSunShadow
     ''' wider than the map, so nearly all precision is being wasted.
     ''' </summary>
     Public Sub DebugDraw(rect As RectangleF)
-        If depth_tex Is Nothing Then Return   ' tiled mode: no single map to show
+        If depth_tex Is Nothing Then Return   ' nothing baked yet
         If Not ready OrElse depth_tex Is Nothing Then Return
 
         GL_PUSH_GROUP("MapSunShadow::DebugDraw")
