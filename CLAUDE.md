@@ -21,6 +21,18 @@ the same time, with the owner.
 - `nuTerra/cam_paths/*.campath` are committed with the work that made them;
   never hand-edit one.
 - No subagent fan-out or Workflow runs on this repo.
+- Building from the agent shell WORKS, despite what older notes say:
+  `dotnet build nuTerra/nuTerra.vbproj -c Debug -p:Platform=x64
+  -p:BuildProjectReferences=false "-p:VCTargetsPath=C:\Program
+  Files\Microsoft Visual Studio8\Community\MSBuild\Microsoft\VC180\\"`
+  (v170 works too). The C++ project cannot compile on this machine at all -
+  `MSBuild.exe` dies on an assembly mismatch, `dotnet` cannot import the
+  .vcxproj - so its DLL is reused as built, which is fine: nobody edits it.
+  `dotnet build PathStudio/PathStudio.vbproj` builds the Studio launcher.
+  Staleness test: no `.vb/.vert/.frag/.h` under `nuTerra/` outside bin/obj
+  newer than `bin/Debug/net8.0-windows/nuTerra.dll`. A commit newer than the
+  binary is NOT evidence of a stale build - the other session builds, runs
+  and measures before it commits.
 
 ## File ownership - no two sessions in one file
 
