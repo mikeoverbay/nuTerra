@@ -89,6 +89,18 @@ Public Class TankInstance
     ''' Seeded apart per tank so a line of them ripples rather than
     ''' volleying - thirty barrels moving as one reads as a glitch.</summary>
     Public fireIn As Single
+
+    ''' <summary>Where the turret and gun are pointing, degrees, and which end
+    ''' of their travel each is heading for. Positive pitch is UP.</summary>
+    Public turretYaw As Single
+    Public gunPitch As Single
+    Public yawToMax As Boolean = True
+    Public pitchToMax As Boolean = True
+
+    ''' <summary>Seconds still to wait at the end of a traverse. A turret that
+    ''' turns straight round again reads as a twitch, and on a casemate with
+    ''' three degrees of travel it is nothing else.</summary>
+    Public aimHold As Single
 End Class
 
 ''' <summary>
@@ -137,6 +149,94 @@ Public Class TankVehicle
     Public turretPosition As Vector3   ' hull-local
     Public gunPosition As Vector3      ' turret-local
 
+    ''' <summary>
+    ''' How far the gun elevates and depresses, AS A FUNCTION OF TURRET YAW.
+    '''
+    ''' pitchLimits is not two numbers, it is two CURVES - pairs of (fraction of
+    ''' a full turret turn, degrees at that yaw). A tank's gun cannot depress
+    ''' over its own engine deck, and the file says so: the 121 ships
+    ''' maxPitch "0 5  0.366894 5  0.430556 1  0.569444 1  0.633106 5  1 5",
+    ''' which is five degrees of depression everywhere except the rear arc,
+    ''' where it pinches to one. Taking the most permissive sample - which is
+    ''' what TEPY does - throws that away and lets the barrel sink into the
+    ''' hull behind the turret.
+    '''
+    ''' Stored raw, as the file's own (x, y) pairs. See PitchRangeAt.
+    ''' </summary>
+    Public pitchUpCurve As Single()      ' the file's minPitch
+    Public pitchDownCurve As Single()    ' the file's maxPitch
+
+    ''' <summary>Traverse limits in degrees. A turret with none gets the full
+    ''' circle; a casemate like the Strv 103B ships "-3 3".</summary>
+    Public yawMin As Single = -180.0F
+    Public yawMax As Single = 180.0F
+
+    ''' <summary>Traverse speed, degrees per second, from the turret's own
+    ''' rotationSpeed. Every stock turret ships one and they differ widely -
+    ''' 18 on the slowest here, 66 on the fastest - which is most of what makes
+    ''' thirty sweeping turrets still read as thirty vehicles.</summary>
+    Public yawRate As Single = 40.0F
+
+    ''' <summary>
+    ''' Elevation speed, degrees per second. NOT FROM THE FILE - a gun entry has
+    ''' no rotationSpeed, because WoT does not model elevation as a rate at all;
+    ''' the gun tracks the reticle and aimingTime covers the settling. 20 is a
+    ''' plain default, and it is marked as one in the load log so it is never
+    ''' mistaken for something the vehicle declared.
+    ''' </summary>
+    Public pitchRate As Single = 20.0F
+    Public pitchRateFromFile As Boolean
+
+    ''' <summary>
+    ''' The pitch envelope at a given turret yaw: X is the lowest the gun may
+    ''' point, Y the highest, degrees, POSITIVE IS UP.
+    '''
+    ''' THE FILE'S SIGN IS THE OPPOSITE OF THAT, and the names are swapped with
+    ''' it. WoT's minPitch is the ELEVATION limit and it is stored negative -
+    ''' more negative is further up; its maxPitch is the DEPRESSION limit and is
+    ''' stored positive. So the up limit comes from minPitch negated and the
+    ''' down limit from maxPitch negated, which is why reading them as a plain
+    ''' min and max gives a gun that elevates when it should depress.
+    '''
+    ''' A tank with no elevation at all is not an error: the Strv 103B ships
+    ''' -1 and -1, collapsing the range to a point, because it aims with its
+    ''' suspension rather than its gun.
+    ''' </summary>
+    Public Function PitchRangeAt(yawDeg As Single) As Vector2
+        Dim f = yawDeg / 360.0F
+        f = CSng(f - Math.Floor(f))
+        Dim hi = -SampleCurve(pitchUpCurve, f, -20.0F)
+        Dim lo = -SampleCurve(pitchDownCurve, f, 8.0F)
+        If lo > hi Then lo = hi
+        Return New Vector2(lo, hi)
+    End Function
+
+    ''' <summary>
+    ''' A pitchLimits curve at x, piecewise linear, flat outside its ends.
+    '''
+    ''' A single number is a constant rather than a curve - some vehicles ship
+    ''' one - and an empty or unparseable curve returns the fallback so a
+    ''' vehicle with a malformed def still aims instead of locking at zero.
+    ''' </summary>
+    Private Shared Function SampleCurve(c As Single(), x As Single,
+                                        fallback As Single) As Single
+        If c Is Nothing OrElse c.Length = 0 Then Return fallback
+        If c.Length = 1 Then Return c(0)
+        If c.Length < 4 Then Return c(1)
+
+        Dim n = c.Length \ 2
+        If x <= c(0) Then Return c(1)
+        For i = 1 To n - 1
+            Dim x0 = c((i - 1) * 2), y0 = c((i - 1) * 2 + 1)
+            Dim x1 = c(i * 2), y1 = c(i * 2 + 1)
+            If x > x1 Then Continue For
+            Dim d = x1 - x0
+            If d <= 1.0E-6F Then Return y1
+            Return y0 + (y1 - y0) * (x - x0) / d
+        Next
+        Return c((n - 1) * 2 + 1)
+    End Function
+
     Public Shared Function Load(nation As String, tag As String) As TankVehicle
         Dim xmlPath = String.Format("scripts/item_defs/vehicles/{0}/{1}.xml", nation, tag)
         Dim entry = ResMgr.Lookup(xmlPath)
@@ -172,12 +272,64 @@ Public Class TankVehicle
         Dim turretOff = hullOff + v.turretPosition
         Dim gunOff = turretOff + v.gunPosition
 
+        v.ReadAimLimits(turretEl, gunEl)
+
         v.AddPart("chassis", ModelOf(chassisEl), Vector3.Zero)
         v.AddPart("hull", TankVisual.TextOf(root.SelectSingleNode("hull/models/undamaged")), hullOff)
         v.AddPart("turret", ModelOf(turretEl), turretOff)
         v.AddPart("gun", ModelOf(gunEl), gunOff)
         Return v
     End Function
+
+    ''' <summary>
+    ''' Pull the aim envelope out of the chosen turret and gun.
+    '''
+    ''' FROM THE CHOSEN ONES, not from the vehicle. Both limits and both rates
+    ''' are per module - a different gun on the same turret traverses
+    ''' differently, which is the whole reason turretYawLimits lives under the
+    ''' GUN rather than the turret - so reading them anywhere but off the
+    ''' elements Priciest picked would describe a vehicle we are not drawing.
+    ''' </summary>
+    Private Sub ReadAimLimits(turretEl As XmlElement, gunEl As XmlElement)
+        If gunEl IsNot Nothing Then
+            Dim pl = gunEl.SelectSingleNode("pitchLimits")
+            If pl IsNot Nothing Then
+                pitchUpCurve = TankVisual.Floats(TankVisual.TextOf(pl.SelectSingleNode("minPitch")))
+                pitchDownCurve = TankVisual.Floats(TankVisual.TextOf(pl.SelectSingleNode("maxPitch")))
+            End If
+
+            ' Absent means the full circle, which is the common case - only
+            ' casemates and a few turrets declare it.
+            Dim yl = TankVisual.Floats(TankVisual.TextOf(gunEl.SelectSingleNode("turretYawLimits")))
+            If yl Is Nothing OrElse yl.Length < 2 Then
+                yl = TankVisual.Floats(TankVisual.TextOf(
+                    If(turretEl Is Nothing, Nothing, turretEl.SelectSingleNode("turretYawLimits"))))
+            End If
+            If yl IsNot Nothing AndAlso yl.Length >= 2 Then
+                yawMin = Math.Min(yl(0), yl(1))
+                yawMax = Math.Max(yl(0), yl(1))
+            End If
+
+            ' Looked for anyway: a few modded defs do carry one, and if it is
+            ' there it beats a guess.
+            Dim gr = TankVisual.Floats(TankVisual.TextOf(gunEl.SelectSingleNode("rotationSpeed")))
+            If gr IsNot Nothing AndAlso gr.Length > 0 AndAlso gr(0) > 0.0F Then
+                pitchRate = gr(0)
+                pitchRateFromFile = True
+            End If
+        End If
+
+        If turretEl IsNot Nothing Then
+            Dim tr = TankVisual.Floats(TankVisual.TextOf(turretEl.SelectSingleNode("rotationSpeed")))
+            If tr IsNot Nothing AndAlso tr.Length > 0 AndAlso tr(0) > 0.0F Then yawRate = tr(0)
+        End If
+
+        Dim fwd = PitchRangeAt(0.0F)
+        Dim rear = PitchRangeAt(180.0F)
+        LogThis("tank:   aim: yaw {0:0}..{1:0} at {2:0}/s, pitch {3:0.0}..{4:0.0} ahead, {5:0.0}..{6:0.0} astern at {7:0}/s{8}",
+                yawMin, yawMax, yawRate, fwd.X, fwd.Y, rear.X, rear.Y, pitchRate,
+                If(pitchRateFromFile, "", " (default)"))
+    End Sub
 
     Private Sub AddPart(label As String, modelPath As String, offset As Vector3)
         If String.IsNullOrEmpty(modelPath) Then

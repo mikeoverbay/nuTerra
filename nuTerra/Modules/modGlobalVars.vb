@@ -1077,6 +1077,17 @@ Module modGlobalVars
     Public TANK_SKINNING As Boolean = True
 
     ''' <summary>Run the guns.</summary>
+    ''' <summary>
+    ''' Sweep every turret and gun across the envelope its own def file allows.
+    '''
+    ''' A SWEEP RATHER THAN AN AIM, because there is nothing to aim at and the
+    ''' point is the envelope: a turret that stops at three degrees is a
+    ''' casemate, and a gun that is pushed back up as the turret passes the
+    ''' rear is the depression curve pinching over the engine deck. Both are in
+    ''' the file and neither shows if everything sits at zero.
+    ''' </summary>
+    Public TANK_AIM As Boolean = True
+
     Public TANK_FIRING As Boolean = True
 
     ''' <summary>

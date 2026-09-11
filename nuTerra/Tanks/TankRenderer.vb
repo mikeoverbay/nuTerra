@@ -172,13 +172,26 @@ Public Class MapTanks
 
                 ' Height sampled AFTER the move - the ground over there is not
                 ' the ground at the marker, and sampling first buries or floats.
+                ' SPREAD THE STARTING POSE across each vehicle's own envelope.
+                ' Thirty turrets all at zero read as a parade rather than as
+                ' thirty tanks, and a single frame of a capture - which freezes
+                ' the animation clock at zero - would show nothing aiming at
+                ' all. The fraction is per index, so each is somewhere
+                ' different in its OWN range: a casemate still only moves the
+                ' three degrees it has.
+                Dim f = CSng((i * 0.37) Mod 1.0)
+                Dim yaw0 = v.yawMin + (v.yawMax - v.yawMin) * f
+                Dim pr0 = v.PitchRangeAt(yaw0)
+                Dim pitch0 = pr0.X + (pr0.Y - pr0.X) * CSng((i * 0.61) Mod 1.0)
+
                 Dim y = get_Y_at_XZ(x, z)
                 instances.Add(New TankInstance With {
                     .vehicle = v, .position = New Vector3(x, y, z),
                     .headingRad = heading,
                     .team = If(team = 1, TankTeam.Green, TankTeam.Red),
                     .label = r.Item2, .id = k + 1,
-                    .fireIn = 0.21F * i})
+                    .fireIn = 0.21F * i,
+                    .turretYaw = yaw0, .gunPitch = pitch0})
                 LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
                         team, k, r.Item1, v.tag, x, y, z, obstacle_at(x, z),
                         armor_text(r.Item1))
@@ -227,7 +240,7 @@ Public Class MapTanks
                         Matrix4.CreateRotationY(inst.headingRad) *
                         Matrix4.CreateTranslation(wp)
             For Each part In inst.vehicle.parts
-                Dim partModel = Matrix4.CreateTranslation(part.offset) * world
+                Dim partModel = part_model(inst, part, world)
                 For Each m In part.meshes
                     Dim model = partModel
                     If FlipSkinnedZ AndAlso m.layout.offBoneIdx >= 0 Then
@@ -740,6 +753,7 @@ Public Class MapTanks
     ''' </summary>
     Private Sub advance_guns(reversed As Boolean)
         For Each inst In instances
+            advance_aim(inst)
             inst.recoil.Update(ANIM_DELTA)
             If Not TANK_FIRING Then Continue For
 
@@ -798,6 +812,111 @@ Public Class MapTanks
             instances(i).crewHp = 1.0F - phase * 0.55F
         Next
     End Sub
+
+    ''' <summary>
+    ''' Walk one vehicle's turret and gun across their own envelope.
+    '''
+    ''' AT THE FILE'S OWN RATES, which is why thirty tanks sweeping together
+    ''' still look like thirty tanks: the M48's turret comes round at 50 deg/s
+    ''' and the Rinoceronte's at 28, and the difference is visible at a glance.
+    '''
+    ''' THE PITCH ENVELOPE IS RE-READ AT THE CURRENT YAW every frame, not once.
+    ''' That is the whole reason pitchLimits is a curve: as the turret sweeps
+    ''' through the rear arc the depression limit pinches - five degrees to one
+    ''' on the 121, ten to three and a half on the Rinoceronte - and a gun that
+    ''' was depressed gets pushed back up rather than sinking through the
+    ''' engine deck. Clamping after the move is what makes that happen; a
+    ''' limit checked only when the target is chosen would let it pass through.
+    ''' </summary>
+    Private Sub advance_aim(inst As TankInstance)
+        If Not TANK_AIM Then Return
+        Dim v = inst.vehicle
+
+        ' STAND AT THE END OF THE TRAVERSE before starting back. Without it a
+        ' casemate reverses four times a second - the Strv 103B has three
+        ' degrees of travel and covers them in a fifth of a second - which
+        ' reads as the turret vibrating rather than as a short traverse.
+        If inst.aimHold > 0.0F Then
+            inst.aimHold -= ANIM_DELTA
+            Dim held = v.PitchRangeAt(inst.turretYaw)
+            inst.gunPitch = Math.Min(Math.Max(inst.gunPitch, held.X), held.Y)
+            Return
+        End If
+
+        ' Traverse, toward whichever end it is heading for. A casemate's three
+        ' degrees and a turret's full circle are the same code.
+        Dim yTarget = If(inst.yawToMax, v.yawMax, v.yawMin)
+        Dim yStep = v.yawRate * ANIM_DELTA
+        If Math.Abs(yTarget - inst.turretYaw) <= yStep Then
+            inst.turretYaw = yTarget
+            inst.yawToMax = Not inst.yawToMax
+            inst.aimHold = AIM_HOLD_S + 0.13F * (inst.id Mod 7)
+        Else
+            inst.turretYaw += Math.Sign(yTarget - inst.turretYaw) * yStep
+        End If
+
+        Dim pr = v.PitchRangeAt(inst.turretYaw)
+        Dim pTarget = If(inst.pitchToMax, pr.Y, pr.X)
+        Dim pStep = v.pitchRate * ANIM_DELTA
+        If Math.Abs(pTarget - inst.gunPitch) <= pStep Then
+            inst.gunPitch = pTarget
+            inst.pitchToMax = Not inst.pitchToMax
+        Else
+            inst.gunPitch += Math.Sign(pTarget - inst.gunPitch) * pStep
+        End If
+
+        ' The envelope moved under it. Clamp AFTER the step.
+        inst.gunPitch = Math.Min(Math.Max(inst.gunPitch, pr.X), pr.Y)
+    End Sub
+
+    ''' <summary>
+    ''' Where one part sits this frame: its own joint rotation, its offset, and
+    ''' the vehicle's place in the world.
+    '''
+    ''' THE JOINTS ARE THE OFFSETS. The vehicle already chained them out of the
+    ''' file - turretPosition on the hull, gunPosition on the turret - and a
+    ''' part's mesh origin IS its joint, so rotating the mesh about its own
+    ''' origin and then translating by the offset is the rotation about the
+    ''' joint. There is nothing extra to measure and no pivot to store.
+    '''
+    ''' The gun reads as the composition it is: pitch about the gun's own
+    ''' origin, out to where the gun hangs off the turret, yaw about the turret,
+    ''' out to where the turret sits on the hull. Written in that order because
+    ''' OpenTK is row-vector - the leftmost matrix applies first - and reversing
+    ''' the two rotations carries the elevation axis round with the turret, so
+    ''' the gun climbs sideways instead of up.
+    ''' </summary>
+    Private Function part_model(inst As TankInstance, part As TankPart,
+                                world As Matrix4) As Matrix4
+        If Not TANK_AIM Then Return Matrix4.CreateTranslation(part.offset) * world
+
+        Dim ya = MathHelper.DegreesToRadians(inst.turretYaw)
+        If part.label = "turret" Then
+            Return Matrix4.CreateRotationY(ya) *
+                   Matrix4.CreateTranslation(part.offset) * world
+        End If
+
+        If part.label = "gun" Then
+            Dim tOff = turret_offset(inst)
+            Return Matrix4.CreateRotationX(MathHelper.DegreesToRadians(inst.gunPitch)) *
+                   Matrix4.CreateTranslation(part.offset - tOff) *
+                   Matrix4.CreateRotationY(ya) *
+                   Matrix4.CreateTranslation(tOff) * world
+        End If
+
+        Return Matrix4.CreateTranslation(part.offset) * world
+    End Function
+
+    Private Function turret_offset(inst As TankInstance) As Vector3
+        For Each p In inst.vehicle.parts
+            If p.label = "turret" Then Return p.offset
+        Next
+        Return Vector3.Zero
+    End Function
+
+    ''' <summary>Base dwell at the end of a traverse. Staggered per tank on
+    ''' top of this, so a line of them does not pause as one.</summary>
+    Private Const AIM_HOLD_S As Single = 1.6F
 
     Private Shared demo_t As Single
 

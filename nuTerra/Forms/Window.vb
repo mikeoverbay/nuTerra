@@ -1686,6 +1686,14 @@ try_again:
                                          "exactly as the tank drew before the path" & vbLf &
                                          "existed. The null test.")
                     End If
+                    ImGui.Checkbox("Aim", TANK_AIM)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Sweep every turret and gun across the" & vbLf &
+                                         "envelope its own def file allows, at its" & vbLf &
+                                         "own rotationSpeed." & vbLf &
+                                         "Watch the depression pinch as a turret" & vbLf &
+                                         "passes over its own engine deck.")
+                    End If
                     ImGui.Checkbox("Fire the guns", TANK_FIRING)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Barrel recoil: 0.40 m back over 60 ms," & vbLf &
