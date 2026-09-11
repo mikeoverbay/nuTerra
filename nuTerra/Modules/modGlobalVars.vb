@@ -1123,6 +1123,22 @@ Module modGlobalVars
     Public TANK_FX_GAIN As Single = 3.0F
 
     ''' <summary>
+    ''' Light the world from the muzzle, not just the sprite.
+    '''
+    ''' The flame is drawn into the FX buffer, which glows but lights nothing:
+    ''' a gun going off beside a wall leaves the wall dark. This puts a real
+    ''' point light in the deferred pass at the muzzle for the ninety
+    ''' milliseconds the game's own table says the light lasts, so hulls,
+    ''' ground and scenery near the gun flare with it.
+    ''' </summary>
+    Public TANK_GUN_LIGHTS As Boolean = True
+
+    ''' <summary>How bright a flash is at its peak. The game's keys run to a
+    ''' multiplier of 25 and that is divided back out, so this reads as "a
+    ''' flash at full is this bright" rather than as an arbitrary scale.</summary>
+    Public TANK_GUN_LIGHT_LEVEL As Single = 6.0F
+
+    ''' <summary>
     ''' How fast a round flies, metres per second, FOR THE EYE.
     '''
     ''' Not the real muzzle velocity. A tank shell leaves at 700 to 1500 m/s and

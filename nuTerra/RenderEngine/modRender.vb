@@ -1466,8 +1466,97 @@ Module modRender
         lamp_glass_state = -1
     End Sub
 
+    ''' <summary>
+    ''' The muzzle flashes, as real point lights in the deferred pass.
+    '''
+    ''' THE SAME ARRAY THE LAMPS USE, because there is only one light loop and
+    ''' a second one would be a second set of everything - falloff, gain,
+    ''' shadow packing - drifting apart from the first. A muzzle flash is a
+    ''' point light that lives for ninety milliseconds; nothing about it needs
+    ''' its own machinery.
+    '''
+    ''' THEY TAKE THEIR SLOTS FROM THE LAMPS, counted BEFORE the lamps are
+    ''' gathered rather than appended after. There are thirty-two slots; on a
+    ''' map with thirty-two lamps in reach an appended flash would find none
+    ''' free and silently never light anything, which is indistinguishable from
+    ''' the feature not working.
+    '''
+    ''' Kind 0 - lit everywhere, no cone, no shadow layer. The colour and the
+    ''' level come apart here: the deferred pass wants a unit colour and a
+    ''' level, and the game's keys carry a multiplier of up to 25 folded into
+    ''' the colour, which would clip to white before it travelled a metre.
+    ''' </summary>
+    Private Function gather_gun_lights(cap As Integer) As Integer
+        If Not TANK_GUN_LIGHTS OrElse cap <= 0 Then Return 0
+        If map_scene Is Nothing OrElse map_scene.tanks Is Nothing Then Return 0
+        If Not map_scene.tanks.HasTanks Then Return 0
+
+        gun_light_n = 0
+        For Each inst In map_scene.tanks.instances
+            For Each sh In inst.shots.shots
+                If Not sh.active OrElse sh.lightPhase >= 1.0F Then Continue For
+                If sh.spec Is Nothing Then Continue For
+                If gun_light_n >= gun_light_pos.Length Then Exit For
+                gun_light_pos(gun_light_n) = sh.pos
+                gun_light_spec(gun_light_n) = sh.spec
+                gun_light_u(gun_light_n) = sh.lightPhase
+                gun_light_n += 1
+            Next
+        Next
+        Return Math.Min(gun_light_n, cap)
+    End Function
+
+    Private ReadOnly gun_light_pos(31) As Vector3
+    Private ReadOnly gun_light_spec(31) As BlastSpec
+    Private ReadOnly gun_light_u(31) As Single
+    Private gun_light_n As Integer
+
+    ''' <summary>Write the gathered flashes into slots starting at k.</summary>
+    Private Sub write_gun_lights(k0 As Integer, count As Integer)
+        For j = 0 To count - 1
+            Dim k = k0 + j
+            Dim sp = gun_light_spec(j)
+            Dim u = gun_light_u(j)
+            Dim w = gun_light_pos(j)
+            Dim col = sp.SampleColour(u)
+            Dim mult = sp.SampleMult(u)
+
+            pl_pos(k * 4 + 0) = w.X
+            pl_pos(k * 4 + 1) = w.Y
+            pl_pos(k * 4 + 2) = w.Z
+            pl_pos(k * 4 + 3) = Math.Max(0.5F, sp.outerRadius)
+
+            pl_col(k * 4 + 0) = col.X
+            pl_col(k * 4 + 1) = col.Y
+            pl_col(k * 4 + 2) = col.Z
+            ' The game's multiplier runs to 25 on the brightest key; dividing by
+            ' that makes the slider read as "a flash at full is this bright"
+            ' rather than as an arbitrary scale.
+            pl_col(k * 4 + 3) = TANK_GUN_LIGHT_LEVEL * mult / 25.0F
+
+            Dim cos_in As Single, cos_out As Single
+            MapCamPath.cone_cosines(MapCamPath.BULB_POINT, 0.0F, 0.0F, 0.0F, 0.0F,
+                                    cos_in, cos_out)
+            pl_dir(k * 4 + 0) = 0.0F
+            pl_dir(k * 4 + 1) = -1.0F
+            pl_dir(k * 4 + 2) = 0.0F
+            pl_dir(k * 4 + 3) = cos_out
+
+            ' Kind 0 and layer -1: a point light with no shadow cube. The
+            ' packing is kind + 8 * (layer + 1), so -1 contributes nothing.
+            pl_kb(k * 4 + 0) = CSng(MapCamPath.BULB_POINT)
+            pl_kb(k * 4 + 1) = 0.0F
+            pl_kb(k * 4 + 2) = 1.0F
+            pl_kb(k * 4 + 3) = cos_in
+        Next
+    End Sub
+
     Private Sub upload_path_lights()
         Dim n As Integer = 0
+
+        ' Counted first so the lamps can be asked for what is left. See
+        ' gather_gun_lights.
+        Dim guns = gather_gun_lights(MAX_PATH_LIGHTS)
         ' How deep the cube array is. Read BEFORE the upload loop, because the
         ' layer is packed per light below rather than inferred from the slot.
         Dim shadow_layers As Integer = 0
@@ -1481,7 +1570,8 @@ Module modRender
             ' until the 32 slots are full. The position comes from world_pos,
             ' the ONE place that knows whether a light's Y is above the terrain
             ' (a Path Studio light) or absolute (a bulb on an instance).
-            Dim vis = cp.visible_lights(map_scene.camera.CAM_POSITION, MAX_PATH_LIGHTS)
+            Dim vis = cp.visible_lights(map_scene.camera.CAM_POSITION,
+                                       MAX_PATH_LIGHTS - guns)
             n = vis.Length
 
             If LAMP_SHADOW_ENABLED AndAlso map_scene.lamp_shadow IsNot Nothing AndAlso
@@ -1529,6 +1619,12 @@ Module modRender
                 pl_kb(k * 4 + 2) = src(i).vol_mix
                 pl_kb(k * 4 + 3) = cos_in
             Next
+        End If
+
+        ' The flashes after the lamps, in the slots held back for them.
+        If guns > 0 Then
+            write_gun_lights(n, guns)
+            n += guns
         End If
 
         ' Say ONCE whether the binding actually resolved.

@@ -1687,7 +1687,7 @@ try_again:
                                          "Nothing is lit by them yet - this is what was authored.")
                     End If
                 End If
-                If ImGui.CollapsingHeader("Tank Lighting") Then
+                If ImGui.CollapsingHeader("TANKS!") Then
                     ' THE VEHICLES ARE NOT LOADED AT MAP LOAD. Thirty of them
                     ' is seconds and hundreds of megabytes on a map that
                     ' otherwise has nothing to do with them, so it is a button.
@@ -1799,6 +1799,18 @@ try_again:
                                          "Timers are seeded apart so the line" & vbLf &
                                          "ripples instead of volleying.")
                     End If
+
+                    ImGui.Separator()
+                    ImGui.Checkbox("Gun lights", TANK_GUN_LIGHTS)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("A real point light at the muzzle for the" & vbLf &
+                                         "ninety milliseconds the game's own table" & vbLf &
+                                         "gives it - so the hull, the ground and" & vbLf &
+                                         "anything close flare with the shot." & vbLf &
+                                         "Shares the lamps' light array, and takes" & vbLf &
+                                         "its slots from them.")
+                    End If
+                    ImGui.SliderFloat("Gun light level", TANK_GUN_LIGHT_LEVEL, 0.0, 30.0)
 
                     ImGui.Separator()
                     ImGui.Checkbox("ID markers", TANK_TAGS)

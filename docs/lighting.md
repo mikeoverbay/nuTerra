@@ -251,6 +251,40 @@ Everything here is Rgba8 - see [nuTerra has no HDR path] in the session notes.
 see them. Widening `gColor` to Rgba16f and tone mapping once at the end is the
 structural fix, and it is not done.
 
+## 7a. The gun flashes are in the lamps' array
+
+A tank firing puts a real point light at the muzzle, in the SAME array the map's
+lamps and the Path Studio lights use - `pl_pos` / `pl_color_level` / `pl_dir` /
+`pl_kind_blend`, uploaded by `upload_path_lights` in `modRender.vb`. There is one
+light loop in `deferred.frag` and a second one would be a second set of falloff,
+gain and shadow packing, drifting apart from the first.
+
+A flash is kind 0 (lit everywhere), no cone, and layer -1 so the kind packs as
+`0 + 8 * 0` and it never reaches for a shadow cube.
+
+**They take their slots FROM the lamps, and are counted first.** There are
+`MAX_PATH_LIGHTS` = 32 slots. `gather_gun_lights` runs before `visible_lights`
+and the lamps are then asked for `32 - guns`. Appending the flashes afterwards
+instead would work on every map with room to spare and silently light nothing on
+a map with 32 lamps in reach - which is indistinguishable from the feature being
+broken.
+
+**Colour and level come apart here.** `gun_effects.xml` animates the two together
+- `255 150 0` at x20 into `255 200 100` at x25 - and `BlastSpec.Sample` folds
+them into one vector because that is what a sprite wants. A point light wants
+them separate: the deferred pass takes a unit colour and a level, and a colour
+already twenty times over range clips to white before it has travelled a metre.
+`SampleColour` and `SampleMult` give the two halves. The multiplier is divided by
+25, the brightest key in the table, so `TANK_GUN_LIGHT_LEVEL` reads as "a flash
+at full is this bright".
+
+The light lasts what the game says it lasts - the timeline key the effect's
+`endKey` names, 0.09 s on every tank gun - which is a different and much shorter
+clock than the flame sprite's `timeline.end` of 0.5 s. See `TankBlast.vb`.
+
+Controls are under **TANKS!**, not Lighting Settings: `Gun lights` and
+`Gun light level`.
+
 ## 8. Traps found here
 
 **`prefilteredColor` is dead in both paths.** See §4. It looks like a working
@@ -284,6 +318,14 @@ changing one means changing the other.
 | Tone Exposure | 0.5 - 4 | gain of the tone curve; cannot clip |
 | Bright Level | 0 - 2 | pre-exposure gain on the whole composite |
 | PBR specular | on/off | swaps §3's two models; off is byte-identical to shipped |
+
+Under **TANKS!** rather than Lighting Settings, because they belong to the
+vehicles rather than to the map:
+
+| control | range | what it does |
+|---|---|---|
+| Gun lights | on/off | a point light at each muzzle for the flash, §7a |
+| Gun light level | 0 - 30 | brightness of a flash at its peak key |
 
 `SUN_STRENGTH`, `SUN_TINT` and `AMBIENT_SAT` reuse pad floats appended to the end
 of the `CommonProperties` UBO. All three are now spoken for - anything further

@@ -94,6 +94,36 @@ Public Class BlastSpec
     ''' 255 200 100 at 25 - and separating them turns a flash that whitens as it
     ''' peaks into one that just gets brighter.
     ''' </summary>
+    ''' <summary>
+    ''' The multiplier alone at a point through the light's life.
+    '''
+    ''' Sample folds colour and multiplier together, which is what a sprite
+    ''' wants - one number to scale by. A real point light wants them apart: the
+    ''' deferred pass takes a unit colour and a level, and handing it a colour
+    ''' that is already twenty times over range clips to white before it has
+    ''' travelled a metre.
+    ''' </summary>
+    Public Function SampleMult(u As Single) As Single
+        If keys.Count = 0 Then Return 1.0F
+        If u <= keys(0).t Then Return keys(0).mult
+        For i = 1 To keys.Count - 1
+            If u > keys(i).t Then Continue For
+            Dim a = keys(i - 1), b = keys(i)
+            Dim d = b.t - a.t
+            Dim f = If(d > 1.0E-6F, (u - a.t) / d, 0.0F)
+            Return a.mult + (b.mult - a.mult) * f
+        Next
+        Return keys(keys.Count - 1).mult
+    End Function
+
+    ''' <summary>The unit colour at a point through the life - Sample with the
+    ''' multiplier taken back out.</summary>
+    Public Function SampleColour(u As Single) As Vector3
+        Dim m = SampleMult(u)
+        If Math.Abs(m) < 1.0E-4F Then Return Vector3.Zero
+        Return Sample(u) / m
+    End Function
+
     Public Function Sample(u As Single) As Vector3
         If keys.Count = 0 Then Return New Vector3(1.0F, 0.7F, 0.35F)
         If u <= keys(0).t Then Return keys(0).rgb * keys(0).mult
