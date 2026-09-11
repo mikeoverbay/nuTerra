@@ -22,6 +22,23 @@ the same time, with the owner.
   never hand-edit one.
 - No subagent fan-out or Workflow runs on this repo.
 
+## File ownership - no two sessions in one file
+
+Two sessions on one working tree race the moment they touch the same file:
+one writes over the other, or one commits a half-edit of the other. So the
+tree is split, and a session stays on its side.
+
+| session | owns |
+|---|---|
+| **Path Studio** | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, `docs/*path_studio*`, `docs/camera_flight_plan.md`, `docs/bulb_placer.md`, `CLAUDE.md` |
+| **nuTerra** | everything under `nuTerra/` except `cam_paths/`, and the rest of `docs/` |
+
+Crossing the line - the flight bake (`nuTerra/Scene/MapFlightBake.vb`) is the
+one file both sides care about - is done by MESSAGE, not by editing: say what
+you need changed to the owning session (the desktop app can message a session
+by name), and wait for it. Never edit a file that shows as modified in
+`git status` and is not yours. Commit only by explicit path.
+
 ## Always start the thing you just built
 
 - **Path Studio** (`tools/*.py`): when an edit is done, kill every
