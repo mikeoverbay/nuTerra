@@ -309,6 +309,28 @@ keyed bake with a tree, a rose and a bush through both readers, the gate,
 the mask and the 3D view. The writer's half is queued behind the tile
 tint work; the halves land in either order.
 
+**The bake against the placements (later the same day).** The nuTerra
+session's `treedump` writes `<flight_bake>/19_monastery_trees.csv` - one row
+per SpeedTree placement: species, x z y, declared_h (the .srt box, minY to
+maxY), scale xyz, has_bark, above_pivot_h (maxY alone: every species has a
+negative minY - roots or a base plate under the pivot - 0.03 m on a grapevine,
+2.02 m on a tall linden). 79% of the 7,984 placements carry a scale, 0.70 to
+1.30 - so `Olive_bush` (6.43 declared) stands 4.5-8.4 m and
+`Linden_Regular_Small` (10.64) 7.5-13.8 m, and a big olive beside a small
+linden reads the same height because it IS the same height. Joined to the
+bake (`tree_join.py` in the session scratchpad: tallest tree-kind
+top-minus-floor within 2.5 m of the base, against above_pivot_h * scale_y),
+median ratio per species: lindens 0.95 / 0.96, stone pine 0.94, wild bush
+0.94, poplar 0.94 - the bake reads ~94% of a placed crown, about what
+clipping the wispiest texels costs. Under that: `Olive_bush` 0.83, tall
+cypress 0.86 (n=574), `Unknown_Bush_Big_Bald` 0.80, `Olive_01` 0.69 - the
+dense-crowned olives are cropped MORE than the airy lindens, so a plain
+alpha-cut story does not fit (the bake tests `albedo.a < 0.5` fixed where
+the beauty pass uses `0.5 / (1 + mip * 0.55)`; that mismatch is real and
+unexplained by this). Nobody has yet looked at an olive in the viewer beside
+its bake reading. No fixed per-species height table could have classified
+any of this; the component-size threshold for the solid bit stands.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
