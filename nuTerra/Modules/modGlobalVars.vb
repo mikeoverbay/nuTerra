@@ -1121,13 +1121,11 @@ Module modGlobalVars
     Public TANK_TAGS As Boolean = True
 
     ''' <summary>
-    ''' How tall a marker wants to be on screen, in pixels.
+    ''' How tall a marker is on screen, in pixels. Exactly, at every range.
     '''
-    ''' In PIXELS rather than metres because a marker is read, not looked at:
-    ''' the whole job of the ID is to be legible from across the map. The
-    ''' billboard clamps the metre size either side of this so it still
-    ''' recedes a little up close and cannot grow larger than its own tank
-    ''' far away.
+    ''' The card is not a quad in the world: the anchor is projected to a point
+    ''' and the card is built around it in screen pixels, so nothing about the
+    ''' camera changes its size. A marker is part of the interface.
     ''' </summary>
     Public TANK_TAG_PX As Single = 46.0F
 

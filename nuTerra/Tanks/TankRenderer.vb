@@ -836,23 +836,25 @@ Public Class MapTanks
         ' casemate reverses four times a second - the Strv 103B has three
         ' degrees of travel and covers them in a fifth of a second - which
         ' reads as the turret vibrating rather than as a short traverse.
+        '
+        ' THE HOLD IS ON THE TRAVERSE ONLY. It used to return early and freeze
+        ' the whole vehicle's aim, so every gun on the map stopped elevating
+        ' for a second and a half at a time, out of step with each other. A
+        ' gunner laying the gun does not stop because the turret stopped.
         If inst.aimHold > 0.0F Then
             inst.aimHold -= ANIM_DELTA
-            Dim held = v.PitchRangeAt(inst.turretYaw)
-            inst.gunPitch = Math.Min(Math.Max(inst.gunPitch, held.X), held.Y)
-            Return
-        End If
-
-        ' Traverse, toward whichever end it is heading for. A casemate's three
-        ' degrees and a turret's full circle are the same code.
-        Dim yTarget = If(inst.yawToMax, v.yawMax, v.yawMin)
-        Dim yStep = v.yawRate * ANIM_DELTA
-        If Math.Abs(yTarget - inst.turretYaw) <= yStep Then
-            inst.turretYaw = yTarget
-            inst.yawToMax = Not inst.yawToMax
-            inst.aimHold = AIM_HOLD_S + 0.13F * (inst.id Mod 7)
         Else
-            inst.turretYaw += Math.Sign(yTarget - inst.turretYaw) * yStep
+            ' Traverse, toward whichever end it is heading for. A casemate's
+            ' three degrees and a turret's full circle are the same code.
+            Dim yTarget = If(inst.yawToMax, v.yawMax, v.yawMin)
+            Dim yStep = v.yawRate * ANIM_DELTA
+            If Math.Abs(yTarget - inst.turretYaw) <= yStep Then
+                inst.turretYaw = yTarget
+                inst.yawToMax = Not inst.yawToMax
+                inst.aimHold = AIM_HOLD_S + 0.13F * (inst.id Mod 7)
+            Else
+                inst.turretYaw += Math.Sign(yTarget - inst.turretYaw) * yStep
+            End If
         End If
 
         Dim pr = v.PitchRangeAt(inst.turretYaw)
@@ -885,6 +887,15 @@ Public Class MapTanks
     ''' OpenTK is row-vector - the leftmost matrix applies first - and reversing
     ''' the two rotations carries the elevation axis round with the turret, so
     ''' the gun climbs sideways instead of up.
+    '''
+    ''' THE PITCH IS NEGATED, and it is not a fudge. gunPitch is degrees UP,
+    ''' which is the convention the envelope is written in and the one worth
+    ''' reading. The rotation that produces it is the other sign: the gun's
+    ''' vertex data has the muzzle at -Z and FlipSkinnedZ puts it at +Z, and
+    ''' OpenTK's row-vector CreateRotationX sends a point at +Z to negative Y
+    ''' for a positive angle - so +15 degrees of rotation is fifteen degrees of
+    ''' DEPRESSION. Converting once, here, keeps every number above and in the
+    ''' def file meaning what it says.
     ''' </summary>
     Private Function part_model(inst As TankInstance, part As TankPart,
                                 world As Matrix4) As Matrix4
@@ -898,7 +909,7 @@ Public Class MapTanks
 
         If part.label = "gun" Then
             Dim tOff = turret_offset(inst)
-            Return Matrix4.CreateRotationX(MathHelper.DegreesToRadians(inst.gunPitch)) *
+            Return Matrix4.CreateRotationX(MathHelper.DegreesToRadians(-inst.gunPitch)) *
                    Matrix4.CreateTranslation(part.offset - tOff) *
                    Matrix4.CreateRotationY(ya) *
                    Matrix4.CreateTranslation(tOff) * world

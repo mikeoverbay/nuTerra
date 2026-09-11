@@ -311,7 +311,17 @@ Public Class TankCards
     End Function
 
     ''' <summary>
-    ''' Hang every card in the world.
+    ''' Put every card on the screen.
+    '''
+    ''' ON the screen, not IN the world: only the anchor goes through the
+    ''' camera, and the card is four corners around the projected point measured
+    ''' in pixels. Every card is therefore the same size at every range, which
+    ''' is what a marker is for - see tank_billboard.vert for why a perspective
+    ''' quad sized to a target pixel height is not the same thing.
+    '''
+    ''' Drawn late but BEFORE the minimap and the panels, which is where the
+    ''' call sits in draw_scene. Markers belong under the interface, not over
+    ''' it - a card floating across the minimap would read as part of it.
     '''
     ''' One texture bound once and one four-vertex draw per tank against the
     ''' empty VAO - there is no per-card buffer to build, so a tank appearing
@@ -332,8 +342,7 @@ Public Class TankCards
         shader.Use()
         atlas.BindUnit(0)
         GL.Uniform1(shader("aspect"), aspect)
-        GL.Uniform1(shader("target_px"), TANK_TAG_PX)
-        GL.Uniform2(shader("size_clamp"), 0.9F, 14.0F)
+        GL.Uniform1(shader("card_px"), TANK_TAG_PX)
         GL.Uniform2(shader("fade"), 320.0F, 620.0F)
         GL.Uniform1(shader("opacity"), 0.86F)
         GL.Uniform1(shader("corner"), 0.16F)
