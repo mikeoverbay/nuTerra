@@ -115,8 +115,11 @@ Public Class MapTanks
                 Tuple.Create("sweden", "S28_UDES_15_16")
             }
 
-            Const PER_TEAM As Integer = 15
-            Const ROW_N As Integer = 5
+            ' THREE A SIDE while the effects are being looked at. Thirty is the
+            ' load test and it stays one constant away; three is what lets a
+            ' single muzzle be watched without two others going off behind it.
+            Const PER_TEAM As Integer = 3
+            Const ROW_N As Integer = 3
             Const SPACING As Single = 14.0F
 
             ' The two lines face each other: team 1 at heading 0 looks down +Z,
@@ -126,7 +129,7 @@ Public Class MapTanks
             Dim placed As New List(Of Vector2)
             Dim from_spawn_count = 0
 
-            For i = 0 To roster.Length - 1
+            For i = 0 To Math.Min(roster.Length, PER_TEAM * 2) - 1
                 Dim r = roster(i)
                 Dim team = If(i < PER_TEAM, 1, 2)
                 Dim k = i Mod PER_TEAM
@@ -197,8 +200,11 @@ Public Class MapTanks
                         armor_text(r.Item1))
             Next
 
+            ' Of what was ASKED FOR, not of the roster - the roster is thirty
+            ' and PER_TEAM decides how many of them are wanted.
             LogThis("tank: {0} of {1} placed - {2} on declared spawn points",
-                    instances.Count, roster.Length, from_spawn_count)
+                    instances.Count, Math.Min(roster.Length, PER_TEAM * 2),
+                    from_spawn_count)
             If instances.Count = 0 Then failed = True
         Catch ex As Exception
             failed = True

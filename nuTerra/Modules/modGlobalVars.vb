@@ -1086,7 +1086,11 @@ Module modGlobalVars
     ''' rear is the depression curve pinching over the engine deck. Both are in
     ''' the file and neither shows if everything sits at zero.
     ''' </summary>
-    Public TANK_AIM As Boolean = True
+    ''' OFF by default now: the guns hold where they start while the muzzle
+    ''' effects are being judged, because a barrel that is sweeping moves the
+    ''' flame between one frame and the next. The sweep, the envelope and the
+    ''' rates all still work - this only stops them being driven.
+    Public TANK_AIM As Boolean = False
 
     Public TANK_FIRING As Boolean = True
 

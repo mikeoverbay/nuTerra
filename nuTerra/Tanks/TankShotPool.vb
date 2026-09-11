@@ -60,11 +60,6 @@ Public Class TankShot
     ''' <summary>This shot's own trail particles.</summary>
     Public ReadOnly trail As New TankTrail
 
-    ''' <summary>The flame at the muzzle: eight sprites of the game's own
-    ''' gun_flash flipbook, thrown out along the barrel in a wide cone and
-    ''' added rather than blended.</summary>
-    Public ReadOnly flame As New TankPuffs(8)
-
     ''' <summary>The gunpowder cloud under it: more sprites, bigger, slower,
     ''' living seven times as long, and BLENDED rather than added because smoke
     ''' obscures. It fades IN over the first part of its life so that during
@@ -105,19 +100,10 @@ Public Class TankShot
         Dim dist = (targetPos - p).Length
         trail.Begin(dist, Math.Max(0.45F, dist / speed))
 
-        ' TEPY's numbers, which were arrived at against a reference shot of the
-        ' game: the flame explodes out and is dragged to a halt inside a
-        ' quarter second, the smoke drifts gently and hangs for nearly two.
+        ' The flame itself needs no state of its own: it is three cards hung on
+        ' the muzzle and the barrel, and this shot already carries both, plus
+        ' the length, the thickness and the phase. See TankFx.draw_flashes.
         Dim scale = If(s IsNot Nothing, s.flashLength, 1.2F)
-        flame.grid = TankAtlas.GUN_FLASH
-        flame.lifeS = 0.25F
-        flame.size0 = scale * 0.85F
-        flame.size1 = scale * 1.55F
-        flame.drag = 5.0F
-        flame.opacity = 1.0F
-        flame.fadeIn = 0.0F
-        flame.tint = If(s IsNot Nothing, s.Sample(0.15F) * 0.06F, Vector3.One)
-        flame.Burst(p, fwd, 2.0F, 0.6F, 0.08F)
 
         smoke.grid = TankAtlas.SMOKE_WHITE
         smoke.lifeS = 1.8F
@@ -154,7 +140,6 @@ Public Class TankShot
         End If
 
         trail.Update(dt)
-        flame.Update(dt)
         smoke.Update(dt)
 
         ' THE SLOT IS RENTED UNTIL THE SMOKE HAS GONE. Freeing it when the

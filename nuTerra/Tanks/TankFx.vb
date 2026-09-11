@@ -1,4 +1,4 @@
-Imports OpenTK.Mathematics
+﻿Imports OpenTK.Mathematics
 Imports OpenTK.Graphics.OpenGL4
 
 ''' <summary>
@@ -41,6 +41,18 @@ Public Class TankFx
     Private shader As Shader
     Private vbo As GLBuffer
     Private vao As GLVertexArray
+
+    ' ---- the flame cards -----------------------------------------------------
+    '
+    ' Their own buffer and their own shader, because they are not billboards:
+    ' three world-standing rectangles per shot, rolled 120 degrees apart about
+    ' the barrel. See tank_flash.vert for why the artwork forces that.
+    Private Const CARDS As Integer = 512         ' quads
+    Private Const CFLOATS As Integer = 16        ' pos+len, fwd+thick, up+alpha, uv
+    Private ReadOnly card_buf(CARDS * CFLOATS - 1) As Single
+    Private flashShader As Shader
+    Private flashVbo As GLBuffer
+    Private flashVao As GLVertexArray
 
     Public Sub New()
         For i = 0 To SLOTS - 1
@@ -120,7 +132,6 @@ Public Class TankFx
                 For Each sh In inst.shots.shots
                     If Not sh.active Then Continue For
                     nAdd += sh.trail.Collect(batch_buf, at, cap)
-                    nAdd += sh.flame.Collect(batch_buf, at, cap)
                 Next
             Next
         End If
@@ -159,11 +170,105 @@ Public Class TankFx
         End If
 
         shader.StopUse()
+        draw_flashes(instances)
+
         GL.BindVertexArray(0)
         GL.BindTextureUnit(0, 0)
         GL.Disable(EnableCap.Blend)
         GL.DepthMask(True)
         GL_POP_GROUP()
+    End Sub
+
+    ''' <summary>
+    ''' Hang three flame cards on every barrel that is still burning.
+    '''
+    ''' THE THIRD AXIS IS DERIVED FROM THE BARREL, not from the camera. Each
+    ''' card needs a direction across the gun; the first is any vector
+    ''' perpendicular to it and the other two are that one rolled 120 and 240
+    ''' degrees about the barrel, which is Rodrigues with the axis term dropped
+    ''' because the vector is already perpendicular to the axis.
+    '''
+    ''' The card GROWS along the barrel as it burns and fades as it goes, so
+    ''' the plume reaches out of the muzzle rather than appearing at full
+    ''' length; and the flipbook frame advances on the same phase, so the
+    ''' picture on the card is changing while it does.
+    ''' </summary>
+    Private Sub draw_flashes(instances As List(Of TankInstance))
+        If instances Is Nothing Then Return
+        Dim atlas = TankAtlas.texture
+        If atlas Is Nothing Then Return
+
+        Dim at = 0
+        Dim n = 0
+        For Each inst In instances
+            For Each sh In inst.shots.shots
+                If Not sh.active OrElse sh.flashPhase >= 1.0F Then Continue For
+                If at + 3 * CFLOATS > CARDS * CFLOATS Then Exit For
+
+                Dim f = sh.fwd
+                ' Any perpendicular: cross with whichever world axis the barrel
+                ' is least aligned with, so a gun pointing straight up still
+                ' gets a basis.
+                Dim aux = If(Math.Abs(f.Y) < 0.9F, Vector3.UnitY, Vector3.UnitX)
+                Dim u0 = Vector3.Normalize(Vector3.Cross(aux, f))
+                Dim v0 = Vector3.Cross(f, u0)
+
+                Dim u = sh.flashPhase
+                Dim uv = TankAtlas.FrameUV(TankAtlas.GUN_FLASH,
+                                           CInt(u * (TankAtlas.GUN_FLASH.frames - 1)))
+                ' Out of the muzzle rather than onto it, and gone by the end.
+                Dim len = sh.length * (0.45F + 0.55F * Math.Min(1.0F, u * 3.0F))
+                Dim thick = sh.thickness
+                Dim a = (1.0F - u) * (1.0F - u)
+
+                For k = 0 To 2
+                    Dim ang = CSng(k * 2.0 * Math.PI / 3.0)
+                    Dim up = u0 * CSng(Math.Cos(ang)) + v0 * CSng(Math.Sin(ang))
+                    card_buf(at) = sh.pos.X
+                    card_buf(at + 1) = sh.pos.Y
+                    card_buf(at + 2) = sh.pos.Z
+                    card_buf(at + 3) = len
+                    card_buf(at + 4) = f.X
+                    card_buf(at + 5) = f.Y
+                    card_buf(at + 6) = f.Z
+                    card_buf(at + 7) = thick
+                    card_buf(at + 8) = up.X
+                    card_buf(at + 9) = up.Y
+                    card_buf(at + 10) = up.Z
+                    card_buf(at + 11) = a
+                    card_buf(at + 12) = uv.X
+                    card_buf(at + 13) = uv.Y
+                    card_buf(at + 14) = uv.Z
+                    card_buf(at + 15) = uv.W
+                    at += CFLOATS
+                    n += 1
+                Next
+            Next
+        Next
+        If n = 0 Then Return
+
+        If flashShader Is Nothing Then
+            flashShader = New Shader("tank_flash")
+            flashVbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tank_flash")
+            flashVbo.StorageNullData(CARDS * CFLOATS * 4,
+                                     BufferStorageFlags.DynamicStorageBit)
+            flashVao = GLVertexArray.Create("tank_flash")
+            flashVao.VertexBuffer(0, flashVbo, IntPtr.Zero, CFLOATS * 4)
+            For k = 0 To 3
+                flashVao.AttribFormat(k, 4, VertexAttribType.Float, False, k * 16)
+                flashVao.AttribBinding(k, 0)
+                flashVao.EnableAttrib(k)
+            Next
+            flashVao.BindingDivisor(0, 1)
+        End If
+
+        flashVbo.SubData(IntPtr.Zero, n * CFLOATS * 4, card_buf)
+        flashShader.Use()
+        atlas.BindUnit(0)
+        GL.Uniform3(flashShader("tint"), TANK_FX_GAIN, TANK_FX_GAIN, TANK_FX_GAIN)
+        flashVao.Bind()
+        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, n)
+        flashShader.StopUse()
     End Sub
 
     Private Sub ensure_gl()
@@ -190,7 +295,11 @@ Public Class TankFx
     Public Sub Dispose() Implements IDisposable.Dispose
         vbo?.Dispose()
         vao?.Dispose()
+        flashVbo?.Dispose()
+        flashVao?.Dispose()
         vbo = Nothing
         vao = Nothing
+        flashVbo = Nothing
+        flashVao = Nothing
     End Sub
 End Class
