@@ -1,5 +1,22 @@
 ﻿Imports OpenTK.Mathematics
 
+''' <summary>Why a tank is standing still. Four causes that look identical
+''' from outside and want completely different fixes.</summary>
+Public Enum StopWhy
+    Moving = 0
+    ''' <summary>Swinging the hull round toward the goal. Not a problem.</summary>
+    Turning = 1
+    ''' <summary>Pointed the right way and still not moving - the one that is
+    ''' always wrong.</summary>
+    Aligned = 2
+    ''' <summary>The navigation grid says the ground ahead is shut.</summary>
+    Ground = 3
+    ''' <summary>Another hull is in the way.</summary>
+    Traffic = 4
+    ''' <summary>Backing out of somewhere it could not get through.</summary>
+    Reversing = 5
+End Enum
+
 ''' <summary>
 ''' One tank's driving: where it is going, how fast, and what it does when the
 ''' way is shut.
@@ -55,6 +72,11 @@ Public Class TankDrive
     ''' </summary>
     Public reverseS As Single
 
+    ''' <summary>Why this tank is not moving, this frame. Counted in the fleet
+    ''' report: "ten of thirty moving" says a fleet is sluggish and nothing
+    ''' about which of four quite different causes to go and fix.</summary>
+    Public stopReason As StopWhy
+
     Public rng As Random
 
     ''' <summary>
@@ -76,6 +98,7 @@ Public Class TankDrive
 
         ' ---- backing out ---------------------------------------------------
         If reverseS > 0.0F Then
+            stopReason = StopWhy.Reversing
             reverseS -= dt
             Dim back As New Vector2(-CSng(Math.Sin(inst.headingRad)),
                                     -CSng(Math.Cos(inst.headingRad)))
@@ -125,6 +148,7 @@ Public Class TankDrive
             ' round, which changes the target heading and starts the turn
             ' again. Only a tank that is pointed the right way and still not
             ' moving has a problem.
+            stopReason = If(aligned, StopWhy.Aligned, StopWhy.Turning)
             If aligned Then
                 stuckS += dt
                 If stuckS > TankDriveTune.STUCK_S Then PickGoal(nav, pos)
@@ -139,6 +163,7 @@ Public Class TankDrive
         Dim nxt = pos + fwd * stride
 
         If Not nav.CanStand(nxt.X, nxt.Y, TankDriveTune.HULL_R) Then
+            stopReason = StopWhy.Ground
             speed = 0.0F
             stuckS += dt
 
@@ -174,12 +199,14 @@ Public Class TankDrive
         ' the right answer, and the stuck timer eventually sends this one
         ' somewhere else if the other never clears.
         If Crowded(inst, others, nxt) Then
+            stopReason = StopWhy.Traffic
             speed = 0.0F
             stuckS += dt
             If stuckS > TankDriveTune.STUCK_S Then PickGoal(nav, pos)
             Return
         End If
 
+        stopReason = StopWhy.Moving
         stuckS = 0.0F
         blockedS = 0.0F
         inst.position = New Vector3(nxt.X, get_Y_at_XZ_fast(nxt.X, nxt.Y), nxt.Y)

@@ -413,7 +413,15 @@ Public Class TankNav
     ''' subtle error - an axis flipped, a margin off by a cell - produces
     ''' tanks that merely behave oddly rather than anything that throws.
     ''' </summary>
-    Public Sub DumpPng(path As String)
+    ''' <param name="fleet">Optional. Draws where every tank is, which way it is
+    ''' pointing and what it is driving at, over the grid it is driving on.
+    ''' Written because the alternative was asking the owner whether thirteen of
+    ''' thirty moving "looks idle" - a question about a number, put to someone
+    ''' who can only see one frame at a time. On the map it is obvious at a
+    ''' glance whether a fleet is spread and travelling or clumped and
+    ''' shuffling, and whether the ones standing still are against a wall or in
+    ''' the open.</param>
+    Public Sub DumpPng(path As String, Optional fleet As List(Of TankInstance) = Nothing)
         If Not ready Then Return
         Try
             Using bmp As New Drawing.Bitmap(SIZE, SIZE, Drawing.Imaging.PixelFormat.Format24bppRgb)
@@ -449,6 +457,8 @@ Public Class TankNav
                 Next
                 Runtime.InteropServices.Marshal.Copy(px, 0, d.Scan0, px.Length)
                 bmp.UnlockBits(d)
+
+                If fleet IsNot Nothing Then draw_fleet(bmp, fleet)
                 bmp.Save(path, Drawing.Imaging.ImageFormat.Png)
             End Using
             LogThis("tank nav: wrote {0}", path)
@@ -456,6 +466,62 @@ Public Class TankNav
             LogThis("tank nav: could not write png - {0}", ex.Message)
         End Try
     End Sub
+
+    ''' <summary>
+    ''' The tanks on top of the grid: a leader from each hull showing where it
+    ''' is pointing, a faint line to what it is driving at, and a dot coloured
+    ''' by team.
+    '''
+    ''' A STOPPED TANK IS DRAWN HOLLOW. Which of the standing-still ones are
+    ''' wedged and which are mid-turn is the whole question the picture exists
+    ''' to answer, and both look identical as a plain dot.
+    ''' </summary>
+    Private Sub draw_fleet(bmp As Drawing.Bitmap, fleet As List(Of TankInstance))
+        Using g = Drawing.Graphics.FromImage(bmp)
+            g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+            Using goal_pen As New Drawing.Pen(Drawing.Color.FromArgb(70, 255, 255, 255), 1.0F),
+                  head_pen As New Drawing.Pen(Drawing.Color.FromArgb(230, 255, 255, 255), 1.4F)
+                For Each inst In fleet
+                    Dim p = ToPixel(inst.position.X, inst.position.Z)
+
+                    ' where it is trying to get to
+                    If inst.drive.hasGoal Then
+                        Dim q = ToPixel(inst.drive.goal.X, inst.drive.goal.Y)
+                        g.DrawLine(goal_pen, p.X, p.Y, q.X, q.Y)
+                    End If
+
+                    ' which way it is facing, one hull length of it
+                    Dim hx = CSng(Math.Sin(inst.headingRad)) * 7.0F / cell_m
+                    Dim hz = -CSng(Math.Cos(inst.headingRad)) * 7.0F / cell_m
+                    g.DrawLine(head_pen, p.X, p.Y, p.X + hx, p.Y + hz)
+
+                    Dim col = If(inst.team = TankTeam.Red,
+                                 Drawing.Color.FromArgb(255, 90, 70),
+                                 Drawing.Color.FromArgb(90, 230, 110))
+                    Dim r = 3.5F
+                    Dim box As New Drawing.RectangleF(p.X - r, p.Y - r, r * 2, r * 2)
+                    If inst.drive.speed > 0.1F Then
+                        Using b As New Drawing.SolidBrush(col)
+                            g.FillEllipse(b, box)
+                        End Using
+                    Else
+                        Using pn As New Drawing.Pen(col, 1.6F)
+                            g.DrawEllipse(pn, box)
+                        End Using
+                    End If
+                Next
+            End Using
+        End Using
+    End Sub
+
+    ''' <summary>World XZ to a pixel in the dump, which is one pixel a cell.
+    ''' Float, not the integer CellOf, so a hull moving a third of a cell still
+    ''' moves on the picture.</summary>
+    Private Function ToPixel(x As Single, z As Single) As Drawing.PointF
+        Return New Drawing.PointF(
+            (x - wx0) / (wx1 - wx0) * SIZE,
+            (wz1 - z) / (wz1 - wz0) * SIZE)
+    End Function
 End Class
 
 ''' <summary>

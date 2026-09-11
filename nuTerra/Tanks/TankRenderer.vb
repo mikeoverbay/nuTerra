@@ -826,11 +826,13 @@ Public Class MapTanks
 
         Dim moving = 0, stuck = 0, goalless = 0
         Dim total_v = 0.0F, far_m = 0.0F
+        Dim why(5) As Integer
         For Each inst In instances
             Dim d = inst.drive
             If d.speed > 0.1F Then moving += 1
             If d.stuckS > TankDriveTune.STUCK_S Then stuck += 1
             If Not d.hasGoal Then goalless += 1
+            why(CInt(d.stopReason)) += 1
             total_v += d.speed
             far_m = Math.Max(far_m, inst.trackDistance)
         Next
@@ -844,6 +846,14 @@ Public Class MapTanks
                 moving, instances.Count, stuck, goalless,
                 total_v / Math.Max(instances.Count, 1), far_m, pins)
 
+        ' WHY they are not moving, which is the part worth acting on. A count
+        ' of movers says a fleet is sluggish; these say whether to look at the
+        ' turn rate, the grid, the traffic rule or the goal chooser.
+        LogThis("tank ai:   turning {0}, aligned-but-stopped {1}, ground {2}, traffic {3}, reversing {4}",
+                why(CInt(StopWhy.Turning)), why(CInt(StopWhy.Aligned)),
+                why(CInt(StopWhy.Ground)), why(CInt(StopWhy.Traffic)),
+                why(CInt(StopWhy.Reversing)))
+
         ' HERE, NOT ONLY IN Dispose. Learning that outlives the session was the
         ' whole point of pinning, and Dispose is not reached when the process
         ' is killed - which is how this one usually ends, in testing and when
@@ -851,6 +861,14 @@ Public Class MapTanks
         ' something was actually learned, so this costs nothing most times it
         ' is called.
         nav.Save()
+
+        ' The same picture the grid dump writes, with the fleet on it. Only
+        ' when asked for: it is a megabyte every five seconds otherwise.
+        If TANK_NAV_DUMP Then
+            nav.DumpPng(IO.Path.Combine(
+                IO.Path.GetTempPath(), "nuTerra", "tanks",
+                MAP_NAME_NO_PATH & "_fleet.png"), instances)
+        End If
     End Sub
 
     Private fleet_report_s As Single
