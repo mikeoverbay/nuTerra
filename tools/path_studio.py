@@ -1029,6 +1029,8 @@ class AmGrid:
 class View3D:
     G = 256              # cells a side the bake is sampled down to for the march
     COARSE = 4           # cells per step while a ray is well above the surface
+    OBJ_H = 2.0          # an obstacle this far over its ground is an OBJECT, boxed
+    OBJ_RGB = (205, 150, 40)   # one colour for every box; height is visible here
     FULL = (640, 420)    # render size at rest; a drag renders at half and scales
     FOV = 60.0           # horizontal, degrees
     SKY = (11, 13, 18)
@@ -1044,9 +1046,21 @@ class View3D:
         self.canvas = tk.Canvas(top, width=self.FULL[0], height=self.FULL[1],
                                 bg="#0b0d12", highlightthickness=0)
         self.canvas.pack()
+        # Objects as boxes, and the sample size. Both rebuild the surface.
+        row = ttk.Frame(top)
+        row.pack(fill="x", padx=6, pady=(4, 0))
+        self.boxes = tk.BooleanVar(value=True)
+        ttk.Checkbutton(row, text="objects as boxes", variable=self.boxes,
+                        command=self.rebuild).pack(side="left")
+        ttk.Label(row, text="grid", style="Muted.TLabel").pack(side="left", padx=(14, 4))
+        self.grid_var = tk.IntVar(value=self.G)
+        for g in (256, 512):
+            ttk.Radiobutton(row, text=str(g), value=g, variable=self.grid_var,
+                            command=self.rebuild).pack(side="left", padx=(0, 6))
         self.info = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.info, style="Muted.TLabel").pack(
             anchor="w", padx=6, pady=(2, 4))
+        self._boxed = None       # (bake id, flattened top, object mask) cache
         self.canvas.bind("<Button-1>", self.on_press)
         self.canvas.bind("<B1-Motion>", self.on_orbit)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
@@ -1074,11 +1088,20 @@ class View3D:
             self.info.set("no bake loaded")
             self.canvas.delete("all")
             return
-        G = self.G
+        G = int(self.grid_var.get())
+        self.G = G
         fy, fx = max(1, b.h // G), max(1, b.w // G)
+        # The top to sample: the bake as it is, or with every object
+        # flattened to one level - a box with the footprint and height the
+        # bake gives it, instead of a cluster of columns at whatever height
+        # each sample cell happened to catch.
+        top, obj = (self.boxed_top() if self.boxes.get() else (b.top, None))
         # TOP by block MAX - a bell tower keeps its height - the floor by mean.
-        self.H = b.top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
+        self.H = top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
         self.F = b.floor[:G * fy, :G * fx].reshape(G, fy, G, fx).mean(axis=(1, 3)).astype(np.float32)
+        # Which sample cells hold a box, for the one flat colour.
+        self.objc = (obj[:G * fy, :G * fx].reshape(G, fy, G, fx).any(axis=(1, 3))
+                     if obj is not None else None)
         self.wx_min, self.wx_max = float(b.wx_min), float(b.wx_max)
         self.wz_min, self.wz_max = float(b.wz_min), float(b.wz_max)
         self.cs = (self.wx_max - self.wx_min) / G
@@ -1121,6 +1144,43 @@ class View3D:
             return
         arr = np.asarray(m.resize((self.G, self.G), Image.BILINEAR))[:, ::-1]
         self.colours = np.ascontiguousarray(arr[..., :3])
+        # One colour for every box. The canvas grades obstacles by height
+        # because it cannot show height; here it can, and the grade only
+        # made every building a patchwork of differently coloured towers.
+        if getattr(self, "objc", None) is not None:
+            self.colours[self.objc] = self.OBJ_RGB
+
+    def boxed_top(self):
+        """The bake's top with every object flattened to a single level.
+
+        An object is a connected run of cells standing more than OBJ_H over
+        their ground. Each one gets the 95th percentile of its own top - not
+        the max, so one aerial or one leaf card does not raise a whole house -
+        and that level is written over its whole footprint. A wall under
+        OBJ_H is left to the height field as it is. Cached per bake; the
+        labelling is the expensive part.
+        """
+        b = self.bake
+        if self._boxed is not None and self._boxed[0] is b:
+            return self._boxed[1], self._boxed[2]
+        obj = b.obstacle > self.OBJ_H
+        lab, n = ndimage.label(obj, structure=np.ones((3, 3), dtype=bool))
+        top = b.top.astype(np.float32).copy()
+        if n:
+            idx = np.arange(1, n + 1)
+            level = ndimage.labeled_comprehension(
+                b.top, lab, idx, lambda v: np.percentile(v, 95.0), np.float32, 0.0)
+            lut = np.zeros(n + 1, dtype=np.float32)
+            lut[1:] = level
+            top[obj] = lut[lab[obj]]
+        self._boxed = (b, top, obj)
+        return top, obj
+
+    def rebuild(self):
+        """Boxes toggled or the grid changed: resample and re-march."""
+        if self.H is None:
+            return
+        self.set_bake(render=True)
 
     def invalidate(self):
         """Colours or camera changed: the surface has to be marched again."""
