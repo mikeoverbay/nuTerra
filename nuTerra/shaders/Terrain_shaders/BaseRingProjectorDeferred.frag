@@ -25,8 +25,21 @@ void main (void)
     float Depth = texture(depthMap, UV).x;
     vec4 PositionIn = vec4(texture(gPosition, UV).xyz, 1.0);
 
-    bool flag = GBUF_RENDER(texture(gGMF, UV).b) == GBUF_RENDER_MODEL;
-    if (flag) discard;
+    // TERRAIN ONLY, as an ALLOWLIST rather than a list of things to skip.
+    //
+    // This used to discard GBUF_RENDER_MODEL and nothing else, which covered
+    // buildings and roads and missed the tanks: a tank writes GFLAG_UNLIT so
+    // the resolve passes its pixels through unlit, and GBUF_RENDER of that is
+    // 0 - neither MODEL nor TERRAIN - so it fell through the test and the ring
+    // painted over the hulls standing in the base.
+    //
+    // The ring cannot simply be drawn BEFORE the tanks instead: this pass runs
+    // after the deferred resolve, painting onto the lit image, while the tanks
+    // go into the G-buffer long before it. There is no ordering that puts a
+    // hull back on top. Asking what a pixel IS, rather than listing what it is
+    // not, also excludes the next thing drawn into the G-buffer without
+    // anybody remembering to come back here.
+    if (GBUF_RENDER(texture(gGMF, UV).b) != GBUF_RENDER_TERRAIN) discard;
     
     // Calculate Worldposition by recreating it out of the coordinates and depth-sample
     vec4 ScreenPosition = vec4(UV*2.0-1.0, Depth, 1.0);
