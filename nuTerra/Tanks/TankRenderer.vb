@@ -75,6 +75,11 @@ Public Class MapTanks
     ''' first time they load, then pinned by what actually stops them.</summary>
     Public ReadOnly nav As New TankNav
 
+    ''' <summary>The same free space as circles rather than cells. Downstream
+    ''' of the grid and useless without it, which is why it is built in the
+    ''' same breath - see TankZones for what it is for.</summary>
+    Public ReadOnly zones As New TankZones
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -108,6 +113,62 @@ Public Class MapTanks
                     IO.Path.GetTempPath(), "nuTerra", "tanks",
                     MAP_NAME_NO_PATH & "_nav.png"))
             End If
+
+            ' THEN THE ZONES, which are a restatement of the grid and cannot be
+            ' built before it. Sized to the hull the driver actually uses, so a
+            ' disc that exists is a disc this vehicle fits inside - there is no
+            ' second radius anywhere that could disagree with HULL_R.
+            ' ITS OWN TRY, because the zone map is an ACCELERATION and not a
+            ' requirement. The driver works from nav alone; zones only make it
+            ' cheaper. Letting a fault in here reach the outer handler cost the
+            ' whole vehicle load once already - thirty tanks silently absent
+            ' behind one "tank: load failed" line - which is far too much to
+            ' pay for an optimisation that had not been asked for yet.
+            Try
+                zones.Build(nav, TankDriveTune.HULL_R, MAP_NAME_NO_PATH)
+                ' The CSV is written every load, not only under navdump: it is
+                ' what the Path Studio planners read, and a data product that
+                ' only appears behind a debug switch is one that is missing
+                ' exactly when someone depends on it. The PNG stays gated - it
+                ' is for eyeballs.
+                zones.WriteCsv()
+                If zones.ready AndAlso TANK_NAV_DUMP Then
+                    zones.Dump()
+
+                    ' EXERCISE THE CATALOGUE while there are no base positions
+                    ' to aim it at. Widest disc to the disc furthest from it is
+                    ' a genuine cross-map problem and it is deterministic, so
+                    ' the machinery is proven against real ground rather than
+                    ' waiting on arena_defs. Under the dump flag only - this is
+                    ' a diagnostic, not the real catalogue.
+                    ' WITHIN ONE COMPONENT. The first attempt aimed at the
+                    ' zone furthest from the widest and found no path, which
+                    ' was honest rather than broken: the furthest ground on a
+                    ' map with two lakes is not reachable from the middle of
+                    ' it. A catalogue between two components can only ever
+                    ' report "no path", which proves nothing about the search.
+                    Dim ncomp = 0
+                    Dim comp = zones.Components(ncomp)
+                    Dim far = -1
+                    Dim far_d = -1.0F
+                    For qi = 1 To zones.zones.Count - 1
+                        If comp(qi) <> comp(0) Then Continue For
+                        Dim qdx = zones.zones(qi).x - zones.zones(0).x
+                        Dim qdz = zones.zones(qi).z - zones.zones(0).z
+                        Dim qd = qdx * qdx + qdz * qdz
+                        If qd > far_d Then far_d = qd : far = qi
+                    Next
+                    If far > 0 Then
+                        Dim cat As New TankRoutes
+                        cat.Build(zones,
+                                  zones.zones(0).x, zones.zones(0).z,
+                                  zones.zones(far).x, zones.zones(far).z,
+                                  "widest -> furthest")
+                    End If
+                End If
+            Catch ex As Exception
+                LogThis("tank zones: build failed, carrying on without it - {0}", ex.ToString())
+            End Try
 
             ' THE ROSTER IS TIER 10, and it is taken from the package layout
             ' rather than from a list anyone typed. The game ships vehicle

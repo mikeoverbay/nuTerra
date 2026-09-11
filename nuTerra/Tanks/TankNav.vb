@@ -249,6 +249,31 @@ Public Class TankNav
 
     ' =========================================================== queries
 
+    ''' <summary>The world frame this grid was cut in, straight off the bake.
+    ''' Exposed because the zone map is exported for readers OUTSIDE this app,
+    ''' and a reader that re-derives the mapping is a reader that will one day
+    ''' derive it differently.</summary>
+    Public ReadOnly Property wx_min As Single
+        Get
+            Return wx0
+        End Get
+    End Property
+    Public ReadOnly Property wx_max As Single
+        Get
+            Return wx1
+        End Get
+    End Property
+    Public ReadOnly Property wz_min As Single
+        Get
+            Return wz0
+        End Get
+    End Property
+    Public ReadOnly Property wz_max As Single
+        Get
+            Return wz1
+        End Get
+    End Property
+
     Public Function InBounds(cx As Integer, cz As Integer) As Boolean
         Return cx >= 0 AndAlso cz >= 0 AndAlso cx < SIZE AndAlso cz < SIZE
     End Function

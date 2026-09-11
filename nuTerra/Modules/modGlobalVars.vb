@@ -1157,7 +1157,22 @@ Module modGlobalVars
 
     Public TANK_AIM As Boolean = False
 
-    Public TANK_FIRING As Boolean = True
+    ''' <summary>
+    ''' Whether the guns run at all. OFF by default.
+    '''
+    ''' It was on, and the fleet opened fire at load: fireIn is staggered
+    ''' 0.21 s per vehicle and TANK_FIRE_PERIOD is 2 s, so thirty tanks put a
+    ''' round downrange every 67 ms from the moment they spawned, for ever, at
+    ''' nothing. That is a demo cadence and it reads as a bug, because firing
+    ''' is supposed to mean a gun decided to shoot at something.
+    '''
+    ''' Target selection is not written yet - see the handoff's next-steps, the
+    ''' radar fan then the gun pointed at what it sees. Until it is, the honest
+    ''' default is silent: a gun that fires at nothing is worse than a gun that
+    ''' does not fire, because it looks like behaviour. The TANKS! panel still
+    ''' has the switch for anyone who wants the muzzle effects to look at.
+    ''' </summary>
+    Public TANK_FIRING As Boolean = False
 
     ''' <summary>
     ''' Trace every shot and light both ends of it.

@@ -87,6 +87,19 @@ Public Class TankShot
             lightLifeS = Math.Max(s.durationS, 0.01F) * Math.Max(TANK_GUN_LIGHT_HOLD, 0.1F)
             length = s.flashLength
             thickness = s.flashThickness
+        Else
+            ' A SLOT IS REUSED, so anything Fire does not set here is whatever
+            ' the LAST shot out of this slot left behind. A null spec is a real
+            ' case - TankBlast.Lookup returns its fallback, which can itself be
+            ' Nothing, and TankVehicle already guards v.blast Is Nothing when it
+            ' logs - so without this the flash borrows its length, thickness and
+            ' both lifetimes from an unrelated gun that happened to use the slot
+            ' before it. The smoke below always had its explicit 1.2 fallback;
+            ' these four did not.
+            flashLifeS = 0.5F
+            lightLifeS = 0.09F
+            length = 1.2F
+            thickness = 0.6F
         End If
 
         curPos = p
