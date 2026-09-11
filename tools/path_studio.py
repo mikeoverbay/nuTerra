@@ -1009,31 +1009,39 @@ class AmGrid:
 
 
 # --------------------------------------------------------------------------
-# The 3D view: the bake as a surface, with a depth buffer under every pixel
+# The 3D view: the bake as cubes, with a depth buffer under every pixel
 # --------------------------------------------------------------------------
-# Software rendered - numpy, no GL - because Tk has no GL surface and the
-# thing being drawn is a heightfield, which a ray march draws exactly: every
-# pixel walks its ray until it dips under the surface, and the distance it
-# did so at IS the z-buffer. That buffer, and the world point behind every
-# pixel, are kept on the view after each full render, because placing
-# anything in this window later means turning a pixel back into a world
-# point - and that is exactly what they are.
+# Geometry, drawn once per frame: one box per grid cell, its top at the cell
+# height, and of its four sides only the two that face the camera and only
+# where they stand above the neighbour - the rest is hidden by the cube
+# itself or by the next one. Painter's order, farthest cell first, so nothing
+# needs a per-pixel test; PIL fills the polygons. Tk has no GL surface, which
+# is why this is PIL and not a vertex shader, but the shape of it is the same:
+# a flat grid, the height read per cell, no mesh built anywhere.
+#
+# Picking and occlusion come from an ID pass: on a full render every polygon
+# is stamped a second time with its cell number into an integer image. The
+# cell's camera depth looked up through that is the z-buffer, and the cell's
+# centre is the world point behind the pixel - what placing anything in this
+# window will read. A drag renders the coarse grid and skips the ID pass.
 #
 # What is drawn is what the 2D map shows: the TOP layer (terrain plus every
-# object, block-max so a bell tower keeps its height) coloured from the same
-# mask picture the canvas uses, so obstacles are amber here too, shaded by
-# the slope; the route in pink at flight height, the other direction faint,
-# the splits ringed, the points and the lights - each only where the surface
-# does not hide it, by the depth buffer.
+# object) coloured from the mask picture the canvas uses, every object
+# flattened to one level and one colour so a house is a box with its own
+# footprint and height; the route in pink at flight height, the other
+# direction faint, the splits ringed, the points and the lights - each only
+# where the cubes do not hide it.
 
 class View3D:
-    G = 256              # cells a side the bake is sampled down to for the march
-    COARSE = 4           # cells per step while a ray is well above the surface
-    OBJ_H = 2.0          # an obstacle this far over its ground is an OBJECT, boxed
-    OBJ_RGB = (205, 150, 40)   # one colour for every box; height is visible here
-    FULL = (640, 420)    # render size at rest; a drag renders at half and scales
+    GRIDS = (128, 256)   # cells a side: the choice for full frames
+    PREVIEW_G = 128      # what a drag renders
+    FULL = (640, 420)
     FOV = 60.0           # horizontal, degrees
     SKY = (11, 13, 18)
+    OBJ_H = 2.0          # an obstacle this far over its ground is an OBJECT, boxed
+    OBJ_RGB = (205, 150, 40)   # one colour for every box; height is visible here
+    SIDE_X = 0.62        # the two side faces, darker than the top, unequal to each other
+    SIDE_Z = 0.45
 
     def __init__(self, studio):
         self.studio = studio
@@ -1046,21 +1054,20 @@ class View3D:
         self.canvas = tk.Canvas(top, width=self.FULL[0], height=self.FULL[1],
                                 bg="#0b0d12", highlightthickness=0)
         self.canvas.pack()
-        # Objects as boxes, and the sample size. Both rebuild the surface.
+        # Objects as boxes, and the grid for full frames. Both rebuild.
         row = ttk.Frame(top)
         row.pack(fill="x", padx=6, pady=(4, 0))
         self.boxes = tk.BooleanVar(value=True)
         ttk.Checkbutton(row, text="objects as boxes", variable=self.boxes,
                         command=self.rebuild).pack(side="left")
         ttk.Label(row, text="grid", style="Muted.TLabel").pack(side="left", padx=(14, 4))
-        self.grid_var = tk.IntVar(value=self.G)
-        for g in (256, 512):
+        self.grid_var = tk.IntVar(value=256)
+        for g in self.GRIDS:
             ttk.Radiobutton(row, text=str(g), value=g, variable=self.grid_var,
                             command=self.rebuild).pack(side="left", padx=(0, 6))
         self.info = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.info, style="Muted.TLabel").pack(
             anchor="w", padx=6, pady=(2, 4))
-        self._boxed = None       # (bake id, flattened top, object mask) cache
         self.canvas.bind("<Button-1>", self.on_press)
         self.canvas.bind("<B1-Motion>", self.on_orbit)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
@@ -1070,61 +1077,34 @@ class View3D:
         self.canvas.bind("<MouseWheel>", self.on_wheel)
         self.drag = None
         self.photo = None
+        self.levels = {}         # grid size -> everything prepared for it
         self.terrain = None      # (image, depth, hit, camera, full) of the last render
-        self.depth = None        # metres along the ray per pixel, inf = sky (last FULL render)
+        self.depth = None        # camera depth per pixel, inf = sky (last FULL render)
         self.hit = None          # world x, y, z behind every pixel, nan = sky (last FULL render)
         self.cam = None
-        self.H = None
         self._job = None
+        self._boxed = None       # (bake, flattened top, object mask) cache
         self.set_bake(render=True)
 
     # ---- the data -----------------------------------------------------
 
+    @property
+    def ready(self):
+        return bool(self.levels)
+
     def set_bake(self, render=True):
         b = self.studio.bake
         self.bake = b
+        self.levels = {}
         if b is None:
-            self.H = None
             self.info.set("no bake loaded")
             self.canvas.delete("all")
             return
-        G = int(self.grid_var.get())
-        self.G = G
-        fy, fx = max(1, b.h // G), max(1, b.w // G)
-        # The top to sample: the bake as it is, or with every object
-        # flattened to one level - a box with the footprint and height the
-        # bake gives it, instead of a cluster of columns at whatever height
-        # each sample cell happened to catch.
-        top, obj = (self.boxed_top() if self.boxes.get() else (b.top, None))
-        # TOP by block MAX - a bell tower keeps its height - the floor by mean.
-        self.H = top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
-        self.F = b.floor[:G * fy, :G * fx].reshape(G, fy, G, fx).mean(axis=(1, 3)).astype(np.float32)
-        # Which sample cells hold a box, for the one flat colour.
-        self.objc = (obj[:G * fy, :G * fx].reshape(G, fy, G, fx).any(axis=(1, 3))
-                     if obj is not None else None)
         self.wx_min, self.wx_max = float(b.wx_min), float(b.wx_max)
         self.wz_min, self.wz_max = float(b.wz_min), float(b.wz_max)
-        self.cs = (self.wx_max - self.wx_min) / G
-        self.hmin, self.hmax = float(self.H.min()), float(self.H.max())
-        # The coarse map for the march: the max over COARSE x COARSE blocks,
-        # then the max over each block and its eight neighbours. A coarse
-        # step is one block long, so two consecutive samples can straddle a
-        # block the ray crosses without landing in it - the neighbours' max
-        # is what keeps the test conservative. A ray above THIS is above every
-        # cell it could have crossed since its last sample.
-        C = self.COARSE
-        Gc = G // C
-        Hc = self.H[:Gc * C, :Gc * C].reshape(Gc, C, Gc, C).max(axis=(1, 3))
-        self.Hc = ndimage.maximum_filter(Hc, size=3, mode="nearest").astype(np.float32)
-        self.Gc = Gc
-        # Lambert off the slope, once. Rows run with -z, so d/dz is -gz.
-        gz, gx = np.gradient(self.H, self.cs, self.cs)
-        nx, ny, nz = -gx, np.ones_like(gx), gz
-        nl = np.sqrt(nx * nx + ny * ny + nz * nz)
-        L = np.array([-0.5, 0.75, 0.45])
-        L /= np.linalg.norm(L)
-        self.shade = (0.35 + 0.65 * np.clip((nx * L[0] + ny * L[1] + nz * L[2]) / nl,
-                                            0.0, 1.0)).astype(np.float32)
+        top, obj = (self.boxed_top() if self.boxes.get() else (b.top, None))
+        for G in sorted({self.PREVIEW_G, int(self.grid_var.get())}):
+            self.levels[G] = self.prep(G, top, obj)
         self.set_colours()
         if self.cam is None:
             ext = max(self.wx_max - self.wx_min, self.wz_max - self.wz_min)
@@ -1134,21 +1114,62 @@ class View3D:
         if render:
             self.invalidate()
 
+    def prep(self, G, top, obj):
+        """Everything one grid size needs that does not depend on the
+        camera: heights, the cell corners in world, the neighbour heights the
+        side faces are cut to, the slope shading."""
+        b = self.bake
+        fy, fx = max(1, b.h // G), max(1, b.w // G)
+        H = top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
+        F = b.floor[:G * fy, :G * fx].reshape(G, fy, G, fx).mean(axis=(1, 3)).astype(np.float32)
+        cs = (self.wx_max - self.wx_min) / G
+        objc = (obj[:G * fy, :G * fx].reshape(G, fy, G, fx).any(axis=(1, 3))
+                if obj is not None else None)
+        # Lambert off the slope for the tops. Rows run with -z, so d/dz is -gz.
+        gz, gx = np.gradient(H, cs, cs)
+        nx, ny, nz = -gx, np.ones_like(gx), gz
+        nl = np.sqrt(nx * nx + ny * ny + nz * nz)
+        L = np.array([-0.5, 0.75, 0.45])
+        L /= np.linalg.norm(L)
+        shade = (0.45 + 0.55 * np.clip((nx * L[0] + ny * L[1] + nz * L[2]) / nl,
+                                       0.0, 1.0)).astype(np.float32)
+        xs = self.wx_min + np.arange(G + 1, dtype=np.float32) * cs
+        zs = self.wz_max - np.arange(G + 1, dtype=np.float32) * cs
+        X0, Z0 = np.meshgrid(xs[:-1], zs[:-1])
+        X1, Z1 = np.meshgrid(xs[1:], zs[1:])
+        # the four top corners of every cell, in the order 0 (x0,z0) 1 (x1,z0)
+        # 2 (x1,z1) 3 (x0,z1) - z0 is the north edge (row above)
+        cxs = np.stack([X0, X1, X1, X0], axis=-1)
+        czs = np.stack([Z0, Z0, Z1, Z1], axis=-1)
+        Hp = np.pad(H, 1, mode="edge")
+        hn = (Hp[1:-1, :-2], Hp[1:-1, 2:],     # x- neighbour, x+ neighbour
+              Hp[2:, 1:-1], Hp[:-2, 1:-1])     # z- neighbour (row below), z+ (row above)
+        return {"G": G, "H": H, "F": F, "cs": cs, "objc": objc, "shade": shade,
+                "cxs": cxs, "czs": czs, "cx": 0.5 * (X0 + X1), "cz": 0.5 * (Z0 + Z1),
+                "hn": hn}
+
     def set_colours(self):
-        """The surface colours, off the same picture the 2D canvas shows.
-        mask_full is mirrored on X for the canvas; the grid here is in bake
-        order, so it is mirrored back."""
+        """The cube colours, off the same picture the 2D canvas shows -
+        mirrored back, since mask_full is mirrored on X for the canvas - with
+        every box in one colour, then the top and the two sides as the lists
+        of tuples the draw loop hands PIL."""
         m = self.studio.mask_full
-        if m is None or self.H is None:
-            self.colours = np.full((self.G, self.G, 3), 90, np.uint8)
-            return
-        arr = np.asarray(m.resize((self.G, self.G), Image.BILINEAR))[:, ::-1]
-        self.colours = np.ascontiguousarray(arr[..., :3])
-        # One colour for every box. The canvas grades obstacles by height
-        # because it cannot show height; here it can, and the grade only
-        # made every building a patchwork of differently coloured towers.
-        if getattr(self, "objc", None) is not None:
-            self.colours[self.objc] = self.OBJ_RGB
+        for lv in self.levels.values():
+            G = lv["G"]
+            if m is None:
+                col = np.full((G, G, 3), 90, np.uint8)
+            else:
+                arr = np.asarray(m.resize((G, G), Image.BILINEAR))[:, ::-1]
+                col = np.ascontiguousarray(arr[..., :3]).copy()
+            if lv["objc"] is not None:
+                col[lv["objc"]] = self.OBJ_RGB
+            colf = col.astype(np.float32)
+            topc = np.clip(colf * lv["shade"][..., None], 0, 255).astype(np.uint8)
+            lv["top_rgb"] = [tuple(c) for c in topc.reshape(-1, 3).tolist()]
+            lv["sx_rgb"] = [tuple(c) for c in np.clip(colf * self.SIDE_X, 0, 255)
+                            .astype(np.uint8).reshape(-1, 3).tolist()]
+            lv["sz_rgb"] = [tuple(c) for c in np.clip(colf * self.SIDE_Z, 0, 255)
+                            .astype(np.uint8).reshape(-1, 3).tolist()]
 
     def boxed_top(self):
         """The bake's top with every object flattened to a single level.
@@ -1177,22 +1198,24 @@ class View3D:
         return top, obj
 
     def rebuild(self):
-        """Boxes toggled or the grid changed: resample and re-march."""
-        if self.H is None:
-            return
-        self.set_bake(render=True)
+        """Boxes toggled or the grid changed: resample and redraw."""
+        if self.ready:
+            self.set_bake(render=True)
 
     def invalidate(self):
-        """Colours or camera changed: the surface has to be marched again."""
+        """Colours or camera changed: the cubes have to be drawn again."""
         self.terrain = None
         self.schedule(full=True)
 
     # ---- camera -------------------------------------------------------
 
+    def full_level(self):
+        return self.levels[int(self.grid_var.get())]
+
     def basis(self):
-        """eye, forward, right, up - in the 2D map's frame: screen right is
-        world -X and screen up is world +Z, so yaw 0 pitched straight down
-        matches the canvas."""
+        """eye, forward, right, up, horizontal forward - in the 2D map's
+        frame: screen right is world -X and screen up is world +Z, so yaw 0
+        pitched straight down matches the canvas."""
         c = self.cam
         yaw, pitch = math.radians(c["yaw"]), math.radians(c["pitch"])
         E = np.array([-1.0, 0.0, 0.0])
@@ -1207,122 +1230,115 @@ class View3D:
         return eye, fwd, right, up, fh
 
     def sample_floor(self, x, z):
-        col = int(np.clip((x - self.wx_min) / self.cs, 0, self.G - 1))
-        row = int(np.clip((self.wz_max - z) / self.cs, 0, self.G - 1))
-        return self.F[row, col]
+        lv = self.full_level()
+        G = lv["G"]
+        col = int(np.clip((x - self.wx_min) / lv["cs"], 0, G - 1))
+        row = int(np.clip((self.wz_max - z) / lv["cs"], 0, G - 1))
+        return lv["F"][row, col]
 
-    # ---- the march ----------------------------------------------------
-
-    def march(self, W, Hpx):
-        """Every pixel's ray, walked until it dips under the surface, then
-        bisected onto it. Returns the picture, the depth (metres along the
-        ray, inf for sky), the world point per pixel, and the camera the
-        overlays project with.
-
-        Two levels. A ray well above the surface walks COARSE cells a step
-        against the dilated block-max map; the step it first drops under that
-        map it backs up one coarse step and walks single cells against the
-        real surface from there. Most rays spend most of their length in the
-        air - the sky ones all of it - so this is where the time was: 1.5 s a
-        frame walking every ray a cell at a time, 0.37 s this way, with the
-        depth the same to the cell wherever both find the surface. float32
-        throughout for the same reason: the walk is memory bound.
-        """
-        f32 = np.float32
+    def camera(self, W, Hpx):
         eye, fwd, right, up, _fh = self.basis()
-        eye, fwd, right, up = (v.astype(f32) for v in (eye, fwd, right, up))
         tanf = math.tan(math.radians(self.FOV) * 0.5)
-        xs = ((np.arange(W) + 0.5) / W * 2.0 - 1.0).astype(f32)
-        ys = (1.0 - (np.arange(Hpx) + 0.5) / Hpx * 2.0).astype(f32)
-        px, py = np.meshgrid(xs * f32(tanf), ys * f32(tanf * (Hpx / W)))
-        d = (fwd[None, None, :] + px[..., None] * right[None, None, :]
-             + py[..., None] * up[None, None, :]).reshape(-1, 3).astype(f32)
-        d /= np.linalg.norm(d, axis=1)[:, None]
-        n = d.shape[0]
-        G, H, Hc, Gc, C = self.G, self.H, self.Hc, self.Gc, self.COARSE
-        cs = f32(self.cs)
-        csc = f32(self.cs * C)
-        wx_min, wz_max = f32(self.wx_min), f32(self.wz_max)
+        return (eye.astype(np.float32), fwd.astype(np.float32), right.astype(np.float32),
+                up.astype(np.float32), tanf, W, Hpx)
 
-        # Where each ray enters and leaves the box the map fills, up to the
-        # tallest thing in it - so the walk is bounded by the map, not by a
-        # step count.
-        lo = np.array([self.wx_min, self.hmin - 1.0, self.wz_min], dtype=f32)
-        hi = np.array([self.wx_max, self.hmax + 1.0, self.wz_max], dtype=f32)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            t1 = (lo - eye) / d
-            t2 = (hi - eye) / d
-        tenter = np.maximum(np.max(np.minimum(t1, t2), axis=1), f32(0.0))
-        texit = np.min(np.maximum(t1, t2), axis=1)
-        alive = texit > tenter
-        t = tenter.copy()
-        t_prev = t.copy()
-        hit = np.zeros(n, dtype=bool)
-        fine = np.zeros(n, dtype=bool)
-        idx = np.nonzero(alive)[0]
-        steps = int((float(texit[alive].max()) - float(tenter[alive].min())) / cs) + 2 if idx.size else 0
-        ex, ey, ez = eye
-        for _ in range(steps):
-            if idx.size == 0:
-                break
-            fi = fine[idx]
-            t_prev[idx] = t[idx]
-            t[idx] += np.where(fi, cs, csc)
-            ti = t[idx]
-            pxw = ex + d[idx, 0] * ti
-            pyw = ey + d[idx, 1] * ti
-            pzw = ez + d[idx, 2] * ti
-            col = ((pxw - wx_min) / cs).astype(np.int64)
-            row = ((wz_max - pzw) / cs).astype(np.int64)
-            inside = (col >= 0) & (col < G) & (row >= 0) & (row < G)
-            colc = np.clip(col, 0, G - 1)
-            rowc = np.clip(row, 0, G - 1)
-            hc = Hc[np.minimum(rowc // C, Gc - 1), np.minimum(colc // C, Gc - 1)]
-            h = np.where(fi, H[rowc, colc], hc)
-            below = inside & (pyw <= h)
-            # fine and under the surface: a hit. Coarse and under the block
-            # max: back up to the last sample, which was above it, and walk
-            # cells from there.
-            hit[idx[below & fi]] = True
-            newly = below & ~fi
-            if newly.any():
-                k = idx[newly]
-                t[k] = t_prev[k]
-                fine[k] = True
-            # Spent when it was already past the exit BEFORE this step - a
-            # coarse step can carry a ray out of the box across its last
-            # block, and testing after the step lost the cell before the edge.
-            idx = idx[~((below & fi) | (t_prev[idx] > texit[idx]))]
+    def proj(self, cam, x, y, z):
+        """World arrays -> screen px, py and camera depth. Square pixels, so
+        one scale serves both axes."""
+        eye, fwd, right, up, tanf, W, Hpx = cam
+        rx, ry, rz = x - eye[0], y - eye[1], z - eye[2]
+        zc = rx * fwd[0] + ry * fwd[1] + rz * fwd[2]
+        zs = np.maximum(zc, 1e-3)
+        k = W * 0.5 / tanf
+        px = W * 0.5 + (rx * right[0] + ry * right[1] + rz * right[2]) / zs * k
+        py = Hpx * 0.5 - (rx * up[0] + ry * up[1] + rz * up[2]) / zs * k
+        return px, py, zc
 
-        # Onto the surface: bisect between the last point above and the first
-        # below, five times - a sixteenth of a cell, and it stops the surface
-        # shimmering as the camera moves.
-        hi_ = np.nonzero(hit)[0]
-        a = t_prev[hi_].copy()
-        b = t[hi_].copy()
-        for _ in range(5):
-            m = 0.5 * (a + b)
-            p = eye[None, :] + d[hi_] * m[:, None]
-            col = np.clip(((p[:, 0] - self.wx_min) / cs).astype(np.int64), 0, G - 1)
-            row = np.clip(((self.wz_max - p[:, 2]) / cs).astype(np.int64), 0, G - 1)
-            below = p[:, 1] <= H[row, col]
-            b = np.where(below, m, b)
-            a = np.where(below, a, m)
-        t[hi_] = b
+    # ---- the cubes ----------------------------------------------------
 
-        depth = np.full(n, np.inf, dtype=np.float32)
-        depth[hi_] = b
-        P = eye[None, :] + d[hi_] * b[:, None]
-        col = np.clip(((P[:, 0] - self.wx_min) / cs).astype(np.int64), 0, G - 1)
-        row = np.clip(((self.wz_max - P[:, 2]) / cs).astype(np.int64), 0, G - 1)
-        img = np.empty((n, 3), dtype=np.uint8)
-        img[:] = self.SKY
-        c = self.colours[row, col].astype(np.float32) * self.shade[row, col][:, None]
-        img[hi_] = np.clip(c, 0, 255).astype(np.uint8)
-        hitxyz = np.full((n, 3), np.nan, dtype=np.float32)
-        hitxyz[hi_] = P
-        return (img.reshape(Hpx, W, 3), depth.reshape(Hpx, W),
-                hitxyz.reshape(Hpx, W, 3), (eye, fwd, right, up, tanf))
+    def draw_cubes(self, lv, cam, want_ids):
+        """Every cell as a box, farthest first. Returns the picture, the
+        polygon count, and - with want_ids - the integer image of cell
+        numbers the depth buffer is read through."""
+        eye = cam[0]
+        W, Hpx = cam[5], cam[6]
+        G, H = lv["G"], lv["H"]
+        cxs, czs = lv["cxs"], lv["czs"]
+
+        # the tops: four corners each
+        tpx, tpy, tzc = self.proj(cam, cxs, H[..., None], czs)
+        # the painter's order, by the depth of the cell centre
+        _px, _py, zcen = self.proj(cam, lv["cx"], H, lv["cz"])
+
+        # Which two sides face the eye: the x side the eye is on, and the z
+        # side the eye is on. Corner pairs along the top edge of each, in
+        # the corner order above, and the neighbour height the face is cut
+        # to - it only shows where this cell stands above that neighbour.
+        h_xm, h_xp, h_zm, h_zp = lv["hn"]
+        selx = lv["cx"] > eye[0]
+        selz = lv["cz"] > eye[2]
+        hx = np.where(selx, h_xm, h_xp)
+        hz = np.where(selz, h_zm, h_zp)
+        xa = np.where(selx, 0, 1)
+        xb = np.where(selx, 3, 2)
+        za = np.where(selz, 3, 0)
+        zb = np.where(selz, 2, 1)
+        ii, jj = np.indices((G, G))
+        # the bottom of each face: the same two corners at the neighbour height
+        bxa = self.proj(cam, cxs[ii, jj, xa], hx, czs[ii, jj, xa])
+        bxb = self.proj(cam, cxs[ii, jj, xb], hx, czs[ii, jj, xb])
+        bza = self.proj(cam, cxs[ii, jj, za], hz, czs[ii, jj, za])
+        bzb = self.proj(cam, cxs[ii, jj, zb], hz, czs[ii, jj, zb])
+
+        # cull: behind the camera, or wholly off screen
+        keep = ((tzc > 0.5).all(axis=2)
+                & (tpx.max(axis=2) >= 0) & (tpx.min(axis=2) <= W)
+                & (tpy.max(axis=2) >= 0) & (tpy.min(axis=2) <= Hpx)).ravel()
+        order = np.argsort(-zcen, axis=None)
+        order = order[keep[order]].tolist()
+
+        # to plain lists once - PIL takes tuples, and indexing numpy scalars
+        # in a loop this long costs more than the fills
+        tp = np.stack([tpx, tpy], axis=-1).reshape(-1, 4, 2).tolist()
+        bx = np.stack([bxa[0], bxa[1], bxb[0], bxb[1]], axis=-1).reshape(-1, 4).tolist()
+        bz = np.stack([bza[0], bza[1], bzb[0], bzb[1]], axis=-1).reshape(-1, 4).tolist()
+        Hf = H.ravel().tolist()
+        hxf = hx.ravel().tolist()
+        hzf = hz.ravel().tolist()
+        xaf, xbf = xa.ravel().tolist(), xb.ravel().tolist()
+        zaf, zbf = za.ravel().tolist(), zb.ravel().tolist()
+        top_rgb, sx_rgb, sz_rgb = lv["top_rgb"], lv["sx_rgb"], lv["sz_rgb"]
+
+        im = Image.new("RGB", (W, Hpx), self.SKY)
+        poly = ImageDraw.Draw(im).polygon
+        idim = Image.new("I", (W, Hpx), 0) if want_ids else None
+        ipoly = ImageDraw.Draw(idim).polygon if want_ids else None
+        n_poly = 0
+        for i in order:
+            h = Hf[i]
+            t = tp[i]
+            if hxf[i] < h:
+                a, b = t[xaf[i]], t[xbf[i]]
+                q = bx[i]
+                pts = [(a[0], a[1]), (b[0], b[1]), (q[2], q[3]), (q[0], q[1])]
+                poly(pts, fill=sx_rgb[i])
+                if ipoly:
+                    ipoly(pts, fill=i + 1)
+                n_poly += 1
+            if hzf[i] < h:
+                a, b = t[zaf[i]], t[zbf[i]]
+                q = bz[i]
+                pts = [(a[0], a[1]), (b[0], b[1]), (q[2], q[3]), (q[0], q[1])]
+                poly(pts, fill=sz_rgb[i])
+                if ipoly:
+                    ipoly(pts, fill=i + 1)
+                n_poly += 1
+            pts = [(t[0][0], t[0][1]), (t[1][0], t[1][1]), (t[2][0], t[2][1]), (t[3][0], t[3][1])]
+            poly(pts, fill=top_rgb[i])
+            if ipoly:
+                ipoly(pts, fill=i + 1)
+            n_poly += 1
+        return im, n_poly, idim, zcen
 
     # ---- rendering ----------------------------------------------------
 
@@ -1335,64 +1351,68 @@ class View3D:
 
     def render(self, full=True):
         self._job = None
-        if self.H is None:
+        if not self.ready:
             return
-        W, Hpx = self.FULL if full else (self.FULL[0] // 2, self.FULL[1] // 2)
+        W, Hpx = self.FULL
+        lv = self.full_level() if full else self.levels[self.PREVIEW_G]
+        cam = self.camera(W, Hpx)
         t0 = time.time()
-        img, depth, hit, cam = self.march(W, Hpx)
-        im = Image.fromarray(img, "RGB")
-        if not full:
-            im = im.resize(self.FULL, Image.NEAREST)
-        self.terrain = (im, depth, hit, cam, full)
+        im, n_poly, idim, zcen = self.draw_cubes(lv, cam, want_ids=full)
+        depth = hit = None
         if full:
-            # Only a full render is worth keeping for picking.
+            # The z-buffer and the world point behind every pixel, through
+            # the cell numbers: a pixel's depth is its cell's depth, its
+            # world point the cell's centre at the cell's height.
+            ids = np.asarray(idim, dtype=np.int64)
+            m = ids > 0
+            k = np.maximum(ids - 1, 0)
+            depth = np.full((Hpx, W), np.inf, dtype=np.float32)
+            depth[m] = zcen.ravel()[k[m]]
+            centres = np.stack([lv["cx"], lv["H"], lv["cz"]], axis=-1).reshape(-1, 3)
+            hit = np.full((Hpx, W, 3), np.nan, dtype=np.float32)
+            hit[m] = centres[k[m]]
             self.depth, self.hit = depth, hit
+        self.terrain = (im, depth, hit, cam, full, lv)
         self.overlay()
         c = self.cam
-        self.info.set("yaw %.0f  pitch %.0f  %.0f m out   %s in %.0f ms   -   "
+        self.info.set("yaw %.0f  pitch %.0f  %.0f m out   %s: %d cubes, %d polygons in %.0f ms   -   "
                       "drag orbits, wheel zooms, middle-drag pans"
-                      % (c["yaw"], c["pitch"], c["dist"],
-                         "full" if full else "preview", (time.time() - t0) * 1000.0))
+                      % (c["yaw"], c["pitch"], c["dist"], "full" if full else "preview",
+                         lv["G"] * lv["G"], n_poly, (time.time() - t0) * 1000.0))
 
     def project(self, pts, cam):
-        """World points -> (px, py, distance) at FULL size, or None behind
-        the camera."""
-        eye, fwd, right, up, tanf = cam
-        W, Hpx = self.FULL
+        """World points -> (px, py, camera depth), or None behind the camera."""
         out = []
         for (x, y, z) in pts:
-            v = np.array([x, y, z], dtype=float) - eye
-            zc = float(v @ fwd)
-            if zc <= 0.5:
-                out.append(None)
-                continue
-            sx = float(v @ right) / (zc * tanf)
-            sy = float(v @ up) / (zc * tanf)
-            out.append(((sx + 1.0) * 0.5 * W,
-                        (1.0 - sy * (W / Hpx)) * 0.5 * Hpx,
-                        float(np.linalg.norm(v))))
+            px, py, zc = self.proj(cam, np.float32(x), np.float32(y), np.float32(z))
+            out.append(None if zc <= 0.5 else (float(px), float(py), float(zc)))
         return out
 
     def overlay(self):
-        """The route, the points and the lights over the last surface, each
-        only where the depth buffer says the surface does not hide it."""
+        """The route, the points and the lights over the cubes, each only
+        where the depth buffer says the cubes do not hide it. A preview has
+        no depth buffer, so a drag shows the cubes alone and the overlays
+        come back with the full frame."""
         if self.terrain is None:
             return
-        im, depth, hit, cam, full = self.terrain
+        im, depth, hit, cam, full, lv = self.terrain
+        if depth is None:
+            self.show(im)
+            return
         im = im.copy()
         d = ImageDraw.Draw(im)
         st = self.studio
         agl = float(st.vars["agl"].get())
-        dh, dw = depth.shape
         W, Hpx = self.FULL
+        cs = lv["cs"]
 
         def vis(p):
             if p is None:
                 return False
-            px, py, dist = p
-            i = int(np.clip(px * dw / W, 0, dw - 1))
-            j = int(np.clip(py * dh / Hpx, 0, dh - 1))
-            return dist <= depth[j, i] + max(2.0 * self.cs, 0.02 * dist)
+            px, py, zc = p
+            i = int(np.clip(px, 0, W - 1))
+            j = int(np.clip(py, 0, Hpx - 1))
+            return zc <= depth[j, i] + max(2.0 * cs, 0.03 * zc)
 
         def fly_y(x, z):
             return float(self.sample_floor(x, z)) + agl
@@ -1434,7 +1454,9 @@ class View3D:
             rgb = _hex_rgb(lt["color"])
             y = float(self.sample_floor(lt["x"], lt["z"])) + float(lt.get("height", 3.0))
             dot(lt["x"], y, lt["z"], 4, rgb)
+        self.show(im)
 
+    def show(self, im):
         self.photo = ImageTk.PhotoImage(im)
         self.canvas.delete("all")
         self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
