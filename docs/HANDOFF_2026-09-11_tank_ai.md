@@ -308,3 +308,59 @@ those signatures stable; ask them rather than reimplementing the read.
 - Path Studio has `verify_bake.py`, which joins those CSVs to a bake and
   prints per-species height and footprint ratios. Ask them for a committed
   copy in `tools/` if you are going to iterate on the bake.
+
+## 11. Monastery's corridor is 16 m wide, not 4.8 m
+
+Added 2026-09-11, answering a question the Tank AI session asked and could not
+answer from inside: its catalogue reported two routes between monastery's bases,
+both "narrowest 4.8 m", and its smallest disc is 4.79 m against a 4.5 m hull. So
+4.8 could mean a genuine pinch or could mean the floor of the disc set, and
+nothing on that side separates them.
+
+Measured from the bake instead, with no disc involved, at 0.171 m a texel rather
+than the nav grid's 1.37 m cell. Same drivable rule as `TankNav`, so the numbers
+are comparable: OUTLAND, TRUNK, WATER, non-tree obstacle over `MAX_OBSTACLE`
+1.0 m, STEEP on the 8×8 cell at `MAX_SLOPE` 0.7, OFFMAP outside the arena box
+less `ARENA_MARGIN`. Clearance is then the Euclidean distance from each free
+texel to the nearest impassable one, and a hull of width w fits along a path iff
+2 × clearance ≥ w every step of it, so twice the bottleneck IS the width the
+catalogue's number is trying to be.
+
+**The widest corridor between the two 50 m base discs is 16.06 m at its
+tightest.** Bisected on the threshold, connected at 8.032 m clearance and
+disconnected at 8.060, which brackets it to three centimetres. The pinch is at
+world **(-88.3, 26.1)** — a central constriction, not near either base.
+
+So 4.8 m was the disc floor. Nothing between these bases is forced through
+anything like it, and a wider vehicle does not start losing routes until it is
+over 16 m wide, which no tank is. `HULL_R` can be tuned without that number
+being the constraint anybody thinks it is.
+
+**The shortest route is a separate question and gives a different number.** A
+route that minimises distance cuts corners and gives width away doing it: 739 m
+ring to ring (centre to centre adds up to ~100 m, so it brackets the
+catalogue's 862 m), and its true minimum clearance is 2.91 m — **5.81 m wide**,
+at world (-81.3, -24.9), 51 m from the widest corridor's pinch and the same
+constriction. Both numbers are real and they answer different questions: 16.06 m
+is what the map allows, 5.81 m is what haste costs.
+
+**Two checks that the mask is the same one `TankNav` builds.** Off-map came out
+at 50.6% of the map against the grid's `offmap 530176` of 1048576, which is the
+same 50.6%. Free space came out 36.3% against the grid's 34.4% open — higher,
+by about the margin finer resolution predicts, since at 0.171 m a thin obstacle
+no longer poisons a 1.37 m cell around itself.
+
+**One thing to fix in any goal test.** Neither base centre is usable ground.
+`team1` has 3.78 m clearance and `team2` 2.39 m — 4.78 m of width for a 4.5 m
+hull, 14 cm a side. Both texels are plain terrain, so it is nearby obstacles
+rather than anything built on the mark. Aim at the disc, not the mark.
+
+**A method limitation, stated because it produced a wrong-looking result.** The
+route geometry above was searched on a 1024² grid coarsened by block MINIMUM, so
+a route it finds is genuinely traversable. That grid finds no route at all at 8 m
+clearance, which contradicts the full-resolution answer — and the full-resolution
+answer is the right one. Coarsening conservatively erodes the narrow links
+between wide areas, and those links are exactly what a bottleneck search depends
+on. 16% of texels clear 8.03 m, so this is not a thin-ridge artefact; it is the
+connections being cut, not the rooms. Use full resolution for any width claim
+and the coarse grid only for route shape.
