@@ -758,6 +758,21 @@ Public Class MapTanks
             advance_aim(inst)
             inst.recoil.Update(ANIM_DELTA)
             inst.shots.Update(ANIM_DELTA)
+
+            ' THE BURST GOES OFF WHEN THE ROUND ARRIVES, not when the gun
+            ' fires. Delivering it at fire time puts the explosion at the far
+            ' end before the tracer has left the barrel.
+            For Each sh In inst.shots.shots
+                If sh.active AndAlso Not sh.inFlight AndAlso Not sh.hitDelivered Then
+                    sh.hitDelivered = True
+                    fx.Impact(sh.hit)
+                    If arrivals_logged < 12 Then
+                        arrivals_logged += 1
+                        LogThis("tank: round {0} arrived {1:0.00} s after firing, {2:0.0} m, trail {3} particle(s)",
+                                sh.hit.kind.ToString(), sh.age, sh.hit.range, sh.trail.count)
+                    End If
+                End If
+            Next
             If Not TANK_FIRING Then Continue For
 
             Dim went = False
@@ -989,8 +1004,7 @@ Public Class MapTanks
         ' one. They are not linked and must not be: a round from one vehicle
         ' lands on another, and TEPY makes the same split for the same reason -
         ' one shot can produce no impact at all, or later more than one.
-        inst.shots.Fire(muzzle, dir, inst.vehicle.blast)
-        fx.Impact(hit)
+        inst.shots.Fire(muzzle, dir, inst.vehicle.blast, hit, TANK_SHELL_MPS)
 
         ' THE FIRST FEW IN FULL, then a tally. Thirty guns at a round every two
         ' seconds is fifteen lines a second forever, which buries the load log
@@ -1049,6 +1063,7 @@ Public Class MapTanks
     ''' top of this, so a line of them does not pause as one.</summary>
     Private Const AIM_HOLD_S As Single = 1.6F
 
+    Private Shared arrivals_logged As Integer
     Private Shared shots_fired As Integer
     Private Shared shots_by_kind(3) As Integer
     Private Shared demo_t As Single

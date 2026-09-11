@@ -1105,6 +1105,16 @@ Module modGlobalVars
     Public TANK_FX_GAIN As Single = 3.0F
 
     ''' <summary>
+    ''' How fast a round flies, metres per second, FOR THE EYE.
+    '''
+    ''' Not the real muzzle velocity. A tank shell leaves at 700 to 1500 m/s and
+    ''' crosses this map in under a second, so at the real number a tracer is one
+    ''' frame long and there is nothing to see. TEPY slows its rounds for the
+    ''' same reason. 180 reads as fast and still draws a streak.
+    ''' </summary>
+    Public TANK_SHELL_MPS As Single = 180.0F
+
+    ''' <summary>
     ''' Seconds between shots on the free-running cadence. 0 fires only at
     ''' the ends of the shuttle run.
     '''

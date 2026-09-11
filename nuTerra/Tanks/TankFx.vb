@@ -48,6 +48,21 @@ Public Class TankFx
     Private ReadOnly pool(SLOTS - 1) As Puff
     Private shader As Shader
 
+    ' ---- the trail batch -----------------------------------------------------
+    '
+    ' ONE BUFFER AND ONE DRAW for every trail on the map. Rewritten each frame
+    ' from whatever is alive, which costs one upload rather than a draw call
+    ' per particle - and with thirty tanks in a firefight the particles are
+    ' cheap and the draw calls would not be.
+    Private Const BATCH As Integer = 24000      ' particles
+    Private Const FLOATS As Integer = 8         ' pos.xyz + radius, rgba
+    ' batch_buf, not batch: VB is case blind and BATCH above is the same
+    ' identifier to it.
+    Private ReadOnly batch_buf(BATCH * FLOATS - 1) As Single
+    Private partShader As Shader
+    Private partVbo As GLBuffer
+    Private partVao As GLVertexArray
+
     ''' <summary>How many are alive, for the log and the sliders.</summary>
     Public ReadOnly Property live As Integer
         Get
@@ -121,6 +136,51 @@ Public Class TankFx
     ''' light and attenuates nothing, which is what a flash does and what lets
     ''' overlapping bursts brighten rather than cover each other.
     ''' </summary>
+    ''' <summary>
+    ''' Gather every live trail particle and draw them all at once.
+    '''
+    ''' The buffer is orphaned and refilled rather than updated in place, which
+    ''' is what keeps the GPU from having to wait on last frame's draw before
+    ''' the write can land.
+    ''' </summary>
+    Private Sub draw_trails(instances As List(Of TankInstance))
+        If instances Is Nothing Then Return
+
+        Dim at = 0
+        Dim total = 0
+        For Each inst In instances
+            For Each sh In inst.shots.shots
+                If Not sh.active Then Continue For
+                total += sh.trail.Collect(batch_buf, at, BATCH * FLOATS)
+            Next
+        Next
+        If total = 0 Then Return
+
+        If partShader Is Nothing Then
+            partShader = New Shader("tank_particle")
+            partVbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tank_trail")
+            partVbo.StorageNullData(BATCH * FLOATS * 4,
+                                    BufferStorageFlags.DynamicStorageBit)
+            partVao = GLVertexArray.Create("tank_trail")
+            partVao.VertexBuffer(0, partVbo, IntPtr.Zero, FLOATS * 4)
+            partVao.AttribFormat(0, 4, VertexAttribType.Float, False, 0)
+            partVao.AttribBinding(0, 0)
+            partVao.EnableAttrib(0)
+            partVao.AttribFormat(1, 4, VertexAttribType.Float, False, 16)
+            partVao.AttribBinding(1, 0)
+            partVao.EnableAttrib(1)
+            ' One set of attributes per INSTANCE, not per vertex - the quad's
+            ' four corners all read the same particle.
+            partVao.BindingDivisor(0, 1)
+        End If
+
+        partVbo.SubData(IntPtr.Zero, total * FLOATS * 4, batch_buf)
+        partShader.Use()
+        partVao.Bind()
+        GL.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, 4, total)
+        partShader.StopUse()
+    End Sub
+
     Public Sub Draw(instances As List(Of TankInstance))
         Dim any = live > 0
         If Not any AndAlso instances IsNot Nothing Then
@@ -170,6 +230,10 @@ Public Class TankFx
             Next
         End If
 
+        draw_trails(instances)
+
+        shader.Use()
+        defaultVao.Bind()
         For i = 0 To SLOTS - 1
             If Not pool(i).active Then Continue For
             Dim u = pool(i).age / Math.Max(pool(i).life, 1.0E-4F)

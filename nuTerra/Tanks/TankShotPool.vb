@@ -1,4 +1,4 @@
-Imports OpenTK.Mathematics
+﻿Imports OpenTK.Mathematics
 
 ''' <summary>
 ''' One firing event, with everything its animation needs carried on it.
@@ -36,7 +36,32 @@ Public Class TankShot
     Public length As Single = 1.2F
     Public thickness As Single = 0.6F
 
-    Public Sub Fire(p As Vector3, d As Vector3, s As BlastSpec)
+    ' ---- the round in flight -------------------------------------------------
+
+    ''' <summary>Where the round is now, and where it was at the START of this
+    ''' step. The pair is the segment it flew, and the trail is spawned along
+    ''' it - see TankTrail.</summary>
+    Public curPos As Vector3
+    Public prevPos As Vector3
+
+    ''' <summary>Where it is going: the ray's hit point, captured at fire
+    ''' time.</summary>
+    Public targetPos As Vector3
+
+    Public inFlight As Boolean
+    Public speed As Single = 180.0F
+
+    ''' <summary>The hit this round will deliver when it ARRIVES. Held rather
+    ''' than applied at fire time: a burst that goes off the instant the gun
+    ''' fires beats its own round to the target.</summary>
+    Public hit As ShotHit
+    Public hitDelivered As Boolean
+
+    ''' <summary>This shot's own trail particles.</summary>
+    Public ReadOnly trail As New TankTrail
+
+    Public Sub Fire(p As Vector3, d As Vector3, s As BlastSpec, h As ShotHit,
+                    v As Single)
         active = True
         age = 0.0F
         pos = p
@@ -50,6 +75,23 @@ Public Class TankShot
             length = s.flashLength
             thickness = s.flashThickness
         End If
+
+        curPos = p
+        prevPos = p
+        hit = h
+        hitDelivered = False
+        speed = Math.Max(v, 1.0F)
+        targetPos = If(h.kind = HitKind.NoHit, p + fwd * 2000.0F, h.point)
+        inFlight = True
+
+        ' THE TRAIL'S LIFETIME IS THE FLIGHT TIME. The first particle, born at
+        ' the muzzle, then reaches zero alpha exactly as the round arrives, and
+        ' the ones born further along outlive it by however much less far they
+        ' have come - so the trail rolls up from the gun toward the impact
+        ' instead of the whole streak vanishing at once. A floor keeps a
+        ' point-blank shot visible for a moment.
+        Dim dist = (targetPos - p).Length
+        trail.Begin(dist, Math.Max(0.45F, dist / speed))
     End Sub
 
     Public Sub Update(dt As Single)
@@ -59,7 +101,30 @@ Public Class TankShot
         ' without running off the end of the flipbook.
         flashPhase = Math.Min(1.0F, age / flashLifeS)
         lightPhase = Math.Min(1.0F, age / lightLifeS)
-        If flashPhase >= 1.0F Then active = False
+
+        If inFlight Then
+            ' Stashed BEFORE the step, so it really is the start of it.
+            prevPos = curPos
+            curPos += fwd * (speed * dt)
+
+            ' Projected onto the firing direction rather than compared by
+            ' distance: a round that overshoots a target below the muzzle is
+            ' caught by the projection and is not by a plain range test.
+            If Vector3.Dot(targetPos - curPos, fwd) <= 0.0F Then
+                curPos = targetPos
+                inFlight = False
+            End If
+            trail.Emit(prevPos, curPos)
+        End If
+
+        trail.Update(dt)
+
+        ' THE SLOT IS RENTED UNTIL THE SMOKE HAS GONE. Freeing it when the
+        ' flame burns out cuts the trail off mid-air, because the round is
+        ' still flying and its particles are still fading.
+        If flashPhase >= 1.0F AndAlso Not inFlight AndAlso Not trail.alive Then
+            active = False
+        End If
     End Sub
 End Class
 
@@ -90,10 +155,11 @@ Public Class TankShotPool
 
     ''' <summary>Arm a slot, or drop the shot. A dropped shot is a missing
     ''' flame rather than a list that grows while the guns run.</summary>
-    Public Function Fire(p As Vector3, d As Vector3, s As BlastSpec) As TankShot
+    Public Function Fire(p As Vector3, d As Vector3, s As BlastSpec,
+                         h As ShotHit, v As Single) As TankShot
         For i = 0 To SLOTS - 1
             If shots(i).active Then Continue For
-            shots(i).Fire(p, d, s)
+            shots(i).Fire(p, d, s, h, v)
             Return shots(i)
         Next
         Return Nothing
