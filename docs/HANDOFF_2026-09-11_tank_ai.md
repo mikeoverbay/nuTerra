@@ -247,3 +247,64 @@ cannot build on this machine; the DLL is reused as built, which is why
 before launching another. Rebuild and run to check for errors every time —
 shaders validate at runtime only — and hand visual judgement to the owner
 rather than asking him to measure something you could have measured.
+
+## 10. Foliage, for whoever writes the navigator
+
+Added after the first draft, from the Path Studio session, who measured most
+of it. Attribution matters here because §8 tells you to re-measure two
+numbers and these are not among them — these hold.
+
+**The top map is a SINGLE LAYER, and that is the first thing to internalise.**
+A bush standing under a tree's canopy reads at the *canopy's* height, because
+there is only one surface per texel and the canopy won the depth test. Path
+Studio's measurement on monastery: 136 olives with a linden within 7 m read
+**9.8 m**; the 828 standing alone read **4.8 m**. VERIFIED (theirs). The same
+bush is two different heights depending on what is above it, so **height is
+not a property of the plant** and a navigator that treats it as one will be
+wrong about a fifth of the foliage on this map.
+
+**"Does it stop a hull" comes from the trunk bits, never from the height.**
+That is what `046d1d06` separated them for. `TankNav` already does this — see
+§3, the canopy is skipped and the trunk bit answers — and anything new should
+too.
+
+**The trunk stamp separates ivy and wild bush from trees. It does NOT
+separate bushes in general.** `Olive_bush` has bark and stamps exactly like a
+tree; so do the roses and the grapevine. Of monastery's 36 species, 20 carry
+bark at LOD0 and 16 do not, and the 16 are the eight ivy variants, the wild
+and unknown bushes, and the two smallest cypresses — which are *trees*.
+VERIFIED. For DRIVING that is the right answer anyway: a trunk-less 2.2 m
+sapling is something a tank flattens. It is the wrong answer for botany, and
+the solid bit in §8 exists because a rose stem is not a hull-stopper either.
+
+**No per-species height table classifies anything**, so do not write one.
+79% of placements carry a scale between **0.70 and 1.30**. VERIFIED. That is
+why a big `Olive_bush` (declared 6.43 m, effective to 8.36 m) genuinely does
+stand taller than a small `Linden_Regular_Small` at 0.707× (7.52 m) — which
+was the owner's original complaint and was not a bug. It is also why the
+solid bit thresholds a measured component size rather than a species.
+
+**The gate in `tools/` is the CAMERA's, not a tank's.** `KIND_MIN_H` /
+`TREE_MIN_H` 3.0 means "fly over foliage under 3 m". A tank's rule is a
+different question — what its hull hits — and should not reuse those
+constants. Path Studio offers `radar_commit.foliage_state(bake)` and
+`bake.trunk` / `bake.solid` as the inputs for a drivable mask and will keep
+those signatures stable; ask them rather than reimplementing the read.
+
+**Tooling that already exists**, both off by default:
+
+- `treedump` — writes `<map>_trees.csv` beside the flight bake, one row per
+  SpeedTree placement: species, x z y, `declared_h`, scale xyz, `has_bark`,
+  `above_pivot_h`. Use `above_pivot_h`, not `declared_h`: every species' box
+  has a negative minY (roots or a base plate below the pivot, 0.03 m on a
+  grapevine to 2.02 m on a tall linden), so comparing a bake height against
+  `declared_h` under-reads by whatever is buried.
+- `<map>_tree_boxes.csv` — the `.srt` box per species, written by a
+  scratchpad script rather than the app; ask if you want it committed.
+- `treetrace` — per-species draw-call verdicts at load: LOD, part kind,
+  vertex and index counts, mean `|ny|` and the share of near-vertical
+  vertices, and the texture named. The facing columns are what ruled out
+  "the foliage is edge-on to a top-down pass" as an explanation.
+- Path Studio has `verify_bake.py`, which joins those CSVs to a bake and
+  prints per-species height and footprint ratios. Ask them for a committed
+  copy in `tools/` if you are going to iterate on the bake.
