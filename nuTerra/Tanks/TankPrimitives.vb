@@ -1,5 +1,6 @@
-Imports System.IO
+﻿Imports System.IO
 Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK.Mathematics
 
 ''' <summary>
 ''' One draw-ready section pair of a tank part: the vertex stream uploaded
@@ -43,6 +44,120 @@ Public Class TankMesh
     '''   6 bone wt    4 x u8 normalised
     '''   7 uv1        float2, from the .uv2 sidecar on binding 1, or interleaved
     ''' </summary>
+    ''' <summary>Per-bone hub, indexed by PALETTE index. NaN where a bone
+    ''' weights no vertices in this mesh.</summary>
+    Public boneHubs As Vector3()
+
+    ''' <summary>Per-bone rolling radius, indexed by PALETTE index. 0 where the
+    ''' bone weights nothing, or nothing dominantly.</summary>
+    Public boneRadii As Single()
+
+    ''' <summary>UV0 extent, so the track band's running direction can be
+    ''' measured instead of assumed.</summary>
+    Public uvMin As Vector2 = New Vector2(Single.MaxValue, Single.MaxValue)
+    Public uvMax As Vector2 = New Vector2(Single.MinValue, Single.MinValue)
+
+    ''' <summary>
+    ''' Each bone's hub, taken from the VERTICES IT WEIGHTS rather than from
+    ''' the visual's node tree.
+    '''
+    ''' The node tree gives a position in ITS space, and getting from there to
+    ''' the vertex data's space means knowing about three separate mirrors: the
+    ''' _BlendBone offset that cancels its parent and sums to the origin,
+    ''' FlipSkinnedZ because skinned streams are stored Z-reversed, and MirrorX
+    ''' on the model matrix. Every one of those is a chance to pick the wrong
+    ''' sign, and picking the wrong sign puts a wheel's pivot metres away so the
+    ''' whole set swings about a common point instead of each wheel turning on
+    ''' its axle. That happened twice.
+    '''
+    ''' A weighted centroid of the vertices bound to a bone has all three
+    ''' already baked in, because they are baked into the positions being
+    ''' averaged. For a road wheel that centroid IS the axle - the geometry is
+    ''' a disc about it. No conventions to get right.
+    '''
+    ''' Weighted, not a plain mean: a vertex in the blend zone between two
+    ''' wheels belongs mostly to one of them, and counting it equally would
+    ''' drag both centroids toward the seam.
+    ''' </summary>
+    Public Sub ComputeBoneHubs(vertexBytes As Byte())
+        boneHubs = Nothing
+        If layout Is Nothing OrElse layout.offBoneIdx < 0 OrElse
+           layout.offBoneW < 0 OrElse layout.offPos < 0 Then Return
+        If vertexBytes Is Nothing OrElse vertexCount <= 0 Then Return
+
+        Const MAXB As Integer = 128
+        Dim acc(MAXB - 1) As Vector3
+        Dim wsum(MAXB - 1) As Single
+        ' Second pass needs the positions again; keep the dominant ones only.
+        Dim rmax(MAXB - 1) As Single
+
+        For v = 0 To vertexCount - 1
+            Dim b = v * layout.stride
+            If b + layout.stride > vertexBytes.Length Then Exit For
+            If layout.offUV0 >= 0 Then
+                Dim u0 = BitConverter.ToSingle(vertexBytes, b + layout.offUV0)
+                Dim v0 = BitConverter.ToSingle(vertexBytes, b + layout.offUV0 + 4)
+                uvMin = New Vector2(Math.Min(uvMin.X, u0), Math.Min(uvMin.Y, v0))
+                uvMax = New Vector2(Math.Max(uvMax.X, u0), Math.Max(uvMax.Y, v0))
+            End If
+            Dim px = BitConverter.ToSingle(vertexBytes, b + layout.offPos)
+            Dim py = BitConverter.ToSingle(vertexBytes, b + layout.offPos + 4)
+            Dim pz = BitConverter.ToSingle(vertexBytes, b + layout.offPos + 8)
+            Dim p As New Vector3(px, py, pz)
+            For k = 0 To 3
+                ' The byte is palette_index * 3 - SC_UBYTE4_REVERSE_PADDED,
+                ' the same divide the vertex shader does.
+                Dim bi = CInt(vertexBytes(b + layout.offBoneIdx + k)) \ 3
+                Dim w = CSng(vertexBytes(b + layout.offBoneW + k)) / 255.0F
+                If w <= 0.0F OrElse bi < 0 OrElse bi >= MAXB Then Continue For
+                acc(bi) += p * w
+                wsum(bi) += w
+            Next
+        Next
+
+        ' ---- second pass: the rim -------------------------------------------
+        ' The radius is the furthest a bone's own vertices reach from its hub in
+        ' the YZ plane - the plane a wheel turns in. That is the rim, and the rim
+        ' is the rolling radius.
+        '
+        ' Only vertices this bone OWNS, weight above a half. A vertex in the
+        ' blend zone between two wheels is partly the neighbour's, and letting it
+        ' count would stretch this wheel's rim out to the next one's and make
+        ' every radius come out the same - which is what the node-tree lookup was
+        ' already doing by falling back to a mean.
+        Dim hubs(MAXB - 1) As Vector3
+        For i = 0 To MAXB - 1
+            hubs(i) = If(wsum(i) > 0.0001F, acc(i) / wsum(i),
+                         New Vector3(Single.NaN, Single.NaN, Single.NaN))
+        Next
+
+        For v = 0 To vertexCount - 1
+            Dim b = v * layout.stride
+            If b + layout.stride > vertexBytes.Length Then Exit For
+            Dim py = BitConverter.ToSingle(vertexBytes, b + layout.offPos + 4)
+            Dim pz = BitConverter.ToSingle(vertexBytes, b + layout.offPos + 8)
+            For k = 0 To 3
+                Dim bi = CInt(vertexBytes(b + layout.offBoneIdx + k)) \ 3
+                Dim w = CSng(vertexBytes(b + layout.offBoneW + k)) / 255.0F
+                If w <= 0.5F OrElse bi < 0 OrElse bi >= MAXB Then Continue For
+                If Single.IsNaN(hubs(bi).X) Then Continue For
+                Dim dy = py - hubs(bi).Y
+                Dim dz = pz - hubs(bi).Z
+                Dim rr = CSng(Math.Sqrt(dy * dy + dz * dz))
+                If rr > rmax(bi) Then rmax(bi) = rr
+            Next
+        Next
+
+        Dim any = False
+        For i = 0 To MAXB - 1
+            If wsum(i) > 0.0001F Then any = True
+        Next
+        If any Then
+            boneHubs = hubs
+            boneRadii = rmax
+        End If
+    End Sub
+
     Public Sub BuildVAO(vertexBytes As Byte(), indexBytes As Byte(), uv2Bytes As Byte())
         vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tank_vbo_" & name)
         vbo.Storage(vertexBytes.Length, vertexBytes, BufferStorageFlags.None)
@@ -193,6 +308,8 @@ Public Module TankPrimitives
             Array.Copy(data, vBody, vSlice, 0, vBytes)
             Dim iSlice(iBytes - 1) As Byte
             Array.Copy(data, iBody, iSlice, 0, iBytes)
+            ' Before the bytes go out of scope - BuildVAO uploads and drops them.
+            m.ComputeBoneHubs(vSlice)
             m.BuildVAO(vSlice, iSlice, uv2Bytes)
 
             LogThis("tank:   [{0}] '{1}' stride {2} verts {3} | '{4}' indices {5} groups {6}{7}",

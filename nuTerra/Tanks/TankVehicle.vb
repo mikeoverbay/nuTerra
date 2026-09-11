@@ -1,4 +1,4 @@
-Imports System.Xml
+﻿Imports System.Xml
 Imports OpenTK.Mathematics
 
 ''' <summary>One part of a vehicle: hull, chassis, turret or gun, with its meshes, visual, textures and local offset.</summary>
@@ -9,9 +9,30 @@ Public Class TankPart
     Public visualPath As String
     Public offset As Vector3          ' part origin relative to the chassis origin, BigWorld axes
     Public meshes As New List(Of TankMesh)
+    ''' <summary>Mean road-wheel radius, computed once from the rig.</summary>
+    Public meanRoadRadius As Single
     Public visual As TankVisual
 
     ''' <summary>The material a mesh draws with: matched by the render set's vertices name, else the first.</summary>
+    ''' <summary>
+    ''' The bone palette for a mesh, in PALETTE ORDER - the order a vertex's
+    ''' iii byte indexes after the divide by three.
+    '''
+    ''' Matched to the renderSet the same way MaterialFor does it, by the
+    ''' vertices section name, because that is the only link between a mesh
+    ''' out of the primitives file and a renderSet out of the visual.
+    ''' Nothing means the mesh is not skinned and the shader uses an identity
+    ''' skin - hull and turret on most tanks.
+    ''' </summary>
+    Public Function PaletteFor(m As TankMesh) As List(Of String)
+        If visual Is Nothing Then Return Nothing
+        Dim want = If(m.name = "", "vertices", m.name & ".vertices")
+        For Each rs In visual.renderSets
+            If rs.verticesName = want AndAlso rs.nodes.Count > 0 Then Return rs.nodes
+        Next
+        Return Nothing
+    End Function
+
     Public Function MaterialFor(m As TankMesh) As TankMaterial
         If visual Is Nothing Then Return Nothing
         Dim want = If(m.name = "", "vertices", m.name & ".vertices")

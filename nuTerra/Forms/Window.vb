@@ -1636,7 +1636,7 @@ try_again:
                     ' shared with the map - this is the vehicle's whole rig.
                     ' Its own header rather than a corner of Section Visibility,
                     ' which is about what is DRAWN and none of this is.
-                    ImGui.SliderFloat("Light", TANK_LIGHT, 0.0, 3.0)
+                    ImGui.SliderFloat("Light", TANK_LIGHT, 0.0, 0.5)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Direct light. Key light is the map's sun" & vbLf &
                                          "(LIGHT_POS) with two fills at 120 degrees" & vbLf &
@@ -1644,13 +1644,13 @@ try_again:
                                          "IBL is deliberately not scaled by this -" & vbLf &
                                          "a brighter sun is not a brighter sky.")
                     End If
-                    ImGui.SliderFloat("Ambient", TANK_AMBIENT, 0.0, 3.0)
+                    ImGui.SliderFloat("Ambient", TANK_AMBIENT, 0.0, 0.5)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Flat diffuse fill. Not physical - it lifts" & vbLf &
                                          "the shaded side without touching the sun" & vbLf &
                                          "or the environment.")
                     End If
-                    ImGui.SliderFloat("Specular", TANK_SPECULAR, 0.0, 2.0)
+                    ImGui.SliderFloat("Specular", TANK_SPECULAR, 0.0, 0.5)
                     ImGui.SliderFloat("Total", TANK_TOTAL, 0.0, 2.0)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("The exporter's T_level - a scale on the" & vbLf &
@@ -1665,6 +1665,27 @@ try_again:
                                          "1.0 is the original's own weight.")
                     End If
 
+                    ImGui.Separator()
+                    ImGui.SliderFloat("Track speed", TANK_SPEED, 0.0, 15.0)
+                    ImGui.SliderFloat("Track UV/m", TANK_TRACK_UV, 0.0, 4.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("UV units the band scrolls per metre." & vbLf &
+                                         "Set it by eye: the tread should travel at" & vbLf &
+                                         "the same surface speed as the wheel rims." & vbLf &
+                                         "The tread pitch is not in anything decoded" & vbLf &
+                                         "yet, so there is no number to read.")
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Metres per second the wheels turn AS IF" & vbLf &
+                                         "the tank were moving. The hull stays put." & vbLf &
+                                         "0 parks them.")
+                    End If
+                    ImGui.Checkbox("Skinning", TANK_SKINNING)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Off forces an identity skin - the bind pose," & vbLf &
+                                         "exactly as the tank drew before the path" & vbLf &
+                                         "existed. The null test.")
+                    End If
                     ImGui.Separator()
                     ImGui.Checkbox("Normal map", TANK_NORMAL_MAP)
                     ImGui.Checkbox("AO", TANK_AO)

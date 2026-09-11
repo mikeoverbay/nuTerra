@@ -1032,10 +1032,16 @@ Module modGlobalVars
     ''' direct term by a flat * 5.0 per light; the Python port rewrote that as
     ''' 10.0 * metal_scale / NUM_LIGHTS, which is 3.33 at metal_scale 1. 5.0/3.33
     ''' is 1.5, so this is the same light, expressed in the port's units.
-    Public TANK_LIGHT As Single = 1.5F
+    Public TANK_LIGHT As Single = 0.35F
     ''' 0.5 - the exporter's A_level, shipped at 50 of 100. Mine defaulted to
     ''' 1.0, which is double, on top of every other term also being double.
-    Public TANK_AMBIENT As Single = 0.5F
+    ''' 0 for now, on the owner's call: "Ambient isn't working".
+    ''' It is wired and arriving - shine_scale, uploaded every frame - but it is
+    ''' structurally about a tenth of the direct term, because direct carries a
+    ''' 10*sun/3 gain and ambient carries none. The original has the same
+    ''' imbalance (ambient * A_level * 0.25 against * 5.0 on direct), so it is
+    ''' inherited rather than introduced. Parked, not removed.
+    Public TANK_AMBIENT As Single = 0.0F
     Public TANK_NORMAL_MAP As Boolean = True
     Public TANK_AO As Boolean = True
     ''' <summary>
@@ -1044,6 +1050,43 @@ Module modGlobalVars
     ''' as plastic - which is exactly how it looked before this was wired.
     ''' </summary>
     Public TANK_IBL As Boolean = True
+    ''' <summary>
+    ''' GPU skinning for the tank. Off forces an identity skin, which is the
+    ''' bind pose - exactly how the tank drew before the path existed. Kept as a
+    ''' switch because it makes the null test repeatable: with an identity
+    ''' palette, on and off must produce a byte-identical frame, and anything
+    ''' else is a plumbing fault rather than an animation one.
+    ''' </summary>
+    Public TANK_SKINNING As Boolean = True
+    ''' <summary>
+    ''' Track speed in m/s, which the wheels are spun from. The tank does not
+    ''' move - this drives the ROTATION only, so the wheels turn as if it were
+    ''' running at this speed. 0 parks them.
+    '''
+    ''' The vehicle's real speedLimits live in its item_defs xml in scripts.pkg
+    ''' and ResMgr.openXML already decodes that packed format; wiring the two
+    ''' together is the next step, once the rotation itself is trusted.
+    ''' </summary>
+    Public TANK_SPEED As Single = 4.0F
+    ''' <summary>
+    ''' UV units the track band scrolls per metre travelled.
+    '''
+    ''' The band's texture tiles some unknown number of times along the loop -
+    ''' the tread pitch is not in anything decoded so far, and PBS_tank.fx's
+    ''' uvtransform sibling is one of the 21 the carve did not cover. So this
+    ''' is set by eye: turn it until the tread pattern travels at the same
+    ''' surface speed as the road wheels' rims, which is a thing the eye judges
+    ''' far better than a number does.
+    ''' </summary>
+    ''' 2.5, from the band's own UV span rather than from nothing. Measured on
+    ''' the M53/M55: u spans 0.99 and v spans 38.00, so the texture tiles 38
+    ''' times around the loop and V is the running axis. The loop is roughly
+    ''' 15 m - the bottom run across the road wheels doubled, plus the wraps -
+    ''' which puts one tile at about 0.4 m of travel and the scroll at 38/15.
+    ''' The 15 is an estimate; the slider is there because the eye settles it.
+    Public TANK_TRACK_UV As Single = 2.5F
+
+
     ''' <summary>
     ''' Total level - the exporter's T_level, a scale on the ENCODED colour
     ''' after the gamma rather than on the light going in. Shipped at 50 of 100.
@@ -1078,7 +1121,7 @@ Module modGlobalVars
     ''' </summary>
     ''' 0.5 - the exporter's S_level, shipped at 50 of 100. It gates the
     ''' specular AND the environment, exactly as tank_fragment.glsl does.
-    Public TANK_SPECULAR As Single = 0.5F
+    Public TANK_SPECULAR As Single = 0.3F
 
     Public LAMP_SHADOW_ENABLED As Boolean = True
 
