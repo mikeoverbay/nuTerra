@@ -21,6 +21,16 @@ the same time, with the owner.
 - `nuTerra/cam_paths/*.campath` are committed with the work that made them;
   never hand-edit one.
 - No subagent fan-out or Workflow runs on this repo.
+- Three sessions as of 2026-09-11 evening: Path Studio (this file's owner),
+  nuTerra work (Tanks, render, bake), and Tank AI (`docs/HANDOFF_2026-09-11_tank_ai.md`).
+  The protocol that has held all day: NAME THE FILE before editing anything
+  that is not yours, wait for the ack, and measure rather than argue. The
+  flight bake's contract lives in `<map>_meta.txt` (kind_mask, outland_bit,
+  trunk_bit, trunk_radius; solid_bit and stem_min_m once written) and the
+  readers in `tools/` take every bit from there - the writer must not move a
+  bit without telling the Path Studio session. The 0.25 m stem threshold was
+  measured on the pre-alpha-fix bake and must be re-measured on the current
+  one before it is fixed.
 - Building from the agent shell WORKS, despite what older notes say:
   `dotnet build nuTerra/nuTerra.vbproj -c Debug -p:Platform=x64
   -p:BuildProjectReferences=false "-p:VCTargetsPath=C:\Program
