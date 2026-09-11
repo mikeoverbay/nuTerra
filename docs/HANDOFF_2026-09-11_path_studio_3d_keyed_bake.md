@@ -171,47 +171,74 @@ the IDE build, or the other session, is the check.
    3 (tree cluster) never closes; the A* still routes around lanes.
 5. Trees / leaf cards batching in nuTerra - the owner parked it ("not now").
 
-## 9. The sun shadow as four tiles (2026-09-11, NOT YET BUILT)
+## 9. The sun shadow as four tiles (2026-09-11) - BUILT AND VERIFIED
 
-The owner: split the baked sun shadow into four areas in the sun's
-projection space, 16k x 16k each, use them all with an on-screen check, as a
-SECOND shadow shader so deferred.frag is not overloaded. Built on the nuTerra
-side of the split with the other session's agreement (files named to it
-first); the agent shell cannot compile, so **the IDE build is the check**.
+The owner: split the baked sun shadow into four areas in the sun space,
+16k x 16k each, use them all with an on-screen check, as a SECOND shadow
+shader so deferred.frag is not overloaded. Built on the nuTerra side of the
+split with the other session named on the files first; that session compiled
+and ran every step, since this shell cannot. Commits `4aee4494`, `09eb3c06`,
+`bd4e2d61`, `88bbe553`. The authoritative write-up is now
+`docs/shadows.md` (theirs, `3386fa1e`); this is the session record.
 
 - `MapSunShadow.TILED` (default True): the fitted box split 2 x 2 in
   light-space XY, each quadrant an ortho render into its own D16 texture of
-  `tile_size` a side (`TILE_SIZE` 16384), overlapping its neighbours by
-  `TILE_PAD_TEXELS` 2 so the filter taps at a seam are inside. The same three
-  draw passes as the single map, the same command array at offset 0 - no
-  compaction, so `gl_DrawIDARB` keeps indexing the bake kinds buffer. The
-  single map is not baked in tiled mode.
-- **VRAM:** four 16k tiles are 2 GiB, to the byte what one 32k map costs.
-  All four resident on the owner's instruction (8 GiB card).
-  `tile_size_fitting` counts ALL the tiles against `TILES_VRAM_BUDGET` 0.4 of
-  total and `TILES_FREE_BUDGET` 0.6 of free, stepping every tile down a
-  power of two together - a map that reached 7842 of 8192 MiB with the
-  single map gets smaller tiles, not an OOM.
-- **The second shader:** `shaders/Final_render/sun_shadow_tiles.{vert,frag}`,
-  run by `modRender.render_sun_shadow_tiles` before the deferred pass:
-  gPosition -> world -> the FULL box with `sunViewProj` -> quadrant from
-  `sp.xy >= 0.5`, local uv through the pad, the same four taps as the single
-  map, written to a screen-sized R8 (`sun_shadow_pre`, bound at 13).
-  `deferred.frag` gets `has_sun_shadow == 3`: one `texelFetch` and the same
-  `shape_penumbra` as the other paths - nothing else in it changed.
-- **The on-screen check:** each tile's world box (its light-space quadrant
-  across the depth range, back through the light view) is tested against
-  the view frustum every frame (`BoxInFrustum`); the mask goes to the shader
-  as `tile_mask` and pixels on a tile that is off screen are lit without a
-  tap. A change of mask is logged: "sun shadow tiles: N of 4 on screen".
+  `tile_edge` a side (`TILE_SIZE` 16384), overlapping its neighbours by
+  `TILE_PAD_TEXELS` 2. The same three draw passes as the single map, the
+  same command array at offset 0 - **never compacted**, so `gl_DrawIDARB`
+  keeps indexing the bake kinds buffer. Depth-only FBO.
+- **VRAM:** four 16k tiles are 2 GiB, to the byte what one 32k map costs -
+  the win is sharpness, not memory. All four resident on the owner's
+  instruction. `tile_size_fitting` counts ALL the tiles (`depth_bytes(s) *
+  n`) against `TILES_VRAM_BUDGET` 0.4 of total and `TILES_FREE_BUDGET` 0.6
+  of free. Monastery: 5393 MiB used, 2614 free, with the tiles resident.
+- **A small single map is still baked** in tiled mode - `FORWARD_MAP_SIZE`
+  8192, 128 MiB, 0.24 m a texel - because the WATER shader samples
+  `sun_shadow_map` itself in its own forward pass with the full-box matrix,
+  and because everything that reads `ready` wants a map. Without it the water
+  ran with nothing on its shadow unit and the driver logged undefined
+  behaviour ~10,000 times a run (the other session counted it: 0 before,
+  10,349 after, 0 again). GL validates EVERY declared sampler on every draw,
+  taken branch or not. Binding tile0 there instead would have shadowed the
+  water against a quadrant matrix - a silent wrong result.
+- **The second shader:** `shaders/Final_render/sun_shadow_tiles.{vert,frag}`
+  (with `#define USE_PERVIEW_UBO` before the include, or `invView` does not
+  exist and the stage fails to compile - that was `bd4e2d61`), run by
+  `modRender.render_sun_shadow_tiles` before the deferred pass; quadrant from
+  `sp.xy >= 0.5`, local uv through the pad, the four taps, a screen-sized R8
+  at binding 13. `deferred.frag` gets `has_sun_shadow == 3`: one
+  `texelFetch` and the same `shape_penumbra`.
+- **The on-screen check:** each tile world box against the view frustum per
+  frame; `tile_mask` to the shader; a mask change is logged.
 
-What to look for after the build, on the monastery: the log line
-"sun shadow: baked 4 tiles of 16384x16384 16 (2048 MiB together) ..." at
-load, then "sun shadow tiles: N of 4 on screen" as the camera moves, and the
-shadows themselves - the same as before at a glance, twice as sharp up
-close, no seam along the middle of the map in either axis.
+**VERIFIED (the other session, clean build, 19_monastery):** five bake pairs
+in order - four tiles, then the forward map - each `419 of 425 commands,
+6 outland skipped`; `baked 4 tiles of 16384x16384 16 (2048 MiB together) ...
+0.059 m per texel`; `baked 8192x8192 16 (128 MiB) ... 0.237 m per texel`;
+`tiles: 4 of 4 on screen (mask 15)`; GL errors none. The single map depth
+diagnostic (mean 0.67 vs ~0.5) predates the tiles - the owner's 06:50
+snapshot read the same - and is the single map box fit, unchased.
 
-Open: the tiles have no MSM path (`MSM_SHADOW_ENABLED` is ignored while
-`TILED`); `DebugDraw` shows nothing in tiled mode; `docs/shadows.md` is the
-nuTerra session's and has not been told yet (the paragraph above is what it
-needs).
+Lessons that cost a build each: VB is case blind (`tile_size` collided with
+`TILE_SIZE`); a shader that includes `common.h` gets nothing from the
+PerView block without the define.
+
+Open: no MSM path for the tiles; `DebugDraw` shows the forward map only; the
+owner had not yet judged the 0.059 m step by eye at the time of writing.
+
+## 10. The keyed bake, as it ended the day
+
+The writer landed (`bc4e8f2c`), then grew: the key byte is `kind = R & 7`,
+`trunk = R & 128` (a tree trunk at this texel, `046d1d06`), `outland = R &
+16` (the scenery backdrop, a bit rather than a ninth key so a backdrop cliff
+stays a rock, `65536467`), all named in the meta as `kind_mask`,
+`trunk_bit`, `outland_bit`, `trunk_radius`. Both readers take those from
+the meta (`203a2d43`, `bd4e2d61`, `7b0498ba`) and expose `kind`, `trunk`,
+`outland`, carried through the 2048 downsample as kind-of-tallest / any /
+any. The four needles are gone (`65536467`): tallest interior thing 59 m,
+the outland exempt. Roses and the grapevine DO write a trunk (woody stems);
+ivy and wild bushes do not. The camera planner keeps the canopy; the trunk
+and outland bits are unused by it so far.
+
+The kind gate (`81f065cb`): `KIND_MIN_H = {tree: 3.0}` - a tree under 3 m
+is a bush and is flown over; the mask draws it as low grey.
