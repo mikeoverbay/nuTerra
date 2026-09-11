@@ -410,19 +410,52 @@ Public Class Window
         fps_timer.Start()
     End Sub
 
+    ''' <summary>
+    ''' Ask for the game folder, and KEEP it.
+    '''
+    ''' Saved here, the instant it is chosen, not on the way out. The exit path
+    ''' only runs on a clean shutdown and this app is force killed often enough
+    ''' - to free the exe for a build - that "saved on exit" means "usually
+    ''' lost". That is the same fault the Flight Recorder's output folder had,
+    ''' and the same fix; see the record_dir block for the longer version. The
+    ''' game path is the most deliberate choice in the app and the most
+    ''' expensive to lose, and it was the one still relying on a polite exit.
+    '''
+    ''' VALIDATED BEFORE IT IS ASSIGNED, which the old order had backwards. It
+    ''' wrote the picked folder into the setting and checked afterwards, so a
+    ''' wrong pick followed by Cancel left an invalid path in memory for a later
+    ''' clean exit to persist - the app then came up pointed at a folder with no
+    ''' res\ in it and no way to tell that it had been told so.
+    '''
+    ''' NOT THE WHOLE STORY. My.Settings lives in a store keyed to the
+    ''' EXECUTABLE'S PATH, so a build that lands in bind\Debug rather than
+    ''' bin\Debug reads a different user.config that has never seen this folder,
+    ''' and Upgrade() cannot rescue it - that searches earlier VERSIONS of the
+    ''' same identity, and a different path is a different identity. Keeping
+    ''' every build in one OutDir is what fixes that, and it is in CLAUDE.md.
+    ''' </summary>
     Private Sub m_set_game_path()
         Dim FolderBrowserDialog1 As New FolderBrowserDialog
 
         'Sets the game path folder
 try_again:
         If FolderBrowserDialog1.ShowDialog = DialogResult.OK Then
-            My.Settings.GamePath = FolderBrowserDialog1.SelectedPath
-            If Not Directory.Exists(Path.Combine(My.Settings.GamePath, "res")) Then
+            Dim picked = FolderBrowserDialog1.SelectedPath
+            If Not Directory.Exists(Path.Combine(picked, "res")) Then
                 MsgBox("Wrong Folder Path!" + vbCrLf +
                        "You need to point at the World_of_Tanks folder!",
                         MsgBoxStyle.Exclamation, "Wrong Path!")
                 GoTo try_again
             End If
+
+            My.Settings.GamePath = picked
+            LogThis("game path set to {0}", picked)
+            Try
+                My.Settings.Save()
+            Catch ex As Exception
+                ' Never let a settings write take the app down.
+                LogThis("could not persist the game path - {0}", ex.Message)
+            End Try
         End If
     End Sub
 
