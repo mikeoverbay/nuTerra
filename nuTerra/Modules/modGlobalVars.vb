@@ -1178,6 +1178,21 @@ Module modGlobalVars
 
     Public TANK_SOLO_TAG As String = ""
 
+    ''' <summary>
+    ''' Vehicles a side at the next load. 15 is a real team - what the roster
+    ''' holds and what the tank pass was measured on - and 2 is a route test.
+    '''
+    ''' READ ONCE, inside MapTanks.Load, so it has to be set before the button is
+    ''' pressed. That is why the slider lives next to that button and vanishes
+    ''' with it: the vehicles are placed once and there is no reload path, so a
+    ''' control that stayed on screen afterwards would look live and do nothing.
+    '''
+    ''' Clamped at the load to half the roster. The placement splits the list at
+    ''' PER_TEAM - team = If(i &lt; PER_TEAM, 1, 2) - so 20 against a roster of 30
+    ''' does not field 20 a side, it fields 20 against 10.
+    ''' </summary>
+    Public TANK_PER_TEAM As Integer = 15
+
     Public TANK_NAV_DUMP As Boolean = False
 
     Public TANK_AUTOLOAD As Boolean = False

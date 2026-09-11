@@ -1840,6 +1840,22 @@ try_again:
                                              "Launch with the `tanks` argument to" & vbLf &
                                              "skip the click.")
                         End If
+
+                        ' In this block on purpose, so it is on screen only
+                        ' while it can still take effect. The count is read
+                        ' once, inside the load; there is no reload path, so a
+                        ' slider left up afterwards would read as live and do
+                        ' nothing. The top of the range is half the roster -
+                        ' past that the placement fields the excess on team 1.
+                        ImGui.SliderInt("A side", TANK_PER_TEAM, 1, 15)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Vehicles a side. 15 is a real team;" & vbLf &
+                                             "2 is a route test." & vbLf &
+                                             "Set it BEFORE the button - it is read" & vbLf &
+                                             "once, when the vehicles are placed." & vbLf &
+                                             "`perteam=N` does the same from the" & vbLf &
+                                             "command line.")
+                        End If
                     Else
                         ImGui.TextDisabled("tanks loaded")
                     End If

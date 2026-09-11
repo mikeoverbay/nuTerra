@@ -153,10 +153,26 @@ Public Class MapTanks
                 Tuple.Create("sweden", "S28_UDES_15_16")
             }
 
+            ' HOW MANY A SIDE. TANK_PER_TEAM carries it - the slider beside the
+            ' Load button, or perteam= on the command line - and it is read here
+            ' and nowhere else, because this is the only place vehicles are
+            ' placed.
+            '
+            ' Clamped to half the roster. The split below is team = i < PER_TEAM,
+            ' so a count past half does not field more a side, it fields the
+            ' excess on team 1 and leaves team 2 short: 20 asked of 30 is 20
+            ' against 10. Logged when it bites, because an asked-for number
+            ' silently becoming a smaller one is exactly the kind of thing that
+            ' gets measured as a result.
+            Dim PER_TEAM As Integer = Math.Max(1, Math.Min(TANK_PER_TEAM, roster.Length \ 2))
+            If PER_TEAM <> TANK_PER_TEAM Then
+                LogThis("tank: {0} a side asked for, {1} is what a roster of {2} allows",
+                        TANK_PER_TEAM, PER_TEAM, roster.Length)
+            End If
+
             ' TEMPORARY: one vehicle a base, and that vehicle the EBR, while
             ' its wheels are being sorted. Clear TANK_SOLO_TAG to get the full
-            ' thirty back - it is loud in the log so it cannot be forgotten.
-            Dim PER_TEAM As Integer = 15
+            ' roster back - it is loud in the log so it cannot be forgotten.
             If TANK_SOLO_TAG <> "" Then
                 Dim solo As Tuple(Of String, String) = Nothing
                 For Each t In roster
