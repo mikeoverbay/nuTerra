@@ -1028,6 +1028,7 @@ class AmGrid:
 
 class View3D:
     G = 256              # cells a side the bake is sampled down to for the march
+    COARSE = 4           # cells per step while a ray is well above the surface
     FULL = (640, 420)    # render size at rest; a drag renders at half and scales
     FOV = 60.0           # horizontal, degrees
     SKY = (11, 13, 18)
@@ -1082,6 +1083,17 @@ class View3D:
         self.wz_min, self.wz_max = float(b.wz_min), float(b.wz_max)
         self.cs = (self.wx_max - self.wx_min) / G
         self.hmin, self.hmax = float(self.H.min()), float(self.H.max())
+        # The coarse map for the march: the max over COARSE x COARSE blocks,
+        # then the max over each block and its eight neighbours. A coarse
+        # step is one block long, so two consecutive samples can straddle a
+        # block the ray crosses without landing in it - the neighbours' max
+        # is what keeps the test conservative. A ray above THIS is above every
+        # cell it could have crossed since its last sample.
+        C = self.COARSE
+        Gc = G // C
+        Hc = self.H[:Gc * C, :Gc * C].reshape(Gc, C, Gc, C).max(axis=(1, 3))
+        self.Hc = ndimage.maximum_filter(Hc, size=3, mode="nearest").astype(np.float32)
+        self.Gc = Gc
         # Lambert off the slope, once. Rows run with -z, so d/dz is -gz.
         gz, gx = np.gradient(self.H, self.cs, self.cs)
         nx, ny, nz = -gx, np.ones_like(gx), gz
@@ -1142,50 +1154,85 @@ class View3D:
     # ---- the march ----------------------------------------------------
 
     def march(self, W, Hpx):
-        """Every pixel's ray, walked a cell at a time until it dips under the
-        surface, then bisected onto it. Returns the picture, the depth (metres
-        along the ray, inf for sky), the world point per pixel, and the camera
-        the overlays project with."""
+        """Every pixel's ray, walked until it dips under the surface, then
+        bisected onto it. Returns the picture, the depth (metres along the
+        ray, inf for sky), the world point per pixel, and the camera the
+        overlays project with.
+
+        Two levels. A ray well above the surface walks COARSE cells a step
+        against the dilated block-max map; the step it first drops under that
+        map it backs up one coarse step and walks single cells against the
+        real surface from there. Most rays spend most of their length in the
+        air - the sky ones all of it - so this is where the time was: 1.5 s a
+        frame walking every ray a cell at a time, 0.37 s this way, with the
+        depth the same to the cell wherever both find the surface. float32
+        throughout for the same reason: the walk is memory bound.
+        """
+        f32 = np.float32
         eye, fwd, right, up, _fh = self.basis()
+        eye, fwd, right, up = (v.astype(f32) for v in (eye, fwd, right, up))
         tanf = math.tan(math.radians(self.FOV) * 0.5)
-        xs = (np.arange(W) + 0.5) / W * 2.0 - 1.0
-        ys = 1.0 - (np.arange(Hpx) + 0.5) / Hpx * 2.0
-        px, py = np.meshgrid(xs * tanf, ys * tanf * (Hpx / W))
+        xs = ((np.arange(W) + 0.5) / W * 2.0 - 1.0).astype(f32)
+        ys = (1.0 - (np.arange(Hpx) + 0.5) / Hpx * 2.0).astype(f32)
+        px, py = np.meshgrid(xs * f32(tanf), ys * f32(tanf * (Hpx / W)))
         d = (fwd[None, None, :] + px[..., None] * right[None, None, :]
-             + py[..., None] * up[None, None, :]).reshape(-1, 3)
+             + py[..., None] * up[None, None, :]).reshape(-1, 3).astype(f32)
         d /= np.linalg.norm(d, axis=1)[:, None]
         n = d.shape[0]
-        G, H, cs = self.G, self.H, self.cs
+        G, H, Hc, Gc, C = self.G, self.H, self.Hc, self.Gc, self.COARSE
+        cs = f32(self.cs)
+        csc = f32(self.cs * C)
+        wx_min, wz_max = f32(self.wx_min), f32(self.wz_max)
 
         # Where each ray enters and leaves the box the map fills, up to the
         # tallest thing in it - so the walk is bounded by the map, not by a
         # step count.
-        lo = np.array([self.wx_min, self.hmin - 1.0, self.wz_min])
-        hi = np.array([self.wx_max, self.hmax + 1.0, self.wz_max])
+        lo = np.array([self.wx_min, self.hmin - 1.0, self.wz_min], dtype=f32)
+        hi = np.array([self.wx_max, self.hmax + 1.0, self.wz_max], dtype=f32)
         with np.errstate(divide="ignore", invalid="ignore"):
             t1 = (lo - eye) / d
             t2 = (hi - eye) / d
-        tenter = np.maximum(np.max(np.minimum(t1, t2), axis=1), 0.0)
+        tenter = np.maximum(np.max(np.minimum(t1, t2), axis=1), f32(0.0))
         texit = np.min(np.maximum(t1, t2), axis=1)
         alive = texit > tenter
         t = tenter.copy()
         t_prev = t.copy()
         hit = np.zeros(n, dtype=bool)
+        fine = np.zeros(n, dtype=bool)
         idx = np.nonzero(alive)[0]
         steps = int((float(texit[alive].max()) - float(tenter[alive].min())) / cs) + 2 if idx.size else 0
+        ex, ey, ez = eye
         for _ in range(steps):
             if idx.size == 0:
                 break
+            fi = fine[idx]
             t_prev[idx] = t[idx]
-            t[idx] += cs
-            p = eye[None, :] + d[idx] * t[idx, None]
-            col = ((p[:, 0] - self.wx_min) / cs).astype(np.int64)
-            row = ((self.wz_max - p[:, 2]) / cs).astype(np.int64)
+            t[idx] += np.where(fi, cs, csc)
+            ti = t[idx]
+            pxw = ex + d[idx, 0] * ti
+            pyw = ey + d[idx, 1] * ti
+            pzw = ez + d[idx, 2] * ti
+            col = ((pxw - wx_min) / cs).astype(np.int64)
+            row = ((wz_max - pzw) / cs).astype(np.int64)
             inside = (col >= 0) & (col < G) & (row >= 0) & (row < G)
-            h = H[np.clip(row, 0, G - 1), np.clip(col, 0, G - 1)]
-            below = inside & (p[:, 1] <= h)
-            hit[idx[below]] = True
-            idx = idx[~(below | (t[idx] > texit[idx]))]
+            colc = np.clip(col, 0, G - 1)
+            rowc = np.clip(row, 0, G - 1)
+            hc = Hc[np.minimum(rowc // C, Gc - 1), np.minimum(colc // C, Gc - 1)]
+            h = np.where(fi, H[rowc, colc], hc)
+            below = inside & (pyw <= h)
+            # fine and under the surface: a hit. Coarse and under the block
+            # max: back up to the last sample, which was above it, and walk
+            # cells from there.
+            hit[idx[below & fi]] = True
+            newly = below & ~fi
+            if newly.any():
+                k = idx[newly]
+                t[k] = t_prev[k]
+                fine[k] = True
+            # Spent when it was already past the exit BEFORE this step - a
+            # coarse step can carry a ray out of the box across its last
+            # block, and testing after the step lost the cell before the edge.
+            idx = idx[~((below & fi) | (t_prev[idx] > texit[idx]))]
 
         # Onto the surface: bisect between the last point above and the first
         # below, five times - a sixteenth of a cell, and it stops the surface
