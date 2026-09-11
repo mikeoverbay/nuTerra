@@ -652,7 +652,25 @@ def draw(bake, raw, pts, out_png):
     im.save(out_png)
 
 
-def main(out_dir=None, seed=None, on_step=None, average_n=0):
+def _max_dev(pts, nx, nz):
+    """Furthest the exported positions stray from the nominal course, metres,
+    measured to the course polyline rather than to its vertices - the same
+    test radar_commit.score runs on the raw flight, on the smoothed points."""
+    A = np.stack([nx, nz], axis=1)
+    B = np.roll(A, -1, axis=0)
+    AB = B - A
+    L2 = (AB ** 2).sum(axis=1)
+    L2[L2 == 0] = 1e-9
+    worst = 0.0
+    for p in pts:
+        AP = np.stack([p[0] - A[:, 0], p[2] - A[:, 1]], axis=1)
+        t = np.clip((AP * AB).sum(axis=1) / L2, 0.0, 1.0)
+        proj = A + AB * t[:, None]
+        worst = max(worst, float(np.hypot(proj[:, 0] - p[0], proj[:, 1] - p[2]).min()))
+    return worst
+
+
+def main(out_dir=None, seed=None, on_step=None, average_n=0, diag_dir=None):
     """Raises RuntimeError on a bad export, NOT SystemExit.
 
     out_dir overrides where the .campath lands. Path Studio passes a scratch
@@ -677,10 +695,14 @@ def main(out_dir=None, seed=None, on_step=None, average_n=0):
 
     # Only the .campath goes in the project folder - that directory is copied
     # into the build output, so a debug PNG left there would ship. The CSV and
-    # the bank picture join the rest of the diagnostics in TEMP.
+    # the bank picture join the rest of the diagnostics in TEMP - or in
+    # diag_dir when the caller flies the same map more than once and needs
+    # each run kept apart, which Path Studio does for the two directions.
+    diag = diag_dir or nav.FOLDER
+    os.makedirs(diag, exist_ok=True)
     binp = os.path.join(out_dir, map_name + ".campath")
-    csvp = os.path.join(nav.FOLDER, map_name + "_campath.csv")
-    pngp = os.path.join(nav.FOLDER, map_name + "_bank.png")
+    csvp = os.path.join(diag, map_name + "_campath.csv")
+    pngp = os.path.join(diag, map_name + "_bank.png")
 
     print("write")
     size = cam_path.write_path(binp, pts, map_name, closed=closed,
@@ -731,6 +753,17 @@ def main(out_dir=None, seed=None, on_step=None, average_n=0):
     print(f"  flight time {total / CRUISE:.0f} s at {CRUISE:.0f} m/s")
     print(f"  csv {csvp}")
     print(f"  png {pngp}")
+
+    # The numbers a caller compares two flights by - the same ones the
+    # navigator prints, read back off the flight rather than parsed out of
+    # the log. max_dev is against the nominal course this flight was flown
+    # on, which is the plan.csv that is on disk right now.
+    nx, nz = nav.load_plan(os.path.join(nav.FOLDER, map_name + "_plan.csv"))
+    return {"closed": closed, "clips": int(clips), "points": len(pts),
+            "length": float(total), "reversals": int(res["reversals"]),
+            "detours": int(res["detours"]), "backups": int(res.get("backups", 0)),
+            "boxed": int(res["stuck"]), "guard": int(res["guard_fires"]),
+            "max_dev": _max_dev(pts, nx, nz), "csv": csvp, "campath": binp}
 
 
 if __name__ == "__main__":

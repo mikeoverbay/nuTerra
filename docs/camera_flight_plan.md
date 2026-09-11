@@ -264,6 +264,35 @@ gap centring it skips was worth 4.32 m -> 3.49 m of worst-case clearance.
 Measured against the UNDILATED mask at the bake's resolution, which is what
 that comparison needs. The switch is in and OFF.
 
+## Step 4c — both directions, compared (2026-09-10)
+
+The loop is symmetric; the flight is not. Which side the navigator commits
+to, whether a lane is entered from its wide end or its narrow end, whether
+the corner after the start is a hairpin or a merge - all depend on the
+direction of travel. So Path Studio can fly the same loop both ways.
+
+- **Direction: auto / forward / reverse** on the left panel, behind the Edit
+  path lock. auto flies both (the points in click order, then in reverse
+  click order - same start, same seed in the file) and keeps the better;
+  forward / reverse fly one.
+- **Score**, lower wins: closed first, then clips = 0, then the thrash
+  (reversals + detours + backups + boxed), then the furthest the exported
+  points stray from the nominal course, then length. `score_key` in
+  `path_studio.py`; the exporter hands the numbers back from `main` rather
+  than having them parsed out of its log.
+- **Both stay.** The loser is drawn faint and dashed under the route; the
+  Direction control switches which is showing - and which Save publishes -
+  without a re-fly. Each direction writes its own `.campath`, CSV and bank
+  picture under `%TEMP%/nuTerra/flight/fwd/` and `rev/`.
+- **Where they split is ringed.** Every run where the two routes are more
+  than `DIVERGE_M` (15 m) apart gets a ring at its widest point with the
+  distance beside it. That is the navigator unsure - a lane taken one way
+  and not the other, a wall committed to differently - and it is where a
+  target wants moving, which no single flight can show.
+
+Cost: Generate takes twice as long on auto, since the flight is the slow
+part.
+
 ## Why the bake must be its own pass
 
 Proved the hard way on 2026-09-02 by trying to shortcut it: the G-buffer

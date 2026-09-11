@@ -233,12 +233,19 @@ START_MAP = "19_monastery"
 
 
 def plan_from_seed(map_name, start_xz, targets, log,
-                   smooth_passes=2, on_step=None, average_n=0):
+                   smooth_passes=2, on_step=None, average_n=0, direction="fwd"):
     """Start + points -> nominal course -> flown route -> .campath.
 
     No heading. The course runs from the start through the points in click
     order and back, and the direction it leaves in is simply the direction of
-    the first point.
+    the first point. direction "rev" runs the same loop the other way - the
+    points in reverse click order - which is a different flight, because the
+    navigator's side commitments, its lane bends and its backups all depend
+    on which end of a thing it arrives at. The outputs of each direction go
+    to their own folder under the scratch one.
+
+    Returns (campath csv, campath binary, the stats dict the exporter hands
+    back).
     """
     log("loading bake")
     bake = fp.Bake(FOLDER, map_name)
@@ -262,10 +269,12 @@ def plan_from_seed(map_name, start_xz, targets, log,
     if not targets:
         raise RuntimeError("no points to visit - click the map to add some")
 
-    log("routing through %d point%s" % (len(targets),
-                                        "" if len(targets) == 1 else "s"))
+    order = list(targets) if direction == "fwd" else list(reversed(targets))
+    log("routing through %d point%s, %s" % (len(targets),
+                                            "" if len(targets) == 1 else "s",
+                                            DIR_NAMES.get(direction, direction)))
     chain = [fp.nearest_free(reach, cell(*start_xz))]
-    for (tx, tz) in targets:
+    for (tx, tz) in order:
         chain.append(fp.nearest_free(reach, cell(tx, tz)))
     chain.append(fp.nearest_free(reach, cell(*start_xz)))
 
@@ -363,21 +372,91 @@ def plan_from_seed(map_name, start_xz, targets, log,
         # The clicks go into the file with the route they produced. A flown
         # path cannot be reversed back into the start and targets that made
         # it, so without this the intent behind a route exists nowhere.
-        ex.main(out_dir=FOLDER,
-                # heading, radius, waypoints and side keep their defaults.
-                # The fields stay in the file; nothing puts a value in them.
-                seed=cp.pack_seed(start=start_xz, targets=targets),
-                on_step=on_step, average_n=average_n)
+        # The seed keeps the points in CLICK order whichever way this flight
+        # ran them: the seed is what the user did, not what the navigator
+        # made of it.
+        out_dir = os.path.join(FOLDER, direction)
+        stats = ex.main(out_dir=out_dir, diag_dir=out_dir,
+                        # heading, radius, waypoints and side keep their
+                        # defaults. The fields stay in the file; nothing puts
+                        # a value in them.
+                        seed=cp.pack_seed(start=start_xz, targets=targets),
+                        on_step=on_step, average_n=average_n)
     finally:
         sys.stdout = real_stdout
         sys.argv = argv
 
-    return os.path.join(FOLDER, map_name + "_campath.csv")
+    return stats["csv"], stats["campath"], stats
 
 
 # --------------------------------------------------------------------------
 # Window
 # --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+# Two directions round the same loop
+# --------------------------------------------------------------------------
+# The loop is symmetric; the flight is not. Which side the navigator commits
+# to, whether a lane is entered from its wide end or its narrow end, whether
+# the corner after the start is a hairpin or a merge - all of it depends on
+# the direction of travel. So Generate can fly both, score them, and keep the
+# better one, with the other drawn faint and the places they disagree ringed.
+# Where the two flights split is where the navigator is unsure, and that is
+# where a target wants moving - which no single flight can show.
+
+DIR_NAMES = {"fwd": "forward", "rev": "reverse"}
+DIVERGE_M = 15.0        # the two routes further apart than this is a split worth ringing
+
+
+def score_key(s):
+    """Sort key: lower is better. Closed first, then no clips, then the
+    thrash (everything the navigator had to do that was not flying the
+    course), then how far it strayed, then length."""
+    thrash = s["reversals"] + s["detours"] + s["backups"] + s["boxed"]
+    return (0 if s["closed"] else 1, s["clips"], thrash,
+            int(round(s["max_dev"])), int(round(s["length"])))
+
+
+def stats_line(tag, s):
+    return ("%-7s %s  %4.0f m  clips %d  thrash %d (rev %d det %d back %d boxed %d)  "
+            "off course %.0f m" % (
+                tag, "closed" if s["closed"] else "OPEN  ", s["length"], s["clips"],
+                s["reversals"] + s["detours"] + s["backups"] + s["boxed"],
+                s["reversals"], s["detours"], s["backups"], s["boxed"], s["max_dev"]))
+
+
+def divergence(a, b, limit=DIVERGE_M):
+    """Where route a runs further than `limit` from route b.
+
+    One mark per run of such points, at the point of the run furthest away:
+    (x, z, metres). Distance is to b's polyline, closed, so a route that
+    merely samples the same line at different spacing shows nothing.
+    """
+    if not a or not b or len(b) < 2:
+        return []
+    B = np.asarray(b, dtype=float)
+    B2 = np.roll(B, -1, axis=0)
+    AB = B2 - B
+    L2 = (AB ** 2).sum(axis=1)
+    L2[L2 == 0] = 1e-9
+    devs = []
+    for (x, z) in a:
+        AP = np.stack([x - B[:, 0], z - B[:, 1]], axis=1)
+        t = np.clip((AP * AB).sum(axis=1) / L2, 0.0, 1.0)
+        proj = B + AB * t[:, None]
+        devs.append(float(np.hypot(proj[:, 0] - x, proj[:, 1] - z).min()))
+    marks = []
+    run = None
+    for i, dv in enumerate(devs + [0.0]):
+        if dv > limit:
+            if run is None:
+                run = i
+        elif run is not None:
+            j = run + int(np.argmax(devs[run:i]))
+            marks.append((a[j][0], a[j][1], devs[j]))
+            run = None
+    return marks
+
 
 def _hex_rgb(h):
     """#rrggbb -> (r, g, b). PIL will not take the string form for a fill."""
@@ -1052,6 +1131,15 @@ class Studio:
         self.edit_path = False
         # The one open light editor window, or None.
         self.editor = None
+        # The last Generate, per direction flown: {"fwd"|"rev": {"route",
+        # "n", "out", "stats"}}. What is shown comes from it through
+        # apply_direction, so the Direction control can switch without a
+        # re-fly. The loser is drawn faint; diverge is where the two split.
+        self.results = None
+        self.route_other = None
+        self.route_dir = None
+        self.diverge = []
+        self.direction_wanted = "auto"
         self.light_color = "#ffd9a0"    # colour the NEXT light is placed with
         self.bulb_cursor = bulb_cursor()
 
@@ -1251,6 +1339,23 @@ class Studio:
         self.ring_lbl.grid(row=r, column=0, columnspan=2, sticky="w")
         r += 1
 
+        # Direction. auto flies the loop both ways and keeps the better; the
+        # other two force one and fly it alone. After a generate, switching
+        # between the two flown ones only changes which is shown and which
+        # Save publishes - nothing is re-flown.
+        ttk.Label(left, text="Direction").grid(row=r, column=0, sticky="w", pady=(8, 0))
+        r += 1
+        self.direction = tk.StringVar(value="auto")
+        df = ttk.Frame(left)
+        df.grid(row=r, column=0, columnspan=2, sticky="w")
+        self.dir_radios = []
+        for val, text in (("auto", "auto"), ("forward", "forward"), ("reverse", "reverse")):
+            rb = ttk.Radiobutton(df, text=text, value=val, variable=self.direction,
+                                 command=self.on_direction)
+            rb.pack(side="left", padx=(0, 8))
+            self.dir_radios.append(rb)
+        r += 1
+
         self.go = ttk.Button(left, text="Generate path", command=self.generate)
         self.go.grid(row=r, column=0, sticky="we", pady=(10, 4))
         self.go.state(["disabled"])
@@ -1365,6 +1470,10 @@ class Studio:
         # document themselves, this half does not.
         ttk.Label(right, justify="left", style="Note.TLabel", text=(
             "Edit path      unlock the path controls\n"
+            "Direction      auto flies the loop both\n"
+            "               ways and keeps the better;\n"
+            "               the other is drawn faint,\n"
+            "               where they split is ringed\n"
             "Left click     sets the start (first)\n"
             "Left click     add a point\n"
             "Right click    add a point\n"
@@ -1891,6 +2000,10 @@ class Studio:
         # Edit path says otherwise.
         self.edit_path = False
         self.edit_btn.configure(text="Edit path")
+        self.results = None
+        self.route_other = None
+        self.route_dir = None
+        self.diverge = []
 
         self.route, seed, self.lights = existing_plan(name)
         # THE OLD PATH, KEPT AT LOAD.
@@ -2336,6 +2449,15 @@ class Studio:
                             vx, vy = self.to_view(ex, ez)
                             dr.point([vx, vy], fill=(255, 210, 120, a_dot))
 
+        # The other direction, faint and dashed, UNDER the route: it is the
+        # comparison, not the answer.
+        if self.route_other and len(self.route_other) > 1:
+            ov = [self.to_view(x, z) for (x, z) in self.route_other]
+            for i in range(len(ov)):
+                a, b = ov[i], ov[(i + 1) % len(ov)]
+                if (i // 2) % 2 == 0:
+                    d.line([a, b], fill=(150, 120, 200), width=1)
+
         if self.route:
             pts = [self.to_view(x, z) for (x, z) in self.route]
             # Dimmed while a trace is running. The saved route and the one
@@ -2352,6 +2474,15 @@ class Studio:
             d.line(pts + [pts[0]],
                    fill=(120, 30, 85) if live else (255, 46, 168),
                    width=2 if live else 3, joint="curve")
+
+        # Where the two directions split - the navigator unsure, a target
+        # worth moving. Ringed over the route with the distance beside it.
+        for (mx, mz, dev) in self.diverge:
+            vx, vy = self.to_view(mx, mz)
+            rad = 12.0
+            d.ellipse([vx - rad, vy - rad, vx + rad, vy + rad],
+                      outline=(120, 255, 205), width=2)
+            d.text((vx + rad + 3, vy - 7), "%.0f m" % dev, fill=(150, 255, 215))
 
         # THE LIVE PATH LAST, over the saved one.
         #
@@ -3364,6 +3495,8 @@ class Studio:
             self.vars[k + "_w"].state(["!disabled" if unlocked else "disabled"])
         self.clear_btn.state(["!disabled" if unlocked else "disabled"])
         self.go.state(["!disabled" if unlocked else "disabled"])
+        for rb in self.dir_radios:
+            rb.state(["!disabled" if unlocked else "disabled"])
         self.edit_light_btn.state(
             ["!disabled" if (self.selected_light() is not None and not self.busy)
              else "disabled"])
@@ -4088,6 +4221,13 @@ class Studio:
         # destroy the thing being examined.
         self.gen = None
         self.gen_cancel = False
+        # Read HERE, on the UI thread - the worker must not touch Tk. And
+        # the last comparison goes: its routes belong to the points as they
+        # were, and flipping Direction after a cancel must not show them.
+        self.direction_wanted = self.direction.get()
+        self.results = None
+        self.route_other = None
+        self.diverge = []
         self.cards = None
         self.cards_running = False
         self.cards_shown = True
@@ -4202,23 +4342,30 @@ class Studio:
             fp.FLIGHT_BLOCK_H = nav.BLOCK_H
             fp.BODY_RADIUS = nav.BODY_R
 
-            csv_path = plan_from_seed(
-                self.map_name, self.start, list(self.targets), self._log,
-                smooth_passes=int(self.vars["smooth"].get()),
-                on_step=self._gen_step,
-                # The Smooth sample size slider, applied INSIDE the export so
-                # heading, tilt, bank and speed are all derived from the
-                # averaged positions. What is drawn burnt orange is what
-                # lands in the file.
-                average_n=int(round(float(self.vars["smooth_n"].get()))))
-
+            want = self.direction_wanted
+            dirs = {"forward": ("fwd",), "reverse": ("rev",)}.get(want, ("fwd", "rev"))
             import csv as _csv
-            rows = list(_csv.DictReader(open(csv_path)))
-            route = [(float(r["x"]), float(r["z"])) for r in rows]
-            # The scratch copy Generate just wrote. Save publishes it.
-            out = os.path.join(FOLDER, self.map_name + ".campath")
+            results = {}
+            for k, d in enumerate(dirs):
+                if len(dirs) > 1:
+                    self._log("flying %s (%d of %d)" % (DIR_NAMES[d], k + 1, len(dirs)))
+                csv_path, out, stats = plan_from_seed(
+                    self.map_name, self.start, list(self.targets), self._log,
+                    smooth_passes=int(self.vars["smooth"].get()),
+                    on_step=self._gen_step,
+                    # The Smooth sample size slider, applied INSIDE the export
+                    # so heading, tilt, bank and speed are all derived from
+                    # the averaged positions. What is drawn burnt orange is
+                    # what lands in the file.
+                    average_n=int(round(float(self.vars["smooth_n"].get()))),
+                    direction=d)
+                rows = list(_csv.DictReader(open(csv_path)))
+                # The scratch copy this direction wrote. Save publishes the
+                # one that is showing.
+                results[d] = {"route": [(float(r["x"]), float(r["z"])) for r in rows],
+                              "n": len(rows), "out": out, "stats": stats}
             avg_n = int(round(float(self.vars["smooth_n"].get())))
-            self.root.after(0, lambda: self._done(route, len(rows), out, avg_n))
+            self.root.after(0, lambda: self._done(results, avg_n))
         except nav.Cancelled:
             # Not a failure. Asked for, and answered.
             self.root.after(0, self._generate_cancelled)
@@ -4230,7 +4377,7 @@ class Studio:
             tb = traceback.format_exc().strip().splitlines()[-1]
             self.root.after(0, lambda: self._failed(tb))
 
-    def _done(self, route, n, out, avg_n=None):
+    def _done(self, results, avg_n=None):
         # ONE PATH ON SCREEN WHEN IT WORKED.
         #
         # The overlay is kept after a FAILURE, because where it got to is the
@@ -4243,14 +4390,75 @@ class Studio:
         self.live = None
         self.drain_log()          # _gen_tick has stopped; nothing else will
         self.gen_was = None
-        self.route = route
+        self.results = results
         self.route_avg_n = avg_n
-        self.route_saved = False
-        self.pending = out
         self.busy = False
+        # The comparison, in the Navigator box, then the pick.
+        if len(results) > 1:
+            for d in ("fwd", "rev"):
+                if d in results:
+                    self.note(stats_line(DIR_NAMES[d], results[d]["stats"]))
+        self.apply_direction()
         self.update_enabled()
         self.repaint()
-        self.status.set("wrote %d points to %s" % (n, out))
+        r = results[self.route_dir]
+        tag = DIR_NAMES[self.route_dir]
+        if len(results) > 1:
+            other = [d for d in results if d != self.route_dir][0]
+            if score_key(results[other]["stats"]) == score_key(r["stats"]):
+                why = "the two score the same"
+            elif self.direction_wanted == "auto":
+                why = "scores better than %s" % DIR_NAMES[other]
+            else:
+                why = "as asked"
+            self.status.set("%s wins - %s. %d points, %d split%s ringed. Save publishes it."
+                            % (tag, why, r["n"], len(self.diverge),
+                               "" if len(self.diverge) == 1 else "s"))
+        else:
+            self.status.set("wrote %d points (%s) to %s" % (r["n"], tag, r["out"]))
+
+    def apply_direction(self):
+        """Which of the flown directions is showing, and which Save publishes.
+
+        auto takes the better score; forward / reverse take that one if it
+        was flown. The other, if there is one, is drawn faint, and the places
+        the two run more than DIVERGE_M apart are ringed.
+        """
+        res = self.results
+        if not res:
+            return
+        want = self.direction.get()
+        if want == "forward" and "fwd" in res:
+            pick = "fwd"
+        elif want == "reverse" and "rev" in res:
+            pick = "rev"
+        else:
+            pick = min(res, key=lambda d: score_key(res[d]["stats"]))
+        r = res[pick]
+        self.route_dir = pick
+        self.route = r["route"]
+        self.pending = r["out"]
+        self.route_saved = False
+        others = [d for d in res if d != pick]
+        self.route_other = res[others[0]]["route"] if others else None
+        self.diverge = (divergence(self.route, self.route_other)
+                        if self.route_other else [])
+
+    def on_direction(self):
+        """The Direction control changed. With a comparison on screen, show
+        the other one; with none, it only sets what the next Generate does."""
+        if self.busy or not self.results:
+            return
+        before = self.route_dir
+        self.apply_direction()
+        if self.route_dir != before:
+            self.status.set("showing %s - Save publishes this one"
+                            % DIR_NAMES[self.route_dir])
+        elif self.direction.get() in ("forward", "reverse"):
+            self.status.set("%s was not flown - Generate again to fly it"
+                            % self.direction.get())
+        self.update_enabled()
+        self.repaint()
 
     def _failed(self, msg):
         """A generation that fell over. KEEP WHAT IT FLEW.
