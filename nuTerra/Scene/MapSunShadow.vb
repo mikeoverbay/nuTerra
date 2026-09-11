@@ -116,7 +116,7 @@ Public Class MapSunShadow
     ''' FOUR TILES in the sun's projection space instead of one map (2026-09-11).
     '''
     ''' The fitted box is split 2 x 2 in light-space XY; each quadrant gets its
-    ''' own ortho projection and its own D16 texture of tile_size a side, so the
+    ''' own ortho projection and its own D16 texture of tile_edge a side, so the
     ''' box is covered at twice the texels each way of the single map. Every
     ''' tile is drawn from the SAME command array as the single map - offset 0,
     ''' the same count, outland skipped by the same prefix rule - and the ortho
@@ -151,7 +151,7 @@ Public Class MapSunShadow
     ''' <summary>Each tile's box in WORLD space, for the on-screen test.</summary>
     Public tile_bmin(TILES * TILES - 1) As Vector3
     Public tile_bmax(TILES * TILES - 1) As Vector3
-    Public tile_size As Integer
+    Public tile_edge As Integer
     Public tiles_ready As Boolean
     Private tile_fbo As GLFramebuffer
 
@@ -255,7 +255,7 @@ Public Class MapSunShadow
             GL.TextureParameter(t.texture_id, TextureParameterName.TextureBorderColor, border)
             t.Parameter(TextureParameterName.TextureCompareMode, CInt(TextureCompareMode.CompareRefToTexture))
             t.Parameter(TextureParameterName.TextureCompareFunc, CInt(All.Lequal))
-            t.Storage2D(1, DirectCast(InternalFormat.DepthComponent16, SizedInternalFormat), tile_size, tile_size)
+            t.Storage2D(1, DirectCast(InternalFormat.DepthComponent16, SizedInternalFormat), tile_edge, tile_edge)
             tile_tex(k) = t
         Next
         ' One FBO, re-pointed at each tile as it is baked. Depth only - no
@@ -266,7 +266,7 @@ Public Class MapSunShadow
         GL.NamedFramebufferDrawBuffer(tile_fbo.fbo_id, DrawBufferMode.None)
         GL.NamedFramebufferReadBuffer(tile_fbo.fbo_id, ReadBufferMode.None)
         If Not tile_fbo.IsComplete Then
-            LogThis("sun shadow tiles: FBO incomplete at {0}x{0}", tile_size)
+            LogThis("sun shadow tiles: FBO incomplete at {0}x{0}", tile_edge)
         End If
     End Sub
 
@@ -286,16 +286,16 @@ Public Class MapSunShadow
                            near_d As Single, far_d As Single, ortho_w As Single, extent As Single)
         tiles_ready = False
         Dim want = tile_size_fitting(TILE_SIZE)
-        If tile_tex(0) Is Nothing OrElse tile_size <> want Then
+        If tile_tex(0) Is Nothing OrElse tile_edge <> want Then
             Dispose_tiles()
-            tile_size = want
+            tile_edge = want
             create_tiles()
         End If
 
         ' A quadrant is half the box wide. The overlap is TILE_PAD_TEXELS of the
         ' tile's own texels each side, so the taps at a seam are inside.
         Dim q = half
-        Dim pad = q / CSng(tile_size) * TILE_PAD_TEXELS
+        Dim pad = q / CSng(tile_edge) * TILE_PAD_TEXELS
         Dim inv = Matrix4.Invert(view)
         Dim full = sun_view_proj
 
@@ -330,7 +330,7 @@ Public Class MapSunShadow
 
                 tile_fbo.Bind(FramebufferTarget.Framebuffer)
                 tile_fbo.Texture(FramebufferAttachment.DepthAttachment, tile_tex(k), 0)
-                GL.Viewport(0, 0, tile_size, tile_size)
+                GL.Viewport(0, 0, tile_edge, tile_edge)
                 GL.ClearDepth(1.0)
                 GL.Clear(ClearBufferMask.DepthBufferBit)
                 GL.DepthFunc(DepthFunction.Less)
@@ -358,8 +358,8 @@ Public Class MapSunShadow
 
         tiles_ready = True
         LogThis("sun shadow: baked {0} tiles of {1}x{1} 16 ({2} MiB together) over the {3:0} m box - {4:0.000} m per texel, depth {5:0}..{6:0} m, map {7:0} m",
-                TILES * TILES, tile_size, depth_bytes(tile_size) * TILES * TILES \ (1024L * 1024L),
-                ortho_w, (ortho_w / TILES) / tile_size, near_d, far_d, extent)
+                TILES * TILES, tile_edge, depth_bytes(tile_edge) * TILES * TILES \ (1024L * 1024L),
+                ortho_w, (ortho_w / TILES) / tile_edge, near_d, far_d, extent)
     End Sub
 
     ''' <summary>

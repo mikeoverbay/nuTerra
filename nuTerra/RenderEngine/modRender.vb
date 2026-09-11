@@ -1280,8 +1280,8 @@ Module modRender
         Next
         GL.UniformMatrix4(sunShadowTilesShader("sunViewProj"), False, ss.sun_view_proj)
         GL.Uniform1(sunShadowTilesShader("tile_mask"), mask)
-        GL.Uniform1(sunShadowTilesShader("tile_texel"), 1.0F / ss.tile_size)
-        GL.Uniform1(sunShadowTilesShader("tile_pad"), CSng(MapSunShadow.TILE_PAD_TEXELS) / ss.tile_size)
+        GL.Uniform1(sunShadowTilesShader("tile_texel"), 1.0F / ss.tile_edge)
+        GL.Uniform1(sunShadowTilesShader("tile_pad"), CSng(MapSunShadow.TILE_PAD_TEXELS) / ss.tile_edge)
 
         defaultVao.Bind()
         GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4)
