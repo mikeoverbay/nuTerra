@@ -12,6 +12,7 @@ handoff's status banner before trusting it.
 | you want | read |
 |---|---|
 | **what is still open** | `open_threads.md` |
+| **the newest handoff: Tank AI - the navigation grid, the driver, the four deadlocks and what to measure** | `HANDOFF_2026-09-11_tank_ai.md` |
 | **the newest handoff: Path Studio - both directions, the GPU 3D view, the 8K bake with the line pass, the keyed bake and the two-session file split** | `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` |
 | Path Studio the session before: the lane navigator, the Edit path lock, street-lamp light controls, the 72-byte light record | `HANDOFF_2026-09-09_path_studio.md` |
 | **START HERE: the shading pass built, measured and REVERTED - what was learned, the patch, the pick-up** | `HANDOFF_2026-09-08_shading_pass.md` |
