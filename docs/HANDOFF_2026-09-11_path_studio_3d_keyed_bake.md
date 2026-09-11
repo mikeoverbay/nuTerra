@@ -420,6 +420,20 @@ A radius field amplifies mask holes (one wrongly free cell inflates a disc
 through a wall and the planner PREFERS the wide corridor), which is why
 the canopy-over-rock hole is being fixed in the writer first.
 
+The Tank AI session's extraction rules, which its file is held to and
+which `radar_commit` should match if it ever cuts its own: **half a cell
+back** off every radius (`distance_transform_edt` measures to the blocked
+cell's CENTRE; the cell is solid from half a cell nearer - `sqrt(dt) - 0.5`
+before scaling); **cover fraction 0.6** on the greedy widest-first claim;
+**links walked, not overlapped** (a straight line between centres with full
+clearance the whole way - overlap alone lies in a corridor). The first rule
+applies to `build_world`'s `dist_m` today: the navigator's standoff reads a
+field that is optimistic by 0.34 m at 2048. Not changed - the owner's routes
+are tuned against it - and to be taken out together with a re-measure of the
+shipped route, never slipped in. Their monastery numbers, for shape only
+(tank mask, 4.5 m hull, 1024): 10,334 zones, 64,429 links, widest 57.6 m,
+mean 8.1 m, 103 isolated, 722 ms.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
