@@ -1838,7 +1838,9 @@ void main() { o_rgb = v_rgb; }
         differ by WALL_MIN or more, facing the lower one - all of it in one
         vertex array and one index array, vectorised, then uploaded."""
         b = self.bake
-        G = self.grid
+        # Never finer than the bake itself: a 1024 bake at the 2048 setting
+        # is a 1024 mesh, one cell per texel.
+        G = min(self.grid, b.h, b.w)
         top, obj = (self.boxed_top() if self.boxes else (b.top, None))
         fy, fx = max(1, b.h // G), max(1, b.w // G)
         H = top[:G * fy, :G * fx].reshape(G, fy, G, fx).max(axis=(1, 3)).astype(np.float32)
@@ -1930,7 +1932,7 @@ void main() { o_rgb = v_rgb; }
     def caption(self):
         pygame.display.set_caption(
             "3D view - grid %d, boxes %s - %s triangles, %.0f MB on the GPU - B boxes, G grid, R reset"
-            % (self.grid, "on" if self.boxes else "off", format(self.tri_count, ","),
+            % (self.lv["G"] if self.lv else self.grid, "on" if self.boxes else "off", format(self.tri_count, ","),
                getattr(self, "vbo_bytes", 0) / 1e6))
 
     def set_colours(self):
