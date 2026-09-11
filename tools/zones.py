@@ -146,6 +146,40 @@ class Zones:
             return False
         return True
 
+    # ---- point in a disc --------------------------------------------------
+    # A KD-tree over the centres, queried out to the widest radius on the map;
+    # every candidate centre within that ball is tested against its own
+    # radius. The containing disc need not be a NEAREST centre - a wide disc
+    # holds points far from its centre - which is why the ball, not k-nearest.
+    _tree = None
+
+    def index(self):
+        import numpy as np
+        from scipy.spatial import cKDTree
+        if len(self) == 0:
+            return
+        self._tree = cKDTree(np.stack([self.x, self.z], axis=1))
+        self._rmax = float(self.r.max())
+
+    def clearance(self, x, z, margin=0.0):
+        """How far inside the best disc a point is, less `margin`: positive
+        means the point sits in a zone with that much room to the rim
+        beyond the margin; None means no disc holds it (or no index)."""
+        if self._tree is None:
+            self.index()
+            if self._tree is None:
+                return None
+        best = None
+        for i in self._tree.query_ball_point((x, z), self._rmax):
+            d = ((self.x[i] - x) ** 2 + (self.z[i] - z) ** 2) ** 0.5
+            c = self.r[i] - d - margin
+            if c > 0.0 and (best is None or c > best):
+                best = c
+        return best
+
+    def contains(self, x, z, margin=0.0):
+        return self.clearance(x, z, margin) is not None
+
     def summary(self):
         r = self.r
         return ("zones %s: %d discs, %d links, %d islands, widest %.1f m, mean %.1f m, body %s m, grid %s%s" % (

@@ -461,6 +461,34 @@ monastery; on master those 14 fence texels block and zone 0 is smaller.
 Their six files (zone map, CSV export, route catalogue, nav frame accessors,
 two gun fixes) wait on the owner's commit.
 
+**Flying by the zone map - measured, and not yet a win.** The owner: "we
+can move that way if the next move point is in a zone ring." Built as a
+fast path in `bearing_ok` (`radar_commit.zone_step_ok`): a bearing whose
+next 2 m step lands inside a disc, with `BODY_R` kept from the rim and the
+step itself still probed on the camera's own mask, skips the 9 m near
+probe, the 22 m trap probe and the bend search. `zones.Zones.clearance`
+(KD-tree over the centres, ball query to the widest radius) does the disc
+test in ~65 us. On the shipped monastery plan with the TANK's zone map:
+
+    zones off   2283 pts  4571 m  13 s   backups 42   reverses 0   trap: object 27, terrain 67416, bend 217
+    zones on    2449 pts  4903 m  37 s   backups 182  reverses 186 boxed 31   zone accepts 247,427
+    (unguarded  2983 pts  5964 m  27 s   backups 1006 reverses 237 - the fast path walked the camera into cells its own radar refused)
+
+Two reasons, in order of weight. The disc says the ground AROUND the step
+is free; it says nothing about whether that ground leads anywhere, and the
+far probe it replaces is exactly the test that keeps the camera out of
+pockets - inside a courtyard-sized disc the camera is happily accepted
+straight into the courtyard. And this is the tank's map: fences and
+trunk-less foliage are exempt in it, so its discs cover ground the camera
+must fly round. **`Fly by zones` therefore defaults OFF** and the hook
+stays. What would make the zone map help the camera is its GRAPH, not its
+discs: route disc-to-disc toward the next target over the walked links (A*
+on a few thousand nodes, sub-millisecond), then fly the chain with the
+radar - "the next move point is in a zone ring" where the ring is the NEXT
+disc on the route, not any disc. That needs a zone map cut from the
+camera's mask (`build_world`'s blocked mask, exported for the same
+extractor) and it is the next piece, not built.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the

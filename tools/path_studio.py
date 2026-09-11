@@ -2724,6 +2724,17 @@ class Studio:
         self.show_zones = tk.BooleanVar(value=False)
         ttk.Checkbutton(radar_row, text="Zones", variable=self.show_zones,
                         command=self.on_zones_toggle).pack(side="left", padx=(8, 0))
+        # The navigator flies by the zone map when one is loaded: a bearing
+        # whose next step lands inside a disc skips the near and far probes.
+        # OFF by default: measured on the shipped monastery plan with the
+        # TANK's zone map, the route went 4571 -> 4903 m with 182 backups
+        # against 42 and 186 reverses - a disc says the ground around is
+        # free, not that it leads anywhere, and the trap probe it replaces
+        # was doing that work. The switch stays for a zone map cut from the
+        # camera's own mask, and for the graph route (see the handoff).
+        self.use_zones = tk.BooleanVar(value=False)
+        ttk.Checkbutton(radar_row, text="Fly by zones", variable=self.use_zones,
+                        command=self.apply_zone_nav).pack(side="left", padx=(4, 0))
 
         # THE DASHED LINKS BETWEEN THE POINTS, AND A WAY TO TURN THEM OFF.
         #
@@ -3434,6 +3445,7 @@ class Studio:
         for z in self.zones.values():
             if z.warnings:
                 self.status.set("zones %s: %s" % (z.mask, "; ".join(z.warnings)))
+        self.apply_zone_nav()
         if self.view3d is not None:
             # A new map: new surface, and the camera back to its overview.
             # render_mask below recolours it and renders.
@@ -3748,6 +3760,16 @@ class Studio:
     def on_am_toggle(self):
         if self.bake is not None:
             self.render_mask()
+
+    def apply_zone_nav(self):
+        """Hand the navigator the zone map - the camera's when one exists,
+        else the tank's - or nothing when the switch is off."""
+        z = None
+        if self.use_zones.get() and self.zones:
+            z = self.zones.get("camera") or self.zones.get("tank")
+        nav.set_zones(z)
+        if z is not None:
+            self.status.set("flying by the %s zone map: %d discs" % (z.mask, len(z)))
 
     def on_zones_toggle(self):
         self.repaint()
