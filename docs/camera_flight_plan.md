@@ -101,8 +101,8 @@ Collision needs no 32-bit height, so the bake is moving to RGBA8:
 `<map>_top.rgba` with **R = a kind key** for what the tallest thing at the
 texel is (0 terrain, 1 building, 2 fence / rail, 3 tree / bush, 4 rock,
 5 vehicle / prop, 6 water, 7 other - keyed by the folder the model came
-from), **G / A = a 16-bit height** at `height_scale` 64 per metre over
-`height_offset`, B spare; `<map>_floor.r16` beside it; the meta says
+from), **G / B = a 16-bit height** (G high, B low) at `height_scale` 64 per metre
+over `height_offset`, A = 255; `<map>_floor.r16` beside it; the meta says
 `format=rgba8` and names the keys as `kind_<n>=`. The nuTerra session writes
 it (the depth shaders emit the kind as colour from a per-draw key, so the
 depth test leaves the topmost kind); `flight_plan.Bake` and

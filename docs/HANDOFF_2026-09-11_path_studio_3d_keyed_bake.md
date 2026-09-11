@@ -107,7 +107,8 @@ its model came from, 8 kinds at most, one colour each.
 **The spec, agreed by message with `nuTerra work` (who writes it):**
 
 - `<map>_top.rgba`: raw RGBA8, row-major, row 0 = north. R = kind key, G =
-  height high byte, B spare, A = height low byte;
+  height high byte, **B = height low byte**, A = 255 (the writer chose G/B
+  over the spec's G/A; the file is the authority, the reader follows it);
   `height16 = round((y - height_offset) * height_scale)`.
 - `<map>_floor.r16`: raw uint16, same encoding.
 - meta adds `format=rgba8`, `height_scale=64`, `height_offset=<whole number
@@ -128,8 +129,12 @@ from the meta, legend bottom-left of the canvas. **VERIFIED** on a synthetic
 keyed bake re-encoded from the real 8192 monastery: heights back within
 0.008 m, kinds carried, mask and boxes coloured.
 
-**Open: the writer.** Until `nuTerra work` lands it, bakes are r32 and
-uncoloured. No reply from that session at the time of writing.
+**The writer landed** the same morning: `bc4e8f2c` (nuTerra work) - a
+colour attachment on the top pass, `sun_depth_model.frag` writing the kind
+from a per-draw key, `kind_of(path)` by folder substring, `read_kinds`,
+`write_top_rgba` / `write_floor_r16`, the meta keys. First real keyed bake
+of the monastery verified through the reader; colours on the mask and the
+boxes.
 
 ## 6. Talking to the other session
 

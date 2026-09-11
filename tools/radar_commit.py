@@ -340,8 +340,8 @@ class Bake:
         """top, floor and kind, in either format the bake has been written in.
 
         rgba8 (meta says format=rgba8, 2026-09-11): <map>_top.rgba is raw
-        RGBA8 - R the kind key, G the height high byte, B spare, A the low
-        byte - and <map>_floor.r16 raw uint16; both decode as
+        RGBA8 - R the kind key, G the height high byte, B the low byte, A
+        255 - and <map>_floor.r16 raw uint16; both decode as
         y = height_offset + v / height_scale, 1.5 cm steps over a kilometre
         at scale 64. Collision does not need more. The kind keys are named
         in the meta as kind_<n>=<name>, and the KIND_NAMES here are the
@@ -356,8 +356,11 @@ class Bake:
             raw = np.fromfile(os.path.join(folder, map_name + "_top.rgba"),
                               dtype=np.uint8).reshape(self.h, self.w, 4)
             self.kind = raw[..., 0].copy()
+            # G is the high byte and B the low; A is 255 so the file still
+            # opens as a picture. (The spec said G/A - the writer chose G/B
+            # and the file on disk is the authority.)
             self.top = (off + (raw[..., 1].astype(np.uint32) * 256
-                               + raw[..., 3]) / scale).astype(np.float32)
+                               + raw[..., 2]) / scale).astype(np.float32)
             del raw
             f16 = np.fromfile(os.path.join(folder, map_name + "_floor.r16"),
                               dtype="<u2").reshape(self.h, self.w)
