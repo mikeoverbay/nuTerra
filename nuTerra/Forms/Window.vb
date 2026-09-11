@@ -1903,8 +1903,60 @@ try_again:
                     End If
                 End If
                 If ImGui.CollapsingHeader("Section Visibility") Then
-                    ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
-                    ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
+                    ' Ordered by what gets toggled most: the scene's layers,
+                    ' big to small, each with its own tuning directly under
+                    ' it; then the switches over the lights; then the debug
+                    ' aids. Nothing here loads or unloads - every box is a
+                    ' draw gate.
+                    ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
+                    ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
+                    ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
+                    ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
+                    ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
+                    ' Multiplier on the authored water-fog density (BWWa
+                    ' +0x70): >1 = murkier sooner, <1 = clearer. Instant.
+                    ImGui.SliderFloat("Water fog x", WATER_FOG_MUL, 0.25F, 4.0F)
+                    ' Trim for the water plane, saved per map. The packages
+                    ' author exact heights, so anything nonzero here is taste.
+                    Dim v_wy = WATER_Y_OFFSET
+                    If ImGui.SliderFloat("Water height trim", v_wy, -2.0, 2.0) Then
+                        WATER_Y_OFFSET = v_wy
+                    End If
+                    ' Masks water off model surfaces this close under the plane
+                    ' - boat decks and hull interiors. Tune just deeper than
+                    ' the decks; too deep starts cutting water off submerged
+                    ' hull sides seen through the surface.
+                    Dim v_wx = WATER_EXCLUDE_BAND
+                    If ImGui.SliderFloat("Water exclude depth", v_wx, 0.0, 4.0) Then
+                        WATER_EXCLUDE_BAND = v_wx
+                    End If
+                    ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
+                    ' A/B lever: re-bakes the outland albedo on toggle (fast,
+                    ' a few fullscreen passes) so the seam tint can be judged
+                    ' live against the playfield.
+                    If ImGui.Checkbox("Outland global tint", OUTLAND_GLOBAL_TINT) Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.OUTLAND_LOADED Then
+                            map_scene.terrain.bake_outland_albedo()
+                        End If
+                    End If
+                    ' Residual global at range (the seam is always 100%).
+                    ' Re-bake on release so dragging is not a bake storm.
+                    ImGui.SliderFloat("Global at range", OUTLAND_GLOBAL_BASE, 0.0F, 1.0F)
+                    If ImGui.IsItemDeactivatedAfterEdit() Then
+                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.OUTLAND_LOADED Then
+                            map_scene.terrain.bake_outland_albedo()
+                        End If
+                    End If
+                    ' The noise_texture candidate as detailAlbedoSml - applies
+                    ' at draw, so both of these are instant.
+                    ImGui.Checkbox("Outland detail (test)", OUTLAND_USE_DETAIL)
+                    ImGui.SliderFloat("Detail repeats", OUTLAND_DETAIL_TILES, 1.0F, 256.0F)
+                    ' Per-pixel shine/metal from the cascade NM's R/B against
+                    ' the constant path - instant A/B.
+                    ImGui.Checkbox("Outland PBR from NM", OUTLAND_PBR_NM)
+                    ' Specular intensity of the constant path - dial the sun
+                    ' response until the sheet matches the field. Instant.
+                    ImGui.SliderFloat("Outland spec", OUTLAND_SPEC, 0.0F, 0.6F)
                     ImGui.Checkbox("Draw decals", DONT_BLOCK_DECALS)
                     ' shown inverted: ticking it turns fading off, so the box sits
                     ' unchecked in the normal case
@@ -1912,39 +1964,7 @@ try_again:
                     If ImGui.Checkbox("Disable decal edge fade", no_edge_fade) Then
                         DECAL_EDGE_FADE = Not no_edge_fade
                     End If
-                    ' from: bulbs on models, and the cam path's own. Nothing unloads.
-                    ' Both are switches over the LIGHTS, split by where they come
-                    ImGui.Checkbox("Street lights", STREET_LIGHTS_ON)
-                    If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("The BULB lights - one per instance of every" & vbLf &
-                                         "model a bulb is placed on." & vbLf &
-                                         "Pools and shafts together; they come from one" & vbLf &
-                                         "list so they cannot disagree." & vbLf &
-                                         "Nothing is unloaded and no cube is re-baked.")
-                    End If
-                    ImGui.Checkbox("Path lights", PATH_LIGHTS_ON)
-                    If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("The .campath file's own lights, placed in" & vbLf &
-                                         "Path Studio - NOT the bulbs." & vbLf &
-                                         "These are the ones the shadow cubes are baked" & vbLf &
-                                         "for. Same deal: left out of the upload, not" & vbLf &
-                                         "destroyed.")
-                    End If
-                    ImGui.Separator()
-                    ImGui.Checkbox("Look-at cube", DEBUG_CUBE_ON)
-                    If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("The environment cubemap as a 1 m box," & vbLf &
-                                         "standing on whatever you are looking at." & vbLf &
-                                         "Each face shows the matching face of the" & vbLf &
-                                         "cube, so a mirrored env map is something" & vbLf &
-                                         "you can SEE instead of infer." & vbLf &
-                                         "Edges name the axes: red X, green Y," & vbLf &
-                                         "blue Z, bright for positive." & vbLf &
-                                         "It is drawn in the deferred pass and is" & vbLf &
-                                         "occluded by the scene like anything else.")
-                    End If
-                    ImGui.Separator()
-                    ImGui.Checkbox("Draw models", DONT_BLOCK_MODELS)
+                    ImGui.Checkbox("Draw bases", DONT_BLOCK_BASES)
                     ' The whole FX pass, meshes and cards together, which is how
                     ' modRender brackets them. Independent of DONT_BLOCK_MODELS -
                     ' hiding the models leaves the fire and smoke drawing. It does
@@ -2016,6 +2036,27 @@ try_again:
                         ' deliberately gone. This is on/off only.
                         ImGui.Checkbox("   Glow", FX_GLOW)
                     End If
+                    ImGui.Separator()
+                    ' Both are switches over the LIGHTS, split by where they come
+                    ' from: bulbs on models, and the cam path's own. Nothing unloads.
+                    ImGui.Checkbox("Street lights", STREET_LIGHTS_ON)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The BULB lights - one per instance of every" & vbLf &
+                                         "model a bulb is placed on." & vbLf &
+                                         "Pools and shafts together; they come from one" & vbLf &
+                                         "list so they cannot disagree." & vbLf &
+                                         "Nothing is unloaded and no cube is re-baked.")
+                    End If
+                    ImGui.Checkbox("Path lights", PATH_LIGHTS_ON)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The .campath file's own lights, placed in" & vbLf &
+                                         "Path Studio - NOT the bulbs." & vbLf &
+                                         "These are the ones the shadow cubes are baked" & vbLf &
+                                         "for. Same deal: left out of the upload, not" & vbLf &
+                                         "destroyed.")
+                    End If
+                    ImGui.Checkbox("SH ambient", USE_SH_AMBIENT)
+                    ImGui.Separator()
                     ' NOT under Draw FX, even though smoke is what it was found
                     ' for: it lives in the fog pass and dithers the whole frame,
                     ' so hiding it with the FX off would hide a control that is
@@ -2034,53 +2075,17 @@ try_again:
                                          "the whole pixel." & vbLf &
                                          "0 = off. 1 LSB is the textbook amount.")
                     End If
-                    ImGui.Checkbox("Draw sky", DONT_BLOCK_SKY)
-                    ImGui.Checkbox("Draw terrain", DONT_BLOCK_TERRAIN)
-                    ImGui.Checkbox("Draw Outland", DONT_BLOCK_OUTLAND)
-                    ' A/B lever: re-bakes the outland albedo on toggle (fast,
-                    ' a few fullscreen passes) so the seam tint can be judged
-                    ' live against the playfield.
-                    If ImGui.Checkbox("Outland global tint", OUTLAND_GLOBAL_TINT) Then
-                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.OUTLAND_LOADED Then
-                            map_scene.terrain.bake_outland_albedo()
-                        End If
-                    End If
-                    ' Residual global at range (the seam is always 100%).
-                    ' Re-bake on release so dragging is not a bake storm.
-                    ImGui.SliderFloat("Global at range", OUTLAND_GLOBAL_BASE, 0.0F, 1.0F)
-                    If ImGui.IsItemDeactivatedAfterEdit() Then
-                        If MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso map_scene.OUTLAND_LOADED Then
-                            map_scene.terrain.bake_outland_albedo()
-                        End If
-                    End If
-                    ' The noise_texture candidate as detailAlbedoSml - applies
-                    ' at draw, so both of these are instant.
-                    ImGui.Checkbox("Outland detail (test)", OUTLAND_USE_DETAIL)
-                    ImGui.SliderFloat("Detail repeats", OUTLAND_DETAIL_TILES, 1.0F, 256.0F)
-                    ' Per-pixel shine/metal from the cascade NM's R/B against
-                    ' the constant path - instant A/B.
-                    ImGui.Checkbox("Outland PBR from NM", OUTLAND_PBR_NM)
-                    ' Specular intensity of the constant path - dial the sun
-                    ' response until the sheet matches the field. Instant.
-                    ImGui.SliderFloat("Outland spec", OUTLAND_SPEC, 0.0F, 0.6F)
-                    ImGui.Checkbox("Draw trees", DONT_BLOCK_TREES)
-                    ImGui.Checkbox("Draw water", DONT_BLOCK_WATER)
-                    ' Multiplier on the authored water-fog density (BWWa
-                    ' +0x70): >1 = murkier sooner, <1 = clearer. Instant.
-                    ImGui.SliderFloat("Water fog x", WATER_FOG_MUL, 0.25F, 4.0F)
-                    ' Trim for the water plane, saved per map. The packages
-                    ' author exact heights, so anything nonzero here is taste.
-                    Dim v_wy = WATER_Y_OFFSET
-                    If ImGui.SliderFloat("Water height trim", v_wy, -2.0, 2.0) Then
-                        WATER_Y_OFFSET = v_wy
-                    End If
-                    ' Masks water off model surfaces this close under the plane
-                    ' - boat decks and hull interiors. Tune just deeper than
-                    ' the decks; too deep starts cutting water off submerged
-                    ' hull sides seen through the surface.
-                    Dim v_wx = WATER_EXCLUDE_BAND
-                    If ImGui.SliderFloat("Water exclude depth", v_wx, 0.0, 4.0) Then
-                        WATER_EXCLUDE_BAND = v_wx
+                    ImGui.Checkbox("Look-at cube", DEBUG_CUBE_ON)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("The environment cubemap as a 1 m box," & vbLf &
+                                         "standing on whatever you are looking at." & vbLf &
+                                         "Each face shows the matching face of the" & vbLf &
+                                         "cube, so a mirrored env map is something" & vbLf &
+                                         "you can SEE instead of infer." & vbLf &
+                                         "Edges name the axes: red X, green Y," & vbLf &
+                                         "blue Z, bright for positive." & vbLf &
+                                         "It is drawn in the deferred pass and is" & vbLf &
+                                         "occluded by the scene like anything else.")
                     End If
                 End If
                 If ImGui.CollapsingHeader("Pick Models") Then
