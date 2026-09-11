@@ -240,5 +240,14 @@ the outland exempt. Roses and the grapevine DO write a trunk (woody stems);
 ivy and wild bushes do not. The camera planner keeps the canopy; the trunk
 and outland bits are unused by it so far.
 
+Measured on the monastery, full res 8192: outland 1,988,780 texels (2.96%),
+trunk 61,455 (0.0916%), both 79. Through the 2048 block-any downsample:
+outland 2.99% (one solid mass, barely moves) but trunk 0.30% - 3.3x, because
+a trunk is a ~5 texel dot and block-any at 68 cm turns a 0.27 m radius into a
+0.68 m cell. That is the safe direction for a planner. If trunk clearance is
+ever tuned, tune it against the 8192 figure and let block-any BE the margin;
+do not stack a second one on top and then wonder why a genuinely open gap
+between two trees will not thread.
+
 The kind gate (`81f065cb`): `KIND_MIN_H = {tree: 3.0}` - a tree under 3 m
 is a bush and is flown over; the mask draws it as low grey.
