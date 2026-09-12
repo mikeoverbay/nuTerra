@@ -1817,3 +1817,106 @@ def theta_route(g, start, goal, cell_m=1.37):
                     gsc[nb], parent[nb] = ng, pc
                     heapq.heappush(open_h, (ng + dist(nb, t), nb))
     return None
+
+
+# ==========================================================================
+# WHICH OBSTACLES DID THIS ROUTE PASS? - the homotopy signature
+# ==========================================================================
+#
+# The owner: "we need a test to find out when a path was a winner so we can
+# stop trying it over and over. Make a list of all objects hit in the path."
+#
+# That is the right test and it has a name. Two routes are the SAME ROUTE in
+# any sense that matters if they pass the same obstacles on the same sides -
+# they are homotopic, deformable into one another without crossing anything.
+# Everything else is two spellings of one road.
+#
+# What it replaces: too_close(), which asks whether two polylines stay within
+# REJECT_M of each other. That is a proxy and it is wrong in both directions.
+# Two genuinely different ways round a building merge if the building is
+# narrow; one road and the same road shifted fifty-six metres count as two.
+#
+# Measured on 19_monastery, hull-grown obstacles: 1,853 connected components,
+# 98 of them over 100 m2. All eight catalogue routes come out with UNIQUE
+# object sets and pairwise Jaccard similarity of 0.01 to 0.14 - the closest
+# pair being the 1,417 m and 1,521 m routes, which really are near neighbours.
+#
+# THE LIMIT, and it is why the owner is right that render ids would be better:
+# a connected component is not an object. A wall that touches a building is
+# one component, and monastery's largest single component is 29% of all solid
+# ground - the cliff band - so it appears in nearly every signature and
+# carries almost no information. Real per-object ids from the bake would split
+# that blob into the models it is actually made of. Until then, components are
+# what the geometry alone can tell us, and they already work.
+
+SIG_RADIUS_M = 8.0          # how far either side of the path counts as "passed"
+
+
+def object_map(g):
+    """Distinct obstacles, labelled. Cached on the grid."""
+    if "objects" not in g:
+        from scipy.ndimage import label
+        lab, n = label(g["collide_hull"])
+        g["objects"] = (lab, n)
+    return g["objects"]
+
+
+def path_signature(g, path, radius_m=SIG_RADIUS_M, sided=True):
+    """The set of obstacles this route passed, and which side it passed them.
+
+    Sided by default. Without the side, going clockwise round a building and
+    going anticlockwise round the same building are one signature - and those
+    are the two most obviously different routes there are.
+
+    The side is the sign of the cross product between the direction of travel
+    and the bearing to the obstacle's nearest texel: +1 it went by on the left,
+    -1 on the right. An obstacle passed on both sides (the route went round it)
+    records both, which is itself the correct answer.
+    """
+    lab, _n = object_map(g)
+    W = g["W"]
+    rad = int(radius_m / g["texel_m"])
+    out = set()
+    for k in range(len(path) - 1):
+        ax, az = path[k]
+        bx, bz = path[k + 1]
+        L = np.hypot(bx - ax, bz - az)
+        if L < 1e-9:
+            continue
+        ux, uz = (bx - ax) / L, (bz - az) / L
+        for j in range(max(1, int(L / 1.0)) + 1):
+            t = j / max(1, int(L / 1.0))
+            x, z = ax + (bx - ax) * t, az + (bz - az) * t
+            c, r = to_texel(g, x, z)
+            r0, r1 = max(0, r - rad), min(W, r + rad + 1)
+            c0, c1 = max(0, c - rad), min(W, c + rad + 1)
+            win = lab[r0:r1, c0:c1]
+            for oid in np.unique(win):
+                if oid == 0:
+                    continue
+                if not sided:
+                    out.add(int(oid))
+                    continue
+                # Nearest texel of that object inside the window decides the
+                # side. Cross product z-component of travel x bearing-to-object.
+                hits = np.argwhere(win == oid)
+                rr, cc = hits[0]
+                ox = g["wx0"] + (c0 + cc + 0.5) * g["texel_m"]
+                oz = g["wz1"] - (r0 + rr + 0.5) * g["texel_m"]
+                side = 1 if (ux * (oz - z) - uz * (ox - x)) > 0 else -1
+                out.add((int(oid), side))
+    return frozenset(out)
+
+
+def same_route(sig_a, sig_b, tol=0.6):
+    """Are these two the same road? Jaccard over the object sets.
+
+    Not equality: a route that clips one extra kerb is not a new route. The
+    threshold is what "same" means and it is the one number here worth tuning
+    against what the owner calls two routes when he looks at them.
+    """
+    if not sig_a or not sig_b:
+        return False
+    inter = len(sig_a & sig_b)
+    union = len(sig_a | sig_b)
+    return union > 0 and (inter / union) >= tol
