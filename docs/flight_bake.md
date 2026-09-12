@@ -1,4 +1,4 @@
-# The flight bake
+﻿# The flight bake
 
 A top-down snapshot of a whole map: for every 0.17 m of ground, what is the
 highest thing standing there, how high it is, what kind of thing it is, and where
@@ -440,6 +440,59 @@ nothing in the app consumes it.
 property of a plant: 136 monastery olives with a linden within 7 m read 9.8 m,
 while the 828 standing alone read 4.8 m. Use the trunk bit for "does it stop a
 hull", never the height.
+
+## Crushability, and the two things known about it
+
+Not in the bake. Recorded here because it was measured, the owner has settled the
+question it hung on, and the sessions that found it are stopped - so this is where
+whoever picks it up will look.
+
+**`<identifier>` is per PRIMITIVE GROUP** and carries a prefix: `s_` structure,
+`d_` destructible, `n_` non-destructible. `d_` is not a separate destroyed model -
+`d_` and `n_` parts sit in the same file at the same LOD
+(`hd_bld_AM_025_HousesShanty_01` lod1 is 14 `d_` against 24 `n_`: one shed, its
+planks destructible and its frame not).
+
+What makes it trustworthy is the collision hull. Across 526 havok proxies, 510
+are `s_`, 52 are `n_`, and **exactly one** is `d_`. A destructible part is in the
+render mesh and absent from the collision hull, so the game has already decided
+and this would only read the decision back.
+
+It is cheap to carry. The engine already reads the identifier -
+`cBSMA.MaterialItem(k).identifier_fnv` out of space.bin with a string resolver,
+and lookup by `material_id` is a live path. The bake's per-draw key array is
+built per primitive group and each group carries exactly one `material_id`, which
+is the granularity the identifier lives at - so a crush bit is one more bit OR'd
+into the byte already being built, beside `outland_bit`. Free bits are **0x08**
+and **0x40**.
+
+**THE BASE IS CRUSHABLE, AND THE IDENTIFIER DOES NOT SAY SO.** The owner settled
+it: "bases are crushable". `hd_bld_UNI_000_Base` is `n_wood0_1..5` and `s_wall_0`
+with no `d_` part at all, so a rule reading only the prefix calls it solid and is
+wrong. Either the drivable thing is the capture circle rather than this model, or
+the asset is an exception the identifier scheme does not describe. Nobody has
+separated those two, and until someone does, **a crush rule needs the base as a
+known exception rather than a counter-example that quietly discredits the
+scheme.**
+
+**`s_ramp` is the bigger finding and it is not about crushing.** 159 building
+parts and 184 environment parts - **343** - are named `s_ramp_N`. That is geometry
+the game considers DRIVABLE, and in this bake it is indistinguishable from a
+wall: it raises top over floor and keys as an obstacle like anything else. That
+is the bake calling drivable geometry solid, at scale, and it is worth more than
+the colour coding that turned it up.
+
+**One link is unverified and nothing should be built on it first.** All of the
+above comes from scanning the FILES offline. Whether the identifier strings in
+`cBSMA` at RUNTIME carry the same `d_`/`n_`/`s_` prefixes has not been checked -
+BSMA is the map's own material table, a different source that ought to agree. A
+one-line probe printing `cBSMA.MaterialItem(id).identifier` for a few building
+draws settles it. Two sources that ought to agree is the shape that has been
+wrong three times in one day; see "checking a loaded bake".
+
+**And agree the bit's name and value with the readers before spending one.**
+`solid_bit` was agreed with one meaning and shipped with another while the value
+stayed 32, and nothing in any file looked wrong to either side.
 
 ## Tools
 
