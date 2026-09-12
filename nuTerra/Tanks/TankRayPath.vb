@@ -302,8 +302,18 @@ Public Class TankRayPath
                 label, paths.Count, rays_cast,
                 (Date.UtcNow - t0).TotalMilliseconds, why_stopped)
         For i = 0 To paths.Count - 1
-            LogThis("tank rays:   {0}: {1} turn(s), {2:0} m",
-                    i, paths(i).Count - 2, PathLen(paths(i)))
+            ' THE GAP, NOT THE CLEARANCE. Clearance is the distance to the
+            ' nearest blocked cell - HALF the width of the gap you are standing
+            ' in. Reporting one as the other halves every width in the log,
+            ' which is exactly the sort of quiet factor of two that gets
+            ' designed around.
+            Dim tight = 0.0F
+            Dim tight_at As Vector2 = Nothing
+            Dim narrow = 0
+            GapAlong(nav, paths(i), tight, tight_at, narrow)
+            LogThis("tank rays:   {0}: {1} turn(s), {2:0} m, tightest gap {3:0.0} m at ({4:0}, {5:0}), {6} sample(s) under 3 m",
+                    i, paths(i).Count - 2, PathLen(paths(i)),
+                    tight, tight_at.X, tight_at.Y, narrow)
         Next
     End Sub
 
@@ -425,13 +435,31 @@ Public Class TankRayPath
         Dim len = d.Length
         If len < 1.0E-4F Then Return True
         Dim dir = d / len
-        Dim step_m = nav.cell_m * STEP_FRAC
+
+        ' STRICTER THAN THE SEARCH IT IS SMOOTHING, and finer.
+        '
+        ' The rays validated their own path cell by cell. A smoothing pass that
+        ' samples a NEW straight line at its own step size can clip the corner
+        ' of a cell neither the old path nor this sampling happened to land on -
+        ' and it will always be by a fraction of a cell, which is the size of
+        ' error nobody goes looking for.
+        '
+        ' Measured before this: the tightest gap on a finished path came out
+        ' 8.5 m, where a 4.5 m hull radius needs 9.0 and the search accepts
+        ' nothing under it. The rays found a valid path and the smoothing made
+        ' it marginally invalid.
+        '
+        ' So the pull asks for half a cell MORE room than the hull needs and
+        ' steps at a quarter cell rather than a half. A smoother may refuse a
+        ' corner it could have taken; it may never approve one it could not.
+        Dim need = hull_r_m + nav.cell_m * 0.5F
+        Dim step_m = nav.cell_m * 0.25F
         Dim t = 0.0F
         While t < len
-            If Not Standable(nav, hull_r_m, a + dir * t) Then Return False
+            If Not Standable(nav, need, a + dir * t) Then Return False
             t += step_m
         End While
-        Return Standable(nav, hull_r_m, b)
+        Return Standable(nav, need, b)
     End Function
 
     ''' <summary>The turning points from the start to this node.</summary>
@@ -446,6 +474,48 @@ Public Class TankRayPath
         out.Reverse()
         Return out
     End Function
+
+    ''' <summary>
+    ''' Walk a path and report the narrowest GAP on it, where it is, and how
+    ''' many samples are under three metres.
+    '''
+    ''' Gap is twice the clearance: clearance measures to the nearest blocked
+    ''' cell, so a hull standing in a corridor has walls that distance away on
+    ''' BOTH sides. Three metres is the number the owner asked to count - under
+    ''' it nothing on this map drives through, so a path that reports any is a
+    ''' path the grid believes in and the ground does not.
+    ''' </summary>
+    Private Shared Sub GapAlong(nav As TankNav, p As List(Of Vector2),
+                                ByRef tightest As Single,
+                                ByRef where As Vector2,
+                                ByRef under3 As Integer)
+        tightest = Single.MaxValue
+        under3 = 0
+        where = New Vector2(0.0F, 0.0F)
+        Dim step_m = nav.cell_m * STEP_FRAC
+        For i = 1 To p.Count - 1
+            Dim d = p(i) - p(i - 1)
+            Dim len = d.Length
+            If len < 1.0E-4F Then Continue For
+            Dim dir = d / len
+            Dim t = 0.0F
+            While t <= len
+                Dim q = p(i - 1) + dir * t
+                Dim cx, cz As Integer
+                nav.CellOf(q.X, q.Y, cx, cz)
+                If nav.InBounds(cx, cz) Then
+                    Dim gap = nav.clear_m(cz * TankNav.SIZE + cx) * 2.0F
+                    If gap < tightest Then
+                        tightest = gap
+                        where = q
+                    End If
+                    If gap < 3.0F Then under3 += 1
+                End If
+                t += step_m
+            End While
+        Next
+        If tightest = Single.MaxValue Then tightest = 0.0F
+    End Sub
 
     Private Shared Function PathLen(p As List(Of Vector2)) As Single
         Dim d = 0.0F
