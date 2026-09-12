@@ -294,7 +294,7 @@ is an upper bound of unknown tightness, and the only way to a real number is
 the CRUSH_BIT itself. That is an honest argument for building it cheaply and
 measuring after, not for measuring harder first.
 
-## The ask, restated: one lookup, one 2-bit field — not two bits
+## The ask, restated: one lookup, one masked field — not two bits
 
 Two corrections to what I asked for, both from the engine session, both right.
 
@@ -316,31 +316,60 @@ each bit set, over every bake on this machine:
 
 `0x08` and `0x40` are genuinely unused, and there are exactly two of them.
 
-### So spend them as a field, not as two flags
+### So spend them as one masked field with named constants
 
-Two independent booleans would consume the whole remaining byte and leave
-nothing, while wasting the one combination that cannot occur. A texel's key
-comes from ONE primitive group with ONE material and therefore ONE identifier,
-so destructible and ramp are mutually exclusive by construction — "both set"
-is unreachable.
+**Corrected.** An earlier version of this section argued that two independent
+booleans "would consume the whole remaining byte and leave nothing, while a
+field costs the same and keeps a spare". That is wrong arithmetic: two
+booleans and a two-valued field both use bits 3 and 6 and leave the byte
+equally full. The bit cost is identical. Caught by the engine session, and
+worth leaving visible - a right design arriving with a wrong justification is
+how a reviewer talks themselves out of it.
 
-A 2-bit field in `0x48` spends the same two bits and keeps a spare value:
+What the field actually buys is smaller, and still worth having:
 
-    00   unstated   - no identifier, or a prefix we do not model.  MOST PARTS.
-    01   d_         - destructible: in the render mesh, absent from the hull
-    10   s_ramp     - drivable geometry the planner currently treats as wall
-    11   reserved
+* a **third mutually exclusive category for no extra bit**, held in reserve
+* **`unstated` as a value rather than an absence**
 
-`00` being explicit matters more than it looks: plenty of visuals carry no
-identifier at all, and missing is not the same as non-destructible. Two loose
-flags would encode that as "neither", which reads identically to "both
-answered no".
+The second is the one to defend. Plenty of visuals carry no identifier at all,
+and missing is not the same as answered-no; two loose flags encode both as
+"neither" and no reader can tell them apart. That is the same failure class as
+StreetLamp-as-tree - not a wrong value, an unstated one that reads as a stated
+one.
 
-If the field is ever full, the next flag costs a second byte or another layer —
-a contract change, not a bit. Worth knowing before anyone spends `11`.
+Mutual exclusivity holds by construction, checked rather than assumed: the key
+comes from the fragment that won the depth test - one draw, one primitive
+group, one material, one identifier - and the later passes that OR into the
+byte only set the trunk bit or rewrite the kind, so neither can manufacture a
+combination.
+
+**And it must NOT be specified as a shiftable 2-bit field, because `0x08` and
+`0x40` are not adjacent.** Writing it as values 00/01/10/11 invites
+`((R & 0x08) >> 3) | ((R & 0x40) >> 5)`, which will be written correctly once
+and copied wrong forever. A mask and three constants instead:
+
+    crush_mask      = 0x48
+    crush_unstated  = 0x00
+    crush_destruct  = 0x08      d_       destructible
+    crush_ramp      = 0x40      s_ramp   drivable, currently read as wall
+    (0x48           = reserved, a future third category)
+
+Test `R & crush_mask` against a constant. Nobody shifts, non-adjacency stops
+mattering, and it reads like every other field in the meta. Readers on this
+side will be written that way from the start.
+
+After this the byte is finished. The next flag is a second byte or another
+layer - a contract change, not a bit - so the reserved value should not be
+spent casually.
+
+**One implementation trap, from the engine session's own scar:** `add_water`
+rewrites the kind on the CPU and preserves flags through an explicit OR mask.
+`SOLID_BIT` had to be added to that mask or it silently dropped the bit on
+148,370 monastery texels. Whatever this field ends up called has to go in the
+same mask, and nothing will look wrong if it does not.
 
 Name and values to be agreed with nuTerra Work in writing and declared in
-`<map>_meta.txt`. Nothing here is hardcoded on this side.
+`<map>_meta.txt`. Nothing is hardcoded on this side.
 
 ### A map worth keeping for rule checks
 
