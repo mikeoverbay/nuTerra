@@ -102,7 +102,6 @@ Public Class MapTanks
     ''' </summary>
     Private Sub Load()
         loaded = True
-        TagWindowWithCheckout()
         Try
             shader = New Shader("tank_gbuffer")
 
@@ -1424,66 +1423,6 @@ Public Class MapTanks
                     (Date.UtcNow - t0).TotalMilliseconds)
         Catch ex As Exception
             LogThis("tank routes: hot rebuild failed - {0}", ex.ToString())
-        End Try
-    End Sub
-
-    ''' <summary>
-    ''' Put the CHECKOUT this build came from in the window title.
-    '''
-    ''' Three sessions run three builds of this app on one desktop and the
-    ''' windows are identical, so the owner cannot tell whose he is looking at -
-    ''' which matters the moment one of them is showing him a route and another
-    ''' is not. His ask: "put the sessions name on the title bar of who ones
-    ''' it."
-    '''
-    ''' Taken from the folder the exe sits under rather than from any name typed
-    ''' anywhere: a build under a folder named nuTerra_tankai says so, one
-    ''' under nuTerra says that, and nobody has to remember to set a flag. A tag
-    ''' that can disagree with the build it labels is worse than none.
-    '''
-    ''' INTERIM, AND IN THE WRONG FILE. The window belongs to Window.vb and this
-    ''' serves all three sessions, not just the tanks - asked of the nuTerra
-    ''' session to be moved there and done properly, at startup rather than when
-    ''' vehicles happen to load.
-    ''' </summary>
-    Private Shared Sub TagWindowWithCheckout()
-        Try
-            If main_window Is Nothing Then Return
-            Dim d = New IO.DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory)
-            ' up out of bin/Debug/net8.0-windows, then out of nuTerra
-            For i = 1 To 4
-                If d.Parent Is Nothing Then Exit For
-                d = d.Parent
-            Next
-            ' owner=<text> WINS, and is read straight off the command line
-            ' rather than through Program.vb's parser - the arg list is there
-            ' for the asking and this needs nothing from anyone else's file.
-            ' Everything after the = is used verbatim, so owner="Tank AI" comes
-            ' through with its space.
-            Dim tag = d.Name
-
-            ' A NAME WITH A SPACE IN IT STILL ARRIVES AS ONE NAME. Unquoted,
-            ' owner=Tank AI reaches the process as two arguments and the tag
-            ' came out "Tank" - which is exactly the sort of thing nobody
-            ' notices until two windows are labelled the same. So everything
-            ' after owner= is taken, and so is every following argument that is
-            ' not itself a key=value, up to the next one that is.
-            Dim args = Environment.GetCommandLineArgs()
-            For i = 0 To args.Length - 1
-                If Not args(i).StartsWith("owner=", StringComparison.OrdinalIgnoreCase) Then Continue For
-                Dim t = args(i).Substring(6).Trim()
-                For j = i + 1 To args.Length - 1
-                    If args(j).Contains("=") Then Exit For
-                    t = (t & " " & args(j)).Trim()
-                Next
-                If t <> "" Then tag = t
-                Exit For
-            Next
-            If Not main_window.Title.Contains(tag) Then
-                main_window.Title = main_window.Title & "   [" & tag & "]"
-            End If
-        Catch
-            ' A window title is never worth an exception.
         End Try
     End Sub
 
