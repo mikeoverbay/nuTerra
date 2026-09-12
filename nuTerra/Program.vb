@@ -78,6 +78,19 @@ Module Program
                 If Integer.TryParse(a.Substring(3), on_off) Then
                     TANK_AI = (on_off <> 0)
                 End If
+            ElseIf a.Equals("film", StringComparison.OrdinalIgnoreCase) Then
+                ' Open the route resolver panel at startup. Mostly so the panel
+                ' can be looked at without hunting the button for it - including
+                ' by whoever is producing the frames, who needs to see their own
+                ' film land somewhere.
+                RouteFilm.show = True
+            ElseIf a.Equals("rebake", StringComparison.OrdinalIgnoreCase) Then
+                ' Ignore the saved flight bake and build it fresh. The bake is
+                ' kept between runs now, so this is how a run says the saved one
+                ' is not to be trusted - after changing what the bake DRAWS
+                ' without bumping BAKE_VERSION, which is the case no automatic
+                ' check can see.
+                FLIGHT_REBAKE = True
             ElseIf a.Equals("navdump", StringComparison.OrdinalIgnoreCase) Then
                 ' Write the tank navigation grid as a PNG when it is built.
                 TANK_NAV_DUMP = True

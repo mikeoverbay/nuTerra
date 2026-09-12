@@ -1228,6 +1228,20 @@ Module modGlobalVars
     ''' </summary>
     Public SHOW_TANK_RAYS As Boolean = True
 
+    ''' <summary>
+    ''' Throw away the saved flight bake and build it again.
+    '''
+    ''' Set by `rebake` on the command line, or by the panel button, which then
+    ''' reloads the map - the bake runs inside load_map and its render target is
+    ''' created once, so going round the existing load path rebuilds everything
+    ''' safely rather than making the bake re-entrant for one button.
+    '''
+    ''' Stays set for the run. A session that asked for a fresh bake once wants a
+    ''' fresh one for every map it opens after, and the log says on every load
+    ''' that the rebuild was forced.
+    ''' </summary>
+    Public FLIGHT_REBAKE As Boolean = False
+
     Public TANK_AIM As Boolean = False
 
     ''' <summary>

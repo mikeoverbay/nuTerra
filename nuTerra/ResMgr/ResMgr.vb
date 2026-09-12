@@ -3,7 +3,11 @@ Imports System.Xml
 Imports System.IO.Compression
 
 NotInheritable Class ResMgr
-    Shared RES_MODS_PATH As String
+    ''' <summary>The res_mods folder the game itself is using, so its last
+    ''' segment is the live game version - "2.4.0.0". Friend rather than
+    ''' private because the flight bake stamps that version into a saved bake
+    ''' and refuses one built against a different release.</summary>
+    Friend Shared RES_MODS_PATH As String
 
     ''' <summary>
     ''' Every file under res_mods, catalogued once at startup.
