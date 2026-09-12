@@ -91,7 +91,14 @@ Public Class TankRoutes
     ''' a hull length: enough that the next search can still leave the start and
     ''' reach the goal, not so much that it leaves a free stub every search
     ''' reuses.</summary>
-    Private Const END_GUARD_M As Single = 12.0F
+    ''' RAISED FROM 12 m. Every route has to leave the same base and reach the
+    ''' same flag, so the ground immediately around each is common to all of
+    ''' them and must never be eaten. At 12 m, with an erase up to 24 m across,
+    ''' two routes were enough to wall a base in - and the next gate search
+    ''' then reported "no path" for a map with 213,000 cells still passable.
+    ''' The Python resolver needed 45 m for exactly this and found eight routes
+    ''' where this found two.
+    Private Const END_GUARD_M As Single = 45.0F
 
     ''' <summary>
     ''' How much wider than the hull a segment's corridor must be before the
@@ -176,7 +183,19 @@ Public Class TankRoutes
     ''' <summary>Expansions one search may spend before it admits its lane is
     ''' empty. Generous against a real crossing - the direct route takes about
     ''' 17,000 - and brutal against a flood.</summary>
-    Public Const EXPAND_CAP As Integer = 45000
+    ''' RAISED FROM 45,000, which was strangling this. 19_monastery's arena is
+    ''' 518,400 cells and a base-to-base crossing is 785 m of cluttered ground;
+    ''' 45,000 expansions is 8.7% of the map and nearly every search was hitting
+    ''' it. The catalogue's 466,229 total was ten searches each giving up at the
+    ''' cap, and because a capped search returned the same Nothing as a failed
+    ''' one, the terminator read a budget as a proof and stopped at ONE route
+    ''' where the same bake yields eight.
+    '''
+    ''' A cap is still wanted - proving a negative by flooding is what it exists
+    ''' to stop - but it has to be larger than an honest search of this map, not
+    ''' smaller. One whole arena of expansions is the natural ceiling: a search
+    ''' that has looked at every passable cell has finished, capped or not.
+    Public Const EXPAND_CAP As Integer = 600000
 
     ' ===================================================== the resolver's eye
     '
@@ -230,6 +249,18 @@ Public Class TankRoutes
     ''' it looked - and the number that says whether it is searching or
     ''' flooding.</summary>
     Public Shared last_expanded As Integer = 0
+
+    ''' <summary>
+    ''' Did the last search RUN OUT OF BUDGET, or genuinely find no way?
+    '''
+    ''' They returned the same Nothing, and the catalogue read both as "no
+    ''' path" - so the owner's terminator ("when we cant find a way there, we
+    ''' are done") was firing on an expansion cap rather than on the map. On
+    ''' 19_monastery that cost SEVEN of the eight routes the same bake yields
+    ''' to a resolver without a cap. A budget and a proof are not the same
+    ''' answer and must never share a return value.
+    ''' </summary>
+    Public Shared capped As Boolean = False
 
     ''' <summary>Expansions across every search in one Build.</summary>
     Public total_expanded As Integer = 0
@@ -330,25 +361,47 @@ Public Class TankRoutes
                              0.0F, perpx, perpz, midx, midz)
             total_expanded += last_expanded
             If gate Is Nothing Then
-                why_stopped = "no path"
+                ' THE DIFFERENCE THAT MATTERS. A gate that ran out of budget
+                ' has proved nothing at all; a gate that exhausted the open set
+                ' has proved the flag unreachable. Reporting both as "no path"
+                ' made a budget look like a map.
+                why_stopped = If(capped,
+                                 "the gate search hit its expansion cap - NOT a proof",
+                                 "no path")
                 Exit Do
             End If
 
-            For li = 0 To LANES - 1
+            ' li = -1 IS THE GATE'S OWN ROUTE, AND IT USED TO BE THROWN AWAY.
+            '
+            ' The gate above runs an UNBIASED search to ask whether the flag is
+            ' reachable at all - and an unbiased search returns the SHORTEST
+            ' route through what is left. That answer was being discarded and
+            ' the sweep then started at the leftmost lane, so the catalogue
+            ' never contained the direct way: every route on monastery came
+            ' back at lane 141 m or 106 m and the shortest was 1085 m against
+            ' the 812 m the same bake gives a resolver that just takes the
+            ' short way first. We paid for the best route every sweep and then
+            ' binned it.
+            '
+            ' Rule one is "seek base". The straight answer goes in first, then
+            ' the sweep hunts the ways round it.
+            For li = -1 To LANES - 1
             ' LEFT FIRST, then across to the right - the owner's method. The
             ' lane tells the search where to LOOK, so each pass hunts its own
             ' corridor instead of taking what the last erase happened to leave.
             ' LANES = 1 is a legal thing to ask for - it means "no sweep,
             ' just search" - and dividing by LANES - 1 made it NaN, which read
             ' as zero routes rather than as the bug it was.
-            Dim lane = If(LANES <= 1, 0.0F,
-                          half - 2.0F * half * CSng(li) / CSng(LANES - 1))
+            Dim lane = If(li < 0, 0.0F,
+                          If(LANES <= 1, 0.0F,
+                             half - 2.0F * half * CSng(li) / CSng(LANES - 1)))
 
             Dim ta = Date.UtcNow
-            Dim path = AStar(nav, hull_r_m, eaten, start, goal, N,
-                             lane, perpx, perpz, midx, midz)
+            Dim path = If(li < 0, gate,
+                          AStar(nav, hull_r_m, eaten, start, goal, N,
+                                lane, perpx, perpz, midx, midz))
             If routes.Count = 0 Then first_ms = (Date.UtcNow - ta).TotalMilliseconds
-            total_expanded += last_expanded
+            If li >= 0 Then total_expanded += last_expanded
             If path Is Nothing Then Continue For
             swept = True
 
@@ -417,6 +470,16 @@ Public Class TankRoutes
                 TraceFrame(nav, goal, start, goal, lane, N, New Integer() {}, 0,
                            String.Format("erased {0} cell(s) - next lane", killed))
             End If
+            ' WHAT THE ERASE ACTUALLY COST, because "no path" on the next
+            ' gate is either a map with no second way or an erase that took
+            ' the only one, and the two look identical from outside.
+            Dim left_open = 0
+            For q = 0 To N * N - 1
+                If Not eaten(q) AndAlso nav.clear_m(q) >= hull_r_m Then left_open += 1
+            Next
+            LogThis("tank routes:   erased {0:N0} cell(s) at lane {1:0} m; " &
+                    "{2:N0} cell(s) still passable for this hull",
+                    killed, lane, left_open)
             If killed = 0 Then
                 why_stopped = "erasing a route consumed nothing - it would repeat for ever"
                 Exit Do
@@ -819,6 +882,7 @@ Public Class TankRoutes
         Dim hc(1023) As Integer
         Dim hn = 0
         Dim expanded = 0
+        capped = False
         g(start) = 0.0F
         hf(0) = Oct(start Mod N, start \ N, gx, gz, cm) : hc(0) = start : hn = 1
 
@@ -867,6 +931,7 @@ Public Class TankRoutes
             ' Giving up cheaply is what makes sweeping NINE of them affordable.
             If expanded > EXPAND_CAP Then
                 last_expanded = expanded
+                capped = True
                 Return Nothing
             End If
 
