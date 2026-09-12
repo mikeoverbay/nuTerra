@@ -75,11 +75,6 @@ Public Class MapTanks
     ''' first time they load, then pinned by what actually stops them.</summary>
     Public ReadOnly nav As New TankNav
 
-    ''' <summary>The same free space as circles rather than cells. Downstream
-    ''' of the grid and useless without it, which is why it is built in the
-    ''' same breath - see TankZones for what it is for.</summary>
-    Public ReadOnly zones As New TankZones
-
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -114,86 +109,46 @@ Public Class MapTanks
                     MAP_NAME_NO_PATH & "_nav.png"))
             End If
 
-            ' THEN THE ZONES, which are a restatement of the grid and cannot be
-            ' built before it. Sized to the hull the driver actually uses, so a
-            ' disc that exists is a disc this vehicle fits inside - there is no
-            ' second radius anywhere that could disagree with HULL_R.
-            ' ITS OWN TRY, because the zone map is an ACCELERATION and not a
-            ' requirement. The driver works from nav alone; zones only make it
-            ' cheaper. Letting a fault in here reach the outer handler cost the
-            ' whole vehicle load once already - thirty tanks silently absent
-            ' behind one "tank: load failed" line - which is far too much to
-            ' pay for an optimisation that had not been asked for yet.
+            ' THEN THE CATALOGUE. Its own Try: the routes are a
+            ' convenience and the driver works from nav alone, so a fault here
+            ' must never take the vehicle load down with it. It did once -
+            ' thirty tanks silently absent behind one "tank: load failed" line -
+            ' which is far too much to pay for something nobody had asked for
+            ' yet.
             Try
-                zones.Build(nav, TankDriveTune.HULL_R, MAP_NAME_NO_PATH)
-                ' The CSV is written every load, not only under navdump: it is
-                ' what the Path Studio planners read, and a data product that
-                ' only appears behind a debug switch is one that is missing
-                ' exactly when someone depends on it. The PNG stays gated - it
-                ' is for eyeballs.
-                zones.WriteCsv()
-                If zones.ready AndAlso TANK_NAV_DUMP Then
-                    zones.Dump()
-
-                    ' THE ACTUAL RACE: each side's route to the OTHER side's
-                    ' base, catalogued once.
+                If map_scene.BASE_RINGS_LOADED Then
+                    ' TEAM_1 / TEAM_2 are the ctf base centres, stored RAW:
+                    ' negate X, take Z straight, the same conversion the spawn
+                    ' placement does above with -spawns(k).X / spawns(k).Z.
                     '
-                    ' TEAM_1 / TEAM_2 are the ctf base centres and are stored
-                    ' RAW - negate X, take Z straight, the same conversion the
-                    ' spawn placement does forty lines above with
-                    ' -spawns(k).X / spawns(k).Z. Y in the globals is always 0.
-                    '
-                    ' BASE_RINGS_LOADED, not TEAM_1 against zero: it is the
-                    ' return value of the function that fills them, so it is the
-                    ' honest flag, and the markers used to carry across map
-                    ' loads - a map with no ctf bases kept whatever the last one
-                    ' had. Tanks near a base is what tanks near a base looks
-                    ' like, so that never read as wrong on screen.
-                    If map_scene.BASE_RINGS_LOADED Then
-                        Dim b1x = -TEAM_1.X, b1z = TEAM_1.Z
-                        Dim b2x = -TEAM_2.X, b2z = TEAM_2.Z
+                    ' BASE_RINGS_LOADED, not TEAM_1 against zero - it is the
+                    ' return value of the function that fills them, and those
+                    ' markers used to carry across map loads, so a map with no
+                    ' ctf bases kept whatever the last one had.
+                    Dim b1x = -TEAM_1.X, b1z = TEAM_1.Z
+                    Dim b2x = -TEAM_2.X, b2z = TEAM_2.Z
 
-                        ' Logged in the world frame so it can be held against
-                        ' the arena line the loader prints. Two readings that
-                        ' disagree by exactly a sign are each internally
-                        ' consistent and only a shared number finds it.
-                        LogThis("tank routes: bases, world frame - team1 ({0:0.0}, {1:0.0}) team2 ({2:0.0}, {3:0.0})",
-                                b1x, b1z, b2x, b2z)
+                    ' Logged in the WORLD frame so it can be held against the
+                    ' arena line the loader prints. Two readings that disagree
+                    ' by exactly a sign are each internally consistent, and only
+                    ' a shared number finds it.
+                    LogThis("tank routes: bases, world frame - team1 ({0:0.0}, {1:0.0}) team2 ({2:0.0}, {3:0.0})",
+                            b1x, b1z, b2x, b2z)
 
-                        Dim cat1 As New TankRoutes
-                        cat1.Build(zones, b1x, b1z, b2x, b2z, "team 1 -> team 2 base")
-                        Dim cat2 As New TankRoutes
-                        cat2.Build(zones, b2x, b2z, b1x, b1z, "team 2 -> team 1 base")
-
-                        ' HEAD TO HEAD, because the owner's condition on the
-                        ' zone map is "if the discs do not aid AI or path
-                        ' creation, we can toss them" and that is answered with
-                        ' a number rather than an argument.
-                        '
-                        ' Built to lose fairly: the grid search uses the SAME
-                        ' clearance field, so a cell is passable iff it clears
-                        ' the hull - equivalent to CanStand at one read instead
-                        ' of fifty. The distance transform is worth having
-                        ' either way; only the DISCS are on trial.
-                        Dim gms As Double = 0
-                        Dim gexp As Integer = 0
-                        Dim glen = TankRoutes.GridAStar(zones, TankDriveTune.HULL_R,
-                                                        b1x, b1z, b2x, b2z, gms, gexp)
-                        LogThis("tank routes: HEAD TO HEAD, base to base, {0:0.0} m hull",
-                                TankDriveTune.HULL_R)
-                        LogThis("tank routes:   zone A*  {0,7:0.00} ms  {1,6:0} m  over {2} disc(s)",
-                                cat1.first_ms,
-                                If(cat1.routes.Count > 0, cat1.routes(0).length_m, -1.0F),
-                                zones.zones.Count)
-                        LogThis("tank routes:   grid A*  {0,7:0.00} ms  {1,6:0} m  {2} cell(s) expanded",
-                                gms, glen, gexp)
-                    Else
-                        LogThis("tank routes: this map declares no ctf bases - no catalogue")
-                    End If
+                    Dim cat1 As New TankRoutes
+                    cat1.Build(nav, TankDriveTune.HULL_R, b1x, b1z, b2x, b2z,
+                               "team 1 -> team 2 base")
+                    Dim cat2 As New TankRoutes
+                    cat2.Build(nav, TankDriveTune.HULL_R, b2x, b2z, b1x, b1z,
+                               "team 2 -> team 1 base")
+                Else
+                    LogThis("tank routes: this map declares no ctf bases - no catalogue")
                 End If
             Catch ex As Exception
-                LogThis("tank zones: build failed, carrying on without it - {0}", ex.ToString())
+                LogThis("tank routes: build failed, carrying on without it - {0}", ex.ToString())
             End Try
+
+
 
             ' THE ROSTER IS TIER 10, and it is taken from the package layout
             ' rather than from a list anyone typed. The game ships vehicle

@@ -76,6 +76,11 @@ Public Class TankNav
         BLOCKED Or STEEP Or OUTLAND Or TRUNK Or WATER Or PINNED Or OFFMAP
 
     Public ReadOnly cell(SIZE * SIZE - 1) As Byte
+
+    ''' <summary>Room at every cell in metres - the distance to the nearest
+    ''' impassable cell, pulled in half a cell. Zero where impassable. See
+    ''' BuildClearance.</summary>
+    Public clear_m() As Single
     Public ready As Boolean
 
     Private wx0, wx1, wz0, wz1 As Single
@@ -202,9 +207,95 @@ Public Class TankNav
             Next
         Next
 
+        BuildClearance()
+
         ready = True
         Load()
         report(CSng((Date.UtcNow - t0).TotalMilliseconds))
+    End Sub
+
+    ''' <summary>
+    ''' How much room every cell has: the distance to the nearest impassable
+    ''' cell, in metres.
+    '''
+    ''' THIS IS THE PART OF THE ZONE MAP THAT EARNED ITS KEEP. The discs built
+    ''' on top of it did not - measured, they cost 770 ms to save 33 ms of
+    ''' routing, and their per-step test was 9x faster while rejecting 44% of
+    ''' genuinely drivable ground - but the field itself is cheap and is what
+    ''' makes a route search fast: a cell is passable for a given hull iff its
+    ''' clearance clears the hull, which is one read where CanStand tests about
+    ''' fifty cells.
+    '''
+    ''' Felzenszwalb and Huttenlocher's exact transform - two separable passes
+    ''' of a 1D lower-envelope sweep, rows then columns, exact squared distance
+    ''' in O(cells). A chamfer approximation is a few percent out, and a few
+    ''' percent of a radius is the difference between a corridor a tank fits
+    ''' down and one it does not.
+    '''
+    ''' HALF A CELL BACK. The transform measures to the blocking cell's CENTRE
+    ''' and that cell is solid across its whole area, which starts half a cell
+    ''' nearer. The raw distance would call ground clear right up to the thing
+    ''' it was measured against.
+    ''' </summary>
+    Private Sub BuildClearance()
+        Const INF As Single = 1.0E+20F
+        Dim f(SIZE * SIZE - 1) As Single
+        For i = 0 To SIZE * SIZE - 1
+            f(i) = If((cell(i) And IMPASSABLE) <> 0, 0.0F, INF)
+        Next
+
+        Dim d(SIZE - 1) As Single, ft(SIZE - 1) As Single
+        Dim v(SIZE - 1) As Integer, zz(SIZE) As Single
+
+        For r = 0 To SIZE - 1
+            Dim o = r * SIZE
+            For c = 0 To SIZE - 1 : ft(c) = f(o + c) : Next
+            dt1d(ft, SIZE, d, v, zz)
+            For c = 0 To SIZE - 1 : f(o + c) = d(c) : Next
+        Next
+        For c = 0 To SIZE - 1
+            For r = 0 To SIZE - 1 : ft(r) = f(r * SIZE + c) : Next
+            dt1d(ft, SIZE, d, v, zz)
+            For r = 0 To SIZE - 1 : f(r * SIZE + c) = d(r) : Next
+        Next
+
+        ReDim clear_m(SIZE * SIZE - 1)
+        Dim cm = cell_m
+        For i = 0 To SIZE * SIZE - 1
+            Dim rc = CSng(Math.Sqrt(f(i))) - 0.5F
+            clear_m(i) = If(rc > 0.0F, rc * cm, 0.0F)
+        Next
+    End Sub
+
+    ''' <summary>The exact 1D squared-distance transform of f into d. v and zz
+    ''' are scratch, passed in so the two passes do not allocate 2,048
+    ''' short-lived arrays between them.</summary>
+    Private Shared Sub dt1d(f() As Single, n As Integer, d() As Single,
+                            v() As Integer, zz() As Single)
+        Const INF As Single = 1.0E+20F
+        Dim k = 0
+        v(0) = 0
+        zz(0) = -INF
+        zz(1) = INF
+        For q = 1 To n - 1
+            Dim s = ((f(q) + q * q) - (f(v(k)) + v(k) * v(k))) / (2.0F * q - 2.0F * v(k))
+            While s <= zz(k)
+                k -= 1
+                s = ((f(q) + q * q) - (f(v(k)) + v(k) * v(k))) / (2.0F * q - 2.0F * v(k))
+            End While
+            k += 1
+            v(k) = q
+            zz(k) = s
+            zz(k + 1) = INF
+        Next
+        k = 0
+        For q = 0 To n - 1
+            While zz(k + 1) < q
+                k += 1
+            End While
+            Dim dq = CSng(q - v(k))
+            d(q) = dq * dq + f(v(k))
+        Next
     End Sub
 
     ''' <summary>
