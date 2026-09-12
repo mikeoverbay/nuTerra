@@ -561,6 +561,36 @@ blocked set by `BODY_R` and the ground-reach set by `TERRAIN_R` in
 `build_world` before any ray is cast. **If any validator in nuTerra core
 derives from the same mask as the thing it validates, it has this hole.**
 
+### §11's coarsening warning, tested against this planner
+
+§11 ends: "Use full resolution for any width claim and the coarse grid only
+for route shape." The planner runs Lazy Theta* on a 1.37 m grid, so that
+warning had to be checked rather than assumed. It holds, and this planner is
+on the right side of it.
+
+**Route COUNT and SHAPE are unaffected by the coarsening.** Same catalogue at
+two resolutions, 19_monastery base to base:
+
+    cell 1.37 m   8 distinct routes,  55 s   812 1313 1417 1521 2079 2278 2555 2737
+    cell 0.68 m   8 distinct routes, 323 s   807 1305 1398 1504 2064 2226 2477 2654
+
+Identical count, lengths within 0.6-3%, for six times the time. 1.37 m is the
+right choice for shape. No corridor is hidden by it.
+
+**But §11's other finding bites, and it is about the base marks.** Full
+resolution says team1's mark has 3.78 m clearance and team2's 2.39 m against
+a 2.25 m hull radius - team2 by FOURTEEN CENTIMETRES. Coarsen to 1.37 m with
+block-any plus hull growth and that margin is gone: base B's own cell comes
+out blocked, and connected-component labelling puts it in the background.
+The catalogue only works because `nearest_free` inside the planner snaps out
+of it. Measured consequence: the route ENDS 1.57 m from team2's mark at
+1.37 m cells, 1.09 m at 0.68 m.
+
+That is survivable - the tank drives the last metre and a half - but it is
+survivable by accident, and §11 said why in one line: **aim at the disc, not
+the mark.** Any goal test that insists on the base centre will fail on team2
+for reasons that have nothing to do with the route.
+
 ### Also on the branch, and undocumented before now
 
 `nuTerra/Modules/modGlobalVars.vb`: **`TANK_FIRING` defaults to `True` on
