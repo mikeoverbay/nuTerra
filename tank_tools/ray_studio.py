@@ -357,7 +357,28 @@ SWEEP_TO_DEG = 90.0
 # being the end of the search.
 STALL_HOPS = 120
 
-SWEEP_STEP_DEG = 3.0
+# Bucket for the been-here-before test, or 0 to switch it off entirely.
+#
+# OFF, because it was not detecting loops, it was detecting crawling. A 0.4 m
+# bucket on position alone kills a chain for passing near its own track, which
+# is what going round a building looks like from the inside, and it took team 2
+# to team 1 from one route to NONE on its own - 49 of 61 chains died in it.
+# STALL_HOPS already covers the case it was meant for: a chain going in circles
+# never beats its own closest approach to the flag either, and it judges that
+# by progress rather than by proximity. Where two guards answer one question,
+# the blunter one does the damage.
+LOOP_BUCKET_M = 0.0
+
+# The outcome of a chain is CHAOTIC in its opening bearing - a 1.5 degree shift
+# took one direction from 11 winning chains to 5 - because a chain is a long
+# deterministic crawl and a tiny change at the start cascades. That is inherent
+# to the method, and the answer to sampling a spiky function is to sample it
+# more finely rather than to trust any one reading of it:
+#
+#     3.0 deg,  61 bearings   5 wins, 1 route
+#     1.5 deg, 121 bearings  10 wins, 2 routes
+#     1.0 deg, 181 bearings  18 wins, 2 routes
+SWEEP_STEP_DEG = 1.5
 
 REJECT_M = 55.0
 
@@ -457,7 +478,7 @@ REJ_SOLID, REJ_CHORD, REJ_NOESCAPE, REJ_NARROW = 0, 1, 2, 3
 
 
 def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m,
-                  rings=None):
+                  rings=None, from_xz=None):
     """Draw a ring at the hit point and find where it clears, both sides.
 
     Exactly as described: a circle at the collision, grown in half-metre steps
@@ -469,6 +490,16 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m,
     the ring had reached. Nothing found by max_ring_m means this path is DEAD -
     that is the owner's rule and it is what stops a chain crawling for ever.
     """
+    # WHERE THE HOP ACTUALLY STARTS. The ring is drawn at the hit point - the
+    # owner's rule, and it is what makes the tangent mean anything - but the
+    # tank never stands at the hit point. It is back at the last anchor, and it
+    # drives ONE straight line from there to the tangent: "we dont draw from
+    # the hit point. we draw from previous point to tangent."
+    #
+    # So the line that has to be clear is the line that gets driven. Testing
+    # the radius from the centre instead passed tangents whose real approach
+    # was blocked, and put a dogleg into the path that nothing ever drives.
+    fx, fz = from_xz if from_xz is not None else (hx, hz)
     base_ang = np.arctan2(indx, indz)
     r = RING_MIN_M
     while r <= max_ring_m + 1e-6:
@@ -507,7 +538,7 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m,
                 # Validating the point and not the way to it is the same class
                 # of mistake as the grazing string-pull earlier: the thing that
                 # was checked is not the thing that gets driven.
-                if not clear_line(g, hx, hz, px, pz):
+                if not clear_line(g, fx, fz, px, pz):
                     rej.append((px, pz, REJ_CHORD))
                     continue
 
@@ -635,9 +666,7 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
             #
             # If that last run home is blocked, this is not an arrival, it is
             # a collision like any other and gets the ring it deserves.
-            if clear_line(g, hx, hz, gx, gz):
-                if np.hypot(hx - pts[-1][0], hz - pts[-1][1]) > 1e-3:
-                    pts.append((hx, hz))
+            if clear_line(g, x, z, gx, gz):
                 pts.append((gx, gz))
                 return pts                               # THE PRIZE
             blocked = True
@@ -674,7 +703,7 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
         # obstacle, and that is the design rather than a fault in it.
 
         left, right, _ = ring_tangents(g, hx, hz, dx, dz, max_ring_m,
-                                       goal, limit, min_gap_m, rings)
+                                       goal, limit, min_gap_m, rings, (x, z))
         if left is None and right is None:
             return dead(why, "ring reached max with no tangent", (hx, hz))
 
@@ -717,28 +746,20 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
         # looping: a 0.5 m ring moves the anchor less than a 2 m bucket, so the
         # second anchor landed in the first one's square and every chain was
         # killed for going round in a circle it had not gone round.
-        key = (round(best[0] / 0.4), round(best[1] / 0.4))
-        if key in seen_here:
-            return dead(why, "looped back onto its own ground", best)
-        seen_here.add(key)
+        if LOOP_BUCKET_M > 0.0:
+            key = (round(best[0] / LOOP_BUCKET_M), round(best[1] / LOOP_BUCKET_M))
+            if key in seen_here:
+                return dead(why, "looped back onto its own ground", best)
+            seen_here.add(key)
 
         if hand == 0:
             hand = 1 if best is left else -1
 
-        # THE HIT POINT IS PART OF THE PATH.
-        #
-        # It was being dropped: on a blocked stride the chain appended only the
-        # tangent, so the recorded hop ran from where the ray STARTED straight
-        # to a tangent on a ring centred where it STOPPED - a line nothing ever
-        # tested, and one that cuts off the very corner the ring was drawn to
-        # go round. A 155 m stride ending in a 9 m sidestep was recorded as one
-        # 155 m diagonal through the obstacle.
-        #
-        # The ray is only known clear as far as (hx, hz), so that is where the
-        # path goes before it steps aside. Two hops, both tested: the stride
-        # the march proved, then the radius clear_line proved.
-        if np.hypot(hx - pts[-1][0], hz - pts[-1][1]) > 1e-3:
-            pts.append((hx, hz))
+        # STRAIGHT FROM HERE TO THE TANGENT. One hop, not two: the tank is
+        # standing at (x, z) and drives to the tangent, so that is the line
+        # recorded and - now that ring_tangents tests it from here - the line
+        # that was proved clear. Routing it via the hit point drew a dogleg
+        # into the wall and back out that nothing ever drives.
         x, z = best
         pts.append(best)
         d = max(np.hypot(gx - x, gz - z), 1e-6)
@@ -794,14 +815,27 @@ def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M,
     sx, sz = snap_free(g, *start)
     gxy = snap_free(g, *goal)
     pool, rays, deaths, rings = [], [], [], []
+    # LEFT TO EAST OF THE WAY WE ARE GOING, not of the compass.
+    #
+    # The sweep angles were absolute: -90 due west, 0 due north, +90 due east.
+    # Team 1 sits in the south and its flag is north, so that swept the half
+    # circle facing the goal and worked. Team 2 sits in the north and its flag
+    # is SOUTH - so every opening ray was aimed at the opposite half of the map
+    # from where it was going, and all 61 chains had to turn round before they
+    # could start. That is why team 2 to team 1 found nothing at all while the
+    # same map the other way found three.
+    #
+    # The sweep is relative to the flag now, so "start scanning left... until
+    # we are point east" means left and east OF THE GOAL, both directions alike.
+    to_goal = np.arctan2(gxy[0] - sx, gxy[1] - sz)
     for a_deg in np.arange(SWEEP_FROM_DEG, SWEEP_TO_DEG + 1e-6, SWEEP_STEP_DEG):
         # RINGS ARE PER CHAIN, NOT PER SWEEP. Sixty-one bearings' worth of
         # every radius ever tried is tens of thousands of circles, which is a
         # slideshow and a smear. The bearing being worked shows all of its
         # rings; the ones behind it leave only their collision points.
         trace, rings, why = [], [], []
-        got = chain(g, (sx, sz), gxy, np.deg2rad(a_deg), max_ring_m, trace,
-                    min_gap_m, ray_cap_m, rings, why)
+        got = chain(g, (sx, sz), gxy, to_goal + np.deg2rad(a_deg), max_ring_m,
+                    trace, min_gap_m, ray_cap_m, rings, why)
         for seg in trace:
             rays.append((seg[0], seg[1], got is not None))
         if got is not None and not too_close(got, pool):
