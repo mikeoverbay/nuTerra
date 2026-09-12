@@ -17,50 +17,80 @@ with a four-word header:
 
 ```
 'hol' + NUL       magic
-64                width  field
-64                height field
+W                 width  field
+H                 height field
 1                 version
 ```
 
-then 512 bytes of bitmap: **64x64 cells, one bit each, 8 cells per byte,
+then `W*H/8` bytes of bitmap: **W x H cells, one bit each, 8 cells per byte,
 LSB-first**.
+
+**The block is NOT always 64x64.** It was, on every map this was first written
+against, and the loader hard coded that until 2026-09-11:
+
+    19_monastery    W 64  H 64    512 bytes
+    114_czech       W 16  H 16     32 bytes
+
+See "the size is in the header" below - a 16-wide block read as if it were
+64-wide walks four times past the end of its array.
 
 The bit order was settled from the bytes, not assumed. MSB-first shatters the
 continuous curve of a cliff edge into an 8-pixel sawtooth; LSB-first renders the
 curve intact.
 
-### The header arithmetic reaches 64x64 by cancellation
+### The size is in the header, and both loop bounds come from it
 
 ```vb
-Dim w As UInt32 = p_rd.ReadUInt32 / 4     ' 64 / 4 = 16
-Dim h As UInt32 = p_rd.ReadUInt32 / 2     ' 64 / 2 = 32
-Dim data(w * h) As Byte                   ' 16 * 32 = 512 bytes - correct
-Dim stride = 8
-For z1 = 0 To (h * 2) - 1                 ' 0..63 rows
-    For x1 = 0 To stride - 1              ' 8 bytes per row
+Dim w As UInt32 = p_rd.ReadUInt32 / 4     ' W / 4
+Dim h As UInt32 = p_rd.ReadUInt32 / 2     ' H / 2
+Dim data(w * h) As Byte                   ' W*H/8 bytes - correct for any size
+Dim cells_x = CInt(w) * 4                 ' back to W
+Dim stride = CInt(w) \ 2                  ' bytes a row = W/8
+For z1 = 0 To (h * 2) - 1                 ' H rows
+    For x1 = 0 To stride - 1
         For q = 0 To 7                    ' 8 bits per byte
 ```
 
-`w` and `h` are pre-divided, then multiplied back out by the loop bounds
-(`h * 2`) and by `stride`. The totals are right, but neither variable holds what
-its name suggests: `w` is 16, not 64.
+`w` and `h` are pre-divided, then multiplied back out by the loop bounds. Neither
+holds what its name suggests - at 64x64, `w` is 16 - but `rows * stride` is
+`w * h` exactly, which is the buffer already allocated, at every size.
 
-**Trap.** The bail is written against the divided value:
+    19_monastery   w 16  h 32   ->  64 x 64,  stride 8,  512 bytes
+    114_czech      w  4  h  8   ->  16 x 16,  stride 2,   32 bytes
+
+**The hard coded version cost a crash.** Until 2026-09-11 this read
+`Dim stride = 8` and mirrored against `63`, so only two sizes worked: `w = 8`,
+returned early as "no holes", and `w = 16`, where the constants happen to be
+right. 114_czech is a quarter the width, so the loop walked four times past the
+end of a 32-byte array and threw an **IndexOutOfRangeException on the update
+thread** - which exits the process with no dialog and no stack. It reads as a
+silent crash on load, and only a debugger says where.
+
+The doc used to note the `w = 8` bail as "a silent data-dependent drop, not a
+guard", and said nothing hits it today. Something did: a *different*
+data-dependent assumption in the same function, and it did not drop silently, it
+killed the process. Both bail and stride are derived now.
 
 ```vb
 If w = 8 Then ' nothing so return empty hole array
 ```
 
-`w = 8` means a width field of **32**. On a 32-wide hole map that returns an
-empty array silently - no log, no assert. Every hole-bearing chunk checked on
-D-Day is 64x64, so nothing hits it today, but it is a silent data-dependent
-drop, not a guard.
+`w = 8` means a width field of **32**, still returning empty. Whether a 32-wide
+hole block really means "no holes" or is simply another size nobody has met is
+**not established** - no map checked so far carries one.
+
+**A short-read guard stays in as belt and braces.** With the stride derived it
+cannot fire by construction, so if it ever logs, the header and the payload
+disagree and the map is saying something not yet understood.
 
 ### The per-chunk X mirror
 
 ```vb
-v.holes(63 - ((x1 * 8) + q), z1) = b
+v.holes((cells_x - 1) - ((x1 * 8) + q), z1) = b
 ```
+
+`cells_x` is the block's own width (`w * 4`), so this is `63 - x` on a 64-wide
+block exactly as before, and `15 - x` on 114_czech's 16-wide one.
 
 X is mirrored within the chunk. Z is written straight - there is **no** Z flip,
 whatever any surviving comment elsewhere may suggest.
@@ -175,3 +205,18 @@ terrain inside those trenches is a separate mechanism - the trench model's own
 never assigned or read - the only other occurrences of the name in the source
 are string literals in `Space.bin/modSpaceBin.vb`'s property tables. That is
 still open.
+
+## Open: a sub-64 block only fills part of the array
+
+`get_holes` always allocates `v.holes(63, 63)` and the terrain samples a 64-wide
+grid per chunk. A 64x64 block fills it one-to-one. A **16x16 block fills only the
+first 16x16**, and the remaining three quarters keep their default of "no hole".
+
+That is the safe direction to be wrong in - missing holes rather than inventing
+them - and 114_czech now loads clean with no warning. But whether those 16 cells
+should be stretched across the chunk (one hole cell per 4x4 quads) or land in a
+corner as they currently do is **not established**. Nobody has stood on a Pilsen
+hole and looked.
+
+Next step: find a chunk on 114_czech whose block is non-empty, and compare where
+the hole renders against where the game puts it.
