@@ -591,6 +591,29 @@ survivable by accident, and §11 said why in one line: **aim at the disc, not
 the mark.** Any goal test that insists on the base centre will fail on team2
 for reasons that have nothing to do with the route.
 
+### Route identity, and one retracted headline
+
+"A test to find out when a path was a winner so we can stop trying it over
+and over" is the HOMOTOPY CLASS: two routes are the same road exactly when the
+loop made by running one forward and the other backward encloses no landmark.
+Threshold-free. One dial survives, `LANDMARK_M2`, in square metres of ground -
+how big a thing must be before going round its far side is a different route -
+and it is a FLOOR, never a ceiling, or a route round the far side of the
+54,000 m2 cliff band stops counting.
+
+It kills chains early, which is the part of the owner's ask that dedup does
+not answer: 121 bearings went from 100 winners / 46,178 ray-hops / 37 s to 31
+winners / 24,737 hops / 21 s with no distinct way round lost.
+
+**Retracted:** an earlier version compared object SETS by Jaccard and reported
+the ray sweep and the search both finding eight routes, which was written up
+as a cross-validation between independent methods. It was a coincidence of
+tuning - eight held at exactly one radius and one tolerance on a steep curve
+and died the moment the object map improved. Full account in
+`tank_tools/ROUTING_FINDINGS.md`. The two lessons: a proxy with free numbers
+in it yields whatever it is tuned to, and two methods agreeing only counts if
+neither was fitted to the other's answer.
+
 ### Also on the branch, and undocumented before now
 
 `nuTerra/Modules/modGlobalVars.vb`: **`TANK_FIRING` defaults to `True` on

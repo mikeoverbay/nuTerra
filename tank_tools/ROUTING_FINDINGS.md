@@ -134,6 +134,75 @@ Both TangentBug shapes - their fan silhouette and our expanding ring - come
 from the same 1998 paper (Kamon, Rimon, Rivlin, IJRR 17(9)), and both exist
 because a robot cannot see the map. We can.
 
+## Route identity: when have we found this road before?
+
+The owner: "we need a test to find out when a path was a winner so we can
+stop trying it over and over."
+
+That is the HOMOTOPY CLASS. Two routes between the same two points are the
+same route exactly when the closed loop made by running one forward and the
+other backward encloses no obstacle - that loop shrinks to nothing without
+crossing anything. No radius, no tolerance, no similarity score.
+
+**One dial, and it is in square metres of ground:** how big a thing has to be
+before going round its far side counts as a different route. `LANDMARK_M2`,
+default 100 m2, about ten metres across - a building, a walled yard. It is a
+FLOOR and never a ceiling (Path Studio's catch): a route going round the cliff
+band the other way encloses a 54,000 m2 object, and a ceiling would delete
+exactly the case worth detecting.
+
+The sweep of that dial is what separates the two planners honestly:
+
+| landmark | seeds | ray classes | catalogue classes |
+|---|---|---|---|
+| 16 m2 | 3168 | 20 | 8 |
+| 100 m2 | 383 | 2 | 8 |
+| 500 m2 | 92 | 1 | 8 |
+| 2000 m2 | 28 | 1 | 6 |
+
+At any scale where "the other side of it" means something, the ray sweep finds
+ONE road and the catalogue finds eight. The hundred winning chains are a
+hundred spellings of it. At 16 m2 every pebble is a landmark, every wobble its
+own class, and the 20 says nothing.
+
+### Early abandon: the part that actually stops the retrying
+
+Deduplicating winners at hop 400 still pays for all 400 hops. A chain that has
+passed the same landmarks in the same ORDER on the same sides as a route
+already held IS that route so far and has nowhere to go but the same way, so
+it dies at the third landmark. A prefix test on an ordered sequence, NOT the
+set test - two routes passing the same three landmarks in a different order
+are different roads.
+
+    without   100 winners,  46,178 ray-hops,  37 s
+    with       31 winners,  24,737 ray-hops,  21 s
+
+46% fewer hops, 43% less wall clock, and not one distinct way round lost.
+
+### A RETRACTION, and the lesson is worth more than the result was
+
+The first version of this test compared object SETS by Jaccard, with a radius
+and a tolerance in it. It reported that the ray sweep and the Lazy Theta*
+catalogue both found eight routes - two mechanisms sharing no code agreeing on
+a number - and that was written up as the strongest cross-validation of the
+work. **It was a coincidence of tuning.** Eight appeared at exactly one radius
+and one tolerance on a steep curve (0.5 -> 8, 0.6 -> 17, 0.75 -> 64, 0.9 ->
+100), and it did not survive either improving the object map or deriving the
+radius from the hull instead of choosing it.
+
+Two things to carry forward, the second sharpened by the nuTerra Work session:
+
+- **A proxy with two free numbers in it produces whatever number it is tuned
+  to produce.** A result that is a point on a steep curve is not a result.
+- **Two independent methods agreeing is worth more than either measuring
+  itself twice - AND ONLY IF NEITHER WAS FITTED TO THE OTHER'S ANSWER.** The
+  first half is what made the false result persuasive; the second half is what
+  would have killed it immediately.
+
+A test whose answer cannot be moved by turning a dial is a different kind of
+object from one whose answer is a point on a curve. That is why the exact test
+replaced the proxy rather than being tuned better.
+
 ## The joint recommendation
 
 Agreed between the Tank AI and Path Studio sessions on 2026-09-12, put as
