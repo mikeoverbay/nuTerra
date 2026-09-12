@@ -587,12 +587,13 @@ def legend_rows(bake):
     if kind is None:
         return []
     names = bake_kind_names(bake)
-    rows = [(BAKE_KIND_RGB[k], names.get(k, str(k)))
-            for k in sorted(BAKE_KIND_RGB) if (kind == k).any()]
+    pal = bake_kind_rgb(bake)
+    rows = [(pal[k], names.get(k, str(k)))
+            for k in sorted(pal) if (kind == k).any()]
     trunk = getattr(bake, "trunk", None)
     solid = getattr(bake, "solid", None)
     if trunk is not None and (kind == nav.KIND_TREE).any():
-        rows = [r for r in rows if r[0] != BAKE_KIND_RGB[nav.KIND_TREE]]
+        rows = [r for r in rows if r[0] != pal[nav.KIND_TREE]]
         if solid is not None:
             rows += [(FOLIAGE_RGB[v], FOLIAGE_NAMES[v]) for v in (3, 2, 1)]
             rows += [(SOLID_RGB, "solid trunk stamp"), (STEM_RGB, "thin stem stamp")]
@@ -641,6 +642,15 @@ def bake_kind_names(bake):
     names = dict(BAKE_KIND_NAMES)
     names.update({k: v for k, v in getattr(bake, "kind_names", {}).items() if k in BAKE_KIND_RGB})
     return names
+
+
+def bake_kind_rgb(bake):
+    """The palette: the bake's own (kind_N_rgb in its meta - the colour type
+    is nuTerra's product) over the table above for any kind it does not
+    name. One palette for the mask, the boxes and the legend."""
+    rgb = dict(BAKE_KIND_RGB)
+    rgb.update({k: v for k, v in getattr(bake, "kind_rgb", {}).items() if k in BAKE_KIND_RGB})
+    return rgb
 KIND_POINT, KIND_CONE, KIND_INVERSE, KIND_DUAL = 0, 1, 2, 3
 
 LIGHT_DEFAULTS = {"kind": KIND_POINT, "aim": (0.0, -1.0, 0.0), "cone": 0.0,
@@ -2078,7 +2088,7 @@ void main() { o_rgb = texture(u_tex, v_uv); }
             # one colour per kind, the kind of the tallest texel in the cell
             kg = kind_of_tallest(b.top, kind, G)
             col[objc] = self.OBJ_RGB
-            for k, rgb in BAKE_KIND_RGB.items():
+            for k, rgb in bake_kind_rgb(b).items():
                 col[objc & (kg == k)] = rgb
             paint_foliage(col, objc & (kg == nav.KIND_TREE), b, G)
         elif objc is not None:
@@ -3428,8 +3438,7 @@ class Studio:
         self.repaint()
         if self.view3d is not None:
             self.view3d.overlay()
-        meta = getattr(b, "meta", {})
-        prov = ", ".join("%s=%s" % (k, meta[k]) for k in ("written", "commit") if k in meta)
+        prov = self.bake_provenance()
         self.status.set("height map reloaded at %s%s - route, targets and lights kept"
                         % (time.strftime("%H:%M:%S"), (" (" + prov + ")") if prov else ""))
 
@@ -3465,6 +3474,28 @@ class Studio:
         self.map_name = name
         self.bake_seen = self._bake_stamp(name)
         self.bake_pending = None
+        prov = self.bake_provenance()
+        if prov:
+            self._trace("load_named", "bake " + prov)
+
+    def bake_provenance(self):
+        """'written <stamp>, commit <sha>, built in <tree>' from the bake meta
+        (nuTerra writes the keys since df648ee1), or '' for a bake written
+        before them. The tree, not the exe's leaf: three checkouts build the
+        app and two of them share one temp folder, so the checkout is the
+        answer to "where did this bake come from"."""
+        meta = getattr(self.bake, "meta", {}) if self.bake is not None else {}
+        parts = []
+        if meta.get("written"):
+            parts.append("written " + meta["written"])
+        if meta.get("commit"):
+            parts.append("commit " + meta["commit"])
+        exe = meta.get("exe", "").replace("/", "\\")
+        if exe:
+            marker = "\\nuTerra\\bin\\"
+            tree = exe.split(marker)[0].rsplit("\\", 1)[-1] if marker in exe else exe
+            parts.append("built in " + tree)
+        return ", ".join(parts)
         if self.view3d is not None:
             # A new map: new surface, and the camera back to its overview.
             # render_mask below recolours it and renders.
@@ -3858,7 +3889,7 @@ class Studio:
         # the obstacle cells, the amber grade only where the key is 0.
         kind = getattr(b, "kind", None)
         if kind is not None:
-            for k, rgb in BAKE_KIND_RGB.items():
+            for k, rgb in bake_kind_rgb(b).items():
                 m = hard & (kind == k)
                 if m.any():
                     img[m] = rgb

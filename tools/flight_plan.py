@@ -206,6 +206,19 @@ class Bake:
         # against this, and the Studio shows the provenance keys (exe, built,
         # written, commit) when the writer carries them.
         self.meta = dict(meta)
+        # The kind names and, once the writer carries them (the colour type
+        # is nuTerra's job, 2026-09-12), the kind PALETTE: kind_N_rgb=r,g,b
+        # beside kind_N=. One palette, written with the bake, so the Studio
+        # and nuTerra cannot drift; absent, the Studio's table stands.
+        self.kind_rgb = {}
+        for k, v in meta.items():
+            if k.startswith("kind_") and k.endswith("_rgb"):
+                try:
+                    n = int(k[5:-4])
+                    r, g, b = (int(float(t)) for t in v.split(",")[:3])
+                    self.kind_rgb[n] = (max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
+                except ValueError:
+                    pass
 
         self.map_name = meta["map"]
         self.w = int(meta["width"])

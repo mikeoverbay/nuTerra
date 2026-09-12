@@ -108,7 +108,17 @@ it (the depth shaders emit the kind as colour from a per-draw key, so the
 depth test leaves the topmost kind); `flight_plan.Bake` and
 `radar_commit.Bake` read either format, carry the kind through the 2048
 downsample as the kind of the tallest texel, and offer `kind_at(x, z)`;
-Path Studio colours the mask and the 3D boxes by kind with a legend.
+Path Studio colours the mask and the 3D boxes by kind with a legend. The
+palette is nuTerra's (the colour type is its job, 2026-09-12): when the meta
+carries `kind_N_rgb=r,g,b` beside `kind_N=`, both readers parse it into
+`bake.kind_rgb` and `path_studio.bake_kind_rgb(bake)` uses it for the mask,
+the boxes and the legend; a bake without the keys gets the Studio's table
+`BAKE_KIND_RGB`. One palette, written with the bake, so the two views
+cannot drift. Two facts from nuTerra's `kinddump` worth knowing when
+reading a kind: `kind_of` is a first-match substring race with rock before
+building, so "stone" wins - nine of the monastery's seventeen "rock" names
+are steps, stairs and gravestones - and rock is 45% of everything standing
+over 1 m on that map, so a legend that dims it dims half the map.
 
 **The navigator uses it (2026-09-11):** `KIND_MIN_H` in `radar_commit.py`
 (and the same in `flight_plan.py`) says what a kind must stand before it
