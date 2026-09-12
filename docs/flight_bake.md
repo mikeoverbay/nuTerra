@@ -1,4 +1,4 @@
-﻿# The flight bake
+# The flight bake
 
 A top-down snapshot of a whole map: for every 0.17 m of ground, what is the
 highest thing standing there, how high it is, what kind of thing it is, and where
@@ -120,8 +120,17 @@ not, so a texel that later keys `tree` because a canopy closed over it still
 says whether something solid stands under that canopy. **A ground vehicle that
 crushes foliage must test `kind = tree AND NOT solid`, never `kind` alone.**
 
-Measured on monastery: **7,414,185 texels, 11.0% of the map**, of which
-**317,776 also key as tree**. It is never set on a `terrain` texel - zero of
+Measured on two maps, and **the pair matters more than either number**:
+
+| map | solid texels | share | also keyed tree |
+|---|---|---|---|
+| 19_monastery | 7,414,185 | 11.0% | **317,776** |
+| 114_czech | 7,902,876 | 11.8% | **7,017** |
+
+The share of the map that is solid barely moves. The share of it *hidden under a
+canopy* moves by a factor of **45** - a rocky wooded map against a town. **Do not
+tune a threshold on monastery**, or on any one map: this is the quantity most
+likely to look like a constant and is not one. It is never set on a `terrain` texel - zero of
 them - which is the invariant you would expect, since anything solid standing at
 a texel is also the thing that keys it. 148,370 water texels carry it: the wall
 or rock the water was raised over is still there.
@@ -333,7 +342,10 @@ and a burned-tree mesh. **water** is painted on the CPU after the passes, by
 over open water, a model where a jetty or a rock stands in the shallows.
 
 **uint32, not uint16.** 134 MB was what the planners were told to expect, and
-monastery's id space is 14,163 - a fifth of the 65,535 a u16 would allow. But
+monastery's id space is 14,163 - a fifth of the 65,535 a u16 would allow. And
+114_czech's is 15,665, from 11,467 model placements against monastery's 6,179:
+**1.8x the models on a map with fewer trees**, so the total is near-constant here
+only by coincidence and the split behind it is not. Two maps is not a bound. But
 neither the model count nor the tree count is bounded by anything, and a map
 that crossed the ceiling would wrap silently and hand back ids naming the wrong
 objects. The count is logged at every bake, so this can be narrowed later on
@@ -387,6 +399,17 @@ validator sampled the centre line exactly as their planner did, so routes
 measured clean while 12% of a finished drive had a hull overlapping solid
 geometry. **A validator derived from the same assumption as the thing it
 validates cannot see the error they share.**
+
+**The id layer is the standing example of the cure.** The key channel said `tree`
+at the street lamps from the day the classifier was written, and every check of
+the key channel agreed with it - because they all consulted the same string.
+Nothing that reads names could have found it. What found it was cross-tabulating
+the key against the ID LAYER, which knows nothing about names: a texel keyed
+`tree` while carrying a MODEL id is a contradiction the classifier cannot
+produce on its own, and 3,046 monastery texels were in it. The fix is in
+`bake_version` 3; the method is the point. When you add a layer that is derived
+differently from an existing one, the cross-tab between them is free and it is
+the only check that can see what a single source agrees with itself about.
 
 ## Two things a reader should not be surprised by
 
