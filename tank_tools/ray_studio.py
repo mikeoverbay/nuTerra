@@ -3384,14 +3384,22 @@ TAG_OPEN, TAG_PASS, TAG_FAIL = "OPEN", "PASS", "FAIL"
 ORIGIN_ROOT, ORIGIN_TANGENT, ORIGIN_CONTINUE = "ROOT", "TANGENT", "CONTINUE"
 
 
-def fan_offset(aid):
-    """Angle id -> offset from the heading, in radians.
+def fan_offset(aid, half_rad=None):
+    """Angle id -> offset from the heading, in radians, across a given arc.
 
     CENTRE OUT: 0 is straight on, then alternately right and left. Iterating
-    the ids in order therefore tries the cheapest way first and works outward,
-    and the owner's "start scanning left" survives as which hand goes first.
+    the ids in order therefore tries the way we are already going first and
+    works outward from it.
+
+    THE ARC IS PER POINT, and that is the whole reason this takes an argument.
+    Every point except the root was REACHED by a ray, so it has a behind, and
+    +/-45 of the way it came is the sensible cone. The root was reached by
+    nothing. Giving it the same narrow cone round an arbitrary bearing is what
+    made the search crawl sideways out of the base before it could even face
+    the flag - see BranchTree.
     """
-    step = np.deg2rad(2.0 * FORWARD_ARC_DEG / (RAYS_PER_POINT - 1))
+    half = np.deg2rad(FORWARD_ARC_DEG) if half_rad is None else half_rad
+    step = half / max(1, RAYS_PER_POINT // 2)
     k = (aid + 1) // 2
     return k * step * (1 if aid % 2 else -1) if aid else 0.0
 
@@ -3531,18 +3539,36 @@ class BranchTree(object):
         self.plug_dead_ends = False
         # The opening bearing is the owner's "start scanning left": the root
         # begins its angle order there and works round.
-        # The root has nothing behind it, so its arc is centred on the sweep's
-        # opening bearing - which is what "start scanning left" sets.
+        # THE ROOT FACES THE FLAG AND FANS THE WHOLE CIRCLE.
+        #
+        # It used to face `to_goal - 90` with the same +/-45 cone as everywhere
+        # else, which meant the search could only aim between 45 and 135
+        # degrees LEFT of the flag from the base - structurally forbidden from
+        # heading at it. The owner watching it: "moves left at a crawl and
+        # than turns towards the goal." That was not a tuning artefact, it was
+        # the only thing the opening cone allowed.
+        #
+        # SWEEP_FROM_DEG = -90 made sense when there were 121 INDEPENDENT
+        # chains and it meant "the first chain starts at the far left". With
+        # one tree it meant "every route must begin by walking sideways".
+        #
+        # The root was reached by nothing, so it has no behind and no reason
+        # for a cone. It gets the full circle - the sweep expressed as branches
+        # of the tree rather than as separate runs - centred on the flag so the
+        # order tries straight at it first and works outward both ways.
         to_goal = np.arctan2(goal[0] - start[0], goal[1] - start[1])
-        self.open_heading = to_goal + np.deg2rad(SWEEP_FROM_DEG)
-        root = self.add(None, start, None, ORIGIN_ROOT, self.open_heading)
+        self.open_heading = to_goal
+        root = self.add(None, start, None, ORIGIN_ROOT, self.open_heading,
+                        half=np.pi)          # the full circle, both ways
         self.stack = [root["id"]]
 
-    def add(self, parent, pos, angle_in, origin, heading=0.0):
+    def add(self, parent, pos, angle_in, origin, heading=0.0, half=None):
         p = dict(id=len(self.points), pos=pos, angle_in=angle_in,
                  parent=parent, origin=origin, tried={}, tag=TAG_OPEN,
                  kids=[], hit=None, item=None, side=None, ring=None,
-                 heading=heading)
+                 heading=heading,
+                 # radians either side of the heading this point may cast into
+                 half=(np.deg2rad(FORWARD_ARC_DEG) if half is None else half))
         self.points.append(p)
         if parent is not None:
             self.points[parent]["kids"].append(p["id"])
@@ -3639,7 +3665,7 @@ class BranchTree(object):
             # FORWARD IS THE WAY WE CAME. The arc is centred on the heading
             # that reached this point, so the fan never sweeps the ground
             # behind us - which is ground we have already walked and marked.
-            a = p["heading"] + fan_offset(aid)
+            a = p["heading"] + fan_offset(aid, p["half"])
             dx, dz = np.sin(a), np.cos(a)
             d = np.hypot(gx - p["pos"][0], gz - p["pos"][1])
             limit = min(d + REACH_M, self.walk_m)
