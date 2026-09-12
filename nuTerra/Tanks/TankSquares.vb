@@ -98,12 +98,32 @@ Public Class TankSquares
                         ' and bushes" - but a texel that keys tree and carries
                         ' the solid bit is rock or wall standing under a
                         ' canopy, and it is not driven over by anything.
+                        ' THE SOLID BIT QUALIFIES TREES, AND ONLY TREES.
+                        '
+                        ' It is read from the depth buffer BETWEEN the model
+                        ' pass and the tree pass, so any MODEL sets it for
+                        ' itself: measured on monastery it is set on 75.6% of
+                        ' fence texels and 63.3% of prop texels, and on just
+                        ' 7.0% of tree texels. Only for a tree does it carry
+                        ' information - that something else is standing under
+                        ' the canopy.
+                        '
+                        ' Testing it on fence and prop as well, which is what
+                        ' this did first, un-crushed three quarters of the
+                        ' fences on the map and drove a tank round them. The
+                        ' owner's rule is the other way: "A fence or curb is
+                        ' not going to stop a tank."
+                        '
+                        ' What this CANNOT see is a fence standing in front of
+                        ' a wall, where the fence wins the depth test and the
+                        ' wall is invisible to us. That risk existed before the
+                        ' bit did and this data cannot settle it.
                         Dim k7 = k And MapFlightBake.KIND_MASK
                         Dim crushable =
-                            (k7 = MapFlightBake.KIND_TREE OrElse
-                             k7 = MapFlightBake.KIND_FENCE OrElse
-                             k7 = MapFlightBake.KIND_PROP) AndAlso
-                            (k And MapFlightBake.SOLID_BIT) = 0
+                            (k7 = MapFlightBake.KIND_FENCE OrElse
+                             k7 = MapFlightBake.KIND_PROP) OrElse
+                            (k7 = MapFlightBake.KIND_TREE AndAlso
+                             (k And MapFlightBake.SOLID_BIT) = 0)
                         If Not crushable Then
                             If b.top_m(i) - b.floor_m(i) > TankNavLimits.MAX_OBSTACLE Then
                                 hit = True

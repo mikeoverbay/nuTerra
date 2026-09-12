@@ -127,8 +127,13 @@ def build_grid(map_name, hull_r_m):
     # the solid bit is rock or wall standing UNDER a canopy, and driving at it
     # is driving into a cliff.
     solid = (key & SOLID_BIT).astype(bool)
-    crushable = ((kind == KIND_TREE) | (kind == KIND_FENCE) |
-                 (kind == KIND_PROP)) & ~solid
+    # THE SOLID BIT QUALIFIES TREES, AND ONLY TREES. It is read between the
+    # model pass and the tree pass, so a model sets it for itself: 75.6% of
+    # fence texels and 63.3% of prop texels carry it against 7.0% of tree
+    # texels. Testing it on fence and prop un-crushed three quarters of the
+    # fences on this map.
+    crushable = ((kind == KIND_FENCE) | (kind == KIND_PROP) |
+                 ((kind == KIND_TREE) & ~solid))
     testable = ~crushable
 
     collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == KIND_WATER)
@@ -1212,11 +1217,26 @@ def main():
     ring_auto = True              # step to the next size when a path lands
     last_step_ms = 0
     sq_surf = None                # the block overlay, rebuilt only when it moves
+    # THE SQUARE MAP IS LOADED AT STARTUP AND OWNED HERE.
+    #
+    # It used to be created by the branch tree, and the overlay was drawn only
+    # when a tree existed - so before pressing [b] there was NO block data on
+    # the screen at all. The owner looked at the map, saw nothing, and quite
+    # reasonably concluded the blocking was not being used. It was being used;
+    # it was never being drawn.
+    try:
+        squares = Squares(map_name)
+        print("squares: %dx%d at %.1f m, %d solid"
+              % (squares.n, squares.n, squares.cell_m, int((squares.grid != 0).sum())))
+    except Exception as ex:
+        squares = None
+        print("squares: NOT LOADED - %s" % ex)
     slider_rects = {}             # name -> (rect, lo, hi) from the last frame
     active_slider = None
     astar_class = []              # which homotopy class each route belongs to
     landmark_m2 = LANDMARK_M2
     show_marks = True
+    show_blocks = True            # the 1 m block layer, on by default
     # The search results are a different KIND of answer from the rays, so they
     # get their own family of colour and can be read apart at a glance.
     A_COLS = [(90, 170, 255), (120, 220, 255), (80, 140, 235), (150, 200, 255),
@@ -1398,6 +1418,8 @@ def main():
                     astar_msg = "landmark now %.0f m2 - press [a] to re-class"                                 % landmark_m2
                 elif e.key == pygame.K_m:
                     show_marks = not show_marks
+                elif e.key == pygame.K_o:
+                    show_blocks = not show_blocks
                 elif e.key in (pygame.K_F1, pygame.K_F2, pygame.K_F3,
                                pygame.K_F4, pygame.K_F5, pygame.K_F6):
                     ring_slot = e.key - pygame.K_F1
@@ -1416,7 +1438,7 @@ def main():
                     # THE RING FOR THIS ATTEMPT, from the set rather than
                     # from the global slider.
                     tree = BranchTree(g, start, goal, RING_SET[ring_slot],
-                                      min_gap)
+                                      min_gap, squares=squares)
                     tree.block_radius = block_radius
                     sq_surf = None
                     tree_msg = "branch tree: running"
@@ -1561,19 +1583,14 @@ def main():
         #
         # Rebuilt only when the grid changes. A 1400 square surface every frame
         # is 2 million pixels of nothing new.
-        if tree is not None and tree.squares is not None:
-            sq = tree.squares
+        if squares is not None and show_blocks:
+            sq = squares
             if sq.dirty or sq_surf is None:
                 nsq = sq.n
-                img = np.zeros((nsq, nsq, 4), dtype=np.uint8)
-                was = sq.base != 0
-                now_set = (sq.grid != 0) & ~was
-                img[was] = (0, 0, 0, 120)            # baked solid: dim it
-                img[now_set] = (255, 70, 70, 170)    # set by a route: show it
-                # No flip: the square rows count down from the north edge,
-                # the same way the picture does.
+                # No flip: the square rows count down from the north edge, the
+                # same way the picture does.
                 sq_surf = pygame.image.frombuffer(
-                    np.ascontiguousarray(img).tobytes(), (nsq, nsq), "RGBA")
+                    np.ascontiguousarray(sq.rgba()).tobytes(), (nsq, nsq), "RGBA")
                 sq.dirty = False
             nsq = sq.n
             fx0 = view_cx / N * nsq
@@ -1978,6 +1995,7 @@ def main():
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
+        y = checkbox(LX, y, LW, "Block layer  [o]", pygame.K_o, show_blocks)
         y = button(LX, y, LW, "Landmarks  [m]", pygame.K_m, show_marks)
         y = button(LX, y, LW, "Fit map  [f]", pygame.K_f)
         y = button(LX, y, LW, "Swap ends  [tab]", pygame.K_TAB)
@@ -2016,18 +2034,24 @@ def main():
             ry = readout(RX, ry, "items hit", "%d" % seen_i)
             ry = readout(RX, ry, "  one hand won", "%d" % half_i, (90, 230, 235))
             ry = readout(RX, ry, "  fully USED", "%d" % used_i, (235, 110, 235))
-            if tree.squares is not None:
-                ry = readout(RX, ry, "squares blocked", "%d" % tree.squares.driven,
-                             (255, 190, 120))
-                ry = readout(RX, ry, "block radius", "%d sq" % tree.block_radius)
-            else:
-                ry = readout(RX, ry, "square map", "NOT FOUND", (255, 150, 150))
+            ry = readout(RX, ry, "block radius", "%d sq" % tree.block_radius)
             if tree.halted:
                 ry += 4
                 for line in ("*** PATH COMPLETE ***", "inside the base ring"):
                     screen.blit(font.render(line, True, (120, 255, 170)), (RX, ry))
                     ry += 18
             ry += 10
+
+        ry = header(RX, ry, "BLOCK LAYER", RW)
+        if squares is None:
+            ry = readout(RX, ry, "square map", "NOT FOUND", (255, 150, 150))
+        else:
+            ry = readout(RX, ry, "squares", "%d x %d" % (squares.n, squares.n))
+            ry = readout(RX, ry, "baked solid", "%d" % int((squares.base != 0).sum()))
+            ry = readout(RX, ry, "set by routes", "%d" % squares.driven,
+                         (255, 90, 90) if squares.driven else (220, 225, 235))
+            ry = readout(RX, ry, "layer", "shown" if show_blocks else "hidden")
+        ry += 10
 
         ry = header(RX, ry, "BEARING SWEEP", RW)
         ry = readout(RX, ry, "rays", "%d" % rays)
@@ -3135,6 +3159,26 @@ class Squares(object):
             self.driven -= 1
             self.dirty = True
 
+    def rgba(self):
+        """The block data as an RGBA byte stream, ready to upload as a layer.
+
+        ZERO ALPHA WHERE THE GROUND IS OPEN, so the map shows through
+        untouched; solid where it is blocked. That is what a fragment shader
+        would do with this array and it is the only honest way to see it -
+        anything drawn over the open ground as well is a tint, not a mask.
+
+        Baked-solid and set-by-a-route are DIFFERENT COLOURS. With one colour
+        there is no way to tell whether the memory is doing anything, which is
+        the exact complaint that produced this.
+        """
+        n = self.n
+        img = np.zeros((n, n, 4), dtype=np.uint8)
+        was = self.base != 0
+        now = (self.grid != 0) & ~was
+        img[was] = (10, 12, 20, 190)        # baked solid: nearly opaque
+        img[now] = (255, 60, 60, 220)       # set by a finished route
+        return img
+
     def mark(self, x, z, rad=1):
         """Set this square AND its surround to 1.
 
@@ -3266,7 +3310,7 @@ class BranchTree(object):
     """Every point reached, the angle that reached it, and what it has tried."""
 
     def __init__(self, g, start, goal, max_ring_m=RING_MAX_DEFAULT_M,
-                 min_gap_m=MIN_GAP_DEFAULT_M, walk_m=None):
+                 min_gap_m=MIN_GAP_DEFAULT_M, walk_m=None, squares=None):
         self.g = g
         self.goal = goal
         self.max_ring_m = max_ring_m
@@ -3291,10 +3335,15 @@ class BranchTree(object):
         # THE SQUARE MAP, if nuTerra has written one. Optional so a v1 bake or
         # a map without it still runs, but it is the ground memory the search
         # was missing and without it the walk circles for ever.
-        try:
-            self.squares = Squares(g["map_name"])
-        except Exception:
-            self.squares = None
+        # HANDED IN, so the viewer and the search share ONE grid and what the
+        # search sets is what the overlay draws. Two copies would have looked
+        # exactly like a memory that does nothing.
+        self.squares = squares
+        if self.squares is None:
+            try:
+                self.squares = Squares(g["map_name"])
+            except Exception:
+                self.squares = None
         self.last_square = None      # only the last one. "we dont need a list."
         self.block_radius = 1        # squares of surround blocked with it, 1..5
         self.casts = 0
