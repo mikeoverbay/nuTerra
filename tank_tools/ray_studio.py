@@ -179,7 +179,10 @@ def march(g, x, z, dx, dz, goal, limit):
     """
     # A TEXEL AT A TIME: nothing narrower than the height map's own cell can
     # be stepped over, which is the finest this data can honestly answer.
-    step = g["texel_m"]
+    # HALF A TEXEL. A full-texel step along a diagonal can slip between two
+    # solids that meet at a corner, so the ray and any later check of the same
+    # line disagree about whether it was ever clear.
+    step = g["texel_m"] * 0.5
     t = 0.0
     gx, gz = goal
     while t < limit:
@@ -347,6 +350,27 @@ SWEEP_STEP_DEG = 3.0
 REJECT_M = 55.0
 
 
+def clear_line(g, ax, az, bx, bz):
+    """Is the straight line between two points free the whole way?
+
+    Stepped at HALF a texel rather than a whole one. A ray stepping a full
+    texel along a diagonal can pass between two solid cells that share only a
+    corner, so two samplings of the same line can disagree about it - which is
+    how a march and a check of the same path end up with different answers.
+    """
+    d = np.hypot(bx - ax, bz - az)
+    if d < 1e-6:
+        return True
+    ux, uz = (bx - ax) / d, (bz - az) / d
+    step = g["texel_m"] * 0.5
+    t = 0.0
+    while t <= d:
+        if not standable(g, ax + ux * t, az + uz * t):
+            return False
+        t += step
+    return standable(g, bx, bz)
+
+
 def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m):
     """Draw a ring at the hit point and find where it clears, both sides.
 
@@ -380,6 +404,22 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m):
                 th = base_ang + a * sgn
                 px, pz = hx + np.sin(th) * r, hz + np.cos(th) * r
                 if not standable(g, px, pz):
+                    continue
+
+                # AND THE WAY TO IT MUST BE CLEAR TOO.
+                #
+                # The tangent sits on the far side of the ring, so the straight
+                # line from the hit point to it is a CHORD - and a chord across
+                # a circle drawn at a corner cuts through the corner. Checking
+                # only that the tangent POINT is clear let finished paths run
+                # through solid ground: 0.4%, 2.3% and 3.3% of their samples
+                # inside obstacles, which is the owner watching and saying "we
+                # are traveling through stuff".
+                #
+                # Validating the point and not the way to it is the same class
+                # of mistake as the grazing string-pull earlier: the thing that
+                # was checked is not the thing that gets driven.
+                if not clear_line(g, hx, hz, px, pz):
                     continue
 
                 # THE TANGENT MUST BE SOMEWHERE A RAY CAN LEAVE FROM.
@@ -555,6 +595,20 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
             if spread < SAME_ANGLE_TOL:
                 return None
 
+        # THE HIT POINT IS PART OF THE PATH.
+        #
+        # It was being dropped: on a blocked stride the chain appended only the
+        # tangent, so the recorded hop ran from where the ray STARTED straight
+        # to a tangent on a ring centred where it STOPPED - a line nothing ever
+        # tested, and one that cuts off the very corner the ring was drawn to
+        # go round. A 155 m stride ending in a 9 m sidestep was recorded as one
+        # 155 m diagonal through the obstacle.
+        #
+        # The ray is only known clear as far as (hx, hz), so that is where the
+        # path goes before it steps aside. Two hops, both tested: the stride
+        # the march proved, then the radius clear_line proved.
+        if np.hypot(hx - pts[-1][0], hz - pts[-1][1]) > 1e-3:
+            pts.append((hx, hz))
         x, z = best
         pts.append(best)
         d = max(np.hypot(gx - x, gz - z), 1e-6)
