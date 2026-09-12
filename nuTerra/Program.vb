@@ -84,6 +84,9 @@ Module Program
                 ' by whoever is producing the frames, who needs to see their own
                 ' film land somewhere.
                 RouteFilm.show = True
+            ElseIf a.Equals("kinddump", StringComparison.OrdinalIgnoreCase) Then
+                ' Every name the kind classifier saw, and what it answered.
+                KIND_DUMP = True
             ElseIf a.Equals("rebake", StringComparison.OrdinalIgnoreCase) Then
                 ' Ignore the saved flight bake and build it fresh. The bake is
                 ' kept between runs now, so this is how a run says the saved one
