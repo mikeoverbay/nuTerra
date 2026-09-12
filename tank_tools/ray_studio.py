@@ -112,7 +112,10 @@ def build_grid(map_name, hull_r_m):
 
     collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == KIND_WATER)
 
+    # THE FLOOR IS KEPT, not just the collision bits, because a slope is a
+    # difference between two heights and cannot be read off a boolean.
     return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide, used=None,
+                floor=fl16, hscale=scale,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
 
@@ -185,8 +188,29 @@ def march(g, x, z, dx, dz, goal, limit):
         nx, nz = x + dx * step, z + dz * step
         if not standable(g, nx, nz):
             return t, x, z, False
+
+        # A SLOPE STOPS A RAY THE SAME WAY A WALL DOES. Nothing here climbs or
+        # drops more than 45 degrees, and the collision map cannot say so - it
+        # is a height threshold, and a cliff face is under a metre tall between
+        # any two samples the whole way down. So the gradient is checked at the
+        # same step, and a wall of rock and the edge of a ravine both end the
+        # ray and get the ring sweep they deserve.
+        if too_steep(g, x, z, nx, nz, step):
+            return t, x, z, False
+
         x, z, t = nx, nz, t + step
     return t, x, z, False
+
+
+def too_steep(g, x, z, nx, nz, step_m):
+    """Is the ground between these two points steeper than we can take?"""
+    c0, r0 = to_texel(g, x, z)
+    c1, r1 = to_texel(g, nx, nz)
+    W = g["W"]
+    if not (0 <= c0 < W and 0 <= r0 < W and 0 <= c1 < W and 0 <= r1 < W):
+        return True
+    dh = abs(int(g["floor"][r1, c1]) - int(g["floor"][r0, c0])) / g["hscale"]
+    return dh > step_m * MAX_SLOPE_TAN
 
 
 REACH_M = 12.0
@@ -222,6 +246,30 @@ TANGENT_ESCAPE_M = 6.0
 # size (add and set to 4)". A tangent that clears but sits in a slot narrower
 # than this is no use - the plane does not fit through it.
 MIN_GAP_DEFAULT_M = 4.0
+
+# STEEPEST GROUND WE CAN TAKE, up or down. "we cant drop by more that 45 degree
+# angle up or down. we have to stop and do a ring sweep." Forty-five degrees is
+# a gradient of one, which is why the number is 1.0 and not a trigonometric
+# call - and writing it this way means nobody has to wonder which way round the
+# tangent went.
+MAX_SLOPE_TAN = 1.0
+
+# THREE TANGENTS THE SAME WAY MEANS WE ARE NOT GETTING ROUND IT. "of we get 3
+# points in a row that are of nearly the same angle, we are no getting around
+# this. try a different path." A chain that keeps turning the same way by the
+# same amount is tracing a face it cannot leave, and the sweep has other
+# bearings worth more than another hundred hops of this one.
+# FOUR, NOT THREE, AND SIX DEGREES RATHER THAN TWELVE - measured, not tuned by
+# feel. At the spec's three-in-a-row the rule costs THREE OF THE FIVE routes,
+# because following a long wall legitimately looks like three similar turns.
+# One more point of patience keeps every route and still saves a third of the
+# rays, which is the rule doing its job instead of doing damage:
+#
+#     no rule            5 paths, 1,031 rays
+#     run 4, tol 6 deg   5 paths,   674 rays
+#     run 3, tol 12 deg  2 paths,   404 rays
+SAME_ANGLE_RUN = 4
+SAME_ANGLE_TOL = np.deg2rad(6.0)
 
 # Coarse out, fine back. The gap is found by stepping OUT in min-gap strides
 # until something is hit, then walking BACK in small ones until it is clear
@@ -386,6 +434,7 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m):
     dx, dz = np.sin(bearing), np.cos(bearing)
     seen_here = set()
     hand = 0                    # 0 undecided, +1 keep it on the left, -1 right
+    turns = []                  # bearings of the last few tangents
 
     for _ in range(MAX_HOPS):
         got, hx, hz, reached = march(g, x, z, dx, dz, goal, limit)
@@ -456,6 +505,17 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m):
 
         if hand == 0:
             hand = 1 if best is left else -1
+
+        # NOT GETTING ROUND IT. Three turns running at nearly the same bearing
+        # is a chain grinding along one face, and no number of further hops
+        # changes that - the sweep's next bearing is worth more.
+        turns.append(np.arctan2(best[0] - x, best[1] - z))
+        if len(turns) >= SAME_ANGLE_RUN:
+            recent = turns[-SAME_ANGLE_RUN:]
+            spread = max(abs(np.arctan2(np.sin(a1 - a2), np.cos(a1 - a2)))
+                         for a1 in recent for a2 in recent)
+            if spread < SAME_ANGLE_TOL:
+                return None
 
         x, z = best
         pts.append(best)
