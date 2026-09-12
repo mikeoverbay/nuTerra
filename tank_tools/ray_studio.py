@@ -1297,13 +1297,21 @@ def main():
 
         # STEP THE TREE. A few casts a frame: enough to make progress, few
         # enough that the shape of the search is something a person can follow.
-        if tree is not None and not paused and not tree.exhausted:
+        if tree is not None and not paused and not tree.exhausted                 and not tree.halted:
             last = ""
             for _ in range(TREE_STEPS):
                 last = tree.step()
                 if tree.exhausted:
                     break
             seen_i, half_i, used_i = tree.items.report()
+            if tree.halted:
+                rings_n = sum(1 for n in tree.win_chain if n["ring"])
+                length = sum(np.hypot(tree.win_chain[k + 1]["pos"][0] - tree.win_chain[k]["pos"][0],
+                                      tree.win_chain[k + 1]["pos"][1] - tree.win_chain[k]["pos"][1])
+                             for k in range(len(tree.win_chain) - 1))
+                tree_msg = ("FIRST PATH: %.0f m, %d point(s), %d ring(s) - "
+                            "found after %d cast(s). [b] restarts."
+                            % (length, len(tree.win_chain), rings_n, tree.casts))
             tree_msg = ("branch tree: %d point(s), %d cast(s), %d path(s), "
                         "depth %d | items %d hit, %d half-settled, %d USED - %s"
                         % (len(tree.points), tree.casts, len(tree.paths),
@@ -1429,7 +1437,44 @@ def main():
         # THE BRANCH TREE ITSELF. Every ray that has been cast, coloured by
         # what became of it, so the search is something to look at rather than
         # a number to be told.
-        if tree is not None:
+        if tree is not None and tree.halted:
+            # ONE PATH, ALONE, WITH THE RINGS THAT SHAPED IT.
+            #
+            # The whole tree is deliberately NOT drawn here. Ten thousand dead
+            # rays behind the answer is how the answer gets lost, and the
+            # question being asked is "what did this route actually do" - which
+            # is the sequence of collisions, the ring at each one and which
+            # hand it took, not the search that found it.
+            ch = tree.win_chain
+            for k in range(len(ch) - 1):
+                pygame.draw.line(screen, (120, 255, 170),
+                                 to_px(ch[k]["pos"][0], ch[k]["pos"][1], w),
+                                 to_px(ch[k + 1]["pos"][0], ch[k + 1]["pos"][1], w), 3)
+            for node in ch:
+                if node["ring"] is not None:
+                    rx, rz, rr = node["ring"]
+                    cpx = to_px(rx, rz, w)
+                    rpx = int(m_to_px(rr, w))
+                    if rpx >= 2:
+                        pygame.draw.circle(screen, (255, 215, 80), cpx, rpx, 2)
+                    pygame.draw.line(screen, (255, 215, 80), cpx,
+                                     to_px(node["pos"][0], node["pos"][1], w), 1)
+                    # which hand it took round this one
+                    pygame.draw.circle(screen,
+                                       (90, 255, 235) if node["side"] > 0
+                                       else (255, 150, 90),
+                                       to_px(node["pos"][0], node["pos"][1], w), 5)
+                else:
+                    pygame.draw.circle(screen, (200, 220, 210),
+                                       to_px(node["pos"][0], node["pos"][1], w), 3)
+            if ch:
+                for pt, col, lab in ((ch[0]["pos"], (0, 220, 255), "START"),
+                                     (ch[-1]["pos"], (255, 150, 0), "BASE")):
+                    q = to_px(pt[0], pt[1], w)
+                    pygame.draw.circle(screen, col, q, 9, 3)
+                    screen.blit(font.render(lab, True, col), (q[0] + 12, q[1] - 8))
+
+        elif tree is not None:
             TREE_COL = {TAG_OPEN: (110, 110, 130),
                         TAG_PASS: (90, 240, 130),
                         TAG_FAIL: (170, 60, 55)}
@@ -2504,7 +2549,7 @@ def ring_branch(g, hx, hz, from_xz, indx, indz, obj, max_ring_m, goal,
                 wide, _, _ = measure_gap(g, px, pz, ux, uz, min_gap_m)
                 if wide < min_gap_m:
                     continue
-                out[side] = (px, pz)
+                out[side] = (px, pz, r)
                 break
             r += RING_STEP_M
     return out
@@ -2633,6 +2678,12 @@ class BranchTree(object):
         self.points = []
         self.paths = []
         self.items = ItemLedger()
+        # STOP AT THE FIRST COMPLETED PATH. The owner wants to look at one
+        # whole route - start to finish, with the rings that shaped it -
+        # before the tree buries it under ten thousand more rays.
+        self.halt_on_first = True
+        self.halted = False
+        self.win_chain = []
         self.casts = 0
         self.exhausted = False
         # The opening bearing is the owner's "start scanning left": the root
@@ -2645,7 +2696,7 @@ class BranchTree(object):
     def add(self, parent, pos, angle_in, origin):
         p = dict(id=len(self.points), pos=pos, angle_in=angle_in,
                  parent=parent, origin=origin, tried={}, tag=TAG_OPEN,
-                 kids=[], hit=None, item=None, side=None)
+                 kids=[], hit=None, item=None, side=None, ring=None)
         self.points.append(p)
         if parent is not None:
             self.points[parent]["kids"].append(p["id"])
@@ -2676,6 +2727,8 @@ class BranchTree(object):
 
     def step(self):
         """One ray cast. Returns a short string describing what happened."""
+        if self.halted:
+            return "HALTED on the first completed path"
         g, (gx, gz) = self.g, self.goal
         while self.stack:
             p = self.points[self.stack[-1]]
@@ -2715,6 +2768,16 @@ class BranchTree(object):
                     if q.get("item"):
                         self.items.win(q["item"], q["side"])
                     k = q["parent"]
+                # THE WINNING CHAIN, as point records rather than positions,
+                # so the redraw has the rings and the items too.
+                chain, k = [], win["id"]
+                while k is not None:
+                    chain.append(self.points[k])
+                    k = self.points[k]["parent"]
+                chain.reverse()
+                self.win_chain = chain
+                if self.halt_on_first:
+                    self.halted = True
                 return "ARRIVED via %d" % aid
 
             if got < g["texel_m"]:
@@ -2753,8 +2816,13 @@ class BranchTree(object):
                 t = sides.get(side)
                 if t is None:
                     continue
-                node = self.add(p["id"], t, aid, ORIGIN_TANGENT)
+                node = self.add(p["id"], (t[0], t[1]), aid, ORIGIN_TANGENT)
                 node["item"], node["side"] = obj, side
+                # THE RING THAT FOUND IT: centre and the radius it had grown
+                # to. Kept so a finished path can be redrawn with the rings
+                # that shaped it, which is the only way to see WHY it went the
+                # way it did rather than just that it did.
+                node["ring"] = (hx, hz, t[2])
                 made.append(node)
             if not made:
                 p["tried"][aid] = TAG_FAIL
