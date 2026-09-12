@@ -536,6 +536,29 @@ the writer carries them. Tested on a synthetic bake rewritten under a
 running Studio with a new building: reloaded within two polls, the target
 and the 3D camera kept.
 
+## 14. Point-to-point routing, measured for the Tank AI session (night)
+
+The owner, to both sessions: "look at how Path Studio searches paths; it is
+point to point; we have 2; the algo should still apply." `radar_tangent.py`
+(direct / acceptance rings / fan tangents / bounded A*) measured tonight on
+the monastery: on the shipped 1,068-waypoint plan the deciding layer is
+direct 93%, ring 7%, search 0.3%, tangent NEVER - the A* course already
+avoids everything, so the walker only fine-tunes. Base to base as two
+points (-20,-388 -> +20,+388), camera mask: search decides 92-100% of
+moves, the walker takes 163-364 s and never arrives (438 m and 357 m short)
+- the bounded A* re-runs every step and the taut aim returns 0 m, so it
+crawls a cell at a time. Verdict handed over: do not port the layers. The
+tank side's own grid A* (9 ms) plus a string-pull (Theta* / Lazy Theta*: the
+parent pointer skips to the furthest ancestor still in line of sight) is
+the planner; the owner's 3 m ray is the DRIVER - two jobs. Their ring walk
+and my fan silhouette are both TangentBug (Kamon, Rimon, Rivlin, IJRR 1998),
+which exists for a robot that cannot see the map; we can. The two "rings"
+are different objects: mine an acceptance tolerance round the target
+(asin(R/d) cone), theirs an obstacle-rounding circle at the hit point - the
+owner should be shown both before either side builds further on his word.
+`flight_plan.astar(cost, start, goal, stats)` is self-contained (60 lines,
+2-D cost array, inf blocked, 8-neighbour, admissible) and importable.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
