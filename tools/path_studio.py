@@ -3438,8 +3438,7 @@ class Studio:
         self.repaint()
         if self.view3d is not None:
             self.view3d.overlay()
-        meta = getattr(b, "meta", {})
-        prov = ", ".join("%s=%s" % (k, meta[k]) for k in ("written", "commit") if k in meta)
+        prov = self.bake_provenance()
         self.status.set("height map reloaded at %s%s - route, targets and lights kept"
                         % (time.strftime("%H:%M:%S"), (" (" + prov + ")") if prov else ""))
 
@@ -3475,6 +3474,28 @@ class Studio:
         self.map_name = name
         self.bake_seen = self._bake_stamp(name)
         self.bake_pending = None
+        prov = self.bake_provenance()
+        if prov:
+            self._trace("load_named", "bake " + prov)
+
+    def bake_provenance(self):
+        """'written <stamp>, commit <sha>, built in <tree>' from the bake meta
+        (nuTerra writes the keys since df648ee1), or '' for a bake written
+        before them. The tree, not the exe's leaf: three checkouts build the
+        app and two of them share one temp folder, so the checkout is the
+        answer to "where did this bake come from"."""
+        meta = getattr(self.bake, "meta", {}) if self.bake is not None else {}
+        parts = []
+        if meta.get("written"):
+            parts.append("written " + meta["written"])
+        if meta.get("commit"):
+            parts.append("commit " + meta["commit"])
+        exe = meta.get("exe", "").replace("/", "\\")
+        if exe:
+            marker = "\\nuTerra\\bin\\"
+            tree = exe.split(marker)[0].rsplit("\\", 1)[-1] if marker in exe else exe
+            parts.append("built in " + tree)
+        return ", ".join(parts)
         if self.view3d is not None:
             # A new map: new surface, and the camera back to its overview.
             # render_mask below recolours it and renders.
