@@ -47,6 +47,18 @@ uTerralight` (per USER, `MapFlightBake.vb:753`)
   (2026-09-11). Unset, it falls back to the checkout folder the exe sits in.
   And stop a nuTerra by its exe PATH, never by process name - with two
   checkouts live, a name match kills the other session's app.
+  THE JOBS, as the owner split them (2026-09-12, night): nuTerra Work -
+  fixes in the engine, the main nuTerra UI, offering up knowledge, and
+  producing the HEIGHT MAP and the COLOUR TYPE (the bake, the kind
+  classification, the palette: a data product the other two ask for). Tank
+  AI - develop the AI path creation, and work with Path Studio to get it
+  rendered. Path Studio - code Path Studio, and work with Tank AI to
+  develop the rendering. Route CONTENT - what is drawn, to the base, in
+  what colours - is Tank AI's and Path Studio's even when the panel lives
+  in nuTerra's UI (the Route resolver panel is plumbing only). Standing
+  rule, his words: "If I ask something that isn't in your job list, ask me
+  first" - raise the boundary, never cross it quietly, even when his own
+  ask lands outside it.
   The protocol that has held all day: NAME THE FILE before editing anything
   that is not yours, wait for the ack, and measure rather than argue. The
   flight bake's contract lives in `<map>_meta.txt` (kind_mask, outland_bit,

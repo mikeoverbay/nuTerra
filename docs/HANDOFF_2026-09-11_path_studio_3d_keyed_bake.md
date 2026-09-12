@@ -571,6 +571,18 @@ jointly: plan with the search, drive with the rays - his 3 m ray is the
 right instinct at the driving layer. The ring resolver stays drawn in
 their viewer until he says which ring he meant.
 
+A lesson from their side worth keeping for ours: their ray resolver
+validated a centre line through single 17 cm texels and every "0 samples
+in solid" check tested the same line, so a 4.5 m hull overlapped solid on
+12% of a drive (distance transform along the route: min 0.17 m against a
+2.25 m radius) and nothing caught it - the check and the flaw shared an
+assumption. The camera side does not have that hole: `Radar.march` walks
+`plan`, the blocked set dilated by `BODY_R` (0.5 m) and `TERRAIN_R` (3 m)
+in `build_world`, so the body is in the mask before any ray is cast. The
+general rule: a validation must sample something the planner did not plan
+on - the eroded mask is the planner's most important input, more than the
+search algorithm.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the
