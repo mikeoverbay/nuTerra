@@ -1166,7 +1166,21 @@ def main():
     rings, deaths = [], []
     astar_paths, astar_msg = [], ""
     tree, tree_msg, tree_follow = None, "", True
-    TREE_STEPS = 12               # ray casts per frame, so it can be watched
+    # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
+    #
+    # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
+    # line drawn as it happens - a ray or a path segment, whichever it is -
+    # which is the only way to follow what the search is actually doing.
+    #
+    # step_delay_ms is HOW LONG to wait before the next one. The search STOPS
+    # until that time is up; it does not run on and get drawn late. The frame
+    # itself keeps ticking at ~60 Hz regardless, so the window stays responsive
+    # and can be dragged and zoomed while the search is crawling.
+    steps_per_frame = 1
+    step_delay_ms = 0
+    last_step_ms = 0
+    slider_rects = {}             # name -> (rect, lo, hi) from the last frame
+    active_slider = None
     astar_class = []              # which homotopy class each route belongs to
     landmark_m2 = LANDMARK_M2
     show_marks = True
@@ -1253,6 +1267,23 @@ def main():
                 # button posts the SAME key event the keyboard would, so there
                 # is one implementation of every action and the panel cannot
                 # drift away from what the keys do.
+                # A SLIDER IS GRABBED, not clicked once: the value follows
+                # the pointer until the button comes up.
+                grabbed = None
+                for nm, (sr, lo, hi) in slider_rects.items():
+                    if sr.collidepoint(e.pos):
+                        grabbed = nm
+                        frac = (e.pos[0] - sr.x) / max(1, sr.w)
+                        val = lo + (hi - lo) * max(0.0, min(1.0, frac))
+                        if nm == "delay":
+                            step_delay_ms = int(round(val))
+                        else:
+                            steps_per_frame = max(1, int(round(val)))
+                        break
+                if grabbed is not None:
+                    active_slider = grabbed
+                    continue
+
                 hit = None
                 for (r, lab, kk, on) in buttons:
                     if r.collidepoint(e.pos):
@@ -1266,6 +1297,15 @@ def main():
                     dragging, drag_from = True, e.pos
             elif e.type == pygame.MOUSEBUTTONUP and e.button in (1, 2, 3):
                 dragging = False
+                active_slider = None
+            elif e.type == pygame.MOUSEMOTION and active_slider is not None:
+                sr, lo, hi = slider_rects[active_slider]
+                frac = (e.pos[0] - sr.x) / max(1, sr.w)
+                val = lo + (hi - lo) * max(0.0, min(1.0, frac))
+                if active_slider == "delay":
+                    step_delay_ms = int(round(val))
+                else:
+                    steps_per_frame = max(1, int(round(val)))
             elif e.type == pygame.MOUSEMOTION and dragging:
                 dx, dy = e.pos[0] - drag_from[0], e.pos[1] - drag_from[1]
                 drag_from = e.pos
@@ -1376,7 +1416,14 @@ def main():
                     nodes, paths, rays, done = [], [], 0, False
                     rings, deaths = [], []
 
-        if not done and not paused:
+        # THE SWEEP IS PACED BY THE SAME CLOCK as the tree. It used to advance
+        # once a frame while the frame blocked for 220 ms, so the delay
+        # controlled the whole window rather than the work. Both are gated by
+        # step_delay_ms now and the frame is left free.
+        now_ms = pygame.time.get_ticks()
+        step_due = (now_ms - last_step_ms) >= step_delay_ms
+        if not done and not paused and step_due:
+            last_step_ms = now_ms
             for _ in range(speed):
                 try:
                     nodes, paths, rays, bearing, rings, deaths = next(gen)
@@ -1386,9 +1433,11 @@ def main():
 
         # STEP THE TREE. A few casts a frame: enough to make progress, few
         # enough that the shape of the search is something a person can follow.
-        if tree is not None and not paused and not tree.exhausted                 and not tree.halted:
+        if tree is not None and not paused and not tree.exhausted \
+                and not tree.halted and step_due:
+            last_step_ms = now_ms
             last = ""
-            for _ in range(TREE_STEPS):
+            for _ in range(steps_per_frame):
                 last = tree.step()
                 if tree.exhausted:
                     break
@@ -1664,6 +1713,25 @@ def main():
             tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
             screen.blit(tag, (px_ + 14, pz_ - 8))
 
+        # THE CROSSHAIR, full width and full height of the map, white, on the
+        # point the search is working RIGHT NOW - or on where it finished. It
+        # travels as the search travels, and full-length lines mean it can be
+        # picked out at any zoom without hunting for a dot among ten thousand
+        # rays.
+        cross = None
+        if tree is not None:
+            if tree.halted and tree.win_chain:
+                cross = tree.win_chain[-1]["pos"]
+            elif tree.stack:
+                cross = tree.points[tree.stack[-1]]["pos"]
+        if cross is not None:
+            qx, qy = to_px(cross[0], cross[1], w)
+            pygame.draw.line(screen, (255, 255, 255),
+                             (map_ox, qy), (map_ox + w, qy), 1)
+            pygame.draw.line(screen, (255, 255, 255),
+                             (qx, map_oy), (qx, map_oy + w), 1)
+            pygame.draw.circle(screen, (255, 255, 255), (qx, qy), 7, 1)
+
         screen.set_clip(None)
 
         # ------------------------------------------------------------------
@@ -1710,6 +1778,39 @@ def main():
                 buttons.append((r, lab, kk, False))
             return y + 26
 
+        def slider(x, y, wpx, name, label, val, lo, hi, fmt="%d"):
+            screen.blit(font.render(label + "  " + (fmt % val), True,
+                                    (200, 205, 215)), (x, y))
+            tr = pygame.Rect(x, y + 18, wpx, 12)
+            pygame.draw.rect(screen, (30, 33, 40), tr, border_radius=6)
+            pygame.draw.rect(screen, PANEL_LINE, tr, 1, border_radius=6)
+            frac = 0.0 if hi <= lo else (val - lo) / float(hi - lo)
+            kx = int(tr.x + max(0.0, min(1.0, frac)) * tr.w)
+            pygame.draw.rect(screen, (120, 200, 255),
+                             pygame.Rect(tr.x, tr.y, kx - tr.x, tr.h),
+                             border_radius=6)
+            pygame.draw.circle(screen, (235, 245, 255), (kx, tr.y + 6), 6)
+            slider_rects[name] = (tr, lo, hi)
+            return y + 38
+
+        def checkbox(x, y, wpx, label, key, on):
+            r = pygame.Rect(x, y, wpx, 22)
+            hov = r.collidepoint(pygame.mouse.get_pos())
+            pygame.draw.rect(screen, (52, 56, 66) if hov else (38, 41, 49), r,
+                             border_radius=3)
+            pygame.draw.rect(screen, PANEL_LINE, r, 1, border_radius=3)
+            bx = pygame.Rect(x + 5, y + 5, 12, 12)
+            pygame.draw.rect(screen, (20, 22, 28), bx)
+            pygame.draw.rect(screen, PANEL_LINE, bx, 1)
+            if on:
+                pygame.draw.line(screen, (120, 255, 170), (bx.x + 2, bx.y + 6),
+                                 (bx.x + 5, bx.y + 9), 2)
+                pygame.draw.line(screen, (120, 255, 170), (bx.x + 5, bx.y + 9),
+                                 (bx.x + 10, bx.y + 3), 2)
+            screen.blit(font.render(label, True, (225, 228, 235)), (x + 23, y + 3))
+            buttons.append((r, label, key, on))
+            return y + 26
+
         def readout(x, y, label, value, col=(220, 225, 235)):
             screen.blit(font.render(label, True, (135, 140, 152)), (x, y))
             t = font.render(str(value), True, col)
@@ -1731,12 +1832,17 @@ def main():
         y += 24
         y = header(LX, y, "SEARCH", LW)
         y = button(LX, y, LW, "Branch tree  [b]", pygame.K_b, tree is not None)
-        y = button(LX, y, LW, "Follow point  [c]", pygame.K_c, tree_follow)
+        y = checkbox(LX, y, LW, "Lock view to current point", pygame.K_c,
+                     tree_follow)
         y = button(LX, y, LW, "Bearing sweep  [r]", pygame.K_r)
         y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a, bool(astar_paths))
         y = button(LX, y, LW, "PAUSED  [space]" if paused else "Pause  [space]",
                    pygame.K_SPACE, paused)
-        y += 8
+        y += 4
+        y = slider(LX, y, LW, "steps", "Steps per frame", steps_per_frame, 1, 64)
+        y = slider(LX, y, LW, "delay", "Frame delay", step_delay_ms, 0, 50,
+                   "%d ms")
+        y += 4
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
@@ -1836,7 +1942,11 @@ def main():
                         (LEFT_W + 10, SH - 22))
 
         pygame.display.flip()
-        pygame.time.wait(16 if (done or paused) else delay)
+        # THE FRAME ALWAYS TICKS. The search is paced by step_delay_ms above,
+        # NOT by blocking the frame - so the window stays draggable and
+        # zoomable however slowly the search is set to crawl. Blocking here was
+        # why a 220 ms pace made the whole tool feel frozen.
+        pygame.time.wait(16)
 
     pygame.quit()
 
