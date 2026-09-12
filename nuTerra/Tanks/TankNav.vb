@@ -207,10 +207,21 @@ Public Class TankNav
             Next
         Next
 
-        BuildClearance()
-
         ready = True
         Load()
+
+        ' CLEARANCE LAST, AFTER THE PINS. Load() ORs PINNED into the cells, and
+        ' PINNED is part of IMPASSABLE - so building the field before it left
+        ' the planner measuring room that a learned obstacle was standing in.
+        ' A route was then cut straight through ground CanStand refuses, and the
+        ' hull met it a few metres off the start line. It compounded: every run
+        ' learned more pins near the place the last run stopped, and every run
+        ' planned as though none of them existed.
+        '
+        ' The two tests have to see the same world. clear_m >= hull is meant to
+        ' be STRICTER than CanStand, not merely different.
+        BuildClearance()
+
         report(CSng((Date.UtcNow - t0).TotalMilliseconds))
     End Sub
 

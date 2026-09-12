@@ -316,29 +316,15 @@ Public Class MapTanks
                     .turretYaw = yaw0, .gunPitch = pitch0}
                 instances.Add(born)
 
-                ' HAND IT A CORRIDOR. The catalogue found every independent way
-                ' into the other side's base at load; this vehicle drives one of
-                ' them and never searches. Slot k takes route k, so with two a
-                ' side the pair go in by different ways rather than nose to
-                ' tail down the same one - and with more vehicles than routes it
-                ' wraps, which is a column rather than an error.
-                '
-                ' Thinned by LINE OF SIGHT against the same hull radius the
-                ' route was searched with, so every segment is drivable as a
-                ' straight line - which is how the driver flies it.
-                Dim cat = If(team = 1, cat_team1, cat_team2)
-                If cat.ready AndAlso cat.routes.Count > 0 Then
-                    Dim ri = k Mod cat.routes.Count
-                    born.drive.path = cat.Waypoints(nav, ri, TankDriveTune.HULL_R + TankRoutes.THIN_SLACK_M)
-                    LogThis("tank:   route {0} of {1}, {2:0} m, {3} waypoint(s)",
-                            ri, cat.routes.Count, cat.routes(ri).length_m,
-                            born.drive.path.Count)
-                End If
-
                 LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
                         team, k, r.Item1, v.tag, x, y, z, obstacle_at(x, z),
                         armor_text(r.Item1))
             Next
+
+            ' ONE PATH FOR HANDING OUT ROUTES, used by the load and by the hot
+            ' rebuild, so the two cannot drift into disagreeing. It runs after
+            ' every hull is placed because each searches from where it stands.
+            HandOutRoutes()
 
             ' Of what was ASKED FOR, not of the roster - the roster is thirty
             ' and PER_TEAM decides how many of them are wanted.
@@ -373,6 +359,21 @@ Public Class MapTanks
             Load()
         End If
         If failed OrElse instances.Count = 0 OrElse shader Is Nothing Then Return
+
+        ' F7 AND THE PANEL BUTTON ARRIVE AS A FLAG, not as a call. The nuTerra
+        ' session set it up that way and the reasoning is right: it matches the
+        ' TANK_LOAD_NOW idiom the panel already uses, it compiles against a
+        ' master where RebuildRoutes does not exist so the control and the thing
+        ' it drives can land in either order, and it keeps 800 ms of grid re-cut
+        ' out of OnKeyDown and out of the middle of an ImGui pass.
+        '
+        ' Consumed HERE, at the top of Draw, after the load has settled and
+        ' before anything reads the grid this frame - so no hull is part way
+        ' through a step against a grid that is about to be replaced.
+        If TANK_ROUTES_REBUILD_NOW Then
+            TANK_ROUTES_REBUILD_NOW = False
+            RebuildRoutes()
+        End If
 
         GL_PUSH_GROUP("draw_tanks")
         MainFBO.attach_CNGP()
@@ -1425,11 +1426,56 @@ Public Class MapTanks
             inst.drive.pathAt = 0
             inst.drive.arrived = False
             inst.drive.hasGoal = False
-            If cat.ready AndAlso cat.routes.Count > 0 Then
-                inst.drive.path = cat.Waypoints(nav, k Mod cat.routes.Count,
-                                                TankDriveTune.HULL_R + TankRoutes.THIN_SLACK_M)
-            Else
-                inst.drive.path = Nothing
+            inst.drive.path = Nothing
+
+            ' FROM WHERE THE HULL ACTUALLY STANDS, not from its base.
+            '
+            ' The team catalogue is cut base to base, which answers "how many
+            ' ways into that base are there" and is the right question for the
+            ' map. It is the wrong question for a vehicle: a hull spawns in a
+            ' block behind the marker, so handing it a base-to-base route makes
+            ' its first leg - from where it is to where the route begins -
+            ' ground no search ever looked at, and gives every hull on a side
+            ' the SAME entry however differently they are placed.
+            '
+            ' Measured before the change: first waypoint 29.8 m away, 64 degrees
+            ' off the spawn heading, and NOT STANDABLE for that hull. It was
+            ' being sent at a point it could not occupy.
+            '
+            ' Searching from the hull costs one catalogue each - about 60 ms -
+            ' and finds the entries that are valid FOR IT. The team catalogue is
+            ' still built, for the count and the picture.
+            If map_scene.BASE_RINGS_LOADED Then
+                Dim ex = If(green, -TEAM_2.X, -TEAM_1.X)
+                Dim ez = If(green, TEAM_2.Z, TEAM_1.Z)
+                Dim mine As New TankRoutes
+                mine.Build(nav, TankDriveTune.HULL_R,
+                           inst.position.X, inst.position.Z, ex, ez,
+                           String.Format("{0} from its spawn", inst.label))
+                If mine.ready AndAlso mine.routes.Count > 0 Then
+                    Dim ri = k Mod mine.routes.Count
+                    inst.drive.path = mine.Waypoints(nav, ri,
+                                                     TankDriveTune.HULL_R + TankRoutes.THIN_SLACK_M)
+
+                    ' THE FIRST LEG, REPORTED. It is the one a hull must drive
+                    ' before any of the search applies, so it is the one worth
+                    ' seeing: how far, how far it must turn before it may move
+                    ' at all, and whether the point is even standable.
+                    If inst.drive.path.Count > 0 Then
+                        Dim w0 = inst.drive.path(0)
+                        Dim dxw = w0.X - inst.position.X, dzw = w0.Y - inst.position.Z
+                        Dim legm = CSng(Math.Sqrt(dxw * dxw + dzw * dzw))
+                        Dim turn = CSng(Math.Atan2(dxw, dzw)) - inst.headingRad
+                        While turn > Math.PI : turn -= CSng(Math.PI * 2) : End While
+                        While turn < -Math.PI : turn += CSng(Math.PI * 2) : End While
+                        LogThis("tank:   {0}: route {1} of {2}, {3:0} m, {4} wp, first leg {5:0.0} m turning {6:0} deg{7}",
+                                inst.label, ri, mine.routes.Count,
+                                mine.routes(ri).length_m, inst.drive.path.Count,
+                                legm, turn * 180.0F / Math.PI,
+                                If(nav.CanStand(w0.X, w0.Y, TankDriveTune.HULL_R),
+                                   "", "  <- WP0 NOT STANDABLE"))
+                    End If
+                End If
             End If
         Next
     End Sub
@@ -1467,6 +1513,25 @@ Public Class MapTanks
                                 "team 1 -> team 2 base")
                 cat_team2.Build(nav, TankDriveTune.HULL_R, b2x, b2z, b1x, b1z,
                                 "team 2 -> team 1 base")
+                ' HOW MANY WAYS ARE THERE, REALLY? Two caps on the erase - 8 m
+                ' and 12 m - both give two routes, so the erase is not what
+                ' limits the count. The remaining suspect is the grid: TankNav
+                ' coarsens 0.171 m to 1.37 m by blocking a cell if ANY texel in
+                ' it is blocked, and the nuTerra session measured that this eats
+                ' the narrow LINKS - the rooms survive, the doors do not.
+                '
+                ' Searching at a narrower hull separates the two answers. If a
+                ' 2.5 m hull finds many more ways through, the ground is there
+                ' and the grid cannot see it at 4.5 m. If it still finds two,
+                ' the map really does have two.
+                If TANK_NAV_DUMP Then
+                    For Each probe In New Single() {4.5F, 3.5F, 2.5F, 1.5F}
+                        Dim t As New TankRoutes
+                        t.Build(nav, probe, b1x, b1z, b2x, b2z,
+                                String.Format("probe hull {0:0.0} m", probe))
+                    Next
+                End If
+
                 TankRoutes.DumpCatalogues(nav, MAP_NAME_NO_PATH,
                                           {cat_team1, cat_team2},
                                           {"team 1", "team 2"})

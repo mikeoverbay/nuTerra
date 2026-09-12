@@ -64,6 +64,10 @@ Public Class TankRoutes
         ''' <summary>The least room anywhere on it, in metres. A LOWER BOUND at
         ''' this grid's resolution - see the class note.</summary>
         Public min_clear_m As Single
+        ''' <summary>Which lane of the sweep hunted it down, in metres left of
+        ''' the base-to-base line. Positive is left of the way you are going.
+        ''' Kept so the catalogue can be read as a fan rather than a list.</summary>
+        Public lane_m As Single
     End Structure
 
     Public ReadOnly routes As New List(Of Route)
@@ -115,6 +119,43 @@ Public Class TankRoutes
     ''' a hull actually completes a route, because nothing downstream of the
     ''' first deadlock has been exercised.
     Public Const THIN_SLACK_M As Single = 0.0F
+
+    ''' <summary>
+    ''' The widest swath a single route may erase, in metres.
+    '''
+    ''' Erasing at the cell's OWN clearance is right in an alley - it is
+    ''' single-file, so one pass consumes it - and badly wrong in the open. A
+    ''' route crossing a sixty-metre field ate a sixty-metre swath and took
+    ''' every parallel way through it with it, which is why the map only ever
+    ''' yielded two corridors: the first route ate the middle of it.
+    '''
+    ''' Capped, a pass through open ground consumes a lane rather than the
+    ''' field, and the next sweep can find a genuinely different way across the
+    ''' same ground - which is the point, because a field DOES admit many
+    ''' routes and tanks abreast in one is what a push looks like.
+    ''' </summary>
+    Public Const ERASE_CAP_M As Single = 12.0F
+
+    ''' <summary>
+    ''' How many lanes the sweep hunts across, and what leaning into one costs.
+    '''
+    ''' THE OWNER'S METHOD: "start looking left in the hunt sweep". Taking the
+    ''' shortest route, erasing it and repeating always begins in the MIDDLE -
+    ''' the shortest line between two bases runs up the centre of the map - so
+    ''' every later route is only whatever survived the erase rather than a way
+    ''' anybody chose. Sweeping the lanes left to right instead HUNTS a
+    ''' different corridor on purpose: each pass is told where to look, so the
+    ''' catalogue comes out spread across the map's width rather than stacked
+    ''' on its spine.
+    '''
+    ''' The bias is added to the COST, never to the heuristic, so A* is still
+    ''' exact - it returns the cheapest path under a cost that prefers a lane,
+    ''' which is a different and perfectly well-defined question. A biased route
+    ''' is longer than the shortest one by construction, and that is the trade
+    ''' being made deliberately: variety costs distance.
+    ''' </summary>
+    Public Const LANES As Integer = 9
+    Public Const LANE_BIAS As Single = 0.55F
 
     Public Sub Build(nav As TankNav, hull_r_m As Single,
                      sx As Single, sz As Single,
@@ -169,14 +210,31 @@ Public Class TankRoutes
         Dim goal = gcz * N + gcx
         Dim eaten(N * N - 1) As Boolean
 
-        Do
+        ' THE SWEEP AXIS. Lanes are measured across the line between the two
+        ' ends, so "left" means left of the way you are going rather than west.
+        Dim axx = gx - sx, axz = gz - sz
+        Dim alen = CSng(Math.Sqrt(axx * axx + axz * axz))
+        If alen < 1.0F Then alen = 1.0F
+        Dim dirx = axx / alen, dirz = axz / alen
+        Dim perpx = -dirz, perpz = dirx
+        Dim midx = (sx + gx) * 0.5F, midz = (sz + gz) * 0.5F
+        Dim half = alen * 0.45F
+
+        Dim swept = True
+        Do While swept AndAlso routes.Count < MAX_ROUTES
+            swept = False
+            For li = 0 To LANES - 1
+            ' LEFT FIRST, then across to the right - the owner's method. The
+            ' lane tells the search where to LOOK, so each pass hunts its own
+            ' corridor instead of taking what the last erase happened to leave.
+            Dim lane = half - 2.0F * half * CSng(li) / CSng(LANES - 1)
+
             Dim ta = Date.UtcNow
-            Dim path = AStar(nav, hull_r_m, eaten, start, goal, N)
+            Dim path = AStar(nav, hull_r_m, eaten, start, goal, N,
+                             lane, perpx, perpz, midx, midz)
             If routes.Count = 0 Then first_ms = (Date.UtcNow - ta).TotalMilliseconds
-            If path Is Nothing Then
-                why_stopped = "no path"
-                Exit Do
-            End If
+            If path Is Nothing Then Continue For
+            swept = True
 
             Dim r As Route
             r.cells = path
@@ -187,6 +245,7 @@ Public Class TankRoutes
                 If cl < r.min_clear_m Then r.min_clear_m = cl
                 If i > 0 Then r.length_m += StepLen(path(i - 1), path(i), N, nav.cell_m)
             Next
+            r.lane_m = lane
             routes.Add(r)
 
             If routes.Count >= MAX_ROUTES Then
@@ -206,7 +265,8 @@ Public Class TankRoutes
                 Dim cx = ci Mod N, cz = ci \ N
                 If NearCell(cx, cz, scx, scz, guard2) Then Continue For
                 If NearCell(cx, cz, gcx, gcz, guard2) Then Continue For
-                Dim rc = CInt(Math.Floor(nav.clear_m(ci) / Math.Max(nav.cell_m, 0.001F)))
+                Dim wide = Math.Min(nav.clear_m(ci), ERASE_CAP_M)
+                Dim rc = CInt(Math.Floor(wide / Math.Max(nav.cell_m, 0.001F)))
                 If rc < 1 Then rc = 1
                 Dim rc2 = rc * rc
                 For dz = -rc To rc
@@ -228,15 +288,18 @@ Public Class TankRoutes
                 why_stopped = "erasing a route consumed nothing - it would repeat for ever"
                 Exit Do
             End If
+            Next
         Loop
+        If why_stopped = "" Then why_stopped = "a whole sweep found nothing new"
 
         ready = True
         Dim ms = (Date.UtcNow - t0).TotalMilliseconds
         LogThis("tank routes: {0} - {1} route(s) in {2:0} ms, stopped because {3}",
                 label, routes.Count, ms, why_stopped)
         For i = 0 To routes.Count - 1
-            LogThis("tank routes:   {0}: {1:0} m, least room {2:0.0} m over {3} cell(s)",
-                    i, routes(i).length_m, routes(i).min_clear_m, routes(i).cells.Length)
+            LogThis("tank routes:   {0}: {1:0} m, least room {2:0.0} m, lane {3,4:0} m over {4} cell(s)",
+                    i, routes(i).length_m, routes(i).min_clear_m,
+                    routes(i).lane_m, routes(i).cells.Length)
         Next
     End Sub
 
@@ -466,7 +529,10 @@ Public Class TankRoutes
     Private Shared Function AStar(nav As TankNav, hull_r_m As Single,
                                   eaten() As Boolean,
                                   start As Integer, goal As Integer,
-                                  N As Integer) As Integer()
+                                  N As Integer,
+                                  lane_m As Single,
+                                  perpx As Single, perpz As Single,
+                                  midx As Single, midz As Single) As Integer()
         Dim total = N * N
         Dim g(total - 1) As Single
         Dim came(total - 1) As Integer
@@ -478,6 +544,11 @@ Public Class TankRoutes
 
         Dim cm = nav.cell_m
         Dim gx = goal Mod N, gz = goal \ N
+
+        ' World position of a cell, without calling CentreOf a million times.
+        Dim ox = nav.wx_min, oz = nav.wz_max
+        Dim sx_c = (nav.wx_max - nav.wx_min) / N
+        Dim sz_c = (nav.wz_max - nav.wz_min) / N
 
         Dim hf(1023) As Single
         Dim hc(1023) As Integer
@@ -515,7 +586,23 @@ Public Class TankRoutes
                 If shut(ni) OrElse eaten(ni) Then Continue For
                 If nav.clear_m(ni) < hull_r_m Then Continue For
                 Dim step_m = If(d < 4, cm, cm * 1.41421356F)
-                Dim tentative = g(cur) + step_m
+
+                ' THE LANE BIAS, IN THE COST AND NEVER IN THE HEURISTIC. Put it
+                ' in the heuristic and A* stops being exact and starts being a
+                ' guess that sometimes returns a worse path than it found. In
+                ' the cost it is simply a different question - the cheapest way
+                ' when leaning off the line is charged for - and the answer is
+                ' exact for that question.
+                '
+                ' Per METRE travelled rather than per step, so the penalty does
+                ' not depend on how many cells a route happens to cross, and
+                ' normalised to 100 m so LANE_BIAS reads as "what fraction more
+                ' does a hundred metres off-lane cost".
+                Dim wxn = ox + (nx + 0.5F) * sx_c
+                Dim wzn = oz - (nz + 0.5F) * sz_c
+                Dim off = (wxn - midx) * perpx + (wzn - midz) * perpz
+                Dim dev = Math.Abs(off - lane_m)
+                Dim tentative = g(cur) + step_m * (1.0F + LANE_BIAS * dev / 100.0F)
                 If tentative >= g(ni) Then Continue For
                 came(ni) = cur
                 g(ni) = tentative
@@ -559,3 +646,5 @@ Public Class TankRoutes
         Return cm * (CSng(hi - lo) + 1.41421356F * lo)
     End Function
 End Class
+
+
