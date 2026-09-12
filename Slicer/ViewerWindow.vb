@@ -95,7 +95,7 @@ Public Class ViewerWindow
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
-                       .Title = "BuildingSlicer",
+                       .Title = "Slicer",
                        .APIVersion = New Version(3, 3),
                        .Profile = ContextProfile.Core})
         pkg = index
@@ -258,7 +258,7 @@ Public Class ViewerWindow
 
         Console.WriteLine("{0}  lod{1}  {2} part(s)  {3:N0} verts  {4:N0} tris  span {5:F1} m",
                           asset.Name, lod, parts.Count, totalVerts, totalTris, span)
-        Title = String.Format("BuildingSlicer - {0}  lod{1}  [{2}/{3}]  {4:N0} tris",
+        Title = String.Format("Slicer - {0}  lod{1}  [{2}/{3}]  {4:N0} tris",
                               asset.Name, lod, assetIndex + 1, assets.Count, totalTris)
     End Sub
 

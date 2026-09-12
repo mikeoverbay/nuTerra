@@ -14,7 +14,7 @@
     <RootNamespace></RootNamespace>
     <OptionCompare>Text</OptionCompare>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
-    <AssemblyName>BuildingSlicer</AssemblyName>
+    <AssemblyName>Slicer</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <!-- Same version nuTerra and SrtViewer pin, so all three agree on Vector3. -->

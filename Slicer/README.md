@@ -1,4 +1,4 @@
-# BuildingSlicer
+# Slicer
 
 Standalone scanner for the buildings in the World of Tanks packages, so building
 work can be done without starting nuTerra and waiting for a map to load.
@@ -11,22 +11,22 @@ VB + OpenTK, `net8.0-windows`, x64.
 
 ## Running
 
-    BuildingSlicer --view                            open the 3D viewer
-    BuildingSlicer --view --asset cathedral          open it on one building
-    BuildingSlicer                                   scan and summarise
-    BuildingSlicer --list                            every building, one line each
-    BuildingSlicer --list --filter cathedral
-    BuildingSlicer --asset hd_bld_eu_225_cathedral   every LOD and part
-    BuildingSlicer --csv buildings.csv               one row per part
-    BuildingSlicer --failures                        anything that would not parse
-    BuildingSlicer --skip-vehicles                   skip vehicles_/audioww- packages
-    BuildingSlicer --game "C:\Games\World_of_Tanks_NA"
+    Slicer --view                            open the 3D viewer
+    Slicer --view --asset cathedral          open it on one building
+    Slicer                                   scan and summarise
+    Slicer --list                            every building, one line each
+    Slicer --list --filter cathedral
+    Slicer --asset hd_bld_eu_225_cathedral   every LOD and part
+    Slicer --csv buildings.csv               one row per part
+    Slicer --failures                        anything that would not parse
+    Slicer --skip-vehicles                   skip vehicles_/audioww- packages
+    Slicer --game "C:\Games\World_of_Tanks_NA"
 
 The game install is auto-detected from the usual four locations.
 
 ### Building it
 
-    dotnet build BuildingSlicer/BuildingSlicer.vbproj -c Debug
+    dotnet build Slicer/Slicer.vbproj -c Debug
 
 **Do not pass `-p:Platform=x64`.** nuTerra needs it to resolve its C++ DLL, and
 `CLAUDE.md` says so for that project — but this one is pure managed and already
