@@ -1082,26 +1082,39 @@ def main():
     # it. So: a normal resizable window, sized to the desktop WORK AREA, which
     # is the screen minus the taskbar - asked of Windows rather than guessed at
     # with a magic offset.
-    os.environ.setdefault("SDL_VIDEO_WINDOW_POS", "0,0")
+    # A NORMAL WINDOW, MAXIMISED. Not exclusive fullscreen, and NOT placed by
+    # hand either.
+    #
+    # Placing it myself is what broke it twice. SDL_VIDEO_WINDOW_POS at "0,0"
+    # puts the CLIENT area at the top of the display and the title bar above
+    # that, off the screen - the owner got no title bar. Setting it after
+    # pygame.init() does not take at all, and this desktop has three displays
+    # (1920x1080, 1920x1080, 800x480), so a hand-computed position lands on
+    # whichever one SDL felt like and gets clamped: I asked for 1920x993 at
+    # (0,31) and got 974x1039 at (953,0).
+    #
+    # Path Studio has had this right all along and the owner sent me to look:
+    # tools/path_studio.py sets NO window position, takes a plain fixed SIZE
+    # with RESIZABLE, and lets the window manager place it. So does this now -
+    # and then asks Windows to MAXIMISE it, which is what "windowed fill
+    # screen" actually is: the right monitor, the right work area, the title
+    # bar where the window manager knows to put it, and correct at any DPI
+    # without a single number computed here.
+    screen = pygame.display.set_mode((1400, 900), pygame.RESIZABLE)
     try:
         import ctypes
-        import ctypes.wintypes          # a bare `import ctypes` does NOT bring
-                                        # this in, and without it the work-area
-                                        # query silently fell back to a guess
-        r = ctypes.wintypes.RECT()
-        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(r), 0)
-        win_w, win_h = r.right - r.left, r.bottom - r.top
+        hwnd = pygame.display.get_wm_info()["window"]
+        ctypes.windll.user32.ShowWindow(hwnd, 3)      # SW_MAXIMIZE
     except Exception:
-        try:
-            win_w, win_h = pygame.display.get_desktop_sizes()[0]
-            win_h -= 70
-        except Exception:
-            win_w, win_h = 1600, 900
-    screen = pygame.display.set_mode((max(900, win_w), max(600, win_h)),
-                                     pygame.RESIZABLE)
+        pass                                          # a 1400x900 window is fine
     LEFT_W, RIGHT_W = 250, 330
     PANEL_BG, PANEL_LINE = (24, 26, 32), (58, 62, 72)
-    pygame.display.set_caption(f"Ray Studio - {map_name} - [Tank AI work]")
+    # WHOSE TOOL THIS IS. Three sessions run their own windows on this desktop
+    # and the owner has asked before which one he is looking at, so the name
+    # goes in the caption AND is drawn inside the window - a title bar can end
+    # up off the screen, as this one just did.
+    OWNER_NAME = "Tank AI work"
+    pygame.display.set_caption(f"Ray Studio - {OWNER_NAME} - {map_name}")
     font = pygame.font.SysFont("consolas", 16)
 
     # The map, once. Everything else is drawn over it each frame.
@@ -1675,6 +1688,16 @@ def main():
         # ---- LEFT: what you can do
         LX, LW = 12, LEFT_W - 24
         y = 12
+        # WHOSE WINDOW THIS IS, drawn INSIDE it. The title bar carries the same
+        # thing, but a title bar can end up off the screen - it just did - and
+        # with three sessions running their own tools the owner has to be able
+        # to tell at a glance which one he is looking at.
+        screen.blit(font.render("RAY STUDIO", True, (235, 240, 250)), (LX, y))
+        y += 18
+        screen.blit(font.render(OWNER_NAME, True, (120, 220, 255)), (LX, y))
+        y += 18
+        screen.blit(font.render(map_name, True, (135, 140, 152)), (LX, y))
+        y += 24
         y = header(LX, y, "SEARCH", LW)
         y = button(LX, y, LW, "Branch tree  [b]", pygame.K_b, tree is not None)
         y = button(LX, y, LW, "Follow point  [c]", pygame.K_c, tree_follow)
