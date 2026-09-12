@@ -127,6 +127,46 @@ model-name sidecar. When it lands, `route_sig.label_objects` should take
 the ids as the objects instead of kind-split components, which is what the
 kind split stands in for today.
 
+## LANDED AFTER THIS HANDOFF WAS WRITTEN - read before touching a reader
+
+Flight bake v2 is on master (`c6c33d9c`, `docs/flight_bake.md` is the
+contract). Three things for the readers in `tools/`:
+
+1. **`solid_bit = 32` now means something ELSE than the readers assume.**
+   The readers (`radar_commit.py`, `flight_plan.py`, section "solid" in the
+   09-11 handoff) read `solid_bit` as the trunk stamp that survived the
+   stem-size threshold (`stem_min_m`), and `foliage_state` calls a tree-kind
+   blob holding one a TREE at every height. The bake now writes `solid_bit`
+   as **terrain-borne geometry over `obstacle_min_h` under the canopy, trees
+   excluded** - the canopy-over-rock answer - and there is no `stem_min_m`.
+   Effect on a v2 bake today: every tree-kind blob that overlaps a solid
+   texel is kept at full height (a rock under a bush now blocks - the right
+   outcome, over-blocking in the safe direction), and the Studio's legend
+   calls those cells "solid trunk stamp", which is wrong. FIX FIRST: rename
+   the concept in both readers and the Studio to "solid under canopy",
+   make the gate per CELL (a tree-kind cell with the solid bit blocks at its
+   height whatever `TREE_MIN_H` says; other tree-kind cells gate by height
+   as before), drop the blob-level TREE promotion by solid, and relabel the
+   legend. The stem-size solid bit was never written and is superseded.
+2. **Per-object ids**: `<map>_ids.u32` (8192 x 8192 uint32 LE, rows and
+   world mapping as `top.rgba`; 0 nothing; 1..`id_model_count` model
+   placements; `id_tree_base` and up tree placements) and `<map>_ids.csv`
+   (first_id,count,source,name as RANGES; an id belongs to the row with the
+   greatest first_id not above it). Monastery: 14,163 objects. This
+   replaces `route_sig.label_objects`' kind-split components: read the
+   layer, downsample to 2048 by mode or by the id of the tallest texel, and
+   objects are ids - a hedge's forty placements are forty objects, which is
+   what "the other side of it" needs. 268 MB a map; read with
+   `np.memmap` and take the block you need.
+3. **Arena bounds**: `arena_x0/x1/z0/z1` in the meta, world metres, the
+   bake frame. ABSENT means unknown - never treat a missing key as an empty
+   box. Read into both Bake classes; the planners can now tell "outside the
+   play area" from "no data".
+
+Every v1 bake on disk rebuilds once (~9 s). The shared `%TEMP%` copy needs
+one run of a `C:
+uTerra` build at `c6c33d9c` or later to pick v2 up.
+
 ## Open with the other sessions
 
 - nuTerra Work: the canopy-over-rock key (a 1.7 m rock under a 2.5 m bush
