@@ -211,3 +211,37 @@ That is not an argument against the bit. It is an argument that monastery is
 the wrong map to justify it on: the assets that are full of `d_` parts are the
 shanties and work barracks (`hd_bld_AM_025_HousesShanty_01` alone carries 14),
 and a map built from those would answer differently. Measure there first.
+
+## Which map to settle it on — and monastery is not as wrong as I said
+
+I told the engine session monastery was "the wrong map to judge on" because it
+has none of the shanties that carry `d_` parts in bulk. That was asserted, not
+measured, so here it is measured: every map package's `space.bin`, counting
+distinct identifiers in its own material table (69 maps, 74 s).
+
+| map | `d_` | `n_` | `s_ramp` |
+|---|---|---|---|
+| 47_canada_a | 96 | 120 | 2 |
+| 252_br_battle_city4 | 95 | 113 | 3 |
+| 217_er_alaska | 87 | 109 | 3 |
+| 45_north_america | 87 | 108 | 3 |
+| 59_asia_great_wall | 83 | 80 | 1 |
+| 44_north_america | 80 | 99 | 1 |
+| 06_ensk | 58 | 56 | 1 |
+| … | | | |
+| **19_monastery** | **33** | 38 | 2 |
+| median of 69 maps | 18 | 21 | 1 |
+
+Monastery is ABOVE the median, not an outlier at the bottom. So the excuse I
+handed over — "measure it somewhere the assets actually live" — is weaker than
+it sounded: the richest map has about three times monastery's variety, not ten.
+
+Two cautions on reading this table, both of which cut the same way. A distinct
+identifier is a MATERIAL, not a part and not an area: monastery's 33 `d_`
+identifiers all belong to just two assets. And `s_ramp` barely varies at all —
+one or two per map, everywhere — so nothing in this ranking rescues the ramp
+argument.
+
+`47_canada_a` is the candidate if anyone wants the area question settled
+properly. That needs a flight bake of that map, which is a nuTerra run, not a
+package scan — so it is a decision to take rather than something to slip in.
