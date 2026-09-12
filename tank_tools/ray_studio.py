@@ -184,10 +184,10 @@ def march(g, x, z, dx, dz, goal, limit):
     gx, gz = goal
     while t < limit:
         if (x - gx) ** 2 + (z - gz) ** 2 <= REACH_M ** 2:
-            return t, x, z, True
+            return t, x, z, True, False             # arrived
         nx, nz = x + dx * step, z + dz * step
         if not standable(g, nx, nz):
-            return t, x, z, False
+            return t, x, z, False, True             # stopped: something solid
 
         # A SLOPE STOPS A RAY THE SAME WAY A WALL DOES. Nothing here climbs or
         # drops more than 45 degrees, and the collision map cannot say so - it
@@ -196,10 +196,11 @@ def march(g, x, z, dx, dz, goal, limit):
         # same step, and a wall of rock and the edge of a ravine both end the
         # ray and get the ring sweep they deserve.
         if too_steep(g, x, z, nx, nz, step):
-            return t, x, z, False
+            return t, x, z, False, True             # stopped: too steep
 
         x, z, t = nx, nz, t + step
-    return t, x, z, False
+    # RAN OUT OF ALLOWED LENGTH, which is not a collision. "nothing move."
+    return t, x, z, False, False
 
 
 def too_steep(g, x, z, nx, nz, step_m):
@@ -246,6 +247,27 @@ TANGENT_ESCAPE_M = 6.0
 # size (add and set to 4)". A tangent that clears but sits in a slot narrower
 # than this is no use - the plane does not fit through it.
 MIN_GAP_DEFAULT_M = 4.0
+
+# THE LONGEST A SINGLE RAY MAY FLY, on top of never passing the flag.
+#
+# A ray was free to run the map's whole diagonal - 2,100 m - so one that missed
+# simply kept going, drawing across ground it had no business in and anchoring
+# its tangent hundreds of metres from anything relevant. The owner, watching:
+# "you rays are way to long."
+#
+# Two caps, and they answer different cases. Never flying past the flag handles
+# every ray that is aimed at it, which is all of them after the first. This one
+# handles the sweep's OPENING rays, which point away from the target on purpose
+# and are not bounded by the distance to it at all.
+# FIVE YARDS. The owner: "you should ne looking like 5 yards. nothing move" -
+# cast a short ray, and if nothing is in the way, move there.
+#
+# This is a WALKER, not a long-range caster. I had rays flying the length of the
+# map and anchoring their tangents hundreds of metres from anything, which is
+# why the ring size never made sense: a 5 m circle is absurd next to an 800 m
+# ray and exactly right next to a 4.5 m step. At this scale the whole spec fits
+# together - small step, hit, small ring, tangent, step on.
+RAY_CAP_DEFAULT_M = 4.5
 
 # STEEPEST GROUND WE CAN TAKE, up or down. "we cant drop by more that 45 degree
 # angle up or down. we have to stop and do a ring sweep." Forty-five degrees is
@@ -313,7 +335,9 @@ def measure_gap(g, px, pz, dirx, dirz, min_gap_m):
 
 # How many ring-and-re-aim hops one chain may take before it is called lost. A
 # small ring means many small steps round a big obstacle, which is the design.
-MAX_HOPS = 260
+# 800 m at five yards a step is 178 steps before a single detour, so the hop
+# budget has to be an order up from what a long-ray version needed.
+MAX_HOPS = 2400
 
 # The sweep: start pointing LEFT, finish pointing EAST.
 SWEEP_FROM_DEG = -90.0
@@ -321,21 +345,6 @@ SWEEP_TO_DEG = 90.0
 SWEEP_STEP_DEG = 3.0
 
 REJECT_M = 55.0
-
-
-def march(g, x, z, dx, dz, goal, limit):
-    """Fly a ray until it hits something or reaches the flag."""
-    step = g["texel_m"] * 0.5
-    t = 0.0
-    gx, gz = goal
-    while t < limit:
-        if (x - gx) ** 2 + (z - gz) ** 2 <= REACH_M ** 2:
-            return t, x, z, True
-        nx, nz = x + dx * step, z + dz * step
-        if not standable(g, nx, nz):
-            return t, x, z, False
-        x, z, t = nx, nz, t + step
-    return t, x, z, False
 
 
 def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m):
@@ -391,8 +400,8 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m):
                 # the corner that the small one was trapped in.
                 gx2, gz2 = goal
                 d2 = max(np.hypot(gx2 - px, gz2 - pz), 1e-6)
-                out, _, _, _ = march(g, px, pz, (gx2 - px) / d2, (gz2 - pz) / d2,
-                                     goal, limit)
+                out, _, _, _, _ = march(g, px, pz, (gx2 - px) / d2, (gz2 - pz) / d2,
+                                     goal, min(d2 + REACH_M, TANGENT_ESCAPE_M * 3.0))
                 if out < TANGENT_ESCAPE_M:
                     continue
 
@@ -417,7 +426,8 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m):
     return None, None, r
 
 
-def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m):
+def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
+          ray_cap_m):
     """One path attempt: ray, ring, tangent, re-aim at the base, repeat.
 
     "if we could not... That path is dead. If we can hit it, we anchor at
@@ -428,7 +438,6 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m):
     trying to go home and only turning aside to get round what is in the way.
     """
     gx, gz = goal
-    limit = (g["wx1"] - g["wx0"]) * 1.5
     pts = [start]
     x, z = start
     dx, dz = np.sin(bearing), np.cos(bearing)
@@ -437,11 +446,40 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m):
     turns = []                  # bearings of the last few tangents
 
     for _ in range(MAX_HOPS):
-        got, hx, hz, reached = march(g, x, z, dx, dz, goal, limit)
+        # NEVER FURTHER THAN THE FLAG, AND NEVER MORE THAN A STEP.
+        #
+        # Two caps answering two cases. A ray aimed at the flag has no business
+        # flying past it. And a STEP is five yards - the owner's scale - so the
+        # walker takes a short look, moves if it is clear, and only ring-sweeps
+        # where it actually stops. Rays running the map's whole diagonal is what
+        # made the ring size meaningless: a 5 m circle is absurd beside an 800 m
+        # ray and exactly right beside a 4.5 m step.
+        limit = min(np.hypot(gx - x, gz - z) + REACH_M, ray_cap_m)
+        got, hx, hz, reached, blocked = march(g, x, z, dx, dz, goal, limit)
         trace.append(((x, z), (hx, hz), reached))
         if reached:
             pts.append((gx, gz))
             return pts                                   # THE PRIZE
+
+        # NOTHING IN THE WAY - MOVE THERE. A step that runs its full five yards
+        # without hitting anything is not a collision and must not be treated
+        # as one. Ring-sweeping at the end of every clear step was why the
+        # walker never went anywhere: it stopped to look for a way round open
+        # ground, every stride, all the way.
+        if not blocked:
+            # KEEP THE HEADING. Re-aiming at the flag after every clear step
+            # meant the swept bearing survived exactly one stride, so all
+            # sixty-one chains folded onto the same greedy line within five
+            # yards and walked into the same cul-de-sac - all of them ending at
+            # (-12, -121), 519 m short, whatever bearing they set off on.
+            #
+            # "nothing move" means carry on the way you were going. A heading is
+            # only given up when something stops it, and then the ring decides
+            # the new one. That is what makes the sweep mean anything: each
+            # bearing explores its own ground instead of the first corner.
+            x, z = hx, hz
+            pts.append((x, z))
+            continue
         # A RAY THAT TRAVELS NOTHING IS NOT A DEAD PATH, IT IS ANOTHER HIT.
         #
         # After anchoring on a tangent, aiming at the base points straight back
@@ -485,8 +523,8 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m):
                 continue
             cxx, czz = cand
             d = max(np.hypot(gx - cxx, gz - czz), 1e-6)
-            g2, _, _, _ = march(g, cxx, czz, (gx - cxx) / d, (gz - czz) / d,
-                                goal, limit)
+            g2, _, _, _, _ = march(g, cxx, czz, (gx - cxx) / d, (gz - czz) / d,
+                                   goal, limit)
             if g2 > best_got:
                 best, best_got = cand, g2
         if best is None:
@@ -560,7 +598,7 @@ def too_close(path, pool):
 
 
 def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M,
-            min_gap_m=MIN_GAP_DEFAULT_M):
+            min_gap_m=MIN_GAP_DEFAULT_M, ray_cap_m=RAY_CAP_DEFAULT_M):
     """Sweep from LEFT round to EAST, one chain per bearing.
 
     "We will start scanning left. every fail or win, we change ray and try for
@@ -575,7 +613,7 @@ def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M,
     for a_deg in np.arange(SWEEP_FROM_DEG, SWEEP_TO_DEG + 1e-6, SWEEP_STEP_DEG):
         trace = []
         got = chain(g, (sx, sz), gxy, np.deg2rad(a_deg), max_ring_m, trace,
-                    min_gap_m)
+                    min_gap_m, ray_cap_m)
         for seg in trace:
             rays.append((seg[0], seg[1], got is not None))
         if got is not None and not too_close(got, pool):
@@ -592,6 +630,7 @@ def main():
     hull = 4.5
     ring_max = RING_MAX_DEFAULT_M
     min_gap = MIN_GAP_DEFAULT_M
+    ray_cap = RAY_CAP_DEFAULT_M
     speed = 1
     # A good resolve is now 43 rays, which at one a frame is over in under a
     # second - too fast to watch, which defeats the point of a live view. The
@@ -643,7 +682,7 @@ def main():
     surf = pygame.surfarray.make_surface(np.transpose(base, (1, 0, 2)))
     N = SHOW                     # the view works in picture texels
 
-    gen = resolve(g, start, goal, ring_max, min_gap)
+    gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
     nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     running, done, paused = True, False, False
 
@@ -699,19 +738,29 @@ def main():
                 elif e.key == pygame.K_SPACE:
                     paused = not paused
                 elif e.key == pygame.K_r:
-                    gen = resolve(g, start, goal, ring_max, min_gap)
+                    gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
                     nodes, paths, rays, done = [], [], 0, False
                 elif e.key == pygame.K_f:
                     view_cx, view_cz, view_cells = 0.0, 0.0, float(N)
                 elif e.key == pygame.K_TAB:
                     start, goal = goal, start
-                    gen = resolve(g, start, goal, ring_max, min_gap)
+                    gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
+                    nodes, paths, rays, done = [], [], 0, False
+                elif e.key in (pygame.K_COMMA, pygame.K_PERIOD):
+                    # STEP LENGTH - how far one ray may fly before it counts as
+                    # a move. 4.5 m is the owner's five yards, a walker; wind it
+                    # up past a hundred and it becomes a long-range caster,
+                    # which is a different algorithm with different answers.
+                    # Both are worth being able to see from the same window.
+                    ray_cap *= 1.6 if e.key == pygame.K_PERIOD else 1.0 / 1.6
+                    ray_cap = min(2000.0, max(2.0, ray_cap))
+                    gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
                     nodes, paths, rays, done = [], [], 0, False
                 elif e.key in (pygame.K_MINUS, pygame.K_EQUALS):
                     # MIN GAP: the narrowest opening the plane will go through.
                     min_gap += 0.5 if e.key == pygame.K_EQUALS else -0.5
                     min_gap = min(20.0, max(0.5, min_gap))
-                    gen = resolve(g, start, goal, ring_max, min_gap)
+                    gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
                     nodes, paths, rays, done = [], [], 0, False
                 elif e.key in (pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET):
                     # THE MAX RING SIZE, 0.5 to 5.0 by 0.5 - the owner's
@@ -721,7 +770,7 @@ def main():
                     stepv = 0.5 if ring_max < 5.0 else 2.5
                     ring_max += stepv if e.key == pygame.K_RIGHTBRACKET else -stepv
                     ring_max = min(RING_SETTING_MAX, max(RING_SETTING_MIN, ring_max))
-                    gen = resolve(g, start, goal, ring_max, min_gap)
+                    gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
                     nodes, paths, rays, done = [], [], 0, False
 
         if not done and not paused:
@@ -781,9 +830,9 @@ def main():
             screen.blit(tag, (px_ + 14, pz_ - 8))
 
         msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
-               f"   ring {ring_max:.1f} m   min gap {min_gap:.1f} m   bearing {bearing:+.0f} deg"
+               f"   step {ray_cap:.0f} m   ring {ring_max:.1f} m   gap {min_gap:.1f} m   bearing {bearing:+.0f}"
                f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
-               f"    wheel zoom  drag pan  [f] fit  [ ] ring  - = gap  [space] pause  [r] restart  [tab] swap  [q] quit")
+               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [space] pause  [r] reset  [tab] swap  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
         pygame.display.flip()
         pygame.time.wait(16 if (done or paused) else delay)
