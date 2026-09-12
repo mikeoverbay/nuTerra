@@ -995,10 +995,19 @@ def main():
     nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     rings, deaths = [], []
     astar_paths, astar_msg = [], ""
+    astar_class = []              # which homotopy class each route belongs to
+    landmark_m2 = LANDMARK_M2
+    show_marks = True
     # The search results are a different KIND of answer from the rays, so they
     # get their own family of colour and can be read apart at a glance.
     A_COLS = [(90, 170, 255), (120, 220, 255), (80, 140, 235), (150, 200, 255),
               (60, 190, 245), (110, 160, 240), (140, 230, 250), (70, 120, 220)]
+    # Routes are coloured by CLASS, not by the order they were found, so two
+    # spellings of one road come out the same colour and a genuinely different
+    # way round comes out a different one. That is the whole point of the test
+    # and it should be visible without reading a number.
+    CLS_COLS = [(255, 96, 96), (96, 255, 128), (120, 170, 255), (255, 210, 80),
+                (230, 120, 255), (100, 245, 235), (255, 155, 70), (190, 190, 190)]
     running, done, paused = True, False, False
 
     # THE VIEW, in CELLS. A 1024-cell map squeezed into a window is 1.4 m a
@@ -1076,10 +1085,37 @@ def main():
                                          q[k + 1][1] - q[k][1])
                                 for k in range(len(q) - 1))
                             for q in astar_paths]
-                    astar_msg = ("A*: %d routes, shortest %.0f m, %.1f s"
-                                 % (len(astar_paths), min(lens, default=0),
-                                    time.time() - t_a))
+                    # WHICH OF THESE ARE ACTUALLY DIFFERENT WAYS ROUND?
+                    # Exact test: two routes are the same class when the loop
+                    # they make together encloses no landmark.
+                    astar_class = []
+                    reps = []
+                    for q in astar_paths:
+                        c = None
+                        for ci, rp in enumerate(reps):
+                            if same_class(g, q, rp, landmark_m2):
+                                c = ci
+                                break
+                        if c is None:
+                            c = len(reps)
+                            reps.append(q)
+                        astar_class.append(c)
+                    astar_msg = ("%d routes, %d distinct ways round "
+                                 "(landmark %.0f m2), shortest %.0f m, %.1f s"
+                                 % (len(astar_paths), len(reps), landmark_m2,
+                                    min(lens, default=0), time.time() - t_a))
                     print(astar_msg)
+                elif e.key == pygame.K_k:
+                    # HOW BIG IS A LANDMARK. The one honest dial in the route
+                    # identity test, and it is in square metres of ground, so
+                    # it can be judged by looking rather than by tuning.
+                    steps = [16.0, 50.0, 100.0, 250.0, 500.0, 2000.0]
+                    landmark_m2 = steps[(steps.index(landmark_m2) + 1)
+                                        % len(steps)] if landmark_m2 in steps                         else 100.0
+                    astar_class = []
+                    astar_msg = "landmark now %.0f m2 - press [a] to re-class"                                 % landmark_m2
+                elif e.key == pygame.K_m:
+                    show_marks = not show_marks
                 elif e.key == pygame.K_f:
                     view_cx, view_cz, view_cells = 0.0, 0.0, float(N)
                 elif e.key == pygame.K_TAB:
@@ -1209,9 +1245,24 @@ def main():
             pygame.draw.line(screen, c, (dx_ - 5, dz_ - 5), (dx_ + 5, dz_ + 5), 2)
             pygame.draw.line(screen, c, (dx_ - 5, dz_ + 5), (dx_ + 5, dz_ - 5), 2)
 
+        # THE LANDMARKS - the things big enough that going round the far side
+        # of one counts as a different route. Drawn so the dial is visible:
+        # wind it down and the map fills with them, wind it up and only the
+        # buildings and the cliff remain.
+        if show_marks:
+            try:
+                sx_, sz_ = object_seeds(g, landmark_m2)
+                for mi in range(len(sx_)):
+                    mp = to_px(sx_[mi], sz_[mi], w)
+                    if -20 <= mp[0] <= w + 20 and -20 <= mp[1] <= w + 20:
+                        pygame.draw.circle(screen, (255, 255, 255), mp, 2, 1)
+            except Exception:
+                pass
+
         # THE SEARCH RESULTS, under the ray paths so neither hides the other.
         for i, pth in enumerate(astar_paths):
-            col = A_COLS[i % len(A_COLS)]
+            col = (CLS_COLS[astar_class[i] % len(CLS_COLS)]
+                   if i < len(astar_class) else A_COLS[i % len(A_COLS)])
             for k in range(len(pth) - 1):
                 pygame.draw.line(screen, col,
                                  to_px(pth[k][0], pth[k][1], w),
@@ -1245,7 +1296,7 @@ def main():
         msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
                f"   step {ray_cap:.0f} m   ring {ring_max:.1f} m   gap {min_gap:.1f} m   bearing {bearing:+.0f}"
                f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
-               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [a] A* catalogue  [space] pause  [r] reset  [tab] swap  [q] quit")
+               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [a] catalogue  [k] landmark  [m] marks  [space] pause  [r] reset  [tab] swap  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
 
         # WHAT THE COLOURS MEAN, and how many chains died of each. The tally is
