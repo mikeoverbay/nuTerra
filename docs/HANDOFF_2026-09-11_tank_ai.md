@@ -1,5 +1,19 @@
 # Handoff — Tank AI: the navigation grid and the driver
 
+> **Status 2026-09-12: accurate for the three commits it names, and behind the
+> lane by 37 commits that are NOT in this checkout.** The Tank AI session works
+> in an isolated clone, `C:\nuTerra_tankai`, branch `tank-ai`, remote `shared`
+> -> `C:\nuTerra`; nothing has been merged. Only there: `nuTerra/Tanks/TankRoutes.vb`
+> (route catalogue on grid A*), `nuTerra/Tanks/TankRayPath.vb`,
+> `tank_tools/ray_studio.py` and `tank_tools/ROUTING_FINDINGS.md`. Superseded
+> below: §1 (where it is), §3 (fences and props are exempt from the height test
+> like trees; a `clear_m` clearance field built after `Load()`), §7 item 2
+> (pathfinding is built - Lazy Theta* on a hull-grown coarse grid plus a
+> string-pull, not a slot at PickGoal), §8 (the bake half is measured: 2,581
+> monastery cells over 1 m keyed as trees, fix not yet chosen by the owner), §9
+> (sessions are now split by job, see `..\CLAUDE.md`). The replacement sections
+> are being written in the clone and land here when the owner merges.
+
 2026-09-11, on `master`. Written by Opus, who did the work. Scope is
 `nuTerra/Tanks/` plus the parts of `nuTerra/Scene/MapFlightBake.vb` the AI
 reads. Two other sessions are live on this checkout — see §9.
