@@ -625,3 +625,53 @@ Reference: `tank_tools/ROUTING_FINDINGS.md` carries the full comparison and
 the two traps already paid for (string-pull against the GROWN grid, never the
 fine centre line; and the heuristic must match the cost or A* degenerates to
 Dijkstra - that one cost 466,229 expansions on this map once).
+
+## 13. Reference docs on this branch
+
+Three markdown files under `tank_tools/`, all measured rather than argued.
+Read the one that matches the question:
+
+| file | answers |
+|---|---|
+| `tank_tools/BRANCH_SEARCH.md` | how the branch search works, with a changelog of every rule change and why |
+| `tank_tools/ROUTING_FINDINGS.md` | rays versus A*, the three clutter failures, the retracted "8 = 8" homotopy coincidence |
+| `tank_tools/MATERIAL_IDENTIFIERS.md` | **what the game itself says is crushable**, dug out of the packages |
+
+### 13.1 The part identifiers, in one paragraph
+
+Every primitive group in a `.visual_processed` carries an
+`<identifier>` of the form `<prefix>_<material><n>_<m>` — `d_wood0_1`,
+`n_metal3_2`, `s_wall_0`. `d_` is destructible, `n_` is not, `s_` is static
+structure (`s_wall`, `s_ramp`, and `s_armor` on tanks). It is a **per-part**
+field, not a per-model one: `hd_bld_AM_025_HousesShanty_01` lod1 carries 14
+`d_` parts and 24 `n_` ones in one mesh, so `d_` is emphatically NOT the
+destroyed variant of a model — that was the first guess and the files kill it.
+
+What makes it usable is the collision proxies. Of 526 `.havok` proxies
+carrying identifiers, 510 are `s_`, 52 are `n_` and exactly **one** is `d_`: a
+destructible part is in the render mesh and absent from the collision hull.
+The game has already decided what a tank drives through and we would only be
+reading it back.
+
+Two limits worth knowing before anyone builds on it. It is a **buildings-only**
+idea — GatesAndFences, MilitaryEnvironment, Railway and Decor are 100% `s_`
+with no `d_` at all, so kind-based crushing stays the mechanism for those. And
+`hd_bld_UNI_000_Base` — the base building whose hull margin kills the first ray
+of every search — is `n_wood0_1..5` and `s_wall_0`, no `d_` part, so under this
+rule the base reads SOLID against the owner's "we can run over a base. its
+crushable." Unresolved on purpose: either the drivable thing is the capture
+circle rather than this model, or the asset is an exception. Nothing is
+special-cased by name until that is settled.
+
+Asked of nuTerra Work (their file, `nuTerra/Scene/MapFlightBake.vb`): a
+`CRUSH_BIT` beside `solid_bit`, set per texel during the model pass when the
+part carries a `d_` identifier, declared in `<map>_meta.txt` like every other
+bit. It has to be a BIT — the bake's ids are per placement, one id for a whole
+building, so no id scheme can say "this wall yes, that frame no".
+
+Also handed to them for their own viewer: colour models by that prefix.
+`modSpaceBin.vb` already opens each model's visual and walks its materials, and
+`nuTerra/Tanks/TankVisual.vb:104` already reads the very same field for tanks.
+The surprise finding for a colour view is `s_ramp`: 159 building parts and 184
+environment parts are named as ramps — drivable geometry that currently looks
+exactly like a wall.
