@@ -96,7 +96,18 @@ tree is split, and a session stays on its side.
 | session | owns |
 |---|---|
 | **Path Studio** | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, `docs/*path_studio*`, `docs/camera_flight_plan.md`, `docs/bulb_placer.md`, `CLAUDE.md` |
-| **nuTerra** | everything under `nuTerra/` except `cam_paths/`, and the rest of `docs/` |
+| **Tank AI** | `nuTerra/Tanks/`, `tank_tools/` (in its own clone until the owner merges) |
+| **nuTerra Work** | everything else under `nuTerra/`, and the rest of `docs/` |
+| shared | `nuTerra/Modules/modGlobalVars.vb` - name the change, tell the others |
+
+Agreed between the three sessions 2026-09-12 at the owner's instruction
+("talk to the sessions and decide on what areas each will handle"). ONE
+AUTHOR PER FILE - a two-author file is what this table exists to prevent.
+Path Studio owns no VB file: what it draws of a route it draws in Python on
+its own canvas; route content in nuTerra's window is Tank AI's. The bake:
+reading it as data and deriving geometry from it is the reader's; what a
+kind MEANS, what is in a bin, the palette and the writer are nuTerra Work's
+- ask for a bit or a key, never infer a classification from names.
 
 Crossing the line - the flight bake (`nuTerra/Scene/MapFlightBake.vb`) is the
 one file both sides care about - is done by MESSAGE, not by editing: say what
