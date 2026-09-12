@@ -56,9 +56,11 @@ uTerralight` (per USER, `MapFlightBake.vb:753`)
   develop the rendering. Route CONTENT - what is drawn, to the base, in
   what colours - is Tank AI's and Path Studio's even when the panel lives
   in nuTerra's UI (the Route resolver panel is plumbing only). Standing
-  rule, his words: "If I ask something that isn't in your job list, ask me
-  first" - raise the boundary, never cross it quietly, even when his own
-  ask lands outside it.
+  rules, his words: "If I ask something that isn't in your job list, ask me
+  first" and "auto hand off the work if I ask the wrong session and let me
+  know" - when the owner of an ask is obvious, forward it and tell him it
+  was forwarded; never bounce it back, never build it in another lane;
+  where no owner is obvious, ask.
   The protocol that has held all day: NAME THE FILE before editing anything
   that is not yours, wait for the ack, and measure rather than argue. The
   flight bake's contract lives in `<map>_meta.txt` (kind_mask, outland_bit,
