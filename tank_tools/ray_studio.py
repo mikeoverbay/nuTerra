@@ -1239,6 +1239,7 @@ def main():
     rings, deaths = [], []
     astar_paths, astar_msg = [], ""
     tree, tree_msg, tree_follow = None, "", True
+    found_routes = []             # every route this session has completed
     # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
     #
     # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
@@ -1535,7 +1536,25 @@ def main():
                                       min_gap, squares=squares)
                     tree.block_radius = block_radius
                     sq_surf = None
-                    tree_msg = "branch tree: running"
+                    tree_msg = ("branch tree: hunting route %d, seek ring %.0f m"
+                                % (len(found_routes) + 1, RING_SET[ring_slot]))
+                elif e.key == pygame.K_x:
+                    # A FULL RESET: reload the block data from disk.
+                    #
+                    # The owner's rule - "A reset needs to reload this blocking
+                    # data." [b] deliberately does NOT do this: it keeps what
+                    # the finished routes marked, so pressing it again hunts the
+                    # NEXT road rather than re-running the one just found.
+                    # Starting over needs the pristine copy back, and that only
+                    # exists on disk because the working copy has been written
+                    # on.
+                    if squares is not None:
+                        squares.reload()
+                    tree = None
+                    found_routes = []
+                    ring_slot = 0
+                    sq_surf = None
+                    tree_msg = "RESET - block data reloaded from disk"
                 elif e.key == pygame.K_v:
                     base_mode = (base_mode + 1) % 3
                     base = build_base(base_mode)
@@ -1609,6 +1628,9 @@ def main():
             if tree.halted:
                 # A LANDED PATH MOVES THE ASSIGNMENT ON, so pressing [b] again
                 # hunts the next road rather than re-running the same one.
+                if tree.win_pts and (not found_routes or
+                                     found_routes[-1] is not tree.win_pts):
+                    found_routes.append(tree.win_pts)
                 if ring_auto and ring_slot < len(RING_SET) - 1:
                     ring_slot += 1
                 rings_n = sum(1 for n in tree.win_chain if n["ring"])
@@ -1800,6 +1822,13 @@ def main():
                 br = int(m_to_px(BASE_RING_M, w))
                 if br >= 2:
                     CIRC(bpx, br, (120, 255, 170), 2)
+                # EVERY ROUTE THIS SESSION HAS FOUND, dimmer, under the live
+                # one - so pressing Run repeatedly builds a picture of the set
+                # rather than replacing the last answer with the next.
+                for q in found_routes[:-1]:
+                    for k in range(len(q) - 1):
+                        L(to_px(q[k][0], q[k][1], w),
+                          to_px(q[k + 1][0], q[k + 1][1], w), (70, 170, 120), 2)
                 for pt, col, lab in ((ch[0]["pos"], (0, 220, 255), "START"),
                                      (ch[-1]["pos"], (255, 150, 0), "IN THE BASE RING")):
                     q = to_px(pt[0], pt[1], w)
@@ -1985,9 +2014,11 @@ def main():
         screen.blit(font.render(map_name, True, (135, 140, 152)), (LX, y))
         y += 24
         y = header(LX, y, "SEARCH", LW)
-        y = button(LX, y, LW, "Branch tree  [b]", pygame.K_b, tree is not None)
+        y = button(LX, y, LW, "Run  [b]", pygame.K_b, tree is not None)
         y = checkbox(LX, y, LW, "Lock view to current point", pygame.K_c,
                      tree_follow)
+        y = button(LX, y, LW, "RESET - reload blocks  [x]", pygame.K_x,
+                   False, (255, 190, 150))
         y = button(LX, y, LW, "Bearing sweep  [r]", pygame.K_r)
         y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a, bool(astar_paths))
         y = button(LX, y, LW, "PAUSED  [space]" if paused else "Pause  [space]",
@@ -2079,6 +2110,8 @@ def main():
             ry = readout(RX, ry, "  one hand won", "%d" % half_i, (90, 230, 235))
             ry = readout(RX, ry, "  fully USED", "%d" % used_i, (235, 110, 235))
             ry = readout(RX, ry, "block radius", "%d sq" % tree.block_radius)
+            ry = readout(RX, ry, "routes this session", "%d" % len(found_routes),
+                         (120, 255, 170) if found_routes else (220, 225, 235))
             if tree.halted:
                 ry += 4
                 for line in ("*** PATH COMPLETE ***", "inside the base ring"):
