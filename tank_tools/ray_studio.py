@@ -43,6 +43,7 @@ WHAT THE COLOURS MEAN
 
 import os
 import sys
+import time
 import struct
 import numpy as np
 
@@ -911,6 +912,11 @@ def main():
     gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
     nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     rings, deaths = [], []
+    astar_paths, astar_msg = [], ""
+    # The search results are a different KIND of answer from the rays, so they
+    # get their own family of colour and can be read apart at a glance.
+    A_COLS = [(90, 170, 255), (120, 220, 255), (80, 140, 235), (150, 200, 255),
+              (60, 190, 245), (110, 160, 240), (140, 230, 250), (70, 120, 220)]
     running, done, paused = True, False, False
 
     # THE VIEW, in CELLS. A 1024-cell map squeezed into a window is 1.4 m a
@@ -974,10 +980,29 @@ def main():
                     gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
                     nodes, paths, rays, done = [], [], 0, False
                     rings, deaths = [], []
+                elif e.key == pygame.K_a:
+                    # THE SEARCH, on the same picture as the rays. The whole
+                    # catalogue, not one route: search, tag the corridor spent,
+                    # search again - the owner's rule 3 with a search where the
+                    # ray used to be.
+                    screen.blit(font.render("searching...", True, (255, 255, 0)),
+                                (8, 8))
+                    pygame.display.flip()
+                    t_a = time.time()
+                    astar_paths = catalogue(g, start, goal)
+                    lens = [sum(np.hypot(q[k + 1][0] - q[k][0],
+                                         q[k + 1][1] - q[k][1])
+                                for k in range(len(q) - 1))
+                            for q in astar_paths]
+                    astar_msg = ("A*: %d routes, shortest %.0f m, %.1f s"
+                                 % (len(astar_paths), min(lens, default=0),
+                                    time.time() - t_a))
+                    print(astar_msg)
                 elif e.key == pygame.K_f:
                     view_cx, view_cz, view_cells = 0.0, 0.0, float(N)
                 elif e.key == pygame.K_TAB:
                     start, goal = goal, start
+                    astar_paths, astar_msg = [], ""
                     gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
                     nodes, paths, rays, done = [], [], 0, False
                     rings, deaths = [], []
@@ -1089,6 +1114,16 @@ def main():
             pygame.draw.line(screen, c, (dx_ - 5, dz_ - 5), (dx_ + 5, dz_ + 5), 2)
             pygame.draw.line(screen, c, (dx_ - 5, dz_ + 5), (dx_ + 5, dz_ - 5), 2)
 
+        # THE SEARCH RESULTS, under the ray paths so neither hides the other.
+        for i, pth in enumerate(astar_paths):
+            col = A_COLS[i % len(A_COLS)]
+            for k in range(len(pth) - 1):
+                pygame.draw.line(screen, col,
+                                 to_px(pth[k][0], pth[k][1], w),
+                                 to_px(pth[k + 1][0], pth[k + 1][1], w), 2)
+            for (qx, qz) in pth:
+                pygame.draw.circle(screen, col, to_px(qx, qz, w), 3)
+
         # The pooled paths, drawn thick over the top.
         for pth in paths:
             for k in range(len(pth) - 1):
@@ -1115,7 +1150,7 @@ def main():
         msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
                f"   step {ray_cap:.0f} m   ring {ring_max:.1f} m   gap {min_gap:.1f} m   bearing {bearing:+.0f}"
                f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
-               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [space] pause  [r] reset  [tab] swap  [q] quit")
+               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [a] A* catalogue  [space] pause  [r] reset  [tab] swap  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
 
         # WHAT THE COLOURS MEAN, and how many chains died of each. The tally is
@@ -1136,6 +1171,9 @@ def main():
             screen.blit(font.render(lab, True, col), (26, yy))
             yy += 17
         yy += 6
+        if astar_msg:
+            screen.blit(font.render(astar_msg, True, (120, 220, 255)), (8, yy))
+            yy += 20
         screen.blit(font.render(f"chains dead: {len(deaths)}", True,
                                 (235, 235, 235)), (8, yy))
         yy += 17
