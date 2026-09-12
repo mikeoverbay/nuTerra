@@ -152,6 +152,17 @@ def build_grid(map_name, hull_r_m):
     # settled by one depth test, so the id and the kind always describe the same
     # surface. This replaces labelling connected components of a kind mask -
     # a wall touching a cliff was one blob, and now it is two objects.
+    # THE COLOUR TYPE IS nuTERRA'S DATA PRODUCT and the palette ships in the
+    # meta as kind_N_rgb. Read it rather than invent one: their classifier
+    # decides what a kind means, and the colour is part of that.
+    palette = {}
+    for k in range(8):
+        v = meta.get("kind_%d_rgb" % k)
+        if v:
+            palette[k] = tuple(int(x) for x in v.split(","))
+    palette.setdefault(0, (60, 70, 55))          # terrain has no rgb of its own
+    palette.setdefault(7, (150, 150, 150))
+
     ids, id_names = None, {}
     idp = os.path.join(FLIGHT, map_name + "_ids.u32")
     if os.path.exists(idp) and meta.get("id_format", "") == "u32":
@@ -185,7 +196,7 @@ def build_grid(map_name, hull_r_m):
     return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide,
                 collide_hull=collide_hull, used=None,
                 kind=kind, trunk=(key & TRUNK_BIT).astype(bool),
-                solid=solid, ids=ids, id_names=id_names,
+                solid=solid, ids=ids, id_names=id_names, palette=palette,
                 floor=fl16, hscale=scale,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
@@ -1055,9 +1066,46 @@ def main():
     font = pygame.font.SysFont("consolas", 16)
 
     # The map, once. Everything else is drawn over it each frame.
-    base = np.zeros((SHOW, SHOW, 3), dtype=np.uint8)
-    base[...] = (22, 44, 26)
-    base[shown] = (62, 30, 20)
+    # THREE WAYS TO SEE THE GROUND, because "what is this thing" and "can I
+    # drive on it" are different questions and the owner has been reading the
+    # second while asking the first.
+    #
+    #   PASSABLE  what the resolver sees: clear or solid, nothing else
+    #   KIND      nuTerra's own palette out of the meta - building, fence,
+    #             tree, rock, prop, water - so the map reads as a map
+    #   ITEM      every object id its own colour, so the boundary between one
+    #             building and the next is visible, which is the whole basis
+    #             of the elimination rule
+    def build_base(mode):
+        img = np.zeros((SHOW, SHOW, 3), dtype=np.uint8)
+        if mode == 0:
+            img[...] = (22, 44, 26)
+            img[shown] = (62, 30, 20)
+            return img
+        sub = slice(None, W - W % SHOW, f)
+        kd = g["kind"][sub, sub][:SHOW, :SHOW]
+        if mode == 1:
+            for k, c in g["palette"].items():
+                img[kd == k] = c
+            sl = g["solid"][sub, sub][:SHOW, :SHOW]
+            tr = (kd == KIND_TREE) & sl
+            img[tr] = (235, 235, 90)      # tree-keyed AND solid: rock under bush
+            return img
+        idm = g["ids"][sub, sub][:SHOW, :SHOW] if g["ids"] is not None else None
+        if idm is None:
+            img[...] = (40, 40, 46)
+            return img
+        # A stable pseudo-random colour per id, so neighbouring objects differ.
+        h = (idm.astype(np.uint64) * np.uint64(2654435761)) % np.uint64(0xFFFFFF)
+        img[..., 0] = ((h >> np.uint64(16)) & np.uint64(255)).astype(np.uint8)
+        img[..., 1] = ((h >> np.uint64(8)) & np.uint64(255)).astype(np.uint8)
+        img[..., 2] = (h & np.uint64(255)).astype(np.uint8)
+        img[idm == 0] = (26, 28, 30)
+        return img
+
+    base_mode = 1
+    MODE_NAME = {0: "passable", 1: "kind", 2: "item id"}
+    base = build_base(base_mode)
     surf = pygame.surfarray.make_surface(np.transpose(base, (1, 0, 2)))
     N = SHOW                     # the view works in picture texels
 
@@ -1195,6 +1243,10 @@ def main():
                     # one thing he asked not to happen.
                     tree = BranchTree(g, start, goal, ring_max, min_gap)
                     tree_msg = "branch tree: running"
+                elif e.key == pygame.K_v:
+                    base_mode = (base_mode + 1) % 3
+                    surf = pygame.surfarray.make_surface(
+                        np.transpose(build_base(base_mode), (1, 0, 2)))
                 elif e.key == pygame.K_c:
                     tree_follow = not tree_follow
                 elif e.key == pygame.K_f:
@@ -1451,10 +1503,10 @@ def main():
             tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
             screen.blit(tag, (px_ + 14, pz_ - 8))
 
-        msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
+        msg = (f"view {MODE_NAME[base_mode]}   rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
                f"   step {ray_cap:.0f} m   ring {ring_max:.1f} m   gap {min_gap:.1f} m   bearing {bearing:+.0f}"
                f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
-               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [b] BRANCH TREE  [c] follow  [a] catalogue  [k] landmark  [m] marks  [space] pause  [r] reset  [tab] swap  [q] quit")
+               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [v] view  [b] BRANCH TREE  [c] follow  [a] catalogue  [k] landmark  [m] marks  [space] pause  [r] reset  [tab] swap  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
 
         # WHAT THE COLOURS MEAN, and how many chains died of each. The tally is
@@ -1463,13 +1515,27 @@ def main():
         tally = {}
         for (_a, reason, _w) in deaths:
             tally[reason] = tally.get(reason, 0) + 1
+        if base_mode == 1:
+            # THE KIND NAMES AND THEIR OWN COLOURS, straight out of the meta.
+            kl = [(g["palette"].get(k, (150, 150, 150)),
+                   ("terrain", "building", "fence", "tree", "rock", "prop",
+                    "water", "other")[k]) for k in range(8)]
+            kl.append(((235, 235, 90), "tree AND solid - rock under a canopy"))
+            yk = 30
+            for col, lab in kl:
+                pygame.draw.rect(screen, col, pygame.Rect(8, yk + 2, 12, 10))
+                screen.blit(font.render(lab, True, col), (26, yk))
+                yk += 17
+            yk += 6
+            screen.blit(font.render("[v] switches view", True, (200, 200, 200)),
+                        (8, yk))
         legend = [((190, 55, 45), "ring probe: solid"),
                   ((210, 120, 45), "ring probe: chord blocked"),
                   ((165, 90, 215), "ring probe: no escape (corner)"),
                   ((70, 140, 230), f"ring probe: gap under {min_gap:.1f} m"),
                   ((90, 255, 235), "tangent taken"),
                   ((255, 225, 90), "ring that found one")]
-        yy = 30
+        yy = 30 if base_mode != 1 else 30 + 17 * 9 + 30
         for col, lab in legend:
             pygame.draw.circle(screen, col, (14, yy + 6), 4)
             screen.blit(font.render(lab, True, col), (26, yy))
