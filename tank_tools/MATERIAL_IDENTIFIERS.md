@@ -293,3 +293,60 @@ cannot be measured with per-asset attribution. Every figure in this document
 is an upper bound of unknown tightness, and the only way to a real number is
 the CRUSH_BIT itself. That is an honest argument for building it cheaply and
 measuring after, not for measuring harder first.
+
+## The ask, restated: one lookup, one 2-bit field — not two bits
+
+Two corrections to what I asked for, both from the engine session, both right.
+
+**Ramp and destructible are the same lookup.** Both are the prefix on the same
+per-part identifier, reached the same way at the same place in MapLoader. So
+"if only one thing gets done, do the ramps" gave up the crush flag for no
+saving at all. There is one piece of work here, not two.
+
+**And the key byte is nearly full.** Taken: kind `0x07`, outland `0x10`, solid
+`0x20`, trunk `0x80`. Free: `0x08` and `0x40`, and then it is finished.
+Verified rather than believed — the census below is the fraction of texels with
+each bit set, over every bake on this machine:
+
+| bake | `0x08` | `0x10` | `0x20` | `0x40` | `0x80` |
+|---|---|---|---|---|---|
+| 19_monastery | 0.00% | 2.96% | 11.05% | 0.00% | 0.09% |
+| 114_czech | 0.00% | 2.52% | 11.78% | 0.00% | 0.03% |
+| 47_canada_a | 0.00% | 8.10% | 21.98% | 0.00% | 0.10% |
+
+`0x08` and `0x40` are genuinely unused, and there are exactly two of them.
+
+### So spend them as a field, not as two flags
+
+Two independent booleans would consume the whole remaining byte and leave
+nothing, while wasting the one combination that cannot occur. A texel's key
+comes from ONE primitive group with ONE material and therefore ONE identifier,
+so destructible and ramp are mutually exclusive by construction — "both set"
+is unreachable.
+
+A 2-bit field in `0x48` spends the same two bits and keeps a spare value:
+
+    00   unstated   - no identifier, or a prefix we do not model.  MOST PARTS.
+    01   d_         - destructible: in the render mesh, absent from the hull
+    10   s_ramp     - drivable geometry the planner currently treats as wall
+    11   reserved
+
+`00` being explicit matters more than it looks: plenty of visuals carry no
+identifier at all, and missing is not the same as non-destructible. Two loose
+flags would encode that as "neither", which reads identically to "both
+answered no".
+
+If the field is ever full, the next flag costs a second byte or another layer —
+a contract change, not a bit. Worth knowing before anyone spends `11`.
+
+Name and values to be agreed with nuTerra Work in writing and declared in
+`<map>_meta.txt`. Nothing here is hardcoded on this side.
+
+### A map worth keeping for rule checks
+
+`47_canada_a` has no static tree bin at all — every plant on it is SpeedTree —
+so its 1,489,171 solid-under-canopy texels are canopy over built or rocky
+ground with nothing else mixed in. That makes it the clean map for sanity
+checking a crushable rule, and it is 4.7x monastery on the very bit this
+planner already reads. Monastery is not the worst case for foliage and should
+stop being treated as typical.
