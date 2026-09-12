@@ -8,12 +8,14 @@ right. A tool that renders the same thing offscreen means I can check my own
 work before it reaches him.
 
     python tank_tools/draw_path.py [map] [--to X,Z] [--out file.png]
+    python tank_tools/draw_path.py --load routes/19_monastery_141233.json
 
 Draws, in order: the ground in nuTerra's own kind palette, the 1 m block layer
 over it, then the route - every point, every ring at the radius it actually
 grew to, and which hand each tangent took.
 """
 
+import io
 import os
 import sys
 
@@ -25,8 +27,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tank_tools import ray_studio as rs
 
 
-def render(g, squares, pts, rings, out_png, pad_m=40.0, px=1400):
-    """Ground, blocks and one route, fitted to the route's own extent."""
+def render(g, squares, pts, rings, out_png, pad_m=40.0, px=1400, crop=None):
+    """Ground, blocks and one route, fitted to the route's own extent.
+
+    `crop` is (x, z, span_m) and overrides the fit. A seek ring is one to
+    twelve metres wide; over a 2.5 km route at 1400 px that is under a pixel,
+    so the whole-route picture can only ever show WHERE the tangents were, not
+    what the ring did. The crop is how the rings become visible at all.
+    """
     if not pts:
         raise ValueError("no route to draw")
 
@@ -37,6 +45,8 @@ def render(g, squares, pts, rings, out_png, pad_m=40.0, px=1400):
     # Square, so nothing is stretched and a ring stays a ring.
     span = max(x1 - x0, z1 - z0)
     cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+    if crop is not None:
+        cx, cz, span = crop
     x0, x1 = cx - span * 0.5, cx + span * 0.5
     z0, z1 = cz - span * 0.5, cz + span * 0.5
     mpp = span / px                      # metres per pixel
@@ -61,6 +71,19 @@ def render(g, squares, pts, rings, out_png, pad_m=40.0, px=1400):
     for k, c in g["palette"].items():
         img[(kind == k) & ok] = c
 
+    # THE WALLS THE SEARCH ACTUALLY HITS, not the ones a person sees.
+    #
+    # The planner collides against collide_hull - the obstacle map grown by
+    # half the hull width - so a single bush is a 4.5 m no-go disc and the
+    # ground picture underneath it looks empty. Every "why did it turn here,
+    # there is nothing there" in this route is this layer, and leaving it out
+    # of the render made the search look irrational when it was not.
+    hull = g["collide_hull"][tr, tc] & ok
+    raw = g["collide"][tr, tc] & ok
+    grown = hull & ~raw
+    img[grown] = (img[grown] * 0.45 + np.array([70, 40, 40]) * 0.55
+                  ).astype(np.uint8)
+
     # THE BLOCK LAYER over it, same sampling, so the two cannot drift.
     if squares is not None:
         sr = ((squares.wz1 - WZ) / squares.cell_m).astype(int)
@@ -82,7 +105,8 @@ def render(g, squares, pts, rings, out_png, pad_m=40.0, px=1400):
         c = to_px(rx, rz)
         rp = rr / mpp
         d.ellipse([c[0] - rp, c[1] - rp, c[0] + rp, c[1] + rp],
-                  outline=(255, 215, 80, 200), width=2)
+                  outline=(255, 215, 80, 200),
+                  width=2 if rp < 12 else 3)
         # THE HOP IS FROM THE ANCHOR, not from the ring centre. The centre is
         # where the RAY stopped; the tank is back at the previous point and
         # drives one straight line to the tangent.
@@ -117,13 +141,49 @@ def main():
     map_name = "19_monastery"
     to = None
     out = "route.png"
+    load = None
+    crop = None    # x,z,span_m - a close-up instead of the whole route
     for i, a in enumerate(sys.argv):
         if a == "--to" and i + 1 < len(sys.argv):
             to = tuple(float(v) for v in sys.argv[i + 1].split(","))
         if a == "--out" and i + 1 < len(sys.argv):
             out = sys.argv[i + 1]
+        if a == "--load" and i + 1 < len(sys.argv):
+            load = sys.argv[i + 1]
+        if a == "--crop" and i + 1 < len(sys.argv):
+            crop = tuple(float(v) for v in sys.argv[i + 1].split(","))
         if i == 1 and not a.startswith("-"):
             map_name = a
+
+    # A SAVED ROUTE RENDERS WITHOUT SEARCHING FOR IT AGAIN. The search that
+    # produced it took thousands of casts and is not deterministic run to run,
+    # so "draw it bigger" or "draw it in another palette" must not mean "go
+    # find a different route and draw that one".
+    if load is not None:
+        import json
+        with io.open(load, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        map_name = doc.get("map", map_name)
+        g = rs.build_grid(map_name, 4.5)
+        try:
+            squares = rs.Squares(map_name)
+        except Exception:
+            squares = None
+        # THE SAME BLOCK STATE THE SEARCH SAW, replayed onto the reloaded
+        # grid. Otherwise the route turns at walls that are not in the picture.
+        bp = load[:-5] + "_blocks.npy"
+        if squares is not None and os.path.exists(bp):
+            rc = np.load(bp)
+            squares.grid[rc[0], rc[1]] = 1
+            print("replayed %d set square(s) from the run" % rc.shape[1])
+        pts = [tuple(q) for q in doc["path"]]
+        rings = [tuple(r) for r in doc["rings"]]
+        length, span = render(g, squares, pts, rings, out, crop=crop)
+        print("loaded %s: %.0f m, %d points, %d rings, %d item(s) hit -> %s "
+              "(%.0f m across)"
+              % (os.path.basename(load), length, len(pts), len(rings),
+                 len(doc.get("items", [])), out, span))
+        return 0
 
     g = rs.build_grid(map_name, 4.5)
     S = rs.snap_free(g, -20.1, -387.8)
@@ -143,9 +203,11 @@ def main():
         print("no route in %d steps; closest %.0f m of %.0f"
               % (n, d, np.hypot(G[0] - S[0], G[1] - S[1])))
         return 1
-    length, span = render(g, squares, t.win_pts, t.win_rings, out)
+    saved = t.save()
+    length, span = render(g, squares, t.win_pts, t.win_rings, out, crop=crop)
     print("route %.0f m, %d points, %d rings, %d casts -> %s (%.0f m across)"
           % (length, len(t.win_pts), len(t.win_rings), t.casts, out, span))
+    print("saved %s" % saved)
     return 0
 
 

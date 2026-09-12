@@ -41,6 +41,7 @@ WHAT THE COLOURS MEAN
     python tank_tools/ray_studio.py [map] [--hull 4.5] [--speed 8]
 """
 
+import io
 import os
 import sys
 import time
@@ -1268,6 +1269,7 @@ def main():
     astar_paths, astar_msg = [], ""
     tree, tree_msg, tree_follow = None, "", True
     found_routes = []             # every route this session has completed
+    saved_route = None            # the json the last win was written to
     # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
     #
     # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
@@ -1672,6 +1674,17 @@ def main():
                 if tree.win_pts and (not found_routes or
                                      found_routes[-1] is not tree.win_pts):
                     found_routes.append(tree.win_pts)
+                    # AND IT GOES TO DISK THE MOMENT IT LANDS. Every route
+                    # this search has ever found died with the window, and the
+                    # rings that shaped it died with the tree. Saved here,
+                    # once, on the frame it wins - draw_path.py --load reads it
+                    # back and renders it at any zoom, without re-running a
+                    # search that takes 5,000 casts to reproduce.
+                    try:
+                        saved_route = tree.save()
+                    except Exception as exc:
+                        saved_route = None
+                        print("route save failed: %s" % exc)
                 if ring_auto and ring_slot < len(RING_SET) - 1:
                     ring_slot += 1
                 rings_n = sum(1 for n in tree.win_chain if n["ring"])
@@ -1679,8 +1692,10 @@ def main():
                                       tree.win_chain[k + 1]["pos"][1] - tree.win_chain[k]["pos"][1])
                              for k in range(len(tree.win_chain) - 1))
                 tree_msg = ("*** PATH COMPLETE - INSIDE THE BASE RING *** %.0f m, %d pt, %d ring(s) - "
-                            "found after %d cast(s). [b] restarts."
-                            % (length, len(tree.win_chain), rings_n, tree.casts))
+                            "found after %d cast(s). [b] restarts.%s"
+                            % (length, len(tree.win_chain), rings_n, tree.casts,
+                               ("  saved: %s" % os.path.basename(saved_route))
+                               if saved_route else ""))
             else:
                 # ONLY WHILE IT IS STILL RUNNING. This was unconditional and
                 # therefore clobbered the PATH COMPLETE line the moment after
@@ -3526,6 +3541,7 @@ class BranchTree(object):
         self.win_chain = []
         self.win_rings = []          # (cx, cz, r, side, tangent x, tangent z)
         self.win_pts = []
+        self.win_blocks = None       # squares already set when it won
         # THE SQUARE MAP, if nuTerra has written one. Optional so a v1 bake or
         # a map without it still runs, but it is the ground memory the search
         # was missing and without it the walk circles for ever.
@@ -3605,6 +3621,89 @@ class BranchTree(object):
         if parent is not None:
             self.points[parent]["kids"].append(p["id"])
         return p
+
+    def save(self, out_path=None):
+        """Write the finished route, its tangent rings and what it hit.
+
+        WHY THE RINGS GO WITH IT. A list of points is not a route that can be
+        read back - it is a polyline, and every turn in it looks arbitrary.
+        The ring at each turn is the WHY: this is where the ray stopped, this
+        is how far out the search had to grow before a tangent cleared, and
+        this is the hand it took. Saved apart from the path they are lost with
+        the tree that made them, which is what happened to every route this
+        search found before today.
+
+        AND THE ITEM LIST, which the owner asked for a while back: "Make a
+        list of all objects hit in the path. We can use render ids." The bake
+        carries a u32 id per texel and a csv naming each range, so a hit is
+        recorded as the id AND the name - "colors is not enough".
+        """
+        import json
+
+        if not self.win_pts:
+            raise ValueError("no completed route to save")
+
+        def name_of(iid):
+            for (lo, hi), (kind, nm) in self.g.get("id_names", {}).items():
+                if lo <= iid <= hi:
+                    return kind, nm
+            return "", ""
+
+        items = []
+        for n in self.win_chain:
+            if not n.get("item"):
+                continue
+            kind, nm = name_of(int(n["item"]))
+            items.append(dict(id=int(n["item"]), kind=kind, name=nm,
+                              side=int(n["side"]) if n["side"] else 0,
+                              at=[float(n["pos"][0]), float(n["pos"][1])]))
+
+        length = float(sum(
+            np.hypot(self.win_pts[k + 1][0] - self.win_pts[k][0],
+                     self.win_pts[k + 1][1] - self.win_pts[k][1])
+            for k in range(len(self.win_pts) - 1)))
+
+        doc = dict(
+            map=self.g.get("map_name", "?"),
+            saved=time.strftime("%Y-%m-%d %H:%M:%S"),
+            start=[float(self.win_pts[0][0]), float(self.win_pts[0][1])],
+            goal=[float(self.goal[0]), float(self.goal[1])],
+            ring_m=float(self.max_ring_m), min_gap_m=float(self.min_gap_m),
+            block_radius=int(self.block_radius), casts=int(self.casts),
+            length_m=length,
+            path=[[float(x), float(z)] for (x, z) in self.win_pts],
+            # (centre x, centre z, radius, hand, tangent x, tangent z,
+            #  anchor x, anchor z) - the anchor is the point the tank was
+            # actually standing on, not the ring centre.
+            rings=[[float(v) for v in r] for r in self.win_rings],
+            items=items)
+
+        # AND THE BLOCK STATE IT WAS FOUND AGAINST.
+        #
+        # Without this a saved route CANNOT be read back honestly. Rendered
+        # against a freshly reloaded square map, the first crop of this route
+        # showed two dozen rings turning in open ground with nothing to hit -
+        # because the walls they turned at were squares this run had set and a
+        # reload does not have. The route looked irrational and it was not; the
+        # picture was missing half its reason.
+        #
+        # Only the DELTA - squares set on top of the bake - so it stays small:
+        # a corridor, not a 1.96 MB grid.
+        blocks = self.win_blocks
+
+        if out_path is None:
+            d = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "routes")
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            out_path = os.path.join(
+                d, "%s_%s.json" % (doc["map"], time.strftime("%H%M%S")))
+        doc["blocks_set"] = int(blocks.shape[1]) if blocks is not None else 0
+        with io.open(out_path, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(doc, indent=1))
+        if blocks is not None:
+            np.save(out_path[:-5] + "_blocks.npy", blocks)
+        return out_path
 
     def next_angle(self, p):
         """The next untried angle IN FRONT OF US, nearest the heading first.
@@ -3794,6 +3893,18 @@ class BranchTree(object):
                 # was not the map - the start square itself had been marked, so
                 # the search could not begin. Both earlier versions of this
                 # carried a 45 m guard and this one had lost it.
+                # THE BLOCK STATE AS THE SEARCH SAW IT, taken BEFORE this
+                # route stamps its own corridor. Saved after the stamp it is
+                # a picture of the route lying inside its own wall, which
+                # explains nothing: the question a saved route has to answer
+                # is what it was going AROUND, and this route's corridor did
+                # not exist while it was being found.
+                if self.squares is not None:
+                    rr, cc = np.nonzero((self.squares.grid != 0) &
+                                        (self.squares.base == 0))
+                    self.win_blocks = (np.stack([rr, cc]).astype(np.uint16)
+                                       if len(rr) else None)
+
                 if self.squares is not None and self.win_pts:
                     step = max(0.5, self.squares.cell_m)
                     a0, b0 = self.win_pts[0], self.win_pts[-1]
