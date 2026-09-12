@@ -1881,6 +1881,17 @@ try_again:
                                          "at the tanks themselves.")
                     End If
 
+                    ImGui.Checkbox("Draw the rays", SHOW_TANK_RAYS)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Each tank's line to where it is driving," & vbLf &
+                                         "laid on the ground, with a cross on the" & vbLf &
+                                         "spot itself." & vbLf &
+                                         "Team colour, or AMBER once a hull has" & vbLf &
+                                         "been unable to move for " &
+                                         TankDriveTune.STUCK_S.ToString("0.0") & " s." & vbLf &
+                                         "Rebuilt every frame - it cannot go stale.")
+                    End If
+
                     ' HOT, so a routing change can be judged against the frame
                     ' before it rather than against a memory of one. Only while
                     ' there are tanks to re-route.
