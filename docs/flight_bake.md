@@ -497,11 +497,34 @@ Against 49,118,301 cells already free. Both are whole-ASSET deletions, so both a
 UPPER bounds - the `n_` and `s_` parts inside those assets are included. Neither
 shows up in the 9% of the planner's tangent rings that turn at a real obstacle.
 
-**So neither number justifies the bit on this map, and monastery is the wrong map
-to decide it on.** The assets genuinely full of `d_` parts are the shanties and
-work barracks - `hd_bld_AM_025_HousesShanty_01` carries 14 by itself - and
-monastery has none. The honest test is one shanty-heavy map; `kinddump` finds one
-in minutes.
+**And monastery is NOT an unusually poor map to have measured on** - an earlier
+version of this section said it was, and sent the reader off to find a
+shanty-heavy map instead. All 69 map packages were then scanned for distinct
+identifiers in each `space.bin` material table:
+
+    47_canada_a            96 d_   120 n_   2 s_ramp
+    252_br_battle_city4    95      113      3
+    217_er_alaska          87      109      3
+    19_monastery           33       38      2
+    median of 69 maps      18       21      1
+
+Monastery is **above** the median, and the richest map has about three times its
+variety rather than ten. `s_ramp` is one or two per map EVERYWHERE, which retires
+the ramp argument completely.
+
+**So the area case is WEAK, on 69 maps' worth of evidence - not "unproven pending
+a better map".** Deciding against the bit on those numbers would be deciding
+correctly.
+
+Two cautions on that table, both cutting the same way: a distinct identifier is a
+MATERIAL, not a part and not an area - monastery's 33 `d_` belong to just two
+assets - and none of it is a blocked-cell count.
+
+**THE MISTAKE UNDERNEATH BOTH CORRECTIONS IS ONE MISTAKE, MADE TWICE IN TWO
+HOURS, BY TWO SESSIONS.** 343 ramp parts and "go find a shanty map" were both
+counts of what EXISTS IN THE PACKAGES standing in for what A MAP CONTAINS. With a
+package scanner to hand it is a cheap error to keep making, and it survives review
+because the number is real - it is the question it answers that is wrong.
 
 **The argument that survives the measurement is not about area.** The identifier
 is the GAME'S OWN answer, and every alternative is a classifier we invent. Today
