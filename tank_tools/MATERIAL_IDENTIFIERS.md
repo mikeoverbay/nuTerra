@@ -148,3 +148,66 @@ rasterises: **CRUSH_BIT, set when the part being drawn has a `d_` identifier**.
 That is `nuTerra/Scene/MapFlightBake.vb`, which belongs to the nuTerra Work
 session — a message, not an edit. Consumers then read it from
 `<map>_meta.txt` the way they read every other bit.
+
+## Verified: the runtime table carries the same strings
+
+Open question from the engine session — the scan above read FILES offline,
+while `cBSMA` is the map's own material table loaded at runtime, and two
+sources that ought to agree have burned this project twice today already.
+
+Settled without touching their code: `spaces/19_monastery/space.bin` carries
+the identifier strings itself. 78 of them, which `cBWST` resolves by FNV hash:
+
+| prefix | count | on monastery |
+|---|---|---|
+| `n_` | 38 | `n_stone0_1..7`, `n_stone1_1..4`, `n_metal3_1..2`, … |
+| `d_` | 33 | `d_stone0_1..7`, `d_stone1_1..5`, `d_stone2_1..4`, … |
+| `s_` | 6 | `s_nd_0`, `s_nd_1`, `s_ramp_0`, `s_ramp_1`, `s_wall_0`, `s_wall_1` |
+| `ivy_` | 1 | `ivy_flat_01` |
+
+So the file scan and the runtime table describe the same thing, and the
+CRUSH_BIT request does not rest on an unverified link.
+
+## What it is actually worth on monastery — small, both of them
+
+Measured before anyone spends a bit, because "343 parts across the game"
+is not the same claim as "343 parts on the map we are testing".
+
+Every model asset on monastery, matched to its visual in the packages
+(212 distinct assets, 7,137,362 collide texels; only 3,072 texels — 0.04% —
+belong to an asset whose visual could not be found):
+
+| | collide texels | share | assets |
+|---|---|---|---|
+| assets carrying a `d_` part | 179,022 | **2.5%** | 2 |
+| assets carrying an `s_ramp` part | 2,227 | **0.03%** | 12 |
+
+Both are UPPER bounds — the count is the whole asset, `n_` and `s_` parts
+included, so the destructible and drivable share is smaller still.
+
+The two destructible assets are the village houses, `bld_19_01_Vhouse_03`
+(139,166 texels, 5 `d_` parts) and `bld_19_01_Vhouse_01` (39,856, 4 `d_`).
+The ramps are flowerbeds, a well, a fountain, an arch, a Dodge WC54 and a
+track decal — kerbs you drive over, semantically real and geometrically tiny.
+
+### And the hull-growth defence does not rescue them
+
+The fair objection to a raw texel count is that the planner sees the map grown
+by half a hull, so small clutter becomes big no-go discs and a few hundred
+texels could matter far more than they look. Tested by rebuilding
+`collide_hull` with those assets deleted and counting cells that change from
+blocked to free:
+
+| removing | frees | of the map | of the free ground |
+|---|---|---|---|
+| every `s_ramp` asset | 10,295 cells | 0.02% | +0.02% |
+| every destructible asset, whole | 209,312 cells | 0.31% | +0.43% |
+
+Against 49,118,301 free cells to begin with. So on THIS map the crush bit buys
+under half a percent of extra ground and the ramps buy nothing measurable, and
+neither would show up in the 9% of tangent rings that turn at a real obstacle.
+
+That is not an argument against the bit. It is an argument that monastery is
+the wrong map to justify it on: the assets that are full of `d_` parts are the
+shanties and work barracks (`hd_bld_AM_025_HousesShanty_01` alone carries 14),
+and a map built from those would answer differently. Measure there first.
