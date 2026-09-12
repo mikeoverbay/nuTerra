@@ -68,7 +68,29 @@ KIND_MASK, OUTLAND_BIT, TRUNK_BIT = 7, 16, 128
 #
 # THE RULE IS NOW `kind = tree AND NOT solid`, never `kind = tree`.
 SOLID_BIT = 32
+# THE KIND NUMBERS ARE DEFAULTS, NOT THE CONTRACT.
+#
+# The bake names every kind in <map>_meta.txt as kind_0=terrain, kind_1=
+# building and so on, and the house rule is that a reader takes the contract
+# from the meta rather than from a constant it wrote down once. These four are
+# what bake_version 2 shipped and what a v1 bake without a kind table gets;
+# kinds_from_meta() overrides them per map, so a bake that adds a kind - or
+# renumbers one - is read correctly instead of silently classifying rock as
+# prop and driving into it.
 KIND_FENCE, KIND_TREE, KIND_PROP, KIND_WATER = 2, 3, 5, 6
+
+
+def kinds_from_meta(meta):
+    """(fence, tree, prop, water) as THIS bake numbers them."""
+    byname = {}
+    for k, v in meta.items():
+        if k.startswith("kind_") and not k.endswith("_rgb"):
+            try:
+                byname[v.strip().lower()] = int(k[5:])
+            except ValueError:
+                pass                      # kind_mask and friends are not kinds
+    return (byname.get("fence", KIND_FENCE), byname.get("tree", KIND_TREE),
+            byname.get("prop", KIND_PROP), byname.get("water", KIND_WATER))
 
 
 def read_meta(path):
@@ -133,11 +155,12 @@ def build_grid(map_name, hull_r_m):
     # fence texels and 63.3% of prop texels carry it against 7.0% of tree
     # texels. Testing it on fence and prop un-crushed three quarters of the
     # fences on this map.
-    crushable = ((kind == KIND_FENCE) | (kind == KIND_PROP) |
-                 ((kind == KIND_TREE) & ~solid))
+    k_fence, k_tree, k_prop, k_water = kinds_from_meta(meta)
+    crushable = ((kind == k_fence) | (kind == k_prop) |
+                 ((kind == k_tree) & ~solid))
     testable = ~crushable
 
-    collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == KIND_WATER)
+    collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == k_water)
 
     # GROW IT BY THE HULL, ONCE, AT FULL RESOLUTION.
     #
@@ -203,6 +226,8 @@ def build_grid(map_name, hull_r_m):
                 collide_hull=collide_hull, used=None,
                 kind=kind, trunk=(key & TRUNK_BIT).astype(bool),
                 solid=solid, ids=ids, id_names=id_names, palette=palette,
+                kinds=dict(fence=k_fence, tree=k_tree, prop=k_prop,
+                           water=k_water),
                 map_name=map_name,
                 floor=fl16, hscale=scale,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
@@ -1230,7 +1255,7 @@ def main():
             for k, c in g["palette"].items():
                 img[kd == k] = c
             sl = g["solid"][sub, sub][:SHOW, :SHOW]
-            tr = (kd == KIND_TREE) & sl
+            tr = (kd == g["kinds"]["tree"]) & sl
             img[tr] = (235, 235, 90)      # tree-keyed AND solid: rock under bush
             return img
         idm = g["ids"][sub, sub][:SHOW, :SHOW] if g["ids"] is not None else None
