@@ -3405,6 +3405,25 @@ class BranchTree(object):
         # cursor is the end of the ray just cast, which moves the way the
         # search moves and only jumps where the search genuinely jumps.
         self.cursor = start
+        self.plugged = 0             # cul-de-sacs filled in as they were found
+        # PLUGGING IS OFF BY DEFAULT, and the measurement is why.
+        #
+        # Four targets, plugs off against on: north 150 identical, east 300
+        # identical, base to base BETTER (3,185 casts to 1,676), north 400
+        # TWICE AS BAD (4,181 to 9,169, and the route 7,122 m to 14,132 m).
+        # One better, one much worse, two unchanged - which is not a rule
+        # working, it is a chaotic search being nudged.
+        #
+        # And there is a reason it cannot work as stated: an instant out is not
+        # a property of the GROUND, it is a property of the ground AND THE
+        # HEADING. "No way forward from here" was asked facing one way; a
+        # cul-de-sac approached from the north can be a through route
+        # approached from the west. Plugging the square throws that away, and
+        # north 400 is what that costs.
+        #
+        # Kept, off, and switchable - the idea is sound and would work against
+        # a (square, heading) record rather than a square.
+        self.plug_dead_ends = False
         # The opening bearing is the owner's "start scanning left": the root
         # begins its angle order there and works round.
         # The root has nothing behind it, so its arc is centred on the sweep's
@@ -3473,11 +3492,30 @@ class BranchTree(object):
                 # USED and no later ray bothers with it again.
                 if p["tag"] == TAG_FAIL and p["origin"] == ORIGIN_TANGENT                         and p.get("item"):
                     self.items.fail(p["item"], p["side"])
-                # AND GIVE THE GROUND BACK ON THE WAY OUT. A dead branch was
-                # only occupying its squares; another branch may need them.
-                # Ground is kept for good only by a route that finished.
+                # PLUG A DEAD END; GIVE BACK A DEAD BRANCH.
+                #
+                # "now we can use the instant out to help plug gaps so the path
+                # can't get in there again."
+                #
+                # The two failures are not the same thing and must not be
+                # treated the same way:
+                #
+                # AN INSTANT OUT - every angle tried from here and not one of
+                # them produced a child - is a genuine cul-de-sac. The ground
+                # itself is the problem, nothing further down. Plug it, and no
+                # later branch has to discover it again.
+                #
+                # A FAILURE WITH CHILDREN is different. This point was fine;
+                # what lay beyond it was not, and beyond it may be reachable
+                # another way. Keeping it would wall the search into a corner
+                # it dug - which is measured, and is why the release exists.
                 if self.squares is not None and p["tag"] == TAG_FAIL:
-                    self.squares.release(p["pos"][0], p["pos"][1])
+                    if not p["kids"] and self.plug_dead_ends:
+                        self.squares.mark(p["pos"][0], p["pos"][1],
+                                          self.block_radius)
+                        self.plugged += 1
+                    else:
+                        self.squares.release(p["pos"][0], p["pos"][1])
                 self.stack.pop()
                 return "backed up from %d" % p["id"]
 
