@@ -13,7 +13,8 @@ handoff's status banner before trusting it.
 |---|---|
 | **what is still open** | `open_threads.md` |
 | **the newest handoff: Tank AI - the navigation grid, the driver, the four deadlocks and what to measure** | `HANDOFF_2026-09-11_tank_ai.md` |
-| **the newest Path Studio handoff: the keyed bake and its bits, foliage states, the sun shadow tiles, the tree/bush and olive findings, the tank-material switch, zoning measured and tossed, the height-map watcher, point-to-point routing** | `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` |
+| **the newest Path Studio handoff - START HERE for that lane: what is new and in flight since 09-11, plus `tools/route_sig.py`, route identity by what was passed and on which side (unwired)** | `HANDOFF_2026-09-12_path_studio.md` |
+| the Path Studio session before it: the keyed bake and its bits, foliage states, the sun shadow tiles, the tree/bush and olive findings, the tank-material switch, zoning measured and tossed, the height-map watcher, point-to-point routing | `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` |
 | **who works where: the three-session areas table and the owner's two standing rules** | `..\CLAUDE.md` (repo root, not in docs\) |
 | Path Studio the session before: the lane navigator, the Edit path lock, street-lamp light controls, the 72-byte light record | `HANDOFF_2026-09-09_path_studio.md` |
 | the shading pass built, measured and REVERTED - environment specular, energy conservation, the Tank Exporter gloss/metal curves, Fresnel and wet-spec sliders; the diff is `patches/shading_pass_2026-09-08.patch`; read its section 3 before touching the resolve | `HANDOFF_2026-09-08_shading_pass.md` |
