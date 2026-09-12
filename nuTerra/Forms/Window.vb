@@ -1781,6 +1781,15 @@ try_again:
             If ImGui.Button("Shader IDE") Then
                 ShaderIDE.Open = Not ShaderIDE.Open
             End If
+            ImGui.SameLine()
+            If ImGui.Button("Route resolver") Then
+                RouteFilm.show = Not RouteFilm.show
+            End If
+            If ImGui.IsItemHovered() Then
+                ImGui.SetTooltip("A flat top-down view of the route search" & vbLf &
+                                 "itself - the grid, the frontier, the" & vbLf &
+                                 "branches it gave up on. No world, no tanks.")
+            End If
             If ImGui.IsItemHovered() Then ImGui.SetTooltip("Edit and recompile any shader in place - Tools\ShaderIDE.vb")
             If ImGui.Button("Path Studio") Then
                 start_path_studio()
@@ -1961,6 +1970,29 @@ try_again:
                                          "which is the steadier view for looking" & vbLf &
                                          "at the tanks themselves.")
                     End If
+
+                    ' A FULL RESET: forget the saved bake and reload the map, which
+                    ' rebuilds the flight bake, the nav grid, the routes and the
+                    ' sun bake with it. Through the ordinary load path on
+                    ' purpose - the bake's render target is created once, so
+                    ' calling it again in place would leak an FBO and two 8192
+                    ' textures, and no button is worth making that re-entrant.
+                    If ImGui.Button("Force rebuild everything") Then
+                        FLIGHT_REBAKE = True
+                        If Not String.IsNullOrEmpty(MAP_NAME_NO_PATH) Then
+                            LogThis("flight bake: full rebuild asked for - reloading {0}", MAP_NAME_NO_PATH)
+                            MapMenuScreen.MAP_TO_LOAD = MAP_NAME_NO_PATH
+                        End If
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Throw away the saved flight bake and" & vbLf &
+                                         "reload this map, rebuilding the bake," & vbLf &
+                                         "the navigation grid and the routes." & vbLf &
+                                         "A few seconds." & vbLf &
+                                         "`rebake` on the command line does the" & vbLf &
+                                         "same without the reload.")
+                    End If
+                    ImGui.Separator()
 
                     ImGui.Checkbox("Draw the rays", SHOW_TANK_RAYS)
                     If ImGui.IsItemHovered() Then
@@ -3634,6 +3666,8 @@ try_again:
         End If
 
         If SHOW_TEXTURES_VIEWER_WINDOW Then
+            RouteFilm.Draw()
+
             If ImGui.Begin("Textures viewer", SHOW_TEXTURES_VIEWER_WINDOW) Then
                 Dim size As New Numerics.Vector2
                 size.X = ImGui.GetContentRegionAvail().X
