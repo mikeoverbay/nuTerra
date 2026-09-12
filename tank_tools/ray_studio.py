@@ -339,6 +339,20 @@ BASE_RING_M = 50.0
 # settings... That path is dead."
 RING_STEP_M = 0.5
 RING_MIN_M = 0.5
+
+# A RING SIZE PER PATH ATTEMPT, not one setting for the whole search.
+#
+# The owner's idea, and it turns a tuning constant into a route GENERATOR. How
+# far the ring may grow decides how the walk treats an obstacle: a small ring
+# can only find a tangent close in, so it hugs the corner and takes the squeeze;
+# a large one reaches out and swings wide. Those are different roads round the
+# same building, and asking for one ring size asks for one of them.
+#
+# So each attempt is ASSIGNED a size and the catalogue gets its variety from
+# the search rather than from luck in the opening bearing - which is worth a
+# great deal here, because a chain's outcome was measured as chaotic in that
+# bearing: 1.5 degrees took one direction from 11 winning chains to 5.
+RING_SET = (1.0, 2.0, 3.0, 5.0, 8.0, 12.0)
 RING_MAX_DEFAULT_M = 12.0
 # THE SETTING'S RANGE, MEASURED RATHER THAN GUESSED. The spec said 0.5 to 5.0
 # by 0.5; at 5.0 this map yields NOTHING and at 10.0 it yields five routes. A
@@ -1194,6 +1208,8 @@ def main():
     # A square is a metre, so 1 blocks a 3x3 - about a hull - and 5 blocks an
     # 11x11, which is a corridor.
     block_radius = 1
+    ring_slot = 0                 # which RING_SET entry this attempt is using
+    ring_auto = True              # step to the next size when a path lands
     last_step_ms = 0
     sq_surf = None                # the block overlay, rebuilt only when it moves
     slider_rects = {}             # name -> (rect, lo, hi) from the last frame
@@ -1382,6 +1398,11 @@ def main():
                     astar_msg = "landmark now %.0f m2 - press [a] to re-class"                                 % landmark_m2
                 elif e.key == pygame.K_m:
                     show_marks = not show_marks
+                elif e.key in (pygame.K_F1, pygame.K_F2, pygame.K_F3,
+                               pygame.K_F4, pygame.K_F5, pygame.K_F6):
+                    ring_slot = e.key - pygame.K_F1
+                elif e.key == pygame.K_F7:
+                    ring_auto = not ring_auto
                 elif e.key in (pygame.K_1, pygame.K_2, pygame.K_3,
                                pygame.K_4, pygame.K_5):
                     block_radius = e.key - pygame.K_0
@@ -1392,7 +1413,10 @@ def main():
                     # and drawn as it goes - the owner has been blind to this
                     # search while it was being tuned headless, which is the
                     # one thing he asked not to happen.
-                    tree = BranchTree(g, start, goal, ring_max, min_gap)
+                    # THE RING FOR THIS ATTEMPT, from the set rather than
+                    # from the global slider.
+                    tree = BranchTree(g, start, goal, RING_SET[ring_slot],
+                                      min_gap)
                     tree.block_radius = block_radius
                     sq_surf = None
                     tree_msg = "branch tree: running"
@@ -1467,6 +1491,10 @@ def main():
                     break
             seen_i, half_i, used_i = tree.items.report()
             if tree.halted:
+                # A LANDED PATH MOVES THE ASSIGNMENT ON, so pressing [b] again
+                # hunts the next road rather than re-running the same one.
+                if ring_auto and ring_slot < len(RING_SET) - 1:
+                    ring_slot += 1
                 rings_n = sum(1 for n in tree.win_chain if n["ring"])
                 length = sum(np.hypot(tree.win_chain[k + 1]["pos"][0] - tree.win_chain[k]["pos"][0],
                                       tree.win_chain[k + 1]["pos"][1] - tree.win_chain[k]["pos"][1])
@@ -1928,6 +1956,25 @@ def main():
             buttons.append((rb, str(k), pygame.K_0 + k, on))
         y += 30
         y += 4
+        y = header(LX, y, "SEEK RING PER PATH", LW)
+        screen.blit(font.render("metres, assigned to this attempt", True,
+                                (135, 140, 152)), (LX, y))
+        y += 18
+        rw = (LW - 20) // 6
+        for k, rv in enumerate(RING_SET):
+            rr_ = pygame.Rect(LX + k * (rw + 4), y, rw, 22)
+            on = (ring_slot == k)
+            hov = rr_.collidepoint(pygame.mouse.get_pos())
+            pygame.draw.rect(screen, (62, 96, 66) if on else
+                             ((52, 56, 66) if hov else (38, 41, 49)), rr_,
+                             border_radius=3)
+            pygame.draw.rect(screen, PANEL_LINE, rr_, 1, border_radius=3)
+            screen.blit(font.render("%g" % rv, True, (235, 240, 248)),
+                        (rr_.x + 4, rr_.y + 3))
+            buttons.append((rr_, "%g" % rv, pygame.K_F1 + k, on))
+        y += 28
+        y = checkbox(LX, y, LW, "Next ring on each path", pygame.K_F7, ring_auto)
+        y += 8
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
@@ -1952,7 +1999,8 @@ def main():
         ry = header(RX, ry, "STATE", RW)
         ry = readout(RX, ry, "hull", "%.1f m" % hull)
         ry = readout(RX, ry, "ray step", "%.0f m" % ray_cap)
-        ry = readout(RX, ry, "ring max", "%.1f m" % ring_max)
+        ry = readout(RX, ry, "seek ring (attempt)", "%.1f m" % RING_SET[ring_slot],
+                     (255, 225, 120))
         ry = readout(RX, ry, "min gap", "%.1f m" % min_gap)
         ry = readout(RX, ry, "landmark", "%.0f m2" % landmark_m2)
         ry += 10
