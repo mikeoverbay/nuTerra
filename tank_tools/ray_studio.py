@@ -118,7 +118,7 @@ def build_grid(map_name, hull_r_m):
     clear = (ndimage.distance_transform_edt(~blocked) - 0.5) * cell_m
     np.clip(clear, 0.0, None, out=clear)
 
-    return dict(N=N, cell_m=cell_m, blocked=blocked, clear=clear, kind_grid=None,
+    return dict(N=N, cell_m=cell_m, blocked=blocked, clear=clear, used=None,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
 
@@ -137,6 +137,8 @@ def cell_to_world(g, cx, cz):
 def standable(g, x, z):
     cx, cz = world_to_cell(g, x, z)
     if cx < 0 or cz < 0 or cx >= g["N"] or cz >= g["N"]:
+        return False
+    if g["used"] is not None and g["used"][cz, cx]:
         return False
     return g["clear"][cz, cx] >= g["hull"]
 
@@ -218,7 +220,7 @@ LEAVE_LOOK_M = 160.0
 PATH_MAX = 12
 
 
-def resolve(g, start, goal):
+def hunt(g, start, goal, open_angle=0.0):
     """The owner's algorithm, as a GENERATOR so it can be watched.
 
     Yields after every ray, which is what makes this live rather than a
@@ -244,13 +246,18 @@ def resolve(g, start, goal):
         return len(nodes) - 1
 
     d = np.hypot(gx - sx, gz - sz)
-    cast(sx, sz, (gx - sx) / d, (gz - sz) / d, -1, 0.0)
+    # The OPENING ANGLE is how the sweep aims this hunt. Zero is straight at
+    # the flag; the sweep walks it left to right so each hunt sets off into
+    # different ground rather than all of them starting down the same line.
+    ca, sa = np.cos(open_angle), np.sin(open_angle)
+    ux, uz = (gx - sx) / d, (gz - sz) / d
+    cast(sx, sz, ux * ca - uz * sa, ux * sa + uz * ca, -1, 0.0)
     been.add(bucket(sx, sz))
     paths = []
     rays = 1
     yield nodes, paths, rays
 
-    while openq and rays < RAY_BUDGET and len(paths) < PATH_MAX:
+    while openq and rays < RAY_BUDGET and not paths:
         # Best-first: the branch nearest the flag for what it has spent.
         bi = min(range(len(openq)),
                  key=lambda k: openq[k][1] +
@@ -352,6 +359,161 @@ def resolve(g, start, goal):
             yield nodes, paths, rays
 
     yield nodes, paths, rays
+
+
+# The opening fan: how wide the sweep looks and in what steps. Left first.
+SWEEP_DEG = 75.0
+SWEEP_STEP_DEG = 7.5
+
+# Two solutions whose rays run this close together are the same way in wearing
+# two hats. The owner's rule: "any rays that solve with close rays are
+# rejected."
+REJECT_M = 55.0
+
+# How wide a solved corridor is taken off the map, and how much ground around
+# each base is spared so the next hunt can still get out of the gate.
+USED_W_M = 26.0
+GUARD_M = 45.0
+
+# Ground is only "used up" where its clearance is at least this many hull radii
+# - anywhere tighter is a mandatory gap shared by every route through it.
+PINCH_SPARE = 1.6
+
+
+def resample(path, n=24):
+    """A path as n points evenly along its length, so two of different shapes
+    can be compared point for point."""
+    if len(path) < 2:
+        return [path[0]] * n if path else []
+    segs, total = [], 0.0
+    for i in range(1, len(path)):
+        d = np.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1])
+        segs.append(d)
+        total += d
+    if total < 1e-6:
+        return [path[0]] * n
+    out, want, acc, i = [], 0.0, 0.0, 1
+    for k in range(n):
+        want = total * k / (n - 1)
+        while i < len(segs) and acc + segs[i - 1] < want:
+            acc += segs[i - 1]
+            i += 1
+        if i >= len(path):
+            out.append(path[-1])
+            continue
+        t = 0.0 if segs[i - 1] < 1e-6 else (want - acc) / segs[i - 1]
+        out.append((path[i - 1][0] + (path[i][0] - path[i - 1][0]) * t,
+                    path[i - 1][1] + (path[i][1] - path[i - 1][1]) * t))
+    return out
+
+
+def too_close(path, pool):
+    """Is this the same way in as something already solved?
+
+    Compared as SHAPES, resampled to the same count, so a route with 16 turns
+    and one with 9 can still be recognised as the same corridor. The mean
+    separation is used rather than the worst: two routes that share a corridor
+    and differ only where they leave it are still the same corridor.
+    """
+    a = resample(path)
+    for other in pool:
+        b = resample(other)
+        dsum = sum(np.hypot(p[0] - q[0], p[1] - q[1]) for p, q in zip(a, b))
+        if dsum / len(a) < REJECT_M:
+            return True
+    return False
+
+
+def mark_used(g, path, start, goal):
+    """Take a solved corridor off the map.
+
+    The owner: "and that found a solution.. save it our pool of solved paths.
+    That one is done shoot ray right and move on."
+
+    DONE means done - the ground it used is not available to the next hunt.
+    Without this every opening angle in the sweep curves back onto the same
+    corridor the moment the corner logic re-aims at the flag, and 2,130 rays
+    return one route twenty-one times.
+
+    The ENDS ARE SPARED. Both bases sit in tight ground, so marking there would
+    wall the next hunt in before it started.
+    """
+    if g["used"] is None:
+        g["used"] = np.zeros_like(g["blocked"])
+    N, cm = g["N"], g["cell_m"]
+    # Wide enough that the next hunt cannot simply run alongside; capped so a
+    # pass over open ground does not consume the field.
+    r_cells = max(1, int(min(USED_W_M, 40.0) / cm))
+    guard2 = (GUARD_M / cm) ** 2
+    scx, scz = world_to_cell(g, *start)
+    gcx, gcz = world_to_cell(g, *goal)
+    step = cm * 0.5
+    for i in range(1, len(path)):
+        ax, az = path[i - 1]
+        bx, bz = path[i]
+        d = np.hypot(bx - ax, bz - az)
+        if d < 1e-6:
+            continue
+        ux, uz = (bx - ax) / d, (bz - az) / d
+        t = 0.0
+        while t <= d:
+            cx, cz = world_to_cell(g, ax + ux * t, az + uz * t)
+            t += step
+            if not (0 <= cx < N and 0 <= cz < N):
+                continue
+            if (cx - scx) ** 2 + (cz - scz) ** 2 < guard2:
+                continue
+            if (cx - gcx) ** 2 + (cz - gcz) ** 2 < guard2:
+                continue
+            # A PINCH IS NEVER TAKEN OFF THE MAP. You can only use up ground
+            # that had room for an alternative; where a corridor is barely
+            # wider than the hull there was never a second way through it, and
+            # marking it does not retire a route, it seals the map.
+            #
+            # Measured: both ways into team 2's base leave team 1's through the
+            # SAME 8.5 m pinch at (50, -390). Marking the first corridor at 26 m
+            # closed it, and the remaining twenty sweep angles found nothing at
+            # all - not because the map has one route, but because the gate had
+            # been welded shut behind the first one.
+            if g["clear"][cz, cx] < g["hull"] * PINCH_SPARE:
+                continue
+            x0, x1 = max(0, cx - r_cells), min(N, cx + r_cells + 1)
+            z0, z1 = max(0, cz - r_cells), min(N, cz + r_cells + 1)
+            g["used"][z0:z1, x0:x1] = True
+
+
+def resolve(g, start, goal):
+    """Sweep the opening ray left to right and collect every DISTINCT way in.
+
+    The owner's rule, in his words: "and that found a solution.. save it our
+    pool of solved paths. That one is done shoot ray right and move on. any
+    rays that solve with close rays are rejected."
+
+    So a solve is not the end of the resolve, it is one entry. The sweep keeps
+    going rightward, and a later hunt that lands on the same corridor is thrown
+    away rather than stored twice - which is what makes the pool a list of the
+    map's actual ways in rather than a list of how many times we looked.
+    """
+    pool, all_nodes = [], []
+    g["used"] = None                            # a fresh resolve sees a whole map
+    angles = np.arange(SWEEP_DEG, -SWEEP_DEG - 0.1, -SWEEP_STEP_DEG)  # LEFT first
+    for a_deg in angles:
+        got = None
+        for nodes, paths, rays in hunt(g, start, goal, np.deg2rad(a_deg)):
+            all_nodes = all_nodes[:len(all_nodes)] + nodes
+            if paths:
+                got = paths[0]
+            yield all_nodes, pool + ([got] if got else []), len(all_nodes)
+            if got:
+                break
+        if got is None:
+            continue
+        if too_close(got, pool):
+            continue                      # same way in, wearing a different hat
+        pool.append(got)
+        mark_used(g, got, start, goal)          # that one is done
+        yield all_nodes, pool, len(all_nodes)
+    yield all_nodes, pool, len(all_nodes)
 
 
 def main():
