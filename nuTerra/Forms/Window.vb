@@ -1251,6 +1251,13 @@ try_again:
             ' Capture control. Both are inert unless something is recording, so
             ' neither steals a key from ordinary use - and Escape in particular
             ' does NOT quit, it only stops the capture.
+            Case Keys.F7
+                ' Re-cut the nav grid and the routes from the bake already on
+                ' the card. The owner watches this one while the tanks drive,
+                ' so it is a key and not only a button - the panel is in the
+                ' way of the thing being judged.
+                TANK_ROUTES_REBUILD_NOW = True
+                LogThis("tank: route rebuild requested (F7)")
             Case Keys.F9
                 start_path_studio()
             Case Keys.Space
@@ -1872,6 +1879,24 @@ try_again:
                                          "Off: they shuttle on the spot in base," & vbLf &
                                          "which is the steadier view for looking" & vbLf &
                                          "at the tanks themselves.")
+                    End If
+
+                    ' HOT, so a routing change can be judged against the frame
+                    ' before it rather than against a memory of one. Only while
+                    ' there are tanks to re-route.
+                    If map_scene IsNot Nothing AndAlso map_scene.tanks.HasTanks Then
+                        If ImGui.Button("Rebuild routes") Then
+                            TANK_ROUTES_REBUILD_NOW = True
+                            LogThis("tank: route rebuild requested (button)")
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Re-cut the navigation grid and both" & vbLf &
+                                             "route catalogues from the bake already" & vbLf &
+                                             "on the card, and put every hull back to" & vbLf &
+                                             "the start of its route." & vbLf &
+                                             "No map reload, no vehicle reload." & vbLf &
+                                             "F7 does the same without the panel.")
+                        End If
                     End If
                     ImGui.Separator()
                     ' THE TANK LIGHTS ITSELF. It writes GFLAG_UNLIT and the

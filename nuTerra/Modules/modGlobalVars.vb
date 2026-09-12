@@ -1200,6 +1200,24 @@ Module modGlobalVars
     ''' <summary>Set by the button. Cleared once the load has run.</summary>
     Public TANK_LOAD_NOW As Boolean = False
 
+    ''' <summary>
+    ''' Re-cut the nav grid and the route catalogues, without reloading anything.
+    ''' Set by F7 and by the panel button; MapTanks clears it when it has run.
+    '''
+    ''' A FLAG RATHER THAN A CALL, for three reasons, and the third is the one
+    ''' that matters. It is the shape TANK_LOAD_NOW already uses, so the panel
+    ''' has one idiom and not two. It compiles against a master where the
+    ''' rebuild does not exist yet, so the control and the thing it drives can
+    ''' land in either order - we have already lost time to the mirror image of
+    ''' that. And it moves the work off the input handler: the rebuild is about
+    ''' 800 ms and touches the card, and OnKeyDown and the ImGui pass are the
+    ''' wrong places for either.
+    '''
+    ''' Until MapTanks consumes it, pressing the key logs a request that nothing
+    ''' answers. That is deliberate and visible rather than silent.
+    ''' </summary>
+    Public TANK_ROUTES_REBUILD_NOW As Boolean = False
+
     Public TANK_AIM As Boolean = False
 
     Public TANK_FIRING As Boolean = True
