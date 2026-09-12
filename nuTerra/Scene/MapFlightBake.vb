@@ -405,6 +405,25 @@ Public Class MapFlightBake
             ' can be read against each other.
             report_coverage()
 
+            ' AND AN INDEPENDENT ONE, because report_coverage cannot see the
+            ' error that matters most here.
+            '
+            ' It measures top_m - floor_m, a DIFFERENCE, and h_offset cancels out
+            ' of a difference. So if the offset read back from the meta were
+            ' wrong, every absolute height on the map would shift, the blocked
+            ' share and the tallest obstacle would come out identical, and this
+            ' path would report itself correct. The check and the thing it checks
+            ' would share the assumption - which is how the Tank AI session's
+            ' routes measured clean for a week while being undriveable: the
+            ' validator sampled the centre line, exactly as the planner did.
+            '
+            ' verify_against_cpu asks a different source entirely - it probes the
+            ' loaded floor against get_Y_at_XZ_fast, the terrain's own height
+            ' function, which knows nothing about the bake or its offset. 25
+            ' probes, and it is the only thing on this path that would notice a
+            ' bake loaded a metre out.
+            verify_against_cpu()
+
             ' The meta, but only if this build would write it differently - a new
             ' key, an edited palette. export() does not run on this path, so
             ' without this a saved bake would keep its original meta for ever and
