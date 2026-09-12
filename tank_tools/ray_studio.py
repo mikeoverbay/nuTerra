@@ -1151,3 +1151,404 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ==========================================================================
+# THE FAN NAVIGATOR
+# ==========================================================================
+#
+# A second resolver beside the ring one, borrowed from the shape of Path
+# Studio's tools/radar_tangent.py, which solves the same problem in the air.
+# Its layer-3 docstring names the ring resolver's dominant failure exactly:
+#
+#     "A ring fitted round the blocker would be hopeless here; a circle round
+#      a 200 m wall has a 100 m radius and its tangents mean nothing."
+#
+# That is 45 to 52 of every 61 chains here, dying on "ring reached max with no
+# tangent". A circle is the wrong primitive for a long wall.
+#
+# Three things are different, and the third is the one that matters most:
+#
+#   THE TANGENT COMES FROM A FAN, not from an expanding circle. Cast a fan of
+#   rays; the blocked bearings form one contiguous run, and the first CLEAR
+#   bearing on each side of that run is the obstacle's silhouette edge. Exact,
+#   for any shape, at the cost of one fan instead of 864 ring probes.
+#
+#   A LAYER RETURNS A BEARING, NOT A PLACE. The walker then steps its own short
+#   distance along that bearing. The ring resolver anchors AT the tangent
+#   point, which is a jump of up to the ring radius and is why its paths are
+#   three hundred points of zigzag. Stepping decouples how far we LOOK from how
+#   far we MOVE - and it has to, because a fan that only reaches 3 m can never
+#   see past a 40 m building, however short the owner wants the steps.
+#
+#   ONE RUN, NOT A SWEEP OF 121. The bearing sweep exists because a ring chain
+#   is unreliable, so it fires a hundred and hopes. A navigator that answers
+#   properly is run ONCE per route, and further routes come from the owner's
+#   own rule 3: tag what we used and go again.
+
+LOOK_M = 90.0                      # how far the fan sees, independent of STEP
+FAN_HALF = np.deg2rad(75.0)        # half the fan width; 150 degrees total
+FAN_RAYS = 121
+
+
+def fan_scan(g, x, z, goal, look_m):
+    """Bearing, range and verdict for every ray in the fan.
+
+    Centred on the flag rather than on the current heading: the silhouette we
+    care about is the one hiding the flag, so that is where the fan is pointed.
+    """
+    gx, gz = goal
+    a_t = np.arctan2(gx - x, gz - z)
+    out = []
+    for i in range(FAN_RAYS):
+        a = a_t - FAN_HALF + 2.0 * FAN_HALF * i / (FAN_RAYS - 1)
+        t, hx, hz, reached, blocked = march(g, x, z, np.sin(a), np.cos(a),
+                                            goal, look_m)
+        out.append((a, t, blocked, reached))
+    return out, a_t
+
+
+def fan_heading(g, x, z, goal, look_m, fan):
+    """Which way to go from here: straight at the flag, or round the edge.
+
+    Returns (bearing, layer) or (None, why) when neither answers - which is
+    where a bounded A* belongs behind this, and does not exist here yet.
+    """
+    gx, gz = goal
+    d = np.hypot(gx - x, gz - z)
+    near = min(d, look_m)
+    i_t = FAN_RAYS // 2
+
+    # 1 DIRECT. The ray at the flag is clear, so fly it.
+    a0, t0, b0, r0 = fan[i_t]
+    if r0 or not b0:
+        return a0, "direct"
+
+    # 2 TANGENT. Walk out of the blocked run, each way. The first clear bearing
+    # is the silhouette; take whichever corner gets us to the flag in less.
+    cands = []
+    for direction in (+1, -1):
+        i = i_t
+        while 0 <= i < len(fan) and fan[i][2]:
+            i += direction
+        if not (0 <= i < len(fan)):
+            continue
+        a2, t2, b2, r2 = fan[i]
+        corner = min(t2, near)
+        cx, cz = x + np.sin(a2) * corner, z + np.cos(a2) * corner
+        dd = np.hypot(gx - cx, gz - cz)
+        aa = np.arctan2(gx - cx, gz - cz)
+        _t, _hx, _hz, rr, bb = march(g, cx, cz, np.sin(aa), np.cos(aa), goal,
+                                     min(dd + REACH_M, look_m))
+        # CAN WE GET AWAY FROM THAT CORNER? Path Studio asks whether the TARGET
+        # is visible from it, which is right for camera waypoints a few tens of
+        # metres apart. Our flag is 800 m away and the fan sees 90, so it can
+        # never be visible and every tangent was refused - the navigator died
+        # on its first hop at every look distance from 12 m to 90 m.
+        #
+        # The local form of the same question is whether a ray LEAVES the
+        # corner heading for the flag. Six metres, the distance already
+        # measured as load-bearing on the ring resolver: loosening it to the
+        # step length there cost two of three routes.
+        if rr or not bb or _t >= TANGENT_ESCAPE_M:
+            cands.append((corner + dd, a2))
+    if cands:
+        cands.sort()
+        return cands[0][1], "tangent"
+    return None, "no silhouette leads anywhere"
+
+
+def route_fan(g, start, goal, look_m=LOOK_M, step_m=None, why=None,
+              trace=None):
+    """One point-to-point run. The whole route, or None.
+
+    Deterministic: no sweep, no luck. Run it again after painting what it used
+    to get the next route, which is the owner's rule 3.
+    """
+    step_m = step_m or RAY_CAP_DEFAULT_M
+    gx, gz = goal
+    x, z = start
+    pts = [(x, z)]
+    best_d = np.hypot(gx - x, gz - z)
+    stall = 0
+
+    for _ in range(MAX_HOPS):
+        d = np.hypot(gx - x, gz - z)
+        if d <= REACH_M and clear_line(g, x, z, gx, gz):
+            pts.append((gx, gz))
+            return pts
+        if d < best_d - 1.0:
+            best_d, stall = d, 0
+        else:
+            stall += 1
+            if stall > STALL_HOPS:
+                return dead(why, "no progress toward the flag", (x, z))
+
+        fan, _a_t = fan_scan(g, x, z, goal, look_m)
+        if trace is not None:
+            for (a, t, b, r) in fan:
+                trace.append(((x, z), (x + np.sin(a) * t, z + np.cos(a) * t),
+                              False))
+        a, layer = fan_heading(g, x, z, goal, look_m, fan)
+        if a is None:
+            return dead(why, layer, (x, z))
+
+        # MOVE OUR OWN SHORT DISTANCE along the bearing a layer proved. Never
+        # further than the ray actually got, or we walk into the thing it
+        # stopped at.
+        got, hx, hz, reached, blocked = march(g, x, z, np.sin(a), np.cos(a),
+                                              goal, min(step_m, d + REACH_M))
+        if got < 1e-3:
+            return dead(why, "wedged: the proved bearing goes nowhere", (x, z))
+        x, z = hx, hz
+        pts.append((x, z))
+    return dead(why, "ran out of hops", (x, z))
+
+
+# --------------------------------------------------------------------------
+# LAYER 4: a bounded search, because we can see the map
+# --------------------------------------------------------------------------
+#
+# Path Studio's radar_tangent.py again, and its reasoning is the whole point:
+#
+#     "Wall-following exists because a robot cannot see the map. This one can -
+#      the whole occupancy grid is in memory - so the way round is a search,
+#      not a guess. Optimal, and when it returns nothing that is a PROOF the
+#      target is unreachable, not a timeout."
+#
+# Every ray method here - ring or fan - guesses. Measured on 19_monastery:
+#
+#   * At team 1's base, ALL 121 fan rays are blocked at a 90 m look. There is
+#     no silhouette to walk round because the tank is standing IN the clutter,
+#     not flying above it.
+#   * 11% of points along a route already known good have no clear bearing at
+#     all in any direction at 90 m. A fan navigator dies at every one of them.
+#   * A fan offers TWO candidates per hop. The ring offers 864 and survives on
+#     brute force alone, which is why it needs 121 opening bearings to find two
+#     routes and why a 1.5 degree change swings it from 11 wins to 5.
+#
+# A search does not guess, and it does not care how cluttered the ground is.
+
+def coarse_grid(g, cell_m=1.37):
+    """A blocked/clear grid at driving scale, eroded by the hull.
+
+    The collision map is 8192 square at 17 cm - 67 million cells, far too fine
+    to search per hop. Coarsened by block-any (a cell holding anything solid is
+    solid) and then grown by the hull radius, so a path of free cells is a path
+    the whole tank fits down rather than one its centre line does.
+    """
+    key = "coarse_%.2f" % cell_m
+    if key in g:
+        return g[key]
+    f = max(1, int(round(cell_m / g["texel_m"])))
+    W = g["W"] // f * f
+    solid = g["collide"]
+    if g["used"] is not None:
+        # SPENT CORRIDORS COUNT AS BLOCKED. Without this the search cannot see
+        # what rule 3 tagged and returns the same route every time - the
+        # catalogue came back eight identical copies of one road.
+        solid = solid | g["used"]
+    blocked = solid[:W, :W].reshape(W // f, f, W // f, f).any(axis=(1, 3))
+
+    # GROW IT BY THE HULL. Chebyshev dilation by the hull radius in cells: a
+    # centre this close to something solid is a tank overlapping it.
+    rad = int(np.ceil((g["hull"] * 0.5) / (f * g["texel_m"])))
+    if rad > 0:
+        grown = blocked.copy()
+        for dr in range(-rad, rad + 1):
+            for dc in range(-rad, rad + 1):
+                if dr == 0 and dc == 0:
+                    continue
+                grown |= np.roll(np.roll(blocked, dr, 0), dc, 1)
+        blocked = grown
+    g[key] = (blocked, f)
+    return g[key]
+
+
+def astar_route(g, start, goal, cell_m=1.37):
+    """The whole way from A to B on the coarse grid, or None if there is none.
+
+    Eight-connected with the true diagonal cost, so the heuristic is octile and
+    matches the cost exactly. A heuristic that does not match its cost is not a
+    faster A*, it is Dijkstra wearing a hat - that mistake cost 466,229
+    expansions on this map once already.
+    """
+    import heapq
+    blocked, f = coarse_grid(g, cell_m)
+    n = blocked.shape[0]
+    span = g["wx1"] - g["wx0"]
+
+    def to_cell(x, z):
+        return (int((g["wz1"] - z) / span * g["W"]) // f,
+                int((x - g["wx0"]) / span * g["W"]) // f)
+
+    def to_world(r, c):
+        return (g["wx0"] + (c + 0.5) * f * g["texel_m"],
+                g["wz1"] - (r + 0.5) * f * g["texel_m"])
+
+    s, t = to_cell(*start), to_cell(*goal)
+    for cell in (s, t):
+        if not (0 <= cell[0] < n and 0 <= cell[1] < n):
+            return None
+    # A base can sit a cell inside something once the hull erosion is applied;
+    # take the nearest free cell rather than declaring the map unsolvable.
+    def nearest_free(cell):
+        if not blocked[cell]:
+            return cell
+        for rad in range(1, 60):
+            r0, c0 = cell
+            for dr in range(-rad, rad + 1):
+                for dc in (-rad, rad) if abs(dr) < rad else range(-rad, rad + 1):
+                    r, c = r0 + dr, c0 + dc
+                    if 0 <= r < n and 0 <= c < n and not blocked[r, c]:
+                        return (r, c)
+        return None
+    s, t = nearest_free(s), nearest_free(t)
+    if s is None or t is None:
+        return None
+
+    D, D2 = 1.0, np.sqrt(2.0)
+
+    def h(a):
+        dr, dc = abs(a[0] - t[0]), abs(a[1] - t[1])
+        return D * (dr + dc) + (D2 - 2 * D) * min(dr, dc)
+
+    open_h = [(h(s), 0.0, s)]
+    came, gsc = {}, {s: 0.0}
+    seen = set()
+    while open_h:
+        _f, gc, cur = heapq.heappop(open_h)
+        if cur in seen:
+            continue
+        seen.add(cur)
+        if cur == t:
+            out, k = [], cur
+            while k in came:
+                out.append(to_world(*k))
+                k = came[k]
+            out.append(to_world(*s))
+            out.reverse()
+            return out
+        r, c = cur
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nr, nc = r + dr, c + dc
+                if not (0 <= nr < n and 0 <= nc < n) or blocked[nr, nc]:
+                    continue
+                # NO CUTTING CORNERS DIAGONALLY. Both orthogonal neighbours
+                # must be free or the tank clips the corner it is squeezing
+                # past - the diagonal fits on the grid and not on the ground.
+                if dr and dc and (blocked[r, nc] or blocked[nr, c]):
+                    continue
+                step = D2 if (dr and dc) else D
+                ng = gc + step
+                nb = (nr, nc)
+                if ng < gsc.get(nb, 1e18):
+                    gsc[nb] = ng
+                    came[nb] = cur
+                    heapq.heappush(open_h, (ng + h(nb), ng, nb))
+    return None
+
+
+def coarse_clear(g, ax, az, bx, bz, cell_m=1.37):
+    """Is the straight line hull-safe, judged in the space the route was planned in?
+
+    Deliberately NOT clear_line. That tests the fine collision map along the
+    centre line, which says nothing about whether the hull's shoulders clear -
+    string-pulling against it is how an earlier smoother produced an 8.5 m gap
+    for a 9 m hull. The coarse grid is already grown by the hull radius, so a
+    line through free coarse cells is a line the whole tank fits down.
+    """
+    blocked, f = coarse_grid(g, cell_m)
+    n = blocked.shape[0]
+    span = g["wx1"] - g["wx0"]
+    scale = g["W"] / span / f
+    fx0, fz0 = (ax - g["wx0"]) * scale, (g["wz1"] - az) * scale
+    fx1, fz1 = (bx - g["wx0"]) * scale, (g["wz1"] - bz) * scale
+    dxc, dzc = fx1 - fx0, fz1 - fz0
+    steps = int(max(abs(dxc), abs(dzc)) * 2) + 2
+    for i in range(steps + 1):
+        u = i / steps
+        c, r = int(fx0 + dxc * u), int(fz0 + dzc * u)
+        if not (0 <= c < n and 0 <= r < n) or blocked[r, c]:
+            return False
+    return True
+
+
+def thin(g, path, cell_m=1.37):
+    """String-pull: keep only the corners a driver actually has to turn at.
+
+    Furthest-visible rather than by distance. Thinning by distance cuts corners
+    - it drops the point that made a turn safe and leaves a chord through the
+    thing being turned round, which stuck three of four hulls once.
+    """
+    if not path:
+        return path
+    out, i = [path[0]], 0
+    while i < len(path) - 1:
+        j = len(path) - 1
+        while j > i + 1 and not coarse_clear(g, path[i][0], path[i][1],
+                                             path[j][0], path[j][1], cell_m):
+            j -= 1
+        out.append(path[j])
+        i = j
+    return out
+
+
+# Every route has to leave the same base and reach the same flag, so the ground
+# right around each is common to all of them and must never be tagged spent -
+# paint it and the second search finds its own start walled in.
+GUARD_M = 45.0
+
+
+def paint_used(g, path, width_m=26.0, guard=None):
+    """Mark a route's corridor spent, so the next search must find another way.
+
+    The owner's rule 3: "Tag that path as used and try path. When we cant find
+    a way there, we are done."
+    """
+    if g["used"] is None:
+        g["used"] = np.zeros_like(g["collide"])
+    used = g["used"]
+    W = g["W"]
+    rad = int(width_m * 0.5 / g["texel_m"])
+    ends = guard if guard is not None else (path[0], path[-1])
+    for k in range(len(path) - 1):
+        ax, az = path[k]
+        bx, bz = path[k + 1]
+        d = np.hypot(bx - ax, bz - az)
+        n = max(2, int(d / g["texel_m"]))
+        for j in range(n + 1):
+            u = j / n
+            px, pz = ax + (bx - ax) * u, az + (bz - az) * u
+            if any(np.hypot(px - e[0], pz - e[1]) < GUARD_M for e in ends):
+                continue
+            c, r = to_texel(g, px, pz)
+            r0, r1 = max(0, r - rad), min(W, r + rad + 1)
+            c0, c1 = max(0, c - rad), min(W, c + rad + 1)
+            used[r0:r1, c0:c1] = True
+    for k in [k for k in list(g.keys()) if k.startswith("coarse_")]:
+        del g[k]        # the corridor changed; the coarse grid must be rebuilt
+
+
+def catalogue(g, start, goal, max_routes=8, cell_m=1.37):
+    """Every distinct way from A to B: search, tag what it used, search again.
+
+    Exactly the owner's three rules, with a search where the ray used to be.
+    It ends when no way is left, and because A* returning nothing is a proof
+    rather than a timeout, "we are done" actually means done.
+    """
+    g["used"] = None
+    out = []
+    for _ in range(max_routes):
+        raw = astar_route(g, start, goal, cell_m)
+        if raw is None:
+            break
+        out.append(thin(g, raw, cell_m))
+        paint_used(g, raw, guard=(start, goal))
+    g["used"] = None
+    for k in [k for k in list(g.keys()) if k.startswith("coarse_")]:
+        del g[k]
+    return out
