@@ -837,6 +837,14 @@ def pick_level(bake, nx, nz):
 
 TRAP_STATS = {"object": 0, "terrain": 0, "bend": 0}
 
+# The zone map (tools/zones.py) is NOT used here. It was tried as a fast
+# accept - a bearing whose next step lands in a disc skips the near and far
+# probes - and measured worse on the shipped monastery plan (4571 -> 4903 m,
+# backups 42 -> 182): a disc says the ground around a step is free, not that
+# it leads anywhere, and the far probe it replaced is what keeps the camera
+# out of pockets. The owner: "if the discs do not aid AI or path creation,
+# we can toss them." The numbers are in the 2026-09-11 handoff, section 11.
+
 
 def bearing_ok(radar, x, z, a, two_point):
     """Accept a bearing?

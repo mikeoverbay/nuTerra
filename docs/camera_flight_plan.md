@@ -146,29 +146,26 @@ monastery are lifted by fewer than a quarter of their texels) and
 `CANOPY_H` 3.0 then padding an honest 3.1 m bush as a canopy; both are
 measured in `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` and untouched.
 
-## The zone map (2026-09-11, read, not cut)
+## Radius zoning (2026-09-11) - tried on both sides, tossed on both
 
-The owner's radius zoning - "draw rings and find areas as large as we can
-that the ring fits without hitting something; that whole area is safe; only
-zone radius checks" - is cut in nuTerra by the Tank AI session (distance
-transform of the free mask, maximal discs greedily largest-first with a 0.6
-cover fraction, every radius half a cell back, links WALKED between centres
-with full clearance) and written beside the bake as
-`<map>_zones_<mask>.csv`: a `key=value` header (map, mask, mask_rule, grid,
-cell_m, body_r_m, the world frame, radius_rule, link_rule,
-bake_meta_written, written, zones, links), then `id,x,z,r_m,y_m,neighbours`
-with ids dense in descending radius and neighbours space-separated,
-symmetric; an empty list is an island. `tools/zones.py` reads it
-(`load_zones(folder, map, bake)` -> `{mask: Zones}`), checks it (ids dense
-and radii descending, links symmetric, `bake_meta_written` against the
-bake's own `written` - a stale zone map warns, never refuses), and Path
-Studio's **Zones** checkbox draws every disc and link over the mask and as
-rings on the ground in 3D, one colour per mask. Path Studio never cuts a
-second zone map; the tank's mask and the camera's are different rules (a
-camera flies over what a tank cannot drive through), so the camera's, when
-wanted, is exported from `radar_commit.build_world`'s blocked mask for the
-same extractor to cut. Both `Bake` classes keep the whole meta as
-`bake.meta` for the provenance check.
+The owner's idea: "draw rings and find areas as large as we can that the
+ring fits without hitting something; that whole area is safe; only zone
+radius checks, ten times faster." The Tank AI session cut it in nuTerra
+(distance transform, maximal discs, walked links) and Path Studio read the
+file. Measured, it did not aid either consumer. Camera: as a fast accept
+in `bearing_ok` the shipped monastery route went 4571 -> 4903 m with four
+times the backups - a disc says the ground around a step is free, not that
+it leads anywhere, and the trap probe it replaced is what keeps the camera
+out of pockets. Tanks: the radius test was 9.3x faster than `CanStand` and
+rejected 44% of genuinely drivable ground (a hull stands fine in a disc's
+outer ring); made correct by falling back, the speedup collapsed to 1.35x;
+and zone A* beat grid A* 1.5 ms to 9.2 ms for a graph that cost 770 ms to
+build, for six searches a load. Same failure seen from two ends. The
+owner: "if the discs do not aid AI or path creation, we can toss them."
+Nothing in `tools/` reads or draws a zone map; the reader was removed
+with the writer. What survived on the tank side is the clearance field
+(the distance transform that makes grid A* cheap) and the route catalogue
+on grid A*. The full numbers are in the 2026-09-11 handoff, section 11.
 
 ## Step 3 — look-ahead
 

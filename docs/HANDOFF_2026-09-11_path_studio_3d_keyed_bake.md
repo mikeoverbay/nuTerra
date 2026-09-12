@@ -461,6 +461,81 @@ monastery; on master those 14 fence texels block and zone 0 is smaller.
 Their six files (zone map, CSV export, route catalogue, nav frame accessors,
 two gun fixes) wait on the owner's commit.
 
+**Flying by the zone map - measured, and not yet a win.** The owner: "we
+can move that way if the next move point is in a zone ring." Built as a
+fast path in `bearing_ok` (`radar_commit.zone_step_ok`): a bearing whose
+next 2 m step lands inside a disc, with `BODY_R` kept from the rim and the
+step itself still probed on the camera's own mask, skips the 9 m near
+probe, the 22 m trap probe and the bend search. `zones.Zones.clearance`
+(KD-tree over the centres, ball query to the widest radius) does the disc
+test in ~65 us. On the shipped monastery plan with the TANK's zone map:
+
+    zones off   2283 pts  4571 m  13 s   backups 42   reverses 0   trap: object 27, terrain 67416, bend 217
+    zones on    2449 pts  4903 m  37 s   backups 182  reverses 186 boxed 31   zone accepts 247,427
+    (unguarded  2983 pts  5964 m  27 s   backups 1006 reverses 237 - the fast path walked the camera into cells its own radar refused)
+
+Two reasons, in order of weight. The disc says the ground AROUND the step
+is free; it says nothing about whether that ground leads anywhere, and the
+far probe it replaces is exactly the test that keeps the camera out of
+pockets - inside a courtyard-sized disc the camera is happily accepted
+straight into the courtyard. And this is the tank's map: fences and
+trunk-less foliage are exempt in it, so its discs cover ground the camera
+must fly round. **`Fly by zones` therefore defaults OFF** and the hook
+stays. What would make the zone map help the camera is its GRAPH, not its
+discs: route disc-to-disc toward the next target over the walked links (A*
+on a few thousand nodes, sub-millisecond), then fly the chain with the
+radar - "the next move point is in a zone ring" where the ring is the NEXT
+disc on the route, not any disc. That needs a zone map cut from the
+camera's mask (`build_world`'s blocked mask, exported for the same
+extractor) and it is the next piece, not built.
+
+**The graph, looked at (19:40).** Connected components of the walked links
+(`zone_graph_pic.py` in the session scratchpad draws it over the mask, one
+colour per component): 251 - one sheet of 6,696 zones (64.8%) covering the
+arena's interior with every ring road, lane and gap connected (the Tank AI
+session's worry that a straight-line link test splits bending corridors
+does not show); 977 and 748 on the west shore (x -487..-334), 223 and 174 on
+the east (x 409..487), all INSIDE the arena and genuinely cut off - the
+closest pair across is 87.5 m of ravine, water on the line and a 5.8 m rock
+wall; 89 inside the monastery walls, a real courtyard; the other 243 are
+pockets between the rock bands and the islands, 1-5 zones each. A first
+reading of the strips as "outside the arena square" was wrong and is
+withdrawn: the straight edge in the picture was the sheet's own edge at the
+rock band, and the base-ring test (nearest disc 1.6 m from the team-1 base)
+shows the frames agree with no mirror. Their offmap rule is right.
+
+**Verdict (19:50).** The owner: "if the discs do not aid AI or path
+creation, we can toss them." On the camera side they do not, so the
+navigator hook (`set_zones` / `zone_step_ok`, the `Fly by zones` switch) is
+REMOVED; `bearing_ok` is exactly what it was before the experiment. Then the
+overlay and its checkbox went too, at the owner's word. The tank side then measured the same way (their numbers: the radius
+test 9.3x faster than CanStand but rejecting 44% of drivable ground, 1.35x
+once made correct; zone A* 1.5 ms against grid 9.2 ms behind a 770 ms
+graph build, for six searches a load) and the writer is being removed, so
+`tools/zones.py` went with it - a reader for a format nothing emits. The
+contract and the checks are recorded above if a zone map ever returns; the
+pictures in this section came from the session scratchpad's
+`zone_graph_pic.py`. Whether the zone graph earns its
+place for the TANKS - faster or better drives than the grid A*, with a
+number - is that session's to show the owner.
+
+## 13. The height map watcher (evening)
+
+The owner: "keep Path Studio open but put a file watcher on our height
+map." Every two seconds (`Studio.WATCH_MS`) the Studio stamps the loaded
+map's bake files (`_meta.txt`, `_top.rgba`/`_floor.r16` or the `.r32` pair)
+and compares them with what it loaded; a change that then holds still for
+one more poll - nuTerra takes seconds over the 256 MB top layer - calls
+`reload_bake()`: the bake is re-read, the mask re-rendered, the 3D surface
+rebuilt with the camera where it was, the radar world follows on the next
+generate. The route, targets and lights are untouched. Never while a
+generate is running or the Studio is busy. The status line says "height map
+changing on disk..." while the writer is at it and "height map reloaded at
+HH:MM:SS (written=..., commit=...)" after, with the provenance keys when
+the writer carries them. Tested on a synthetic bake rewritten under a
+running Studio with a new building: reloaded within two polls, the target
+and the 3D camera kept.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the

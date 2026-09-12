@@ -66,6 +66,18 @@ Module Program
                 If Integer.TryParse(a.Substring(8), per_team) AndAlso per_team > 0 Then
                     TANK_PER_TEAM = per_team
                 End If
+            ElseIf a.StartsWith("ai=", StringComparison.OrdinalIgnoreCase) Then
+                ' Drive the tanks, or shuttle them on the spot: ai=1 / ai=0.
+                '
+                ' BOTH DIRECTIONS ON PURPOSE, rather than a bare `ai` that only
+                ' turns it on. TANK_AI's default is moving - it is off here and
+                ' on in the branch that does the driving - and a switch that can
+                ' only raise a flag stops working the day the default meets it.
+                ' A run that wants the shuttle can then no longer ask for it.
+                Dim on_off As Integer
+                If Integer.TryParse(a.Substring(3), on_off) Then
+                    TANK_AI = (on_off <> 0)
+                End If
             ElseIf a.Equals("navdump", StringComparison.OrdinalIgnoreCase) Then
                 ' Write the tank navigation grid as a PNG when it is built.
                 TANK_NAV_DUMP = True

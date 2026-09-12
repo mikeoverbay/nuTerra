@@ -68,7 +68,6 @@ import radar_tangent as tang
 import path_cards as pcd
 import flight_plan as fp
 import export_cam_path as ex
-import zones as zn
 import cam_path as cp
 import fog_curve as fc
 import terrain_bake as tb
@@ -2241,29 +2240,6 @@ void main() { o_rgb = texture(u_tex, v_uv); }
             y = self.sample_floor(lt["x"], lt["z"]) + float(lt.get("height", 3.0))
             parts.append((GL.GL_POINTS, np.array([(lt["x"], y, lt["z"])], dtype=np.float32),
                           _hex_rgb(lt["color"]), 9.0))
-        if st.show_zones.get() and st.zones:
-            # Every disc as a ring 0.3 m off its centre's ground, every
-            # walked link as a line - one GL_LINES run per mask. Rings are
-            # 24 segments; ten thousand of them is a quarter million
-            # vertices, nothing next to the mesh.
-            ang = np.linspace(0.0, 2.0 * np.pi, 25, dtype=np.float32)
-            ca, sa = np.cos(ang), np.sin(ang)
-            for mask, z in st.zones.items():
-                rgb = Studio.ZONE_RGB.get(mask, (220, 220, 220))
-                n = len(z)
-                px = z.x[:, None] + z.r[:, None] * ca[None, :]
-                pz = z.z[:, None] + z.r[:, None] * sa[None, :]
-                py = np.repeat(z.y[:, None], 25, axis=1) + 0.3
-                ring = np.stack([px, py, pz], axis=-1).astype(np.float32)      # (n, 25, 3)
-                seg = np.stack([ring[:, :-1], ring[:, 1:]], axis=2).reshape(-1, 3)
-                parts.append((GL.GL_LINES, seg, rgb, 1.0))
-                lk = np.array(list(z.links()), dtype=np.int64)
-                if len(lk):
-                    a = np.stack([z.x[lk[:, 0]], z.y[lk[:, 0]] + 0.3, z.z[lk[:, 0]]], -1)
-                    b = np.stack([z.x[lk[:, 1]], z.y[lk[:, 1]] + 0.3, z.z[lk[:, 1]]], -1)
-                    parts.append((GL.GL_LINES, np.stack([a, b], axis=1).reshape(-1, 3).astype(np.float32),
-                                  tuple(int(c * 0.6) for c in rgb), 1.0))
-
         n = sum(len(p[1]) for p in parts)
         verts = np.empty(n, dtype=self.VTYPE)
         runs = []
@@ -2715,15 +2691,6 @@ class Studio:
         self.show_3d = tk.BooleanVar(value=False)
         ttk.Checkbutton(radar_row, text="3D view", variable=self.show_3d,
                         command=self.on_3d_toggle).pack(side="left", padx=(8, 0))
-        # The zone map - radius zoning, read from <map>_zones_<mask>.csv
-        # beside the bake (tools/zones.py; the Tank AI session writes it).
-        # Discs and their walked links over the mask, rings on the ground
-        # in 3D. Off by default: ten thousand circles over the mask is a
-        # thing to look at, not to work under.
-        self.zones = {}
-        self.show_zones = tk.BooleanVar(value=False)
-        ttk.Checkbutton(radar_row, text="Zones", variable=self.show_zones,
-                        command=self.on_zones_toggle).pack(side="left", padx=(8, 0))
 
         # THE DASHED LINKS BETWEEN THE POINTS, AND A WAY TO TURN THEM OFF.
         #
@@ -2958,6 +2925,18 @@ class Studio:
                                     wraplength=210, justify="left")
         self.status_lbl.grid(row=r, column=0, columnspan=2, sticky="w")
         r += 1
+
+        # THE HEIGHT MAP WATCHER. nuTerra re-bakes the map into the same
+        # files this Studio read at load, and until 2026-09-11 the only way
+        # to see a new bake was to re-pick the map, which also threw away
+        # the route being worked on. Every WATCH_MS the stamps of the loaded
+        # map's bake files are compared with what was loaded; a change that
+        # then holds still for one more poll - the writer takes seconds over
+        # the 256 MB top layer - reloads the BAKE only: mask, 3D surface,
+        # radar world. Route, targets, lights and the camera are untouched.
+        self.bake_seen = None
+        self.bake_pending = None
+        self.root.after(self.WATCH_MS, self._watch_bake)
 
         self.canvas = tk.Canvas(root, width=CANVAS, height=CANVAS,
                                 bg="#11141c", highlightthickness=0)
@@ -3398,6 +3377,62 @@ class Studio:
             self.bake_selected()
 
 
+    WATCH_MS = 2000
+
+    def _bake_stamp(self, name):
+        """(size, mtime) of every bake file of the map that exists, or None
+        when none does. A tuple, so it compares whole."""
+        out = []
+        for suf in ("_meta.txt", "_top.rgba", "_floor.r16", "_top.r32", "_floor.r32"):
+            p = os.path.join(FOLDER, name + suf)
+            try:
+                st = os.stat(p)
+                out.append((suf, st.st_size, st.st_mtime))
+            except OSError:
+                pass
+        return tuple(out) or None
+
+    def _watch_bake(self):
+        try:
+            name = self.map_name
+            if name and self.bake is not None and not self.busy and self.live is None:
+                stamp = self._bake_stamp(name)
+                if stamp is not None and self.bake_seen is not None and stamp != self.bake_seen:
+                    if stamp == self.bake_pending:
+                        # changed, and still for a whole poll: the writer is done
+                        self.reload_bake()
+                    else:
+                        self.bake_pending = stamp
+                        self.status.set("height map changing on disk...")
+        except Exception as e:
+            self._trace("watch_bake", "error " + repr(e))
+        self.root.after(self.WATCH_MS, self._watch_bake)
+
+    def reload_bake(self):
+        """A new bake for the loaded map: read it, re-render the mask, rebuild
+        the 3D surface, keep everything the owner has placed."""
+        name = self.map_name
+        try:
+            b = fp.Bake(FOLDER, name)
+        except Exception as e:
+            self.status.set("height map changed but would not load: %s" % e)
+            self.bake_seen = self._bake_stamp(name)
+            return
+        self.bake = b
+        self.view_grid = b
+        self.bake_seen = self._bake_stamp(name)
+        self.bake_pending = None
+        if self.view3d is not None:
+            self.view3d.set_bake(render=False)     # the camera stays where it is
+        self.render_mask()
+        self.repaint()
+        if self.view3d is not None:
+            self.view3d.overlay()
+        meta = getattr(b, "meta", {})
+        prov = ", ".join("%s=%s" % (k, meta[k]) for k in ("written", "commit") if k in meta)
+        self.status.set("height map reloaded at %s%s - route, targets and lights kept"
+                        % (time.strftime("%H:%M:%S"), (" (" + prov + ")") if prov else ""))
+
     def load_named(self, name):
         self._trace("load_named", "want=" + repr(name))
         if self.busy or not name:
@@ -3428,12 +3463,8 @@ class Studio:
         # With a height map the canvas draws against the bake itself.
         self.view_grid = self.bake
         self.map_name = name
-        # Every zone map beside the bake, checked against it; a stale one
-        # announces itself in the status line rather than drawing quietly.
-        self.zones = zn.load_zones(FOLDER, name, self.bake)
-        for z in self.zones.values():
-            if z.warnings:
-                self.status.set("zones %s: %s" % (z.mask, "; ".join(z.warnings)))
+        self.bake_seen = self._bake_stamp(name)
+        self.bake_pending = None
         if self.view3d is not None:
             # A new map: new surface, and the camera back to its overview.
             # render_mask below recolours it and renders.
@@ -3749,11 +3780,6 @@ class Studio:
         if self.bake is not None:
             self.render_mask()
 
-    def on_zones_toggle(self):
-        self.repaint()
-        if self.view3d is not None:
-            self.view3d.overlay()
-
     def on_3d_toggle(self):
         if self.show_3d.get():
             if self.bake is None:
@@ -3934,8 +3960,6 @@ class Studio:
             # for. Untick Radar scan to be rid of it entirely.
             if self.live is not None:
                 fade *= 0.34
-            if self.show_zones.get() and self.zones:
-                self.paint_zones(im)
             if fade > 0.02:
                 dr = ImageDraw.Draw(im, "RGBA")
                 a_hit = max(1, int(60 * fade))
@@ -4394,37 +4418,6 @@ class Studio:
     def mirror_col(self, c):
         """Bake column <-> display column. Its own inverse."""
         return (self.view_grid.w - 1) - c
-
-    ZONE_RGB = {"tank": (255, 170, 60), "camera": (90, 200, 255)}
-
-    def paint_zones(self, im):
-        """The zone map over the mask: every disc as a ring, every walked
-        link as a line between centres, one colour per mask. A disc under
-        two pixels across at this zoom is skipped - it would be a dot on a
-        dot - so the picture stays legible when the map is zoomed out."""
-        dr = ImageDraw.Draw(im, "RGBA")
-        crop = self.crop_side()
-        px_per_m = self.view / (crop * self.view_grid.mx)
-        for mask, z in self.zones.items():
-            rgb = self.ZONE_RGB.get(mask, (220, 220, 220))
-            # links first, under the rings
-            cx = np.empty(len(z)); cy = np.empty(len(z))
-            for i in range(len(z)):
-                cx[i], cy[i] = self.to_view(z.x[i], z.z[i])
-            inside = (cx > -50) & (cx < self.view + 50) & (cy > -50) & (cy < self.view + 50)
-            for i, j in z.links():
-                if inside[i] or inside[j]:
-                    dr.line([cx[i], cy[i], cx[j], cy[j]], fill=rgb + (70,), width=1)
-            for i in np.nonzero(inside)[0]:
-                rp = z.r[i] * px_per_m
-                if rp < 1.0:
-                    continue
-                dr.ellipse([cx[i] - rp, cy[i] - rp, cx[i] + rp, cy[i] + rp],
-                           outline=rgb + (170,), width=1)
-                if not z.neighbours[i]:
-                    # an island: filled, so it reads as "no way out"
-                    dr.ellipse([cx[i] - rp, cy[i] - rp, cx[i] + rp, cy[i] + rp],
-                               fill=rgb + (60,))
 
     def to_view(self, wx, wz):
         """World -> pixels INSIDE the map square (what gets drawn into)."""
