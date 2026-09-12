@@ -587,7 +587,9 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m,
         # part of this algorithm the owner cannot otherwise see, and a ring
         # that is never drawn is a ring nobody can tell is too small.
         if rings is not None:
-            rings.append((hx, hz, r, left, right, rej, base_ang))
+            # THE ANCHOR GOES IN THE RECORD TOO, because the hop is drawn
+            # from there and not from the ring centre.
+            rings.append((hx, hz, r, left, right, rej, base_ang, fx, fz))
         if left is not None or right is not None:
             return left, right, r
         r += RING_STEP_M
@@ -1130,7 +1132,7 @@ def main():
         # algorithm, completely different thing to look at.
         REJ_COL = {REJ_SOLID: (190, 55, 45), REJ_CHORD: (210, 120, 45),
                    REJ_NOESCAPE: (165, 90, 215), REJ_NARROW: (70, 140, 230)}
-        for (hx_, hz_, r_, lf, rt, rej, bang) in rings:
+        for (hx_, hz_, r_, lf, rt, rej, bang, fx_, fz_) in rings:
             cpx = to_px(hx_, hz_, w)
             r_px = int(m_to_px(r_, w))
             won = lf is not None or rt is not None
@@ -1141,12 +1143,25 @@ def main():
                 for (rx, rz, code) in rej:
                     pygame.draw.circle(screen, REJ_COL[code],
                                        to_px(rx, rz, w), 2)
+            # THE HOP IS DRAWN FROM WHERE THE TANK STANDS, not from the ring
+            # centre. The centre is where the RAY stopped; the tank is still
+            # back at the last anchor and drives one straight line from there.
+            # Drawing it from the centre made the picture disagree with the
+            # path - the owner spotted it in the window: "looks like we are
+            # connecting chains at the center of the rings to get the tangent
+            # and not previous point before ring center?" The path was right;
+            # the picture was lying about it.
+            apx = to_px(fx_, fz_, w)
             for t_ in (lf, rt):
                 if t_ is None:
                     continue
                 tpx = to_px(t_[0], t_[1], w)
-                pygame.draw.line(screen, (90, 255, 235), cpx, tpx, 2)
+                pygame.draw.line(screen, (90, 255, 235), apx, tpx, 2)
                 pygame.draw.circle(screen, (90, 255, 235), tpx, 4)
+                # and a dim spur to the ring centre, so it stays clear WHICH
+                # ring produced this tangent without implying the tank drove
+                # through its middle.
+                pygame.draw.line(screen, (70, 110, 105), cpx, tpx, 1)
 
         # WHERE THE CHAINS GAVE UP, and on what. A cross per dead chain in the
         # colour of its reason: the picture says at a glance whether the sweep
