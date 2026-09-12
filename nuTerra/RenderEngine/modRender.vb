@@ -490,6 +490,12 @@ Module modRender
             If SHOW_CAM_PATH Then map_scene.cam_path.DrawPath()
             If SHOW_CAM_LIGHTS Then map_scene.cam_path.DrawLights()
 
+            ' Beside the camera path because the same reasoning applies word for
+            ' word: after the fog, so a distant leg of a route reads as far away
+            ' rather than as faded out. Before the tank markers below, so a card
+            ' sits over its own tank's ray and not under it.
+            If SHOW_TANK_RAYS Then map_scene.tank_rays.Draw()
+
             GL.Disable(EnableCap.DepthTest)
             GL.DepthMask(True)
             GL.Disable(EnableCap.CullFace)

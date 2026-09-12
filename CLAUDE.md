@@ -39,6 +39,14 @@ uTerralight` (per USER, `MapFlightBake.vb:753`)
   redirects its TMP/TEMP to stay out of it. Before trusting a bake, check
   its write time against the run that made it; provenance keys in the meta
   (exe, built, written) are requested from the writer.
+  Every nuTerra a session launches carries its name in the title bar:
+  pass `"owner=Path Studio"` (QUOTED - unquoted it splits into two arguments)
+  on the command line; the tag reads straight off
+  `Environment.GetCommandLineArgs()` and shows as `nuTerra - <map>   [tag]`.
+  The owner asked for this with three identical windows on one desktop
+  (2026-09-11). Unset, it falls back to the checkout folder the exe sits in.
+  And stop a nuTerra by its exe PATH, never by process name - with two
+  checkouts live, a name match kills the other session's app.
   The protocol that has held all day: NAME THE FILE before editing anything
   that is not yours, wait for the ack, and measure rather than argue. The
   flight bake's contract lives in `<map>_meta.txt` (kind_mask, outland_bit,

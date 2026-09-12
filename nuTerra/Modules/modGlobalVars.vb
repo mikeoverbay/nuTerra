@@ -1218,6 +1218,16 @@ Module modGlobalVars
     ''' </summary>
     Public TANK_ROUTES_REBUILD_NOW As Boolean = False
 
+    ''' <summary>
+    ''' Draw each tank's ray to where it is going, on the ground, live.
+    '''
+    ''' ON by default, which is safe because it draws nothing until vehicles are
+    ''' loaded and vehicles are not loaded until asked for. Anyone who has tanks
+    ''' on screen is looking at the tanks, and this is the part of that which
+    ''' was previously only in the log.
+    ''' </summary>
+    Public SHOW_TANK_RAYS As Boolean = True
+
     Public TANK_AIM As Boolean = False
 
     ''' <summary>
