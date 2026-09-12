@@ -1613,6 +1613,23 @@ Public Class MapTanks
                                 "team 1 -> team 2 base")
                 cat_team2.Build(nav, TankDriveTune.HULL_R, b2x, b2z, b1x, b1z,
                                 "team 2 -> team 1 base")
+                ' trace=1 TURNS THE RESOLVER'S EYE ON. Off by default: it
+                ' writes a PNG every 120 expansions and that is not something a
+                ' normal load should be doing.
+                For Each arg In Environment.GetCommandLineArgs()
+                    If arg.Equals("trace=1", StringComparison.OrdinalIgnoreCase) Then
+                        Dim td = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "resolve")
+                        If IO.Directory.Exists(td) Then
+                            For Each old In IO.Directory.GetFiles(td, "trace_*.png")
+                                Try : IO.File.Delete(old) : Catch : End Try
+                            Next
+                        End If
+                        IO.Directory.CreateDirectory(td)
+                        TankRoutes.trace_dir = td
+                        LogThis("tank routes: tracing the resolve into {0}", td)
+                    End If
+                Next
+
                 ' HOW MANY WAYS ARE THERE, REALLY? Two caps on the erase - 8 m
                 ' and 12 m - both give two routes, so the erase is not what
                 ' limits the count. The remaining suspect is the grid: TankNav

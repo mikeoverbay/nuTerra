@@ -157,6 +157,89 @@ Public Class TankRoutes
     Public Const LANES As Integer = 9
     Public Const LANE_BIAS As Single = 0.55F
 
+    ''' <summary>
+    ''' How far off the line between the ends the outermost lanes sit, as a
+    ''' fraction of the distance between them.
+    '''
+    ''' It was 0.45 - on monastery that put the outer lanes 353 m off the centre
+    ''' line, so a search was asked to travel a third of a kilometre sideways,
+    ''' flood everything it found there, and come back. It cost a quarter of a
+    ''' million expansions and returned routes the middle lanes had already
+    ''' found.
+    '''
+    ''' A corridor a tank might actually take is a detour of tens of metres, not
+    ''' hundreds. 0.18 keeps the outer lanes inside the ground between the bases
+    ''' rather than out past the edges of the map.
+    ''' </summary>
+    Public Const LANE_SPAN As Single = 0.18F
+
+    ''' <summary>Expansions one search may spend before it admits its lane is
+    ''' empty. Generous against a real crossing - the direct route takes about
+    ''' 17,000 - and brutal against a flood.</summary>
+    Public Const EXPAND_CAP As Integer = 45000
+
+    ' ===================================================== the resolver's eye
+    '
+    ' A PATH RESOLVER YOU CAN WATCH. The owner: "this is a path resolver like
+    ' path studio. Just different space... First goal.. find all route to their
+    ' flag. I want to see that happening in real time. I want the image to me
+    ' centered on the current point found in our path. Keep failed branches on
+    ' screen as a diff color that anything else."
+    '
+    ' The point is that a search cannot be debugged by watching its
+    ' consequences. Four hulls bumping about tells you almost nothing about
+    ' whether the sweep found every corridor, and it costs minutes a look; the
+    ' search itself takes 300 ms and can be watched over and over.
+    '
+    ' So the search draws itself. Frames are centred on the CURRENT HEAD - the
+    ' cell A* is expanding - rather than on the map, because the interesting
+    ' thing is always where the frontier is and it is a few cells wide on a
+    ' thousand-cell grid. Everything it has already considered stays on screen:
+    ' a dead end is not cleared away, it accumulates, so the picture builds into
+    ' what the algorithm TRIED and not merely what it chose.
+
+    ''' <summary>Where frames go, or Nothing for a silent search. Set from
+    ''' trace=1 on the command line.</summary>
+    Public Shared trace_dir As String = Nothing
+
+    ''' <summary>One frame per this many expansions. A cross-map search expands
+    ''' about 17,000 cells; a frame each would be seventeen thousand frames of
+    ''' almost nothing moving.</summary>
+    Public Shared trace_every As Integer = 400
+
+    ''' <summary>
+    ''' A HARD CEILING ON FRAMES, because the first version had none and wrote
+    ''' 2,809 PNGs before it was killed - the app looked frozen and the owner
+    ''' could not see anything, which is the exact opposite of what a
+    ''' visualiser is for.
+    '''
+    ''' Two things were wrong and this is only one of them. The other was that
+    ''' EVERY catalogue traced: two team catalogues, four probe catalogues at
+    ''' different hull sizes, and one per hull. Tracing stops after the first
+    ''' search now, so what comes out is one resolve, watchable end to end.
+    ''' </summary>
+    Private Const TRACE_MAX As Integer = 320
+
+    ''' <summary>How much map a frame shows, in cells, centred on the head.
+    ''' Close enough to see a frontier squeeze through a gap.</summary>
+    Private Const TRACE_VIEW As Integer = 260
+
+    Private Shared trace_n As Integer = 0
+
+    ''' <summary>Cells the last search expanded. The honest measure of how hard
+    ''' it looked - and the number that says whether it is searching or
+    ''' flooding.</summary>
+    Public Shared last_expanded As Integer = 0
+
+    ''' <summary>Expansions across every search in one Build.</summary>
+    Public total_expanded As Integer = 0
+
+    ''' <summary>What every cell has meant to the search so far, kept ACROSS
+    ''' lanes and sweeps so failed ground stays on the picture.
+    ''' 0 untouched, 1 considered and abandoned, 2 on a route that was kept,
+    ''' 3 erased by a kept route.</summary>
+    Private Shared seen() As Byte
+
     Public Sub Build(nav As TankNav, hull_r_m As Single,
                      sx As Single, sz As Single,
                      gx As Single, gz As Single,
@@ -165,6 +248,7 @@ Public Class TankRoutes
         routes.Clear()
         why_stopped = ""
         first_ms = 0.0
+        total_expanded = 0
         If nav Is Nothing OrElse Not nav.ready OrElse nav.clear_m Is Nothing Then
             why_stopped = "no navigation grid"
             LogThis("tank routes: {0} - no navigation grid", label)
@@ -210,6 +294,11 @@ Public Class TankRoutes
         Dim goal = gcz * N + gcx
         Dim eaten(N * N - 1) As Boolean
 
+        If trace_dir IsNot Nothing Then
+            ReDim seen(N * N - 1)
+            trace_n = 0
+        End If
+
         ' THE SWEEP AXIS. Lanes are measured across the line between the two
         ' ends, so "left" means left of the way you are going rather than west.
         Dim axx = gx - sx, axz = gz - sz
@@ -218,21 +307,48 @@ Public Class TankRoutes
         Dim dirx = axx / alen, dirz = axz / alen
         Dim perpx = -dirz, perpz = dirx
         Dim midx = (sx + gx) * 0.5F, midz = (sz + gz) * 0.5F
-        Dim half = alen * 0.45F
+        Dim half = alen * LANE_SPAN
 
         Dim swept = True
         Do While swept AndAlso routes.Count < MAX_ROUTES
             swept = False
+
+            ' ASK THE CHEAP QUESTION FIRST: is the flag reachable AT ALL through
+            ' what is left?
+            '
+            ' Without this, the last sweep of every resolve costs nine searches
+            ' that each flood the whole remaining map to conclude the same
+            ' thing. Measured: 805,386 expansions for a catalogue, eighteen
+            ' searches all hitting the cap, to return one route. Proving a
+            ' negative is the expensive part and it was being proved nine times.
+            '
+            ' One unbiased search answers it once. If it fails, no lane can
+            ' succeed - a lane only ever makes the search harder, never easier -
+            ' and the owner's terminator has fired: "When we cant find a way
+            ' there, we are done."
+            Dim gate = AStar(nav, hull_r_m, eaten, start, goal, N,
+                             0.0F, perpx, perpz, midx, midz)
+            total_expanded += last_expanded
+            If gate Is Nothing Then
+                why_stopped = "no path"
+                Exit Do
+            End If
+
             For li = 0 To LANES - 1
             ' LEFT FIRST, then across to the right - the owner's method. The
             ' lane tells the search where to LOOK, so each pass hunts its own
             ' corridor instead of taking what the last erase happened to leave.
-            Dim lane = half - 2.0F * half * CSng(li) / CSng(LANES - 1)
+            ' LANES = 1 is a legal thing to ask for - it means "no sweep,
+            ' just search" - and dividing by LANES - 1 made it NaN, which read
+            ' as zero routes rather than as the bug it was.
+            Dim lane = If(LANES <= 1, 0.0F,
+                          half - 2.0F * half * CSng(li) / CSng(LANES - 1))
 
             Dim ta = Date.UtcNow
             Dim path = AStar(nav, hull_r_m, eaten, start, goal, N,
                              lane, perpx, perpz, midx, midz)
             If routes.Count = 0 Then first_ms = (Date.UtcNow - ta).TotalMilliseconds
+            total_expanded += last_expanded
             If path Is Nothing Then Continue For
             swept = True
 
@@ -247,6 +363,17 @@ Public Class TankRoutes
             Next
             r.lane_m = lane
             routes.Add(r)
+
+            ' A ROUTE THAT WAS KEPT paints over its own failed branches, so the
+            ' red is only ever ground that led nowhere.
+            If trace_dir IsNot Nothing AndAlso seen IsNot Nothing Then
+                For Each ci2 In path
+                    seen(ci2) = 2
+                Next
+                TraceFrame(nav, path(path.Length \ 2), start, goal, lane, N,
+                           New Integer() {}, 0,
+                           String.Format("ROUTE {0} kept, {1:0} m", routes.Count - 1, r.length_m))
+            End If
 
             If routes.Count >= MAX_ROUTES Then
                 why_stopped = "hit the route ceiling"
@@ -280,10 +407,16 @@ Public Class TankRoutes
                         If Not eaten(pi) Then
                             eaten(pi) = True
                             killed += 1
+                            ' Eaten ground, unless the route itself runs here.
+                            If seen IsNot Nothing AndAlso seen(pi) <> 2 Then seen(pi) = 3
                         End If
                     Next
                 Next
             Next
+            If trace_dir IsNot Nothing Then
+                TraceFrame(nav, goal, start, goal, lane, N, New Integer() {}, 0,
+                           String.Format("erased {0} cell(s) - next lane", killed))
+            End If
             If killed = 0 Then
                 why_stopped = "erasing a route consumed nothing - it would repeat for ever"
                 Exit Do
@@ -294,8 +427,19 @@ Public Class TankRoutes
 
         ready = True
         Dim ms = (Date.UtcNow - t0).TotalMilliseconds
-        LogThis("tank routes: {0} - {1} route(s) in {2:0} ms, stopped because {3}",
-                label, routes.Count, ms, why_stopped)
+
+        ' ONE RESOLVE, THEN THE EYE CLOSES. A load runs this many times - both
+        ' teams, four hull probes, one per hull - and tracing all of them is
+        ' what buried the first attempt. The first search is the one worth
+        ' watching; the rest run silent.
+        If trace_dir IsNot Nothing Then
+            LogThis("tank routes: traced {0} frame(s) of this resolve into {1}",
+                    trace_n, trace_dir)
+            trace_dir = Nothing
+        End If
+
+        LogThis("tank routes: {0} - {1} route(s) in {2:0} ms, {3:N0} cell(s) expanded, stopped because {4}",
+                label, routes.Count, ms, total_expanded, why_stopped)
         For i = 0 To routes.Count - 1
             LogThis("tank routes:   {0}: {1:0} m, least room {2:0.0} m, lane {3,4:0} m over {4} cell(s)",
                     i, routes(i).length_m, routes(i).min_clear_m,
@@ -477,6 +621,127 @@ Public Class TankRoutes
         End Using
     End Sub
 
+    ''' <summary>
+    ''' One frame of the search, centred on the cell it is expanding.
+    '''
+    ''' THE COLOURS ARE THE POINT, so they are chosen to be told apart at a
+    ''' glance rather than to look like anything:
+    '''
+    '''   dim grey/green   the map - open ground, and what is shut and why
+    '''   DEEP RED         considered and abandoned. A failed branch. Never
+    '''                    cleared, so the dead ends pile up into a picture of
+    '''                    everywhere the search has been
+    '''   YELLOW           the live frontier - what it is about to try next
+    '''   WHITE CROSS      the head, the cell being expanded this instant
+    '''   BRIGHT GREEN     a route that was kept
+    '''   BLUE-GREY        ground a kept route ate, so the next sweep must go
+    '''                    somewhere else
+    '''   RINGS            where it started and the flag it is hunting
+    ''' </summary>
+    Private Shared Sub TraceFrame(nav As TankNav, head As Integer,
+                                  start As Integer, goal As Integer,
+                                  lane_m As Single, N As Integer,
+                                  openc() As Integer, openn As Integer,
+                                  note As String)
+        If trace_dir Is Nothing Then Return
+        If trace_n >= TRACE_MAX Then Return
+        Try
+            Dim hx = head Mod N, hz = head \ N
+            Dim half = TRACE_VIEW \ 2
+            Dim px_per = 2
+            Dim W = TRACE_VIEW * px_per
+
+            Using bmp As New Drawing.Bitmap(W, W, Drawing.Imaging.PixelFormat.Format24bppRgb)
+                Using gfx = Drawing.Graphics.FromImage(bmp)
+                    gfx.Clear(Drawing.Color.FromArgb(10, 10, 12))
+                    For vz = 0 To TRACE_VIEW - 1
+                        Dim cz = hz - half + vz
+                        If cz < 0 OrElse cz >= N Then Continue For
+                        For vx = 0 To TRACE_VIEW - 1
+                            Dim cx = hx - half + vx
+                            If cx < 0 OrElse cx >= N Then Continue For
+                            Dim i = cz * N + cx
+                            Dim f = nav.cell(i)
+                            Dim col As Drawing.Color
+
+                            If seen IsNot Nothing AndAlso seen(i) = 3 Then
+                                col = Drawing.Color.FromArgb(48, 56, 78)      ' eaten
+                            ElseIf seen IsNot Nothing AndAlso seen(i) = 2 Then
+                                col = Drawing.Color.FromArgb(70, 240, 110)    ' kept route
+                            ElseIf seen IsNot Nothing AndAlso seen(i) = 1 Then
+                                col = Drawing.Color.FromArgb(150, 30, 36)     ' FAILED branch
+                            ElseIf (f And TankNav.IMPASSABLE) <> 0 Then
+                                If (f And TankNav.OFFMAP) <> 0 Then
+                                    col = Drawing.Color.FromArgb(6, 6, 8)
+                                ElseIf (f And TankNav.WATER) <> 0 Then
+                                    col = Drawing.Color.FromArgb(14, 30, 60)
+                                ElseIf (f And TankNav.TRUNK) <> 0 Then
+                                    col = Drawing.Color.FromArgb(44, 30, 16)
+                                ElseIf (f And TankNav.STEEP) <> 0 Then
+                                    col = Drawing.Color.FromArgb(58, 54, 22)
+                                Else
+                                    col = Drawing.Color.FromArgb(62, 30, 20)
+                                End If
+                            Else
+                                col = Drawing.Color.FromArgb(22, 44, 26)
+                            End If
+                            Using b As New Drawing.SolidBrush(col)
+                                gfx.FillRectangle(b, vx * px_per, vz * px_per, px_per, px_per)
+                            End Using
+                        Next
+                    Next
+
+                    ' The live frontier on top of everything it might become.
+                    Using fb As New Drawing.SolidBrush(Drawing.Color.FromArgb(255, 235, 90))
+                        For k = 0 To openn - 1
+                            Dim i = openc(k)
+                            Dim cx = i Mod N, cz = i \ N
+                            Dim vx = cx - (hx - half), vz = cz - (hz - half)
+                            If vx < 0 OrElse vz < 0 OrElse vx >= TRACE_VIEW OrElse vz >= TRACE_VIEW Then Continue For
+                            gfx.FillRectangle(fb, vx * px_per, vz * px_per, px_per, px_per)
+                        Next
+                    End Using
+
+                    DrawMark(gfx, start, hx, hz, half, px_per, N, Drawing.Color.DeepSkyBlue)
+                    DrawMark(gfx, goal, hx, hz, half, px_per, N, Drawing.Color.Orange)
+
+                    ' The head, dead centre by construction.
+                    Using hp As New Drawing.Pen(Drawing.Color.White, 1.0F)
+                        Dim c = half * px_per
+                        gfx.DrawLine(hp, c - 7, c, c + 7, c)
+                        gfx.DrawLine(hp, c, c - 7, c, c + 7)
+                    End Using
+
+                    Using f2 As New Drawing.Font("Consolas", 9.0F)
+                        Using tb As New Drawing.SolidBrush(Drawing.Color.White)
+                            gfx.DrawString(String.Format("lane {0,4:0} m   open {1}   {2}",
+                                                         lane_m, openn, note),
+                                           f2, tb, 4, 4)
+                        End Using
+                    End Using
+                End Using
+                bmp.Save(IO.Path.Combine(trace_dir,
+                         String.Format("trace_{0:00000}.png", trace_n)),
+                         Drawing.Imaging.ImageFormat.Png)
+            End Using
+            trace_n += 1
+        Catch
+            ' A trace frame is never worth an exception.
+        End Try
+    End Sub
+
+    Private Shared Sub DrawMark(gfx As Drawing.Graphics, cell As Integer,
+                                hx As Integer, hz As Integer, half As Integer,
+                                px_per As Integer, N As Integer,
+                                col As Drawing.Color)
+        Dim cx = cell Mod N, cz = cell \ N
+        Dim vx = cx - (hx - half), vz = cz - (hz - half)
+        If vx < 0 OrElse vz < 0 OrElse vx >= TRACE_VIEW OrElse vz >= TRACE_VIEW Then Return
+        Using p As New Drawing.Pen(col, 2.0F)
+            gfx.DrawEllipse(p, vx * px_per - 6, vz * px_per - 6, 12, 12)
+        End Using
+    End Sub
+
     Private Shared Function NearCell(ax As Integer, az As Integer,
                                      bx As Integer, bz As Integer,
                                      r2 As Single) As Boolean
@@ -553,6 +818,7 @@ Public Class TankRoutes
         Dim hf(1023) As Single
         Dim hc(1023) As Integer
         Dim hn = 0
+        Dim expanded = 0
         g(start) = 0.0F
         hf(0) = Oct(start Mod N, start \ N, gx, gz, cm) : hc(0) = start : hn = 1
 
@@ -576,6 +842,34 @@ Public Class TankRoutes
 
             If shut(cur) Then Continue While
             shut(cur) = True
+
+            ' EVERY EXPANSION IS A BRANCH THAT WAS CONSIDERED. Marked before we
+            ' know whether it leads anywhere, and never cleared - if the route
+            ' ends up going through here it is overwritten green, and if it does
+            ' not it stays red as a dead end. That is what makes the picture
+            ' accumulate into where the search HAS BEEN rather than only where
+            ' it ended up.
+            expanded += 1
+            If trace_dir IsNot Nothing Then
+                If seen IsNot Nothing AndAlso seen(cur) = 0 Then seen(cur) = 1
+                If expanded Mod trace_every = 0 Then
+                    TraceFrame(nav, cur, start, goal, lane_m, N, hc, hn, "searching")
+                End If
+            End If
+
+            ' A SEARCH THAT HAS LOOKED THIS HARD IS NOT GOING TO FIND ANYTHING
+            ' GOOD. One hull's catalogue expanded 260,896 cells and took 13
+            ' seconds before this cap existed - a quarter of a million rays to
+            ' return two routes it had already found from another lane.
+            '
+            ' A lane that cannot reach the flag within the cap is a lane with no
+            ' corridor in it, and the honest answer for that lane is nothing.
+            ' Giving up cheaply is what makes sweeping NINE of them affordable.
+            If expanded > EXPAND_CAP Then
+                last_expanded = expanded
+                Return Nothing
+            End If
+
             If cur = goal Then Exit While
 
             Dim cx = cur Mod N, cz = cur \ N
@@ -610,8 +904,26 @@ Public Class TankRoutes
                     ReDim Preserve hf(hf.Length * 2 - 1)
                     ReDim Preserve hc(hc.Length * 2 - 1)
                 End If
+                ' THE HEURISTIC HAS TO SPEAK THE COST'S LANGUAGE.
+                '
+                ' Plain octile distance says a metre costs a metre. The lane
+                ' bias charges up to two or three times that, so the estimate
+                ' undershot the truth badly - and an A* whose heuristic
+                ' undershoots stops being a search and becomes Dijkstra. It
+                ' expanded seventeen thousand cells to find one route and
+                ' flooded half the map: the owner, looking at the picture,
+                ' "sampling to may rays".
+                '
+                ' Scaling the estimate by the SAME penalty the step just paid
+                ' makes the two agree about what a metre is worth from here.
+                ' That is an estimate rather than a strict lower bound, so the
+                ' route is no longer provably the cheapest under the biased
+                ' cost - which is a fine trade, because a biased route was never
+                ' the shortest one and we are hunting for variety, not optimum.
                 Dim k = hn
-                hf(k) = tentative + Oct(nx, nz, gx, gz, cm) : hc(k) = ni
+                hf(k) = tentative + Oct(nx, nz, gx, gz, cm) *
+                        (1.0F + LANE_BIAS * dev / 100.0F)
+                hc(k) = ni
                 hn += 1
                 While k > 0
                     Dim par = (k - 1) \ 2
@@ -623,6 +935,7 @@ Public Class TankRoutes
             Next
         End While
 
+        last_expanded = expanded
         If g(goal) = Single.MaxValue Then Return Nothing
 
         Dim out As New List(Of Integer)
@@ -646,5 +959,7 @@ Public Class TankRoutes
         Return cm * (CSng(hi - lo) + 1.41421356F * lo)
     End Function
 End Class
+
+
 
 
