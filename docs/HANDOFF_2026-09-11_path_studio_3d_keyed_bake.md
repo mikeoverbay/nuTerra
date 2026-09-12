@@ -508,10 +508,14 @@ shows the frames agree with no mirror. Their offmap rule is right.
 creation, we can toss them." On the camera side they do not, so the
 navigator hook (`set_zones` / `zone_step_ok`, the `Fly by zones` switch) is
 REMOVED; `bearing_ok` is exactly what it was before the experiment. Then the
-overlay and its checkbox went too, at the owner's word. What stays:
-`tools/zones.py` alone, a standalone reader (`python tools/zones.py <map>`)
-for checking the Tank AI session's file; the pictures in this section came
-from the session scratchpad's `zone_graph_pic.py`. Whether the zone graph earns its
+overlay and its checkbox went too, at the owner's word. The tank side then measured the same way (their numbers: the radius
+test 9.3x faster than CanStand but rejecting 44% of drivable ground, 1.35x
+once made correct; zone A* 1.5 ms against grid 9.2 ms behind a 770 ms
+graph build, for six searches a load) and the writer is being removed, so
+`tools/zones.py` went with it - a reader for a format nothing emits. The
+contract and the checks are recorded above if a zone map ever returns; the
+pictures in this section came from the session scratchpad's
+`zone_graph_pic.py`. Whether the zone graph earns its
 place for the TANKS - faster or better drives than the grid A*, with a
 number - is that session's to show the owner.
 
