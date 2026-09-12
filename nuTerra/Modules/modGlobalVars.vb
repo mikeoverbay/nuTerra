@@ -1155,7 +1155,7 @@ Module modGlobalVars
     ' land in when what you want is a steady look at the vehicles - tracks,
     ' recoil, armour, lighting - which is most of the time. The checkbox in
     ' TANKS! turns it on without a rebuild.
-    Public TANK_AI As Boolean = False
+    Public TANK_AI As Boolean = True
 
     ''' <summary>
     ''' Load only this vehicle, one a base, instead of the full thirty.
@@ -1806,3 +1806,4 @@ Module modGlobalVars
     Public MAP_BB_BL As Vector2
 
 End Module
+

@@ -45,6 +45,18 @@ Public Class TankDrive
     Public goal As Vector2
     Public hasGoal As Boolean
 
+    ''' <summary>The route this hull was handed at load, as world waypoints,
+    ''' or Nothing to wander. See PickGoal.</summary>
+    Public path As List(Of Vector2)
+
+    ''' <summary>Which waypoint it is driving at.</summary>
+    Public pathAt As Integer = 0
+
+    ''' <summary>Set once, when the last waypoint is reached. This is the race
+    ''' result: the first hull of a side to set it got its team to the enemy
+    ''' base.</summary>
+    Public arrived As Boolean = False
+
     ''' <summary>Metres a second, ramped rather than set - a hull that reaches
     ''' its top speed in one frame reads as a slide, and the track band is
     ''' driven off distance so it would scroll in a step too.</summary>
@@ -92,7 +104,7 @@ Public Class TankDrive
         goalS += dt
         If Not hasGoal OrElse (goal - pos).Length < TankDriveTune.ARRIVE_M OrElse
            goalS > TankDriveTune.GOAL_PATIENCE_S Then
-            PickGoal(nav, pos)
+            PickGoal(inst, nav, pos)
         End If
         If Not hasGoal Then Return
 
@@ -151,7 +163,7 @@ Public Class TankDrive
             stopReason = If(aligned, StopWhy.Aligned, StopWhy.Turning)
             If aligned Then
                 stuckS += dt
-                If stuckS > TankDriveTune.STUCK_S Then PickGoal(nav, pos)
+                If stuckS > TankDriveTune.STUCK_S Then PickGoal(inst, nav, pos)
             End If
             Return
         End If
@@ -176,7 +188,7 @@ Public Class TankDrive
             blockedS += dt
             If blockedS > TankDriveTune.REPICK_S Then
                 blockedS = 0.0F
-                PickGoal(nav, pos)
+                PickGoal(inst, nav, pos)
             End If
 
             ' PINNING IS FOR BEING WEDGED, NOT FOR TOUCHING. A pin is
@@ -202,7 +214,7 @@ Public Class TankDrive
             stopReason = StopWhy.Traffic
             speed = 0.0F
             stuckS += dt
-            If stuckS > TankDriveTune.STUCK_S Then PickGoal(nav, pos)
+            If stuckS > TankDriveTune.STUCK_S Then PickGoal(inst, nav, pos)
             Return
         End If
 
@@ -225,9 +237,37 @@ Public Class TankDrive
     ''' should sit still this frame and be asked again next frame, not one that
     ''' should spend the frame proving it is stuck.
     ''' </summary>
-    Private Sub PickGoal(nav As TankNav, pos As Vector2)
+    Private Sub PickGoal(inst As TankInstance, nav As TankNav, pos As Vector2)
         hasGoal = False
         goalS = 0.0F
+
+        ' FOLLOW THE ROUTE IF IT HAS ONE. The catalogue was built at load and
+        ' this hull was handed one of its corridors; nothing is searched here.
+        '
+        ' The waypoint only advances on ARRIVAL, never on a repick. PickGoal is
+        ' also called when the way ahead is shut and when a turn has stalled,
+        ' and advancing there would skip the waypoint the hull could not reach
+        ' and aim it at the next one - which is a shortcut through whatever it
+        ' just failed to get past. Re-aiming at the SAME waypoint makes it turn
+        ' and try again, which is what being blocked should cost.
+        If path IsNot Nothing AndAlso path.Count > 0 Then
+            If pathAt < path.Count AndAlso
+               (path(pathAt) - pos).Length < TankDriveTune.ARRIVE_M Then
+                pathAt += 1
+            End If
+            If pathAt >= path.Count Then
+                If Not arrived Then
+                    arrived = True
+                    LogThis("tank ai: ARRIVED - team {0} {1} reached the enemy base",
+                            If(inst.team = TankTeam.Green, 1, 2), inst.label)
+                End If
+                Return
+            End If
+            goal = path(pathAt)
+            hasGoal = True
+            Return
+        End If
+
         For attempt = 1 To TankDriveTune.GOAL_TRIES
             Dim a = rng.NextDouble() * Math.PI * 2.0
             Dim r = TankDriveTune.GOAL_MIN_M +

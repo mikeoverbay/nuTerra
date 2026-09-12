@@ -75,6 +75,12 @@ Public Class MapTanks
     ''' first time they load, then pinned by what actually stops them.</summary>
     Public ReadOnly nav As New TankNav
 
+    ''' <summary>Every way into the OTHER side's base, per team, found once at
+    ''' load. A hull is handed one of these rather than searching - see
+    ''' TankRoutes.</summary>
+    Public ReadOnly cat_team1 As New TankRoutes
+    Public ReadOnly cat_team2 As New TankRoutes
+
     Public Sub New(scene As MapScene)
         Me.scene = scene
     End Sub
@@ -135,12 +141,10 @@ Public Class MapTanks
                     LogThis("tank routes: bases, world frame - team1 ({0:0.0}, {1:0.0}) team2 ({2:0.0}, {3:0.0})",
                             b1x, b1z, b2x, b2z)
 
-                    Dim cat1 As New TankRoutes
-                    cat1.Build(nav, TankDriveTune.HULL_R, b1x, b1z, b2x, b2z,
-                               "team 1 -> team 2 base")
-                    Dim cat2 As New TankRoutes
-                    cat2.Build(nav, TankDriveTune.HULL_R, b2x, b2z, b1x, b1z,
-                               "team 2 -> team 1 base")
+                    cat_team1.Build(nav, TankDriveTune.HULL_R, b1x, b1z, b2x, b2z,
+                                    "team 1 -> team 2 base")
+                    cat_team2.Build(nav, TankDriveTune.HULL_R, b2x, b2z, b1x, b1z,
+                                    "team 2 -> team 1 base")
                 Else
                     LogThis("tank routes: this map declares no ctf bases - no catalogue")
                 End If
@@ -337,14 +341,35 @@ Public Class MapTanks
                 ' alone answers for the wrong vehicle, and TankDrive seeds its
                 ' RNG with &H7A2B0000 Xor inst.id, so a pair shared a seed and
                 ' made identical choices for ever after.
-                instances.Add(New TankInstance With {
+                Dim born = New TankInstance With {
                     .vehicle = v, .position = New Vector3(x, y, z),
                     .headingRad = heading,
                     .team = If(team = 1, TankTeam.Green, TankTeam.Red),
                     .label = r.Item2, .id = i + 1,
                     .fireIn = 0.21F * i,
                     .shells = magazine_size(v),
-                    .turretYaw = yaw0, .gunPitch = pitch0})
+                    .turretYaw = yaw0, .gunPitch = pitch0}
+                instances.Add(born)
+
+                ' HAND IT A CORRIDOR. The catalogue found every independent way
+                ' into the other side's base at load; this vehicle drives one of
+                ' them and never searches. Slot k takes route k, so with two a
+                ' side the pair go in by different ways rather than nose to
+                ' tail down the same one - and with more vehicles than routes it
+                ' wraps, which is a column rather than an error.
+                '
+                ' Thinned by LINE OF SIGHT against the same hull radius the
+                ' route was searched with, so every segment is drivable as a
+                ' straight line - which is how the driver flies it.
+                Dim cat = If(team = 1, cat_team1, cat_team2)
+                If cat.ready AndAlso cat.routes.Count > 0 Then
+                    Dim ri = k Mod cat.routes.Count
+                    born.drive.path = cat.Waypoints(nav, ri, TankDriveTune.HULL_R + TankRoutes.THIN_SLACK_M)
+                    LogThis("tank:   route {0} of {1}, {2:0} m, {3} waypoint(s)",
+                            ri, cat.routes.Count, cat.routes(ri).length_m,
+                            born.drive.path.Count)
+                End If
+
                 LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
                         team, k, r.Item1, v.tag, x, y, z, obstacle_at(x, z),
                         armor_text(r.Item1))

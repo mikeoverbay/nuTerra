@@ -1,3 +1,5 @@
+﻿Imports OpenTK.Mathematics
+
 ''' <summary>
 ''' THE ROUTE CATALOGUE - every distinct way to the enemy base, found once at
 ''' load rather than discovered by driving.
@@ -86,6 +88,33 @@ Public Class TankRoutes
     ''' reach the goal, not so much that it leaves a free stub every search
     ''' reuses.</summary>
     Private Const END_GUARD_M As Single = 12.0F
+
+    ''' <summary>
+    ''' How much wider than the hull a segment's corridor must be before the
+    ''' thinning will span it in one straight line.
+    '''
+    ''' THE DRIVER DOES NOT FLY THE LINE. It turns toward the waypoint at
+    ''' TURN_RATE_RAD and drives whenever it is within DRIVE_CONE_RAD - half a
+    ''' radian, 28 degrees - of the bearing, so it approaches in a shallow arc
+    ''' rather than along the segment. Thinning against the bare hull radius
+    ''' therefore guarantees the wrong thing: the STRAIGHT line is clear and the
+    ''' tank does not drive the straight line. Three of four hulls ended a run
+    ''' stuck with "ground" on exactly that.
+    '''
+    ''' Demanding slack makes the thinning self-adjusting. Open ground has room
+    ''' to spare and still collapses to a handful of waypoints; a corridor only
+    ''' just wider than the tank fails the test and keeps its cells, so the hull
+    ''' is walked round the bend a step at a time instead of being pointed
+    ''' through it. Which is what a tight corridor should cost.
+    ''' </summary>
+    ''' SET TO ZERO, AND UNSETTLED. At 2.5 m it barely thinned at all - 551
+    ''' waypoints on the 1,569 m route, one every 2.8 m - and the hulls still
+    ''' did not finish, so the slack bought density without buying progress.
+    ''' Bare line-of-sight gives the sensible shape: 18 waypoints on the direct
+    ''' route and 62 on the twisting one. Which is right cannot be decided until
+    ''' a hull actually completes a route, because nothing downstream of the
+    ''' first deadlock has been exercised.
+    Public Const THIN_SLACK_M As Single = 0.0F
 
     Public Sub Build(nav As TankNav, hull_r_m As Single,
                      sx As Single, sz As Single,
@@ -210,6 +239,69 @@ Public Class TankRoutes
                     i, routes(i).length_m, routes(i).min_clear_m, routes(i).cells.Length)
         Next
     End Sub
+
+    ''' <summary>
+    ''' A route as world waypoints a driver can steer at.
+    '''
+    ''' THINNED BY LINE OF SIGHT, NOT BY DISTANCE. The raw path is one point
+    ''' per cell - 584 of them at 1.37 m for the direct route - and a driver
+    ''' whose ARRIVE_M is 6 m would spend its life declaring arrival at a point
+    ''' it is already standing on and never build speed. So it has to be
+    ''' thinned. But dropping points every N metres is WRONG, and measurably:
+    ''' at 15 m spacing three of four hulls ended the run stuck with "ground",
+    ''' because the driver steers in a STRAIGHT LINE to the next waypoint and a
+    ''' straight line between two points of a bend cuts the corner the route
+    ''' went round. The path was traversable and the thinning was not.
+    '''
+    ''' A point is therefore kept exactly when the straight line from the last
+    ''' kept point to the next one would leave ground the hull fits through.
+    ''' Every surviving segment is then drivable as flown, which is the only
+    ''' promise the driver needs. Open ground thins to almost nothing and a
+    ''' twisting alley keeps nearly every cell, which is the right shape.
+    '''
+    ''' The last cell is always kept: the end of the route is the base, and
+    ''' that is the one waypoint that must not be thinned away.
+    ''' </summary>
+    Public Function Waypoints(nav As TankNav, index As Integer,
+                              hull_r_m As Single) As List(Of Vector2)
+        Dim out As New List(Of Vector2)
+        If index < 0 OrElse index >= routes.Count Then Return out
+        Dim cells = routes(index).cells
+        If cells Is Nothing OrElse cells.Length = 0 Then Return out
+
+        Dim N = TankNav.SIZE
+        out.Add(nav.CentreOf(cells(0) Mod N, cells(0) \ N))
+        Dim anchor = 0
+        For i = 1 To cells.Length - 1
+            If Not LineClear(nav, hull_r_m, N, cells(anchor), cells(i)) Then
+                anchor = i - 1
+                out.Add(nav.CentreOf(cells(anchor) Mod N, cells(anchor) \ N))
+            End If
+        Next
+        Dim fin = cells(cells.Length - 1)
+        out.Add(nav.CentreOf(fin Mod N, fin \ N))
+        Return out
+    End Function
+
+    ''' <summary>Can a hull travel the straight line between two cells? Walked
+    ''' at half a cell so nothing is stepped over, against the same clearance
+    ''' field the search used, so the answer agrees with the route.</summary>
+    Private Shared Function LineClear(nav As TankNav, hull_r_m As Single, N As Integer,
+                                      a As Integer, b As Integer) As Boolean
+        Dim ax = a Mod N, az = a \ N
+        Dim bx = b Mod N, bz = b \ N
+        Dim dx = bx - ax, dz = bz - az
+        Dim steps = CInt(Math.Ceiling(Math.Max(Math.Abs(dx), Math.Abs(dz)) * 2.0))
+        If steps < 1 Then Return True
+        For s = 0 To steps
+            Dim t = CSng(s) / CSng(steps)
+            Dim cx = CInt(Math.Round(ax + dx * t))
+            Dim cz = CInt(Math.Round(az + dz * t))
+            If cx < 0 OrElse cz < 0 OrElse cx >= N OrElse cz >= N Then Return False
+            If nav.clear_m(cz * N + cx) < hull_r_m Then Return False
+        Next
+        Return True
+    End Function
 
     Private Shared Function NearCell(ax As Integer, az As Integer,
                                      bx As Integer, bz As Integer,
