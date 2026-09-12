@@ -60,6 +60,21 @@ Public Class MapFlightBake
     ''' <summary>Bake and export on every map load. On while the planner is
     ''' being written offline; turn it off once the algorithm moves in here and
     ''' the files stop being the interface.</summary>
+    ''' <summary>
+    ''' Bumped whenever a change here would make an ALREADY SAVED bake wrong.
+    '''
+    ''' This is the one check that cannot be derived from the files, and it is the
+    ''' one that matters. Every other test compares a number in the meta against
+    ''' the same number now - but a change to WHAT IS DRAWN, the trunk pass, the
+    ''' foliage alpha cut, the water raise, the despike, leaves every one of those
+    ''' numbers identical and the contents different.
+    '''
+    ''' So: change what the bake contains, bump this. Otherwise the next run loads
+    ''' the bake from before your change and you measure the old one, which looks
+    ''' exactly like your change having no effect.
+    ''' </summary>
+    Public Const BAKE_VERSION As Integer = 1
+
     Public Const BAKE_AT_LOAD As Boolean = True
 
     Private fbo As GLFramebuffer
@@ -253,6 +268,7 @@ Public Class MapFlightBake
 
     Public Sub Bake()
         ready = False
+        Dim bake_clock = Diagnostics.Stopwatch.StartNew()
 
         ' The terrain's true world footprint, taken from the same expressions
         ' MapSunShadow uses - X has no offset, Z is shifted back one chunk. That
@@ -267,16 +283,38 @@ Public Class MapFlightBake
             Return
         End If
 
+        ' Straight down from clear above everything. For an orthographic
+        ' projection the eye height changes no framing at all, only what near and
+        ' far bracket, so it only has to clear the tallest model.
+        '
+        ' ABOVE THE CACHE CHECK because the loaded path needs them too: they are
+        ' what "nothing rasterised here" means in metres, so report_coverage
+        ' cannot read a loaded bake without them. They depend only on the map
+        ' height range, which the terrain settled before this ran, so both paths
+        ' get the same numbers.
+        eye_y = MAX_MAP_HEIGHT + 500.0F
+        far_d = eye_y - (MIN_MAP_HEIGHT - 500.0F)
+
+        ' SAVED, AND ONLY REMADE WHEN SOMETHING THAT SHAPES IT HAS MOVED. After
+        ' the extent above, because the extent is part of deciding whether the
+        ' saved one still describes this map.
+        If try_load() Then
+            ' The SAME report the bake prints, over the arrays that just came off
+            ' disk. It is the cheapest possible check that what was loaded is a
+            ' map rather than 400 MB of plausible bytes: the blocked share, the
+            ' water and the tallest obstacle all have to come out where they did
+            ' when it was baked, and they are printed either way so the two runs
+            ' can be read against each other.
+            report_coverage()
+            ready = True
+            Return
+        End If
+
         Dim cx = (wx_min + wx_max) * 0.5F
         Dim cz = (wz_min + wz_max) * 0.5F
         Dim half_w = (wx_max - wx_min) * 0.5F
         Dim half_h = (wz_max - wz_min) * 0.5F
 
-        ' Straight down from clear above everything. For an orthographic
-        ' projection the eye height changes no framing at all, only what near and
-        ' far bracket, so it only has to clear the tallest model.
-        eye_y = MAX_MAP_HEIGHT + 500.0F
-        far_d = eye_y - (MIN_MAP_HEIGHT - 500.0F)
 
         Dim eye As New Vector3(cx, eye_y, cz)
         Dim view = Matrix4.LookAt(eye,
@@ -362,6 +400,8 @@ Public Class MapFlightBake
         add_water()
         report_coverage()
         export()
+
+        LogThis("flight bake: built and saved in {0} ms", bake_clock.ElapsedMilliseconds)
     End Sub
 
     ''' <summary>
@@ -372,6 +412,151 @@ Public Class MapFlightBake
     ''' wrong and this says which way; if all four are large, something further
     ''' up is wrong and no amount of flipping will fix it.
     ''' </summary>
+    ''' <summary>
+    ''' The saved bake, if there is one and it still describes this map. True when
+    ''' the arrays have been filled from disk and the bake can be skipped.
+    '''
+    ''' The files are the export's own, read back: top.rgba carries the kind byte
+    ''' and the 16-bit top height, floor.r16 the floor. Those three arrays ARE the
+    ''' whole of what anything downstream reads - TankNav, the shot tracing, the
+    ''' drivable tests - so this is not an approximation of the bake, it is the
+    ''' bake.
+    '''
+    ''' TWO THINGS INVALIDATE IT and the rest is cheap insurance: our own bake
+    ''' changing, which BAKE_VERSION says, and a major game release changing the
+    ''' assets under us, which game_version says. The map itself does not move
+    ''' between releases.
+    '''
+    ''' EVERY REJECTION SAYS WHY. A cache that silently misses looks exactly like
+    ''' one that is working, and being wrong here means measuring yesterday's map,
+    ''' so the log always names which of the two happened.
+    ''' </summary>
+    Private Function try_load() As Boolean
+        If FLIGHT_REBAKE Then
+            LogThis("flight bake: rebuild forced - ignoring any saved bake")
+            Return False
+        End If
+
+        Try
+            Dim stem = bake_stem()
+            Dim f_top = stem & "_top.rgba"
+            Dim f_floor = stem & "_floor.r16"
+            Dim f_meta = stem & "_meta.txt"
+
+            If Not (IO.File.Exists(f_top) AndAlso IO.File.Exists(f_floor) AndAlso
+                    IO.File.Exists(f_meta)) Then
+                LogThis("flight bake: nothing saved for {0} - baking", MAP_NAME_NO_PATH)
+                Return False
+            End If
+
+            ' Size first: a half-written file from an interrupted run is the one
+            ' corruption that reads as a perfectly good header.
+            Dim want_top As Long = CLng(SIZE) * SIZE * 4
+            Dim want_floor As Long = CLng(SIZE) * SIZE * 2
+            Dim got_top = New IO.FileInfo(f_top).Length
+            Dim got_floor = New IO.FileInfo(f_floor).Length
+            If got_top <> want_top OrElse got_floor <> want_floor Then
+                LogThis("flight bake: saved bake is the wrong size (top {0} of {1}, floor {2} of {3}) - baking",
+                        got_top, want_top, got_floor, want_floor)
+                Return False
+            End If
+
+            Dim meta As New Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
+            For Each raw In IO.File.ReadAllLines(f_meta)
+                Dim line = raw.Trim()
+                If line.Length = 0 OrElse line.StartsWith("#") Then Continue For
+                Dim eq = line.IndexOf("="c)
+                If eq > 0 Then meta(line.Substring(0, eq).Trim()) = line.Substring(eq + 1).Trim()
+            Next
+
+            Dim why = ""
+            If num(meta, "bake_version") <> BAKE_VERSION Then
+                why = String.Format("built by bake version {0}, this is {1}",
+                                    meta_or(meta, "bake_version", "none"), BAKE_VERSION)
+            ElseIf meta_or(meta, "game_version", "") <> game_version() Then
+                why = String.Format("built against game {0}, this is {1}",
+                                    meta_or(meta, "game_version", "none"), game_version())
+            ElseIf Not String.Equals(meta_or(meta, "map", ""), MAP_NAME_NO_PATH,
+                                     StringComparison.OrdinalIgnoreCase) Then
+                why = "it is another map's bake: " & meta_or(meta, "map", "?")
+            ElseIf num(meta, "width") <> SIZE OrElse num(meta, "height") <> SIZE Then
+                why = String.Format("it is {0}x{1}, this build bakes {2}x{2}",
+                                    meta_or(meta, "width", "?"), meta_or(meta, "height", "?"), SIZE)
+            ElseIf Not near(num(meta, "wx_min"), wx_min) OrElse Not near(num(meta, "wx_max"), wx_max) OrElse
+                   Not near(num(meta, "wz_min"), wz_min) OrElse Not near(num(meta, "wz_max"), wz_max) Then
+                why = "the map extent moved"
+            ElseIf Not near(num(meta, "height_scale"), HEIGHT_SCALE) OrElse
+                   Not near(num(meta, "obstacle_min_h"), OBSTACLE_MIN_H) OrElse
+                   Not near(num(meta, "trunk_radius"), TRUNK_RADIUS) Then
+                why = "a bake constant changed"
+            ElseIf num(meta, "kind_mask") <> KIND_MASK OrElse num(meta, "outland_bit") <> OUTLAND_BIT OrElse
+                   num(meta, "trunk_bit") <> TRUNK_BIT Then
+                why = "the key bits changed"
+            End If
+
+            If why <> "" Then
+                LogThis("flight bake: saved bake is stale - {0} - baking", why)
+                Return False
+            End If
+
+            ' The offset the heights are measured from comes FROM the file. It is
+            ' whole - Math.Floor(lo) - 10 - so it survives the meta's "{0:0}", and
+            ' taking this run's value instead would shift every height on the map
+            ' by the difference with nothing looking wrong.
+            h_offset = CSng(num(meta, "height_offset"))
+
+            Dim clock = Diagnostics.Stopwatch.StartNew()
+            Dim b = IO.File.ReadAllBytes(f_top)
+            Dim floor_bytes = IO.File.ReadAllBytes(f_floor)
+            Dim read_ms = clock.ElapsedMilliseconds
+
+            ' THE FLOOR GOES STRAIGHT IN. write_floor_r16 puts the low byte
+            ' first, which is exactly how a UShort sits in memory on x86, so the
+            ' file IS the array and a 67-million-iteration loop to copy it to
+            ' itself is pure waste. The top map cannot do this - the kind byte
+            ' and a BIG-endian height are interleaved a texel - so that one is
+            ' still a loop, and the two timings below say what each costs.
+            System.Buffer.BlockCopy(floor_bytes, 0, floor_u, 0, floor_bytes.Length)
+
+            For i = 0 To SIZE * SIZE - 1
+                Dim o = i * 4
+                kind_b(i) = b(o)
+                top_u(i) = CUShort((CInt(b(o + 1)) << 8) Or b(o + 2))
+            Next
+
+            LogThis("flight bake: LOADED the saved bake for {0} in {1} ms ({2} ms reading, {3} ms decoding) - not rebuilt",
+                    MAP_NAME_NO_PATH, clock.ElapsedMilliseconds, read_ms,
+                    clock.ElapsedMilliseconds - read_ms)
+            Return True
+        Catch ex As Exception
+            LogThis("flight bake: could not read the saved bake ({0}) - baking", ex.Message)
+            Return False
+        End Try
+    End Function
+
+    Private Shared Function meta_or(m As Dictionary(Of String, String), k As String, dflt As String) As String
+        Dim v As String = Nothing
+        If m.TryGetValue(k, v) Then Return v
+        Return dflt
+    End Function
+
+    Private Shared Function num(m As Dictionary(Of String, String), k As String) As Double
+        Dim v As String = Nothing
+        If Not m.TryGetValue(k, v) Then Return Double.NaN
+        Dim d As Double
+        If Double.TryParse(v, Globalization.NumberStyles.Float,
+                           Globalization.CultureInfo.InvariantCulture, d) Then Return d
+        Return Double.NaN
+    End Function
+
+    ''' <summary>Equal to within the meta's own written precision. NaN - a key that
+    ''' was missing or unparseable - is near nothing, so an old meta lacking a key
+    ''' it needs is stale rather than accidentally acceptable.</summary>
+    Private Shared Function near(a As Double, b As Double) As Boolean
+        If Double.IsNaN(a) OrElse Double.IsNaN(b) Then Return False
+        Return Math.Abs(a - b) <= 0.002
+    End Function
+
     Private Sub verify_against_cpu()
         Dim names() As String = {"as-derived", "flip-x", "flip-z", "flip-both"}
         Dim err(3) As Double
@@ -748,11 +933,31 @@ Public Class MapFlightBake
         End If
     End Sub
 
+    ''' <summary>Where the saved bake lives, and the stem its four files share.
+    ''' One definition, because export writes them and try_load reads them, and a
+    ''' cache that writes one path and looks in another never hits and never says
+    ''' why.</summary>
+    Private Shared Function bake_stem() As String
+        Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "flight")
+        IO.Directory.CreateDirectory(dir)
+        Return IO.Path.Combine(dir, MAP_NAME_NO_PATH)
+    End Function
+
+    ''' <summary>The game version the assets came from - the res_mods folder the
+    ''' game itself is using, "2.4.0.0" today. The map does not change unless a
+    ''' major release happens, and this is that release, named.</summary>
+    Private Shared Function game_version() As String
+        Try
+            Return IO.Path.GetFileName(ResMgr.RES_MODS_PATH.TrimEnd("\"c, "/"c))
+        Catch
+            Return ""
+        End Try
+    End Function
+
     Private Sub export()
         Try
-            Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "flight")
-            IO.Directory.CreateDirectory(dir)
-            Dim stem = IO.Path.Combine(dir, MAP_NAME_NO_PATH)
+            Dim stem = bake_stem()
+            Dim dir = IO.Path.GetDirectoryName(stem)
 
             write_top_rgba(stem & "_top.rgba")
             write_floor_r16(stem & "_floor.r16")
@@ -875,6 +1080,8 @@ Public Class MapFlightBake
 
         sb.AppendLine("# nuTerra flight bake")
         sb.AppendLine("map=" & MAP_NAME_NO_PATH)
+        sb.AppendLine("bake_version=" & BAKE_VERSION)
+        sb.AppendLine("game_version=" & game_version())
         sb.AppendLine("width=" & SIZE)
         sb.AppendLine("height=" & SIZE)
         sb.AppendLine(String.Format(inv, "wx_min={0:0.000}", wx_min))
