@@ -54,6 +54,19 @@ CELL_TEXELS = 8
 MAX_OBSTACLE_M = 1.0
 MAX_SLOPE = 0.7
 KIND_MASK, OUTLAND_BIT, TRUNK_BIT = 7, 16, 128
+
+# SOLID_BIT, bake_version 2. Terrain-borne geometry over obstacle_min_h stands
+# at this texel, measured with the trees LEFT OUT - read from the depth buffer
+# between the model pass and the tree pass.
+#
+# It exists because the top map is ONE LAYER and the canopy wins the depth
+# test, so a rock or a wall under a bush keys as tree - and anything that
+# crushes foliage drives straight through it. On monastery that is 317,776
+# tree-keyed texels carrying something solid, against the 2,581 cells this
+# session measured from the outside before the bit existed.
+#
+# THE RULE IS NOW `kind = tree AND NOT solid`, never `kind = tree`.
+SOLID_BIT = 32
 KIND_FENCE, KIND_TREE, KIND_PROP, KIND_WATER = 2, 3, 5, 6
 
 
@@ -109,7 +122,14 @@ def build_grid(map_name, hull_r_m):
 
     # Y ABOVE 1.0 m IS A COLLISION - at the texel, not at a cell average.
     over = (t16 - fl16) > int(MAX_OBSTACLE_M * scale)
-    testable = (kind != KIND_TREE) & (kind != KIND_FENCE) & (kind != KIND_PROP)
+    # CRUSHABLE ONLY IF IT IS NOT ALSO SOLID. A tank flattens a tree, a fence
+    # and a vase - the owner's rule - but a texel that keys tree and carries
+    # the solid bit is rock or wall standing UNDER a canopy, and driving at it
+    # is driving into a cliff.
+    solid = (key & SOLID_BIT).astype(bool)
+    crushable = ((kind == KIND_TREE) | (kind == KIND_FENCE) |
+                 (kind == KIND_PROP)) & ~solid
+    testable = ~crushable
 
     collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == KIND_WATER)
 
@@ -127,6 +147,27 @@ def build_grid(map_name, hull_r_m):
     # grid - that erosion was doing more work than the search algorithm.
     #
     # 6.4 s and 537 MB transient on an 8192 square map, once per build.
+    # THE REAL OBJECT IDS, bake_version 2. Which OBJECT is on top at each texel,
+    # biased by one so 0 is nothing. Written by the same fragment as the key and
+    # settled by one depth test, so the id and the kind always describe the same
+    # surface. This replaces labelling connected components of a kind mask -
+    # a wall touching a cliff was one blob, and now it is two objects.
+    ids, id_names = None, {}
+    idp = os.path.join(FLIGHT, map_name + "_ids.u32")
+    if os.path.exists(idp) and meta.get("id_format", "") == "u32":
+        ids = np.fromfile(idp, dtype="<u4").reshape(W, W)
+        csv = os.path.join(FLIGHT, map_name + "_ids.csv")
+        if os.path.exists(csv):
+            with open(csv, "r", encoding="utf-8", errors="replace") as fh:
+                rows = fh.readlines()
+            for line in rows:
+                if line.startswith("#") or line.startswith("first_id"):
+                    continue
+                bits = line.strip().split(",", 3)
+                if len(bits) == 4:
+                    f, c = int(bits[0]), int(bits[1])
+                    id_names[(f, f + c - 1)] = (bits[2], bits[3])
+
     from scipy.ndimage import distance_transform_edt
     reach = distance_transform_edt(~collide, sampling=(wx1 - wx0) / W)
     collide_hull = reach < (hull_r_m * 0.5)
@@ -144,6 +185,7 @@ def build_grid(map_name, hull_r_m):
     return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide,
                 collide_hull=collide_hull, used=None,
                 kind=kind, trunk=(key & TRUNK_BIT).astype(bool),
+                solid=solid, ids=ids, id_names=id_names,
                 floor=fl16, hscale=scale,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
@@ -1209,10 +1251,11 @@ def main():
                 last = tree.step()
                 if tree.exhausted:
                     break
+            seen_i, half_i, used_i = tree.items.report()
             tree_msg = ("branch tree: %d point(s), %d cast(s), %d path(s), "
-                        "depth %d - %s"
+                        "depth %d | items %d hit, %d half-settled, %d USED - %s"
                         % (len(tree.points), tree.casts, len(tree.paths),
-                           len(tree.stack),
+                           len(tree.stack), seen_i, half_i, used_i,
                            "EXHAUSTED, a proof" if tree.exhausted else last))
             if tree_follow and tree.stack:
                 # CENTRED ON THE POINT BEING WORKED, which is what the owner
@@ -1349,7 +1392,16 @@ def main():
                                  to_px(pt["pos"][0], pt["pos"][1], w), 1)
             for pt in tree.points:
                 r_ = 3 if pt["origin"] == ORIGIN_TANGENT else 2
-                pygame.draw.circle(screen, TREE_COL.get(pt["tag"], (110, 110, 130)),
+                col = TREE_COL.get(pt["tag"], (110, 110, 130))
+                # A TANGENT OFF AN ITEM THAT IS NOW SETTLED reads differently:
+                # magenta where the whole item is USED (both hands decided),
+                # cyan where just this hand has already got home.
+                if pt["origin"] == ORIGIN_TANGENT and pt.get("item"):
+                    if tree.items.used(pt["item"]):
+                        col, r_ = (235, 110, 235), 4
+                    elif tree.items.side_spent(pt["item"], pt["side"]):
+                        col, r_ = (90, 230, 235), 4
+                pygame.draw.circle(screen, col,
                                    to_px(pt["pos"][0], pt["pos"][1], w), r_)
             # THE LIVE BRANCH: where the search is standing right now.
             if tree.stack:
@@ -2045,6 +2097,14 @@ def object_map(g):
     it is a guess at what render ids will say outright, so it waits for them.
     """
     if "objects" not in g:
+        # REAL IDS IF THE BAKE HAS THEM. bake_version 2 writes which OBJECT is
+        # on top at every texel, so "the same object" means an actual model or
+        # tree placement. The component labelling below is the fallback for a
+        # v1 bake, and it was always a stand-in: a wall touching a cliff came
+        # out as one blob, and monastery's largest was 29% of all solid ground.
+        if g.get("ids") is not None:
+            g["objects"] = (g["ids"], int(g["ids"].max()))
+            return g["objects"]
         from scipy.ndimage import label
         solid = g["collide_hull"]
         lab = np.zeros(solid.shape, dtype=np.int32)
@@ -2430,6 +2490,63 @@ def angle_id(rad):
     return int(round(np.rad2deg(rad) / ANGLE_STEP_DEG)) % N_ANGLES
 
 
+class ItemLedger(object):
+    """Every item id ever hit, which hands have won, and which have failed.
+
+    The owner's elimination rule, in his words:
+
+        "If we hit that and it was a win. we can't hit it again. if we do that
+         ray is dead."
+        "if that item made it to home, it does not mean there isnt a way around
+         it. that is why we test tangent on the other side of the ring"
+        "if a item has at least one good path and failed going out route, it
+         can be marked as used so we stop trying to go around it again."
+
+    So a win does NOT retire an item. It retires ONE HAND of it. The other hand
+    still has to be tried, because a route home past the left of a building
+    says nothing about whether there is also one past the right.
+
+    An item is USED - dead on contact, no ring, no tangents - only once one
+    hand has won and the other has failed. Both are then settled and there is
+    nothing further to learn from it.
+    """
+
+    def __init__(self):
+        self.won = {}       # item id -> set of sides that reached the base
+        self.failed = {}    # item id -> set of sides proved dead
+        self.order = []     # every item id ever hit, in the order first seen
+
+    def seen(self, item):
+        if item and item not in self.won:
+            self.won[item] = set()
+            self.failed[item] = set()
+            self.order.append(item)
+
+    def win(self, item, side):
+        self.seen(item)
+        self.won[item].add(side)
+
+    def fail(self, item, side):
+        self.seen(item)
+        self.failed[item].add(side)
+
+    def used(self, item):
+        """Both hands settled, at least one of them a win: stop trying."""
+        if not item or item not in self.won:
+            return False
+        w, f = self.won[item], self.failed[item]
+        return bool(w) and len(w | f) >= 2
+
+    def side_spent(self, item, side):
+        """This hand has already reached the base - a ray retaking it is dead."""
+        return bool(item) and item in self.won and side in self.won[item]
+
+    def report(self):
+        used = sum(1 for i in self.order if self.used(i))
+        half = sum(1 for i in self.order if self.won[i] and not self.used(i))
+        return len(self.order), half, used
+
+
 class BranchTree(object):
     """Every point reached, the angle that reached it, and what it has tried."""
 
@@ -2449,7 +2566,7 @@ class BranchTree(object):
         self.walk_m = walk_m or RAY_CAP_DEFAULT_M
         self.points = []
         self.paths = []
-        self.claimed = set()
+        self.items = ItemLedger()
         self.casts = 0
         self.exhausted = False
         # The opening bearing is the owner's "start scanning left": the root
@@ -2462,7 +2579,7 @@ class BranchTree(object):
     def add(self, parent, pos, angle_in, origin):
         p = dict(id=len(self.points), pos=pos, angle_in=angle_in,
                  parent=parent, origin=origin, tried={}, tag=TAG_OPEN,
-                 kids=[], hit=None)
+                 kids=[], hit=None, item=None, side=None)
         self.points.append(p)
         if parent is not None:
             self.points[parent]["kids"].append(p["id"])
@@ -2502,6 +2619,11 @@ class BranchTree(object):
                 # its children became and back up a level.
                 kid_tags = [self.points[k]["tag"] for k in p["kids"]]
                 p["tag"] = TAG_PASS if TAG_PASS in kid_tags else TAG_FAIL
+                # A TANGENT POINT THAT FAILED SETTLES THAT HAND of its item.
+                # Once one hand has won and the other has failed, the item is
+                # USED and no later ray bothers with it again.
+                if p["tag"] == TAG_FAIL and p["origin"] == ORIGIN_TANGENT                         and p.get("item"):
+                    self.items.fail(p["item"], p["side"])
                 self.stack.pop()
                 return "backed up from %d" % p["id"]
 
@@ -2519,6 +2641,14 @@ class BranchTree(object):
                 win = self.add(p["id"], (gx, gz), aid, ORIGIN_CONTINUE)
                 win["tag"] = TAG_PASS
                 self.paths.append(self.chain_to(win["id"]))
+                # CLAIM THE HANDS THIS ROUTE USED. Per side, never the whole
+                # item: the other way round it is still an open question.
+                k = p["id"]
+                while k is not None:
+                    q = self.points[k]
+                    if q.get("item"):
+                        self.items.win(q["item"], q["side"])
+                    k = q["parent"]
                 return "ARRIVED via %d" % aid
 
             if got < g["texel_m"]:
@@ -2536,15 +2666,30 @@ class BranchTree(object):
             # A COLLISION. Ring it, both hands, and each tangent is a point.
             obj = object_at(g, hx, hz, dx, dz)
             p["hit"] = (hx, hz)
+            self.items.seen(obj)
+
+            # DEAD ON CONTACT. Both hands of this item are settled and one of
+            # them got home, so there is nothing left to learn here - no ring,
+            # no tangents, this ray is finished.
+            if self.items.used(obj):
+                p["tried"][aid] = TAG_FAIL
+                return "item %d is used - ray dead on %d" % (obj, aid)
+
+            spent = set()
+            for side in (1, -1):
+                if self.items.side_spent(obj, side):
+                    spent.add(side)
             sides = ring_branch(g, hx, hz, p["pos"], dx, dz, obj,
                                 self.max_ring_m, self.goal, self.min_gap_m,
-                                self.claimed)
+                                set((obj, sd) for sd in spent))
             made = []
             for side in (1, -1):
                 t = sides.get(side)
                 if t is None:
                     continue
-                made.append(self.add(p["id"], t, aid, ORIGIN_TANGENT))
+                node = self.add(p["id"], t, aid, ORIGIN_TANGENT)
+                node["item"], node["side"] = obj, side
+                made.append(node)
             if not made:
                 p["tried"][aid] = TAG_FAIL
                 return "no way round on %d at %d" % (aid, p["id"])
