@@ -100,6 +100,18 @@ Public Class MapTanks
     ''' one, TankFiles only indexes vehicles_*.pkg. Read the list from there
     ''' rather than guessing: F18_Bat_Chatillon25t, not F18_Bat_Chatillon.
     ''' </summary>
+    ''' <summary>
+    ''' `routes` on the command line: solve base to base and load no vehicles.
+    '''
+    ''' Read from the args here rather than through a global, because
+    ''' modGlobalVars.vb is the one file all three sessions share and a flag
+    ''' only this file reads has no business in it. trace=1 is already read the
+    ''' same way a few hundred lines below.
+    ''' </summary>
+    Private Shared ReadOnly ROUTES_ONLY As Boolean =
+        Environment.GetCommandLineArgs().Any(
+            Function(a) a.Equals("routes", StringComparison.OrdinalIgnoreCase))
+
     Private Sub Load()
         loaded = True
         Try
@@ -116,6 +128,25 @@ Public Class MapTanks
             End If
 
             BuildCatalogues()
+
+            ' ROUTES WITHOUT A FLEET. "i dont want the tanks. I want it to run
+            ' the path solve code for base to base reach."
+            '
+            ' The grid and the catalogue are already built by this line - they
+            ' come FIRST in this method because placement is the first thing
+            ' that wants to know where the ground is good - so solving base to
+            ' base has never actually needed a vehicle. Thirty tanks were
+            ' loading behind it purely because the two lived in one method.
+            '
+            ' `routes` on the command line stops here: grid built, both
+            ' catalogues solved, the PNG written by BuildCatalogues, and not one
+            ' vehicle package touched. Roughly forty seconds of loading saved on
+            ' every run that only wants to see whether a route exists.
+            If ROUTES_ONLY Then
+                LogThis("tank routes: routes-only run - grid and catalogues " &
+                        "built, skipping the vehicle roster")
+                Return
+            End If
 
 
 
@@ -354,7 +385,7 @@ Public Class MapTanks
         ' TANK_LOAD_NOW; the `tanks` argument sets TANK_AUTOLOAD for a run that
         ' wants them without a click.
         If Not loaded Then
-            If Not (TANK_AUTOLOAD OrElse TANK_LOAD_NOW) Then Return
+            If Not (TANK_AUTOLOAD OrElse TANK_LOAD_NOW OrElse ROUTES_ONLY) Then Return
             TANK_LOAD_NOW = False
             Load()
         End If
