@@ -130,6 +130,17 @@ Note the outland bit does not narrow that tree figure: outland is stamped per
 model DRAW and the tree shader writes a constant kind with no place bit, so no
 tree-keyed texel anywhere carries `outland_bit`. Do not read "inland" off it.
 
+**`solid_bit = 32` had an earlier, different meaning agreed and never shipped.**
+On 2026-09-11 the same bit value was agreed as a *trunk* stamp - a tree stem that
+survived a size threshold, `stem_min_m` - and that is what
+`HANDOFF_2026-09-11_tank_ai.md` and the 09-11 Path Studio handoff still describe.
+No bake on disk ever carried that meaning, so there is no ambiguity in the DATA;
+the collision was in a reader written against the agreement rather than against
+the file. `stem_min_m` does not exist and is not coming. **This document and the
+meta's own comment block are the contract** - the meta says what `solid` means in
+the file itself, so a reader that consults it cannot inherit the old meaning.
+Read the bit, not the minutes.
+
 ## `kind` is a substring race, and the order is load-bearing
 
 `kind_of` lower-cases the model path and takes the **first** match:
