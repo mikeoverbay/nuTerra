@@ -1832,6 +1832,12 @@ try_again:
         draw_model_info()
         ShaderIDE.Draw()
 
+        ' Gates itself on RouteFilm.show, exactly as ShaderIDE.Draw does. It was
+        ' briefly nested inside the Textures viewer's If, so it only drew while
+        ' that unrelated window happened to be open - which looks identical to a
+        ' panel that does not work.
+        RouteFilm.Draw()
+
         If SHOW_SETTINGS_WINDOW Then
             If Not prev_SHOW_SETTINGS_WINDOW AndAlso menubar_size.LengthSquared > 0 Then
                 Dim pos = menubar_pos + New System.Numerics.Vector2(0, menubar_size.Y + 5)
@@ -3666,8 +3672,6 @@ try_again:
         End If
 
         If SHOW_TEXTURES_VIEWER_WINDOW Then
-            RouteFilm.Draw()
-
             If ImGui.Begin("Textures viewer", SHOW_TEXTURES_VIEWER_WINDOW) Then
                 Dim size As New Numerics.Vector2
                 size.X = ImGui.GetContentRegionAvail().X
