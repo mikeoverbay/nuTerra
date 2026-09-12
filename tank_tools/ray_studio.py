@@ -3476,6 +3476,57 @@ def fan_offset(aid, half_rad=None):
     return k * step * (1 if aid % 2 else -1) if aid else 0.0
 
 
+def base_ring_heading(x, z, gx, gz, ring_m, from_heading):
+    """Bearing from (x,z) to a TANGENT of the base ring, nearer hand first.
+
+    "we are dropping continue to next point if open. we want to aim for base
+    tangent ring."
+
+    In the open the search used to make a branch point every step and fan +/-45
+    from it, which is how a 785 m crossing came out 2,530 m: it wandered where
+    there was nothing to wander around, dropped a memory square every 2 m, and
+    then spent the rest of the route ringing its own breadcrumbs. Measured on
+    the saved route, 241 of 241 tangent rings sat within 2 m of a square the
+    search had set itself and only 21 within 2 m of a real obstacle.
+
+    So in the open there is nothing to decide: point at the base. And at the
+    RING, not the mark - the same reason the arrival test aims at the disc.
+    Two tangents touch a circle from outside it; the nearer one to the way we
+    are already going is taken, so the aim never spins the tank round.
+    """
+    d = np.hypot(gx - x, gz - z)
+    to_centre = np.arctan2(gx - x, gz - z)
+    if d <= ring_m:
+        return to_centre                     # inside it already, just go in
+    off = np.arcsin(min(1.0, ring_m / d))
+    best, best_turn = to_centre, 1e9
+    for cand in (to_centre - off, to_centre + off):
+        turn = abs(np.arctan2(np.sin(cand - from_heading),
+                              np.cos(cand - from_heading)))
+        if turn < best_turn:
+            best, best_turn = cand, turn
+    return best
+
+
+def base_tangent_point(x, z, gx, gz, ring_m, from_heading):
+    """The point on the base ring this position is aiming at.
+
+    base_ring_heading() gives the bearing; this gives the place. Needed
+    because the owner's rule measures against it: "if the new point is farther
+    away from the base tangent, that's dead."
+
+    From outside the ring the tangent length is sqrt(d^2 - R^2) along the
+    tangent bearing. From inside, the aim is the flag itself and there is no
+    tangent to speak of.
+    """
+    d = np.hypot(gx - x, gz - z)
+    a = base_ring_heading(x, z, gx, gz, ring_m, from_heading)
+    if d <= ring_m:
+        return gx, gz
+    reach = np.sqrt(max(0.0, d * d - ring_m * ring_m))
+    return x + np.sin(a) * reach, z + np.cos(a) * reach
+
+
 def angle_of(aid):
     """Kept for the spoke drawing, which wants an absolute direction."""
     return fan_offset(aid)
@@ -3581,6 +3632,15 @@ class BranchTree(object):
                 self.squares = None
         self.last_square = None      # only the last one. "we dont need a list."
         self.block_radius = 1        # squares of surround blocked with it, 1..5
+        # IN THE OPEN, POINT AT THE BASE RING - the owner's rule. Left
+        # switchable only so the old wandering behaviour can be measured
+        # against it on the same seed; it is not a setting anyone should turn.
+        self.aim_at_base_ring = True
+        # AND A POINT THAT GIVES GROUND ON THAT TANGENT IS DEAD. Switchable
+        # for the same reason: so the cost of the rule can be measured rather
+        # than assumed.
+        self.dead_if_farther = True
+        self.killed_farther = 0
         self.casts = 0
         self.exhausted = False
         # WHERE THE SEARCH ACTUALLY IS, for the view to follow.
@@ -3635,11 +3695,17 @@ class BranchTree(object):
                         half=np.pi)          # the full circle, both ways
         self.stack = [root["id"]]
 
-    def add(self, parent, pos, angle_in, origin, heading=0.0, half=None):
+    def add(self, parent, pos, angle_in, origin, heading=0.0, half=None,
+            rays=None):
         p = dict(id=len(self.points), pos=pos, angle_in=angle_in,
                  parent=parent, origin=origin, tried={}, tag=TAG_OPEN,
                  kids=[], hit=None, item=None, side=None, ring=None,
                  heading=heading,
+                 # HOW MANY ANGLES THIS POINT MAY CAST. A tangent point still
+                 # gets the full fan - going round an obstacle is the part
+                 # that needs choices. A point standing in the open gets ONE,
+                 # aimed at the base ring.
+                 rays=(RAYS_PER_POINT if rays is None else rays),
                  # radians either side of the heading this point may cast into
                  half=(np.deg2rad(FORWARD_ARC_DEG) if half is None else half))
         self.points.append(p)
@@ -3756,7 +3822,7 @@ class BranchTree(object):
         # second route before exhausting, against 10,483 m - 13.3x the direct
         # line - and exhausted after ONE. Keeping the heading is what lets a
         # walk follow a wall round to where it opens.
-        for aid in range(RAYS_PER_POINT):
+        for aid in range(p.get("rays", RAYS_PER_POINT)):
             if aid not in p["tried"]:
                 return aid
         return None
@@ -3954,13 +4020,59 @@ class BranchTree(object):
                 p["tried"][aid] = TAG_FAIL      # wedged: this angle goes nowhere
                 return "dead angle %d at %d" % (aid, p["id"])
 
+            # THE AIM THIS POINT IS WORKING TO. Fixed for this cast, so the
+            # child is measured against the same target the parent was - a
+            # tangent point recomputed at the child would slide as it moves
+            # and the comparison would mean nothing.
+            tx_aim, tz_aim = base_tangent_point(p["pos"][0], p["pos"][1],
+                                                gx, gz, BASE_RING_M,
+                                                p["heading"])
+            aim_now = np.hypot(tx_aim - p["pos"][0], tz_aim - p["pos"][1])
+
+            def closes(nx, nz):
+                """Is this new point nearer the base tangent than we are?
+
+                The owner's rule: "if the new point is farther away from the
+                base tangent, that's dead." Not farther from the FLAG - he
+                withdrew that one himself, and rightly: walking a wall until
+                it opens is the whole manoeuvre and it always costs range to
+                the mark. The tangent of the base ring is the thing being
+                worked towards, and a step that gives ground on it is a step
+                the search has no reason to keep.
+                """
+                if not self.dead_if_farther:
+                    return True
+                return np.hypot(tx_aim - nx, tz_aim - nz) <= aim_now + 1e-6
+
             if not blocked:
-                # A CLEAR MOVE. The end of it is a new point, and by the owner's
-                # rule it is a branch point in its own right - we can leave it
-                # in any direction not already tried THERE.
-                # The new point carries the heading that got it there, so
-                # its own fan opens forward from here.
-                self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE, a)
+                # A CLEAR MOVE, AND NOTHING TO DECIDE.
+                #
+                # "we are dropping continue to next point if open. we want to
+                # aim for base tangent ring."
+                #
+                # This used to be a full branch point fanning +/-45 from the
+                # way it came, so the search explored open grass. It has no
+                # reason to: if the step was clear the only question is which
+                # way the base is, and the answer is a tangent of the base
+                # ring. One ray, no fan. Branching is for obstacles.
+                if not closes(hx, hz):
+                    p["tried"][aid] = TAG_FAIL
+                    self.killed_farther += 1
+                    return "gave ground on the base tangent - dead on %d" % aid
+                if self.aim_at_base_ring:
+                    # FOLLOW THE RAY. "2 rules: until we hit something, follow
+                    # ray; once we do, we seek the base tangent."
+                    #
+                    # The heading does NOT change here - it is the same ray,
+                    # still flying. Re-aiming at the base every clear step
+                    # (what this did an hour ago) bends the line continuously
+                    # and turns a straight crossing into an arc. One ray, no
+                    # fan, same bearing: the tank drives on until something
+                    # stops it.
+                    self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE, a,
+                             half=0.0, rays=1)
+                else:
+                    self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE, a)
                 self.stack.append(self.points[-1]["id"])
                 return "moved %.0f m on %d" % (got, aid)
 
@@ -3990,7 +4102,21 @@ class BranchTree(object):
                     continue
                 # A TANGENT'S FORWARD IS THE WAY IT LEFT THE RING, not the
                 # way the blocked ray was pointing.
-                th = np.arctan2(t[0] - p["pos"][0], t[1] - p["pos"][1])
+                if not closes(t[0], t[1]):
+                    self.killed_farther += 1
+                    continue          # this hand gives ground: it is dead
+                # AND HERE IS WHERE THE AIM CHANGES. We hit something, we
+                # went round it, and from the tangent the rule is to seek the
+                # base tangent ring - so this point faces the base, not the
+                # way it happened to leave the ring. Its fan still opens +/-45
+                # from that, because going round an obstacle is the part of
+                # the search that needs choices.
+                if self.aim_at_base_ring:
+                    th = base_ring_heading(t[0], t[1], gx, gz, BASE_RING_M,
+                                           np.arctan2(t[0] - p["pos"][0],
+                                                      t[1] - p["pos"][1]))
+                else:
+                    th = np.arctan2(t[0] - p["pos"][0], t[1] - p["pos"][1])
                 node = self.add(p["id"], (t[0], t[1]), aid, ORIGIN_TANGENT, th)
                 node["item"], node["side"] = obj, side
                 # THE RING THAT FOUND IT: centre and the radius it had grown
