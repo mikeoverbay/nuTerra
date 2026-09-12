@@ -11,6 +11,8 @@ VB + OpenTK, `net8.0-windows`, x64.
 
 ## Running
 
+    BuildingSlicer --view                            open the 3D viewer
+    BuildingSlicer --view --asset cathedral          open it on one building
     BuildingSlicer                                   scan and summarise
     BuildingSlicer --list                            every building, one line each
     BuildingSlicer --list --filter cathedral
@@ -201,11 +203,94 @@ reports its `tower_03` at 80.14 m and `tower_01` at 75.75 m, against a whole
 asset 82.09 m tall. A cathedral with an 80 m spire is the right order of
 magnitude; a stride or offset error does not land there by accident.
 
+## The viewer
+
+`--view` opens an OpenTK window on the building and reads its real geometry.
+
+| | |
+|---|---|
+| drag | orbit |
+| wheel | zoom |
+| left / right | previous / next building |
+| `[` / `]` | coarser / finer LOD |
+| up / down | solo one part, or back to all |
+| `W` | wireframe |
+| `R` | reload |
+| `Esc` | quit |
+
+Per-load detail prints to the console, which is why the project is `Exe` and not
+`WinExe` — a WinExe detaches from the console and every line goes nowhere.
+
+**Normals are derived from the triangles, not read from the file.** The vertex
+does carry a packed 8-8-8 normal, but decoding it is a second thing that can be
+wrong, and a face normal cannot be — it falls out of the winding, which the X
+mirror already had to get right. If the shading looks correct then the positions
+and the winding are both right, which is what wants proving first. Lighting is
+two-sided (`abs` on the diffuse term): building meshes are open shells with
+single-sided walls, and a wall facing away from the key light must not read as a
+hole.
+
+## The geometry: `.primitives_processed`
+
+`docs/primitives_reader.md` documents this format and
+`nuTerra/ModelLoaders/PrimitiveLoader.vb` is the engine's reader;
+`PrimitivesFile.vb` here is a third reader of the same bytes, which is the
+point — when two disagree, the file is not the thing that is wrong.
+
+The section table is at the **end** of the file, entries carry **no offsets**,
+and bodies are padded to 4 — so a body is located only by summing every size
+before it, in order. A BPVT vertex section's body starts at **136**, not 68
+(a second 64-byte format string plus 4 bytes); the 132-byte guess matches by
+integer-division coincidence and shifts the stream by one float. The index
+group table sits **after** the index buffer. Positions need **negate X** *and*
+**swap two corners of every triangle** — do one without the other and the model
+looks right in silhouette while every face points inward.
+
+### A vertex format the engine cannot read
+
+Buildings ship three vertex formats, and one of them is not in nuTerra's table:
+
+| format | stride | sections |
+|---|---|---|
+| `BPVTxyznuvtb` | 32 | 4,796 |
+| `BPVTxyznuviiiwwtb` | 40 | 392 |
+| **`BPVTxyznuvitb`** | **36** | **164** |
+
+The stride is never stored — only the name is, and the name has to be looked
+up. So the third one was **derived, not guessed**: a vertex body runs from 136
+to the end of its section, which makes `(sectionSize - 136) / count` the stride
+exactly. It came out a whole number on all 5,352 vertex sections under
+`content/buildings`, and it reproduced 32 and 40 for the two formats the engine
+already knows — which is what makes 36 trustworthy for the one it does not. 36
+is also what the name predicts: `BPVTxyznuvtb` plus one 4-byte `i` bone index.
+
+`PrimitiveLoader.load_primitives_vertices` has no case for `BPVTxyznuvitb`. It
+falls through to `Case Else`, which is `Debug.Assert(False)` — compiled out in
+Release, leaving `stride = 0`. Those 164 sections cannot be read by the engine
+today. Reported to the nuTerra Work session rather than fixed here; `ModelLoaders`
+is theirs.
+
+### How the parse is checked
+
+Same rule as the `.model` reader: two readers, same numbers.
+`bld_101_02_Vhouse02_a` at lod0 reads **9,233 vertices and 5,645 triangles** in
+the viewer and the identical figures from an independent Python decode. All
+4,865 building `.primitives_processed` files parse without error.
+
 ## Not done yet
 
-The slicing. This is the scan half — it finds the buildings, groups them by
-asset, LOD and part, and reports what each one is and how big. Reading the
-actual geometry means following `nodelessVisual` into `.visual_processed` and
-`.primitives_processed`; that format is already written up in
-`docs/primitives_reader.md`, and the section table, the BPVT 136-byte preamble
-and the two coordinate flips are the traps waiting there.
+The slicing itself. The geometry is now loaded, so a cutter has something to cut.
+[geometry3Sharp](https://github.com/gradientspace/geometry3Sharp) is the chosen
+library — pure C#, Boost licence, on NuGet, and its `MeshPlaneCut` returns the
+`CutLoops` / `CutSpans` a slicer needs. Note that it cuts **in place** and
+deletes the positive side, so keeping both halves means cutting two copies with
+opposite normals.
+
+The open question before that is whether these meshes are manifold enough for a
+cutter. They are open shells — that is already visible in the need for two-sided
+lighting — so `CutSpans` (the open-boundary case) will matter more than
+`CutLoops`. Worth measuring before building on it.
+
+Textures and materials are also not read. The `.visual_processed` beside each
+`.primitives_processed` names the material per primitive group; the viewer
+currently tints parts from a fixed palette instead.

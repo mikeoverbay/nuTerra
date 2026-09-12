@@ -37,7 +37,7 @@ Module Program
         Dim filter As String = Nothing
         Dim assetArg As String = Nothing
         Dim csvPath As String = Nothing
-        Dim doList = False, doFailures = False, skipVehicles = False
+        Dim doList = False, doFailures = False, skipVehicles = False, doView = False
 
         Dim i = 0
         While i < args.Length
@@ -50,6 +50,8 @@ Module Program
                     i += 1 : If i < args.Length Then assetArg = args(i).ToLowerInvariant()
                 Case "--csv"
                     i += 1 : If i < args.Length Then csvPath = args(i)
+                Case "--view"
+                    doView = True
                 Case "--list"
                     doList = True
                 Case "--failures"
@@ -162,6 +164,28 @@ Module Program
         End If
 
         If csvPath IsNot Nothing Then WriteCsv(library, csvPath)
+
+        If doView Then
+            ' --asset picks the building to open on; without one it starts at
+            ' the first and the arrow keys walk the library.
+            Dim startAt = 0
+            If assetArg IsNot Nothing Then
+                Dim ordered = library.Assets.Values.ToList()
+                For n = 0 To ordered.Count - 1
+                    If ordered(n).Name.ToLowerInvariant().Contains(assetArg) Then
+                        startAt = n
+                        Exit For
+                    End If
+                Next
+            End If
+            Console.WriteLine()
+            Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
+            Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
+            Console.WriteLine()
+            Using win As New ViewerWindow(pkg, library, startAt)
+                win.Run()
+            End Using
+        End If
     End Sub
 
     ''' <summary>(asset name, footprint, height) for every asset whose lod0 has a box.</summary>
@@ -266,6 +290,7 @@ Module Program
     Private Sub Usage()
         Console.WriteLine("Building Slicer - finds the buildings in the World of Tanks packages")
         Console.WriteLine()
+        Console.WriteLine("  --view               open the 3D viewer")
         Console.WriteLine("  --list               one line per building")
         Console.WriteLine("  --filter <text>      only buildings whose name contains <text>")
         Console.WriteLine("  --asset <name>       every LOD and part of one building")
