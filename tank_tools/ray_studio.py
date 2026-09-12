@@ -1184,6 +1184,7 @@ def main():
     # 11x11, which is a corridor.
     block_radius = 1
     last_step_ms = 0
+    sq_surf = None                # the block overlay, rebuilt only when it moves
     slider_rects = {}             # name -> (rect, lo, hi) from the last frame
     active_slider = None
     astar_class = []              # which homotopy class each route belongs to
@@ -1382,6 +1383,7 @@ def main():
                     # one thing he asked not to happen.
                     tree = BranchTree(g, start, goal, ring_max, min_gap)
                     tree.block_radius = block_radius
+                    sq_surf = None
                     tree_msg = "branch tree: running"
                 elif e.key == pygame.K_v:
                     base_mode = (base_mode + 1) % 3
@@ -1510,6 +1512,47 @@ def main():
         # a ring or a route runs far outside the frame; without a clip it was
         # painting over the controls and the readouts.
         screen.set_clip(pygame.Rect(map_ox, map_oy, w, w))
+
+        # THE BLOCK DATA, over the ground and under everything the search drew.
+        #
+        # Baked-solid squares dim the ground; squares the search has SET are
+        # red. That separation is the whole point - "I cant tell if it is
+        # actaully setting the 0s to 1s" - and with the two the same colour
+        # there was nothing to tell.
+        #
+        # Rebuilt only when the grid changes. A 1400 square surface every frame
+        # is 2 million pixels of nothing new.
+        if tree is not None and tree.squares is not None:
+            sq = tree.squares
+            if sq.dirty or sq_surf is None:
+                nsq = sq.n
+                img = np.zeros((nsq, nsq, 4), dtype=np.uint8)
+                was = sq.base != 0
+                now_set = (sq.grid != 0) & ~was
+                img[was] = (0, 0, 0, 120)            # baked solid: dim it
+                img[now_set] = (255, 70, 70, 170)    # set by a route: show it
+                # No flip: the square rows count down from the north edge,
+                # the same way the picture does.
+                sq_surf = pygame.image.frombuffer(
+                    np.ascontiguousarray(img).tobytes(), (nsq, nsq), "RGBA")
+                sq.dirty = False
+            nsq = sq.n
+            fx0 = view_cx / N * nsq
+            fz0 = view_cz / N * nsq
+            fw = view_cells / N * nsq
+            qc0, qc1 = max(0, int(np.floor(fx0))), min(nsq, int(np.ceil(fx0 + fw)))
+            qr0, qr1 = max(0, int(np.floor(fz0))), min(nsq, int(np.ceil(fz0 + fw)))
+            if qc1 > qc0 and qr1 > qr0:
+                src = sq_surf.subsurface(pygame.Rect(qc0, qr0,
+                                                     qc1 - qc0, qr1 - qr0))
+                # SAME VIEW NUMBERS AS to_px, so this cannot drift off the
+                # ground the way the map itself did before f26b19f4.
+                ddx = map_ox + ((qc0 / nsq * N) - view_cx) / view_cells * w
+                ddz = map_oy + ((qr0 / nsq * N) - view_cz) / view_cells * w
+                ddw = max(1, int(round(((qc1 - qc0) / nsq * N) / view_cells * w)))
+                ddh = max(1, int(round(((qr1 - qr0) / nsq * N) / view_cells * w)))
+                screen.blit(pygame.transform.scale(src, (ddw, ddh)),
+                            (int(round(ddx)), int(round(ddz))))
 
         # Which rays ended up on a path, so the dead ends can be told from the
         # ones that led somewhere.
@@ -2969,7 +3012,24 @@ class Squares(object):
         self.n = int(meta["n"])
         self.cell_m = float(meta["cell_m"])
         self.wx0 = float(meta["wx_min"])
-        self.wz0 = float(meta["wz_min"])
+        # ROW 0 IS THE NORTH EDGE, not the south one.
+        #
+        # TankSquares walks the bake's own texel rows, and bake row 0 is at
+        # wz_MAX - so the square rows count DOWN from the north edge exactly
+        # like to_texel does. Reading them upward from wz_min mirrored the
+        # whole collision map in z, and it did not look broken: 77% of samples
+        # still agreed with the fine map by luck, because most of the map is
+        # open either way. Measured against the fine map, the flip agrees 97.6%
+        # and this way round agrees 77.0% - which is what settled it.
+        # EITHER LABEL. Files written before the meta was corrected say
+        # wz_min and mean the opposite edge; new ones say wz_max and mean it.
+        # Accepting both means an old file on disk still reads correctly
+        # instead of throwing a KeyError the next time the bake is cut.
+        if "wz_max" in meta:
+            self.wz1 = float(meta["wz_max"])
+        else:
+            self.wz1 = (float(meta["wz_min"]) +
+                        int(meta["n"]) * float(meta["cell_m"]))
         self.path = base + ".u8"
         self.grid = None
         self.reload()
@@ -2977,11 +3037,20 @@ class Squares(object):
     def reload(self):
         """Back to what nuTerra baked. A reset has to do this."""
         self.grid = np.fromfile(self.path, dtype=np.uint8).reshape(self.n, self.n)
+        # THE PRISTINE COPY IS KEPT, not just reloaded from.
+        #
+        # "I cant tell if it is actaully setting the 0s to 1s" - and there was
+        # no way to: once a square is 1 it looks the same whether it was baked
+        # solid or set by a finished route. Holding the baked grid beside the
+        # working one makes the difference visible, and it is the only evidence
+        # that the memory is doing anything at all.
+        self.base = self.grid.copy()
         self.driven = 0
+        self.dirty = True
 
     def index(self, x, z):
         """Divide and round. The owner's words, and it is the whole lookup."""
-        return (int((z - self.wz0) / self.cell_m),
+        return (int((self.wz1 - z) / self.cell_m),
                 int((x - self.wx0) / self.cell_m))
 
     def blocked(self, x, z):
@@ -3010,6 +3079,7 @@ class Squares(object):
         n_new = int((patch == 0).sum())
         patch[:] = 1
         self.driven += n_new
+        self.dirty = True
         return n_new
 
 

@@ -129,12 +129,14 @@ Public Class TankSquares
         File.WriteAllText(Path.ChangeExtension(p, ".txt"),
             String.Format(
                 "map={0}" & vbLf & "cell_m={1:0.###}" & vbLf & "n={2}" & vbLf &
-                "wx_min={3:0.###}" & vbLf & "wz_min={4:0.###}" & vbLf &
-                "order=row major from wz_min, x fastest" & vbLf &
+                "wx_min={3:0.###}" & vbLf & "wz_max={4:0.###}" & vbLf &
+                "order=row major from wz_MAX downward, x fastest - the bake's" &
+                " own row order, and the label used to say wz_min which is the" &
+                " opposite and cost a reader an hour" & vbLf &
                 "value=1 solid or used, 0 open" & vbLf &
                 "rule=outland|trunk|water always; height over {5:0.##} m unless" &
                 " the kind is tree, fence or prop AND the solid bit is clear" & vbLf,
-                map, CELL_M, n, wx0, wz0, TankNavLimits.MAX_OBSTACLE))
+                map, CELL_M, n, wx0, b.wz_max, TankNavLimits.MAX_OBSTACLE))
 
         LogThis("tank squares: {0}x{0} of {1:0.#} m, {2:N0} solid ({3:0.0}%), wrote {4}",
                 n, CELL_M, solid, 100.0 * solid / (n * n), p)
