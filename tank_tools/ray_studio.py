@@ -136,8 +136,14 @@ def build_grid(map_name, hull_r_m):
     # difference between two heights and cannot be read off a boolean.
     # collide is the RAW obstacle map and stays, because the independent
     # in-solid check has to be able to ask a question the planner never asked.
+    # KIND AND TRUNK ARE KEPT, for the object signature. A connected component
+    # of bare geometry is not an object - a wall that touches a cliff is one
+    # blob - but the key byte already says which is which per texel, so the
+    # blob can be split where the KIND changes without waiting for render ids.
+    # Path Studio's suggestion, and it costs nothing because the data is here.
     return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide,
                 collide_hull=collide_hull, used=None,
+                kind=kind, trunk=(key & TRUNK_BIT).astype(bool),
                 floor=fl16, hscale=scale,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
@@ -1849,19 +1855,56 @@ def theta_route(g, start, goal, cell_m=1.37):
 # that blob into the models it is actually made of. Until then, components are
 # what the geometry alone can tell us, and they already work.
 
-SIG_RADIUS_M = 8.0          # how far either side of the path counts as "passed"
+def sig_radius(g):
+    """How far either side of the path counts as having passed something.
+
+    DERIVED, not chosen. Path Studio caught this: a free constant here lets a
+    threshold back in through the side door, which is the exact thing the
+    signature was built to get rid of. The obstacle map is already grown by the
+    hull radius, so an obstacle at zero distance is one the hull touches; one
+    hull radius further out is an obstacle within a hull-width of the hull.
+    That is hull radius plus the erosion, and the erosion IS the hull radius.
+    """
+    return g["hull"]
 
 
 def object_map(g):
-    """Distinct obstacles, labelled. Cached on the grid."""
+    """Distinct obstacles, labelled, and NOT spanning a kind boundary.
+
+    Plain connected components merge everything that touches: monastery's
+    largest was 29% of all solid ground, one blob of cliff with every wall and
+    building that leans on it, appearing in nearly every signature and telling
+    us almost nothing.
+
+    Labelling each KIND separately fixes most of that for free, because the key
+    byte already carries the kind per texel. A route that hugs the cliff and
+    then rounds a building now records (cliff, left), (building, right) instead
+    of one meaningless blob. Trunks are labelled separately again: a stamped
+    tree is an object whatever canopy it stands in.
+
+    Path Studio's suggestion. Their third option - watershed on the distance
+    transform of the solid, split at its necks - is deliberately NOT done here:
+    it is a guess at what render ids will say outright, so it waits for them.
+    """
     if "objects" not in g:
         from scipy.ndimage import label
-        lab, n = label(g["collide_hull"])
-        g["objects"] = (lab, n)
+        solid = g["collide_hull"]
+        lab = np.zeros(solid.shape, dtype=np.int32)
+        nxt = 0
+        # Each kind its own label space, then trunks on top of that.
+        layers = [(solid & (g["kind"] == k) & ~g["trunk"]) for k in range(8)]
+        layers.append(solid & g["trunk"])
+        for m in layers:
+            if not m.any():
+                continue
+            sub, cnt = label(m)
+            lab[m] = sub[m] + nxt
+            nxt += cnt
+        g["objects"] = (lab, nxt)
     return g["objects"]
 
 
-def path_signature(g, path, radius_m=SIG_RADIUS_M, sided=True):
+def path_signature(g, path, radius_m=None, sided=True):
     """The set of obstacles this route passed, and which side it passed them.
 
     Sided by default. Without the side, going clockwise round a building and
@@ -1875,7 +1918,7 @@ def path_signature(g, path, radius_m=SIG_RADIUS_M, sided=True):
     """
     lab, _n = object_map(g)
     W = g["W"]
-    rad = int(radius_m / g["texel_m"])
+    rad = int((radius_m if radius_m is not None else sig_radius(g)) / g["texel_m"])
     out = set()
     for k in range(len(path) - 1):
         ax, az = path[k]
@@ -1920,3 +1963,120 @@ def same_route(sig_a, sig_b, tol=0.6):
     inter = len(sig_a & sig_b)
     union = len(sig_a | sig_b)
     return union > 0 and (inter / union) >= tol
+
+
+# --------------------------------------------------------------------------
+# THE EXACT TEST: do these two routes enclose anything?
+# --------------------------------------------------------------------------
+#
+# The set-of-objects signature with a Jaccard threshold was a PROXY for the
+# homotopy class and it smuggled two free numbers back in - a radius and a
+# tolerance. Measured, that mattered: the eight-equals-eight agreement it
+# first produced held at exactly one radius and one tolerance on a steep
+# curve (tol 0.5 -> 8, 0.6 -> 17, 0.75 -> 64) and did not survive either
+# improving the object map or deriving the radius. It was a coincidence of
+# tuning presented as a cross-validation, which is worse than no result.
+#
+# The real test has no thresholds in it at all. Two routes between the same
+# two points are the SAME class exactly when the closed loop made by running
+# one forward and the other backward encloses NO obstacle - that loop can then
+# be shrunk to nothing without crossing anything, which is what homotopic
+# means. If it encloses even one obstacle, the routes go around opposite sides
+# of it and are genuinely different ways.
+#
+# No radius, no tolerance, no threshold. Just: is anything inside the loop.
+
+def encloses(poly_x, poly_y, px, pz):
+    """Even-odd point-in-polygon, vectorised over the points."""
+    inside = np.zeros(px.shape, dtype=bool)
+    n = len(poly_x)
+    j = n - 1
+    for i in range(n):
+        xi, yi, xj, yj = poly_x[i], poly_y[i], poly_x[j], poly_y[j]
+        straddles = (yi > pz) != (yj > pz)
+        if straddles.any():
+            with np.errstate(divide="ignore", invalid="ignore"):
+                xint = (xj - xi) * (pz - yi) / np.where(yj != yi, yj - yi, 1e-30) + xi
+            inside ^= straddles & (px < xint)
+        j = i
+    return inside
+
+
+def object_seeds(g, min_area_m2=None):
+    """One representative point per obstacle worth naming, and its area.
+
+    Anything smaller than the hull's own footprint is gravel, not a landmark:
+    a route does not meaningfully go "around" a stone it could not tell from
+    the ground. Derived from the hull, not chosen.
+    """
+    key = "seeds_%.2f" % (min_area_m2 if min_area_m2 is not None else -1)
+    if key in g:
+        return g[key]
+    from scipy.ndimage import sum as ndsum, center_of_mass, label
+    lab, n = object_map(g)
+    if n == 0:
+        g[key] = (np.zeros(0), np.zeros(0))
+        return g[key]
+    floor_a = min_area_m2 if min_area_m2 is not None else np.pi * (g["hull"] * 0.5) ** 2
+    idx = np.arange(1, n + 1)
+    area = np.array(ndsum(lab > 0, lab, idx)) * g["texel_m"] ** 2
+    big = idx[area >= floor_a]
+    # A centroid can fall outside a horseshoe, so take an actual member texel.
+    xs, zs = [], []
+    flat = lab.ravel()
+    order = np.argsort(flat, kind="stable")
+    sortedv = flat[order]
+    starts = np.searchsorted(sortedv, big, side="left")
+    for b, st in zip(big, starts):
+        if sortedv[st] != b:
+            continue
+        p = order[st]
+        r, c = divmod(int(p), g["W"])
+        xs.append(g["wx0"] + (c + 0.5) * g["texel_m"])
+        zs.append(g["wz1"] - (r + 0.5) * g["texel_m"])
+    g[key] = (np.array(xs), np.array(zs))
+    return g[key]
+
+
+# HOW BIG SOMETHING HAS TO BE before going round its other side counts as a
+# different route. This is the one honest dial in the test and it is in square
+# metres of ground, not a similarity score - the owner can look at a building
+# and say whether it is a landmark.
+#
+# 100 m2 is about ten metres across: a building, a walled yard, a rock worth
+# naming. Measured on 19_monastery, the choice matters and it is what finally
+# separated the two planners honestly:
+#
+#     landmark    seeds    ray classes    catalogue classes
+#       16 m2      3168        20                8
+#      100 m2       383         2                8
+#      500 m2        92         1                8
+#     2000 m2        28         1                6
+#
+# At any scale where "the other side of it" means anything, the ray sweep is
+# finding ONE route and the catalogue is finding eight. At 16 m2 everything is
+# a landmark, every wobble is its own class, and the number 20 says nothing.
+LANDMARK_M2 = 100.0
+
+
+def same_class(g, a, b, min_area_m2=LANDMARK_M2):
+    """Are these two routes the same way round? Exact, no similarity score.
+
+    Run a forward and b backward to make a closed loop; if it encloses no
+    landmark the loop shrinks to nothing and the routes are the same way.
+
+    This REPLACES a Jaccard threshold over object sets, which was a proxy and
+    smuggled in two free numbers - a radius and a tolerance. That proxy first
+    produced an apparent agreement between the two planners (eight routes each)
+    and it did not survive contact: it held at exactly one radius and one
+    tolerance on a steep curve, and improving the object map destroyed it. It
+    was a coincidence of tuning that looked like a cross-validation, which is
+    worse than having no result at all.
+    """
+    sx, sz = object_seeds(g, min_area_m2)
+    if len(sx) == 0:
+        return True
+    loop = list(a) + list(reversed(b))
+    px = np.array([p[0] for p in loop], dtype=float)
+    pz = np.array([p[1] for p in loop], dtype=float)
+    return not encloses(px, pz, sx, sz).any()
