@@ -312,6 +312,15 @@ def too_steep(g, x, z, nx, nz, step_m):
 
 REACH_M = 12.0
 
+# THE BASE RING. Inside it is a win - the owner's rule, and it is the disc the
+# view already draws round each base rather than a number invented here.
+#
+# REACH_M is 12 m and is about a ray noticing the flag; this is about a tank
+# having ARRIVED. Aim at the disc, not the mark - Path Studio measured team 2's
+# mark at 2.39 m of clearance against a 2.25 m hull radius, so the mark itself
+# is very nearly not standable and is the wrong thing to require.
+BASE_RING_M = 50.0
+
 # THE RING IS A CIRCLE IN METRES, expanding half a metre at a time. The owner's
 # words: "we draw a ring at that hit point and hit the tangent on both sides. if
 # we could not after expanding the ring in .5m steps to max ring size in
@@ -1061,7 +1070,15 @@ def main():
 
     pygame.init()
     S = 1000
-    screen = pygame.display.set_mode((S, S), pygame.RESIZABLE)
+    # FULL SCREEN, WITH THE MAP IN THE MIDDLE AND THE CONTROLS EITHER SIDE.
+    #
+    # Everything used to be drawn ON the map: the status line over the terrain,
+    # two legends over the terrain, and every control a keystroke you had to
+    # already know. The map is the thing being looked at and it was the thing
+    # being covered up.
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    LEFT_W, RIGHT_W = 250, 330
+    PANEL_BG, PANEL_LINE = (24, 26, 32), (58, 62, 72)
     pygame.display.set_caption(f"Ray Studio - {map_name} - [Tank AI work]")
     font = pygame.font.SysFont("consolas", 16)
 
@@ -1136,10 +1153,15 @@ def main():
     view_cx, view_cz = 0.0, 0.0
     view_cells = float(N)
     dragging, drag_from = False, (0, 0)
+    # Where the square map sits inside the middle column this frame. The
+    # helpers below read these, so every overlay lands on the map wherever the
+    # map happens to be rather than in the corner of the screen.
+    map_ox, map_oy = LEFT_W, 0
+    buttons = []                 # (rect, label, key, is_on) rebuilt each frame
 
     def cell_at_mouse(mx, my, w):
-        return (view_cx + mx / w * view_cells,
-                view_cz + my / w * view_cells)
+        return (view_cx + (mx - map_ox) / w * view_cells,
+                view_cz + (my - map_oy) / w * view_cells)
 
     def m_to_px(m, w):
         # Metres to pixels THROUGH THE VIEW, so a ring drawn at 3.5 m is 3.5 m
@@ -1153,11 +1175,18 @@ def main():
         # would slide off the thing it is describing.
         cx = (x - g["wx0"]) / (g["wx1"] - g["wx0"]) * N
         cz = (g["wz1"] - z) / (g["wz1"] - g["wz0"]) * N
-        return (int((cx - view_cx) / view_cells * w),
-                int((cz - view_cz) / view_cells * w))
+        return (int(map_ox + (cx - view_cx) / view_cells * w),
+                int(map_oy + (cz - view_cz) / view_cells * w))
+
+    def map_rect():
+        """The square the map is drawn into: the middle column, fitted."""
+        sw, sh = screen.get_width(), screen.get_height()
+        avail_w = max(80, sw - LEFT_W - RIGHT_W)
+        mw = min(avail_w, sh)
+        return (LEFT_W + (avail_w - mw) // 2, (sh - mw) // 2, mw)
 
     while running:
-        w_now = min(screen.get_width(), screen.get_height())
+        map_ox, map_oy, w_now = map_rect()
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
@@ -1174,7 +1203,21 @@ def main():
                 view_cx = ax - mx / w_now * view_cells
                 view_cz = az - my / w_now * view_cells
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 2, 3):
-                dragging, drag_from = True, e.pos
+                # A CLICK IN A PANEL IS A CONTROL, not a drag of the map. The
+                # button posts the SAME key event the keyboard would, so there
+                # is one implementation of every action and the panel cannot
+                # drift away from what the keys do.
+                hit = None
+                for (r, lab, kk, on) in buttons:
+                    if r.collidepoint(e.pos):
+                        hit = kk
+                        break
+                if hit is not None:
+                    pygame.event.post(pygame.event.Event(pygame.KEYDOWN,
+                                                         key=hit, mod=0,
+                                                         unicode="", scancode=0))
+                elif e.pos[0] >= LEFT_W and e.pos[0] < screen.get_width() - RIGHT_W:
+                    dragging, drag_from = True, e.pos
             elif e.type == pygame.MOUSEBUTTONUP and e.button in (1, 2, 3):
                 dragging = False
             elif e.type == pygame.MOUSEMOTION and dragging:
@@ -1309,7 +1352,7 @@ def main():
                 length = sum(np.hypot(tree.win_chain[k + 1]["pos"][0] - tree.win_chain[k]["pos"][0],
                                       tree.win_chain[k + 1]["pos"][1] - tree.win_chain[k]["pos"][1])
                              for k in range(len(tree.win_chain) - 1))
-                tree_msg = ("FIRST PATH: %.0f m, %d point(s), %d ring(s) - "
+                tree_msg = ("*** PATH COMPLETE - INSIDE THE BASE RING *** %.0f m, %d pt, %d ring(s) - "
                             "found after %d cast(s). [b] restarts."
                             % (length, len(tree.win_chain), rings_n, tree.casts))
             tree_msg = ("branch tree: %d point(s), %d cast(s), %d path(s), "
@@ -1325,7 +1368,7 @@ def main():
                 cz = (g["wz1"] - cur[1]) / (g["wz1"] - g["wz0"]) * N
                 view_cx, view_cz = cx - view_cells * 0.5, cz - view_cells * 0.5
 
-        w = min(screen.get_width(), screen.get_height())
+        map_ox, map_oy, w = map_rect()
         screen.fill((10, 10, 12))
 
         # Only the visible slice is scaled up, and with NEAREST rather than
@@ -1339,7 +1382,7 @@ def main():
         iw = min(iw, N - max(ix, iz)) if max(ix, iz) + iw > N else iw
         iw = max(1, iw)
         slice_ = surf.subsurface(pygame.Rect(ix, iz, iw, iw))
-        screen.blit(pygame.transform.scale(slice_, (w, w)), (0, 0))
+        screen.blit(pygame.transform.scale(slice_, (w, w)), (map_ox, map_oy))
 
         # Which rays ended up on a path, so the dead ends can be told from the
         # ones that led somewhere.
@@ -1468,8 +1511,14 @@ def main():
                     pygame.draw.circle(screen, (200, 220, 210),
                                        to_px(node["pos"][0], node["pos"][1], w), 3)
             if ch:
+                # THE BASE RING ITSELF, so "it is inside" is something to see
+                # rather than something the status line asserts.
+                bpx = to_px(goal[0], goal[1], w)
+                br = int(m_to_px(BASE_RING_M, w))
+                if br >= 2:
+                    pygame.draw.circle(screen, (120, 255, 170), bpx, br, 2)
                 for pt, col, lab in ((ch[0]["pos"], (0, 220, 255), "START"),
-                                     (ch[-1]["pos"], (255, 150, 0), "BASE")):
+                                     (ch[-1]["pos"], (255, 150, 0), "IN THE BASE RING")):
                     q = to_px(pt[0], pt[1], w)
                     pygame.draw.circle(screen, col, q, 9, 3)
                     screen.blit(font.render(lab, True, col), (q[0] + 12, q[1] - 8))
@@ -1548,57 +1597,165 @@ def main():
             tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
             screen.blit(tag, (px_ + 14, pz_ - 8))
 
-        msg = (f"view {MODE_NAME[base_mode]}   rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
-               f"   step {ray_cap:.0f} m   ring {ring_max:.1f} m   gap {min_gap:.1f} m   bearing {bearing:+.0f}"
-               f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
-               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [v] view  [b] BRANCH TREE  [c] follow  [a] catalogue  [k] landmark  [m] marks  [space] pause  [r] reset  [tab] swap  [q] quit")
-        screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
+        # ------------------------------------------------------------------
+        # THE PANELS. Controls left, readouts right, map between.
+        #
+        # Every button posts the KEY it mirrors, so there is exactly one
+        # implementation of each action and the panel cannot drift away from
+        # what the keyboard does.
+        # ------------------------------------------------------------------
+        SW, SH = screen.get_width(), screen.get_height()
+        buttons = []
+        pygame.draw.rect(screen, PANEL_BG, pygame.Rect(0, 0, LEFT_W, SH))
+        pygame.draw.rect(screen, PANEL_BG,
+                         pygame.Rect(SW - RIGHT_W, 0, RIGHT_W, SH))
+        pygame.draw.line(screen, PANEL_LINE, (LEFT_W, 0), (LEFT_W, SH))
+        pygame.draw.line(screen, PANEL_LINE, (SW - RIGHT_W, 0), (SW - RIGHT_W, SH))
 
-        # WHAT THE COLOURS MEAN, and how many chains died of each. The tally is
-        # the answer to "it gives up easy": if every chain dies of one reason,
-        # that reason is the algorithm's real limit and the rest is tuning noise.
+        def header(x, y, text, wide):
+            screen.blit(font.render(text, True, (150, 200, 255)), (x, y))
+            pygame.draw.line(screen, PANEL_LINE, (x, y + 18), (x + wide, y + 18))
+            return y + 26
+
+        def button(x, y, wpx, label, key, on=False, col=None):
+            r = pygame.Rect(x, y, wpx, 22)
+            hov = r.collidepoint(pygame.mouse.get_pos())
+            bg = (62, 96, 66) if on else ((52, 56, 66) if hov else (38, 41, 49))
+            pygame.draw.rect(screen, bg, r, border_radius=3)
+            pygame.draw.rect(screen, PANEL_LINE, r, 1, border_radius=3)
+            screen.blit(font.render(label, True, col or (225, 228, 235)),
+                        (x + 7, y + 3))
+            buttons.append((r, label, key, on))
+            return y + 26
+
+        def pair(x, y, wpx, la, ka, lb, kb):
+            hw = (wpx - 4) // 2
+            for r, lab, kk in ((pygame.Rect(x, y, hw, 22), la, ka),
+                               (pygame.Rect(x + hw + 4, y, hw, 22), lb, kb)):
+                hov = r.collidepoint(pygame.mouse.get_pos())
+                pygame.draw.rect(screen, (52, 56, 66) if hov else (38, 41, 49),
+                                 r, border_radius=3)
+                pygame.draw.rect(screen, PANEL_LINE, r, 1, border_radius=3)
+                screen.blit(font.render(lab, True, (225, 228, 235)),
+                            (r.x + 7, r.y + 3))
+                buttons.append((r, lab, kk, False))
+            return y + 26
+
+        def readout(x, y, label, value, col=(220, 225, 235)):
+            screen.blit(font.render(label, True, (135, 140, 152)), (x, y))
+            t = font.render(str(value), True, col)
+            screen.blit(t, (SW - 14 - t.get_width(), y))
+            return y + 18
+
+        # ---- LEFT: what you can do
+        LX, LW = 12, LEFT_W - 24
+        y = 12
+        y = header(LX, y, "SEARCH", LW)
+        y = button(LX, y, LW, "Branch tree  [b]", pygame.K_b, tree is not None)
+        y = button(LX, y, LW, "Follow point  [c]", pygame.K_c, tree_follow)
+        y = button(LX, y, LW, "Bearing sweep  [r]", pygame.K_r)
+        y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a, bool(astar_paths))
+        y = button(LX, y, LW, "PAUSED  [space]" if paused else "Pause  [space]",
+                   pygame.K_SPACE, paused)
+        y += 8
+        y = header(LX, y, "VIEW", LW)
+        y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
+                   pygame.K_v)
+        y = button(LX, y, LW, "Landmarks  [m]", pygame.K_m, show_marks)
+        y = button(LX, y, LW, "Fit map  [f]", pygame.K_f)
+        y = button(LX, y, LW, "Swap ends  [tab]", pygame.K_TAB)
+        y += 8
+        y = header(LX, y, "TUNING", LW)
+        y = pair(LX, y, LW, "- step", pygame.K_COMMA, "+ step", pygame.K_PERIOD)
+        y = pair(LX, y, LW, "- ring", pygame.K_LEFTBRACKET,
+                 "+ ring", pygame.K_RIGHTBRACKET)
+        y = pair(LX, y, LW, "- gap", pygame.K_MINUS, "+ gap", pygame.K_EQUALS)
+        y = button(LX, y, LW, "Landmark %.0f m2  [k]" % landmark_m2, pygame.K_k)
+        y += 12
+        y = button(LX, y, LW, "QUIT  [q]", pygame.K_q, False, (255, 170, 170))
+        screen.blit(font.render("wheel zooms, drag pans", True, (110, 115, 128)),
+                    (LX, SH - 24))
+
+        # ---- RIGHT: what it is doing
+        RX, RW = SW - RIGHT_W + 12, RIGHT_W - 24
+        ry = 12
+        ry = header(RX, ry, "STATE", RW)
+        ry = readout(RX, ry, "hull", "%.1f m" % hull)
+        ry = readout(RX, ry, "ray step", "%.0f m" % ray_cap)
+        ry = readout(RX, ry, "ring max", "%.1f m" % ring_max)
+        ry = readout(RX, ry, "min gap", "%.1f m" % min_gap)
+        ry = readout(RX, ry, "landmark", "%.0f m2" % landmark_m2)
+        ry += 10
+
+        if tree is not None:
+            ry = header(RX, ry, "BRANCH TREE", RW)
+            seen_i, half_i, used_i = tree.items.report()
+            ry = readout(RX, ry, "points", "%d" % len(tree.points))
+            ry = readout(RX, ry, "ray casts", "%d" % tree.casts)
+            ry = readout(RX, ry, "stack depth", "%d" % len(tree.stack))
+            ry = readout(RX, ry, "paths", "%d" % len(tree.paths),
+                         (120, 255, 170) if tree.paths else (220, 225, 235))
+            ry = readout(RX, ry, "items hit", "%d" % seen_i)
+            ry = readout(RX, ry, "  one hand won", "%d" % half_i, (90, 230, 235))
+            ry = readout(RX, ry, "  fully USED", "%d" % used_i, (235, 110, 235))
+            if tree.halted:
+                ry += 4
+                for line in ("*** PATH COMPLETE ***", "inside the base ring"):
+                    screen.blit(font.render(line, True, (120, 255, 170)), (RX, ry))
+                    ry += 18
+            ry += 10
+
+        ry = header(RX, ry, "BEARING SWEEP", RW)
+        ry = readout(RX, ry, "rays", "%d" % rays)
+        ry = readout(RX, ry, "routes", "%d" % len(paths))
+        ry = readout(RX, ry, "bearing", "%+.0f" % bearing)
+        ry = readout(RX, ry, "state",
+                     "DONE" if done else ("PAUSED" if paused else "sweeping"))
         tally = {}
         for (_a, reason, _w) in deaths:
             tally[reason] = tally.get(reason, 0) + 1
+        if tally:
+            ry += 4
+            ry = readout(RX, ry, "chains dead", "%d" % len(deaths))
+            for reason, cnt in sorted(tally.items(), key=lambda kv: -kv[1]):
+                c = DEATH_COL.get(reason, (255, 255, 255))
+                screen.blit(font.render("%3d  %s" % (cnt, reason[:28]), True, c),
+                            (RX + 6, ry))
+                ry += 16
+        ry += 10
+
+        if astar_msg:
+            ry = header(RX, ry, "SEARCH CATALOGUE", RW)
+            for k0 in range(0, len(astar_msg), 40):
+                screen.blit(font.render(astar_msg[k0:k0 + 40], True,
+                                        (120, 220, 255)), (RX, ry))
+                ry += 16
+            ry += 10
+
+        ry = header(RX, ry, "KEY", RW)
         if base_mode == 1:
-            # THE KIND NAMES AND THEIR OWN COLOURS, straight out of the meta.
             kl = [(g["palette"].get(k, (150, 150, 150)),
                    ("terrain", "building", "fence", "tree", "rock", "prop",
                     "water", "other")[k]) for k in range(8)]
-            kl.append(((235, 235, 90), "tree AND solid - rock under a canopy"))
-            yk = 30
-            for col, lab in kl:
-                pygame.draw.rect(screen, col, pygame.Rect(8, yk + 2, 12, 10))
-                screen.blit(font.render(lab, True, col), (26, yk))
-                yk += 17
-            yk += 6
-            screen.blit(font.render("[v] switches view", True, (200, 200, 200)),
-                        (8, yk))
-        legend = [((190, 55, 45), "ring probe: solid"),
+            kl.append(((235, 235, 90), "tree AND solid: rock under canopy"))
+        else:
+            kl = [((190, 55, 45), "ring probe: solid"),
                   ((210, 120, 45), "ring probe: chord blocked"),
-                  ((165, 90, 215), "ring probe: no escape (corner)"),
-                  ((70, 140, 230), f"ring probe: gap under {min_gap:.1f} m"),
-                  ((90, 255, 235), "tangent taken"),
-                  ((255, 225, 90), "ring that found one")]
-        yy = 30 if base_mode != 1 else 30 + 17 * 9 + 30
-        for col, lab in legend:
-            pygame.draw.circle(screen, col, (14, yy + 6), 4)
-            screen.blit(font.render(lab, True, col), (26, yy))
-            yy += 17
-        yy += 6
+                  ((165, 90, 215), "ring probe: no escape"),
+                  ((70, 140, 230), "ring probe: gap too tight"),
+                  ((90, 255, 235), "tangent / left hand"),
+                  ((255, 150, 90), "right hand"),
+                  ((255, 225, 90), "ring that found one"),
+                  ((235, 110, 235), "item fully used")]
+        for col, lab in kl:
+            pygame.draw.rect(screen, col, pygame.Rect(RX, ry + 3, 12, 10))
+            screen.blit(font.render(lab, True, col), (RX + 20, ry))
+            ry += 17
+
         if tree_msg:
-            screen.blit(font.render(tree_msg, True, (255, 245, 120)), (8, yy))
-            yy += 20
-        if astar_msg:
-            screen.blit(font.render(astar_msg, True, (120, 220, 255)), (8, yy))
-            yy += 20
-        screen.blit(font.render(f"chains dead: {len(deaths)}", True,
-                                (235, 235, 235)), (8, yy))
-        yy += 17
-        for reason, cnt in sorted(tally.items(), key=lambda kv: -kv[1]):
-            c = DEATH_COL.get(reason, (255, 255, 255))
-            screen.blit(font.render(f"  {cnt:3d}  x  {reason}", True, c), (8, yy))
-            yy += 17
+            screen.blit(font.render(tree_msg[:70], True, (255, 245, 120)),
+                        (LEFT_W + 10, SH - 22))
+
         pygame.display.flip()
         pygame.time.wait(16 if (done or paused) else delay)
 
@@ -2755,9 +2912,23 @@ class BranchTree(object):
             got, hx, hz, reached, blocked = march(g, p["pos"][0], p["pos"][1],
                                                   dx, dz, self.goal, limit)
 
-            if reached and clear_line(g, hx, hz, gx, gz):
+            # REACHING THE BASE IS REACHING THE BASE. "If the past point hits
+            # base location, its done."
+            #
+            # This used to also demand a clear line from the arrival point to
+            # the exact base MARK, and that is why finished routes were never
+            # signalled: Path Studio measured team 2's mark at 2.39 m of
+            # clearance against a 2.25 m hull radius, so the last few metres to
+            # the mark clip the clutter round it and the test failed on routes
+            # that had plainly got there. Their conclusion was the right one -
+            # aim at the disc, not the mark.
+            #
+            # The winning point is therefore where the ray ACTUALLY got to,
+            # inside the base, rather than the mark itself - which also stops
+            # the drawing running a final hop through whatever surrounds it.
+            if np.hypot(gx - hx, gz - hz) <= BASE_RING_M:
                 p["tried"][aid] = TAG_PASS
-                win = self.add(p["id"], (gx, gz), aid, ORIGIN_CONTINUE)
+                win = self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE)
                 win["tag"] = TAG_PASS
                 self.paths.append(self.chain_to(win["id"]))
                 # CLAIM THE HANDS THIS ROUTE USED. Per side, never the whole
