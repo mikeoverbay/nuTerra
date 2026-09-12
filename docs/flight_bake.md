@@ -475,20 +475,47 @@ separated those two, and until someone does, **a crush rule needs the base as a
 known exception rather than a counter-example that quietly discredits the
 scheme.**
 
-**`s_ramp` is the bigger finding and it is not about crushing.** 159 building
-parts and 184 environment parts - **343** - are named `s_ramp_N`. That is geometry
-the game considers DRIVABLE, and in this bake it is indistinguishable from a
-wall: it raises top over floor and keys as an obstacle like anything else. That
-is the bake calling drivable geometry solid, at scale, and it is worth more than
-the colour coding that turned it up.
+**`s_ramp` looked like the bigger finding and is not.** 343 parts across the
+packages are named `s_ramp_N`, and a ramp is geometry the game considers DRIVABLE
+that this bake keys as an obstacle like any wall. An earlier version of this
+section called that "the bake calling drivable geometry solid, at scale" and put
+it ahead of the crush bit. **That was a part count standing in for a blocked-cell
+count, and the measurement does not support it.** Monastery holds 12 of the 343,
+and they are flowerbeds, a well, a fountain, an arch, a Dodge WC54 and a track
+decal.
 
-**One link is unverified and nothing should be built on it first.** All of the
-above comes from scanning the FILES offline. Whether the identifier strings in
-`cBSMA` at RUNTIME carry the same `d_`/`n_`/`s_` prefixes has not been checked -
-BSMA is the map's own material table, a different source that ought to agree. A
-one-line probe printing `cBSMA.MaterialItem(id).identifier` for a few building
-draws settles it. Two sources that ought to agree is the shape that has been
-wrong three times in one day; see "checking a loaded bake".
+Measured properly - every monastery asset matched to its visual (3,072 texels,
+0.04%, unmatched), then the hull-grown collide map rebuilt with assets deleted,
+counting cells that flip blocked to free:
+
+| removing | cells freed | of the map |
+|---|---|---|
+| every `s_ramp` asset | 10,295 | **0.02%** |
+| every destructible asset | 209,312 | **0.31%** |
+
+Against 49,118,301 cells already free. Both are whole-ASSET deletions, so both are
+UPPER bounds - the `n_` and `s_` parts inside those assets are included. Neither
+shows up in the 9% of the planner's tangent rings that turn at a real obstacle.
+
+**So neither number justifies the bit on this map, and monastery is the wrong map
+to decide it on.** The assets genuinely full of `d_` parts are the shanties and
+work barracks - `hd_bld_AM_025_HousesShanty_01` carries 14 by itself - and
+monastery has none. The honest test is one shanty-heavy map; `kinddump` finds one
+in minutes.
+
+**The argument that survives the measurement is not about area.** The identifier
+is the GAME'S OWN answer, and every alternative is a classifier we invent. Today
+priced that: `StreetLamp` keyed as `tree` because a classifier we wrote matched a
+substring, it survived every check that consulted the same string, and only a
+second source that knew nothing about names caught it.
+
+**The runtime link is VERIFIED**, and by a better route than the one first
+proposed. `spaces/19_monastery/space.bin` carries the identifier STRINGS directly
+- 78 of them, which is what `cBWST` resolves the hashes to: 38 `n_`, 33 `d_`, 6
+`s_` (`s_nd_0/1`, `s_ramp_0/1`, `s_wall_0/1`) and one `ivy_flat_01`. Same
+vocabulary as the offline file scan, so the two sources agree and nothing here
+rests on an assumption. The `cBSMA.MaterialItem` route also works; it was not
+needed.
 
 **And agree the bit's name and value with the readers before spending one.**
 `solid_bit` was agreed with one meaning and shipped with another while the value
