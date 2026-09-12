@@ -218,6 +218,51 @@ RING_ARC_MAX = np.deg2rad(110.0)
 # a way out of it.
 TANGENT_ESCAPE_M = 6.0
 
+# THE MINIMUM GAP WE CAN GET THROUGH, in metres. The owner's setting: "min gap
+# size (add and set to 4)". A tangent that clears but sits in a slot narrower
+# than this is no use - the plane does not fit through it.
+MIN_GAP_DEFAULT_M = 4.0
+
+# Coarse out, fine back. The gap is found by stepping OUT in min-gap strides
+# until something is hit, then walking BACK in small ones until it is clear
+# again - "scale ring back by smaller sets till we hit something again and we
+# can get the start of our width more accurate". The coarse pass is cheap and
+# the fine pass is short, so the edge is pinned to a few centimetres without
+# measuring the whole way in at that resolution.
+GAP_FINE_M = 0.25
+
+
+def measure_gap(g, px, pz, dirx, dirz, min_gap_m):
+    """How wide is the opening at this point, across the way we are going?
+
+    Walks out to both sides perpendicular to travel: coarse strides of the
+    minimum gap until it hits, then back in GAP_FINE_M steps until clear, so
+    the wall is located finely without paying for fine steps the whole way.
+
+    Returns (width, left_edge_distance, right_edge_distance). A width under the
+    minimum means the plane does not fit through here however clear the centre
+    looked.
+    """
+    # Perpendicular to the direction of travel.
+    nx, nz = -dirz, dirx
+    edges = []
+    for sgn in (1.0, -1.0):
+        t = 0.0
+        # OUT, coarsely, until something is in the way.
+        while t < 200.0:
+            t2 = t + min_gap_m
+            if not standable(g, px + nx * sgn * t2, pz + nz * sgn * t2):
+                break
+            t = t2
+        # BACK IN, finely, to find where it actually starts.
+        probe = t
+        while probe < t + min_gap_m:
+            if not standable(g, px + nx * sgn * probe, pz + nz * sgn * probe):
+                break
+            probe += GAP_FINE_M
+        edges.append(max(0.0, probe - GAP_FINE_M))
+    return edges[0] + edges[1], edges[0], edges[1]
+
 # How many ring-and-re-aim hops one chain may take before it is called lost. A
 # small ring means many small steps round a big obstacle, which is the design.
 MAX_HOPS = 260
@@ -245,7 +290,7 @@ def march(g, x, z, dx, dz, goal, limit):
     return t, x, z, False
 
 
-def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit):
+def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit, min_gap_m):
     """Draw a ring at the hit point and find where it clears, both sides.
 
     Exactly as described: a circle at the collision, grown in half-metre steps
@@ -303,6 +348,14 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit):
                 if out < TANGENT_ESCAPE_M:
                     continue
 
+                # AND CAN WE GET THROUGH IT? A clear point in a slot narrower
+                # than the plane is not a way past anything.
+                wide, _, _ = measure_gap(g, px, pz,
+                                         (gx2 - px) / d2, (gz2 - pz) / d2,
+                                         min_gap_m)
+                if wide < min_gap_m:
+                    continue
+
                 if sgn > 0:
                     left = (px, pz)
                 else:
@@ -316,7 +369,7 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit):
     return None, None, r
 
 
-def chain(g, start, goal, bearing, max_ring_m, trace):
+def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m):
     """One path attempt: ray, ring, tangent, re-aim at the base, repeat.
 
     "if we could not... That path is dead. If we can hit it, we anchor at
@@ -353,7 +406,7 @@ def chain(g, start, goal, bearing, max_ring_m, trace):
         # obstacle, and that is the design rather than a fault in it.
 
         left, right, _ = ring_tangents(g, hx, hz, dx, dz, max_ring_m,
-                                       goal, limit)
+                                       goal, limit, min_gap_m)
         if left is None and right is None:
             return None                                  # DEAD
 
@@ -446,7 +499,8 @@ def too_close(path, pool):
     return False
 
 
-def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M):
+def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M,
+            min_gap_m=MIN_GAP_DEFAULT_M):
     """Sweep from LEFT round to EAST, one chain per bearing.
 
     "We will start scanning left. every fail or win, we change ray and try for
@@ -460,7 +514,8 @@ def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M):
     pool, rays = [], []
     for a_deg in np.arange(SWEEP_FROM_DEG, SWEEP_TO_DEG + 1e-6, SWEEP_STEP_DEG):
         trace = []
-        got = chain(g, (sx, sz), gxy, np.deg2rad(a_deg), max_ring_m, trace)
+        got = chain(g, (sx, sz), gxy, np.deg2rad(a_deg), max_ring_m, trace,
+                    min_gap_m)
         for seg in trace:
             rays.append((seg[0], seg[1], got is not None))
         if got is not None and not too_close(got, pool):
@@ -476,6 +531,7 @@ def main():
         else "19_monastery"
     hull = 4.5
     ring_max = RING_MAX_DEFAULT_M
+    min_gap = MIN_GAP_DEFAULT_M
     speed = 1
     # A good resolve is now 43 rays, which at one a frame is over in under a
     # second - too fast to watch, which defeats the point of a live view. The
@@ -527,7 +583,7 @@ def main():
     surf = pygame.surfarray.make_surface(np.transpose(base, (1, 0, 2)))
     N = SHOW                     # the view works in picture texels
 
-    gen = resolve(g, start, goal, ring_max)
+    gen = resolve(g, start, goal, ring_max, min_gap)
     nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     running, done, paused = True, False, False
 
@@ -583,13 +639,19 @@ def main():
                 elif e.key == pygame.K_SPACE:
                     paused = not paused
                 elif e.key == pygame.K_r:
-                    gen = resolve(g, start, goal, ring_max)
+                    gen = resolve(g, start, goal, ring_max, min_gap)
                     nodes, paths, rays, done = [], [], 0, False
                 elif e.key == pygame.K_f:
                     view_cx, view_cz, view_cells = 0.0, 0.0, float(N)
                 elif e.key == pygame.K_TAB:
                     start, goal = goal, start
-                    gen = resolve(g, start, goal, ring_max)
+                    gen = resolve(g, start, goal, ring_max, min_gap)
+                    nodes, paths, rays, done = [], [], 0, False
+                elif e.key in (pygame.K_MINUS, pygame.K_EQUALS):
+                    # MIN GAP: the narrowest opening the plane will go through.
+                    min_gap += 0.5 if e.key == pygame.K_EQUALS else -0.5
+                    min_gap = min(20.0, max(0.5, min_gap))
+                    gen = resolve(g, start, goal, ring_max, min_gap)
                     nodes, paths, rays, done = [], [], 0, False
                 elif e.key in (pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET):
                     # THE MAX RING SIZE, 0.5 to 5.0 by 0.5 - the owner's
@@ -599,7 +661,7 @@ def main():
                     stepv = 0.5 if ring_max < 5.0 else 2.5
                     ring_max += stepv if e.key == pygame.K_RIGHTBRACKET else -stepv
                     ring_max = min(RING_SETTING_MAX, max(RING_SETTING_MIN, ring_max))
-                    gen = resolve(g, start, goal, ring_max)
+                    gen = resolve(g, start, goal, ring_max, min_gap)
                     nodes, paths, rays, done = [], [], 0, False
 
         if not done and not paused:
@@ -659,9 +721,9 @@ def main():
             screen.blit(tag, (px_ + 14, pz_ - 8))
 
         msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
-               f"   ring max {ring_max:.1f} m   bearing {bearing:+.0f} deg"
+               f"   ring {ring_max:.1f} m   min gap {min_gap:.1f} m   bearing {bearing:+.0f} deg"
                f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
-               f"    wheel zoom  drag pan  [f] fit  [ ] ring  [space] pause  [r] restart  [tab] swap  [q] quit")
+               f"    wheel zoom  drag pan  [f] fit  [ ] ring  - = gap  [space] pause  [r] restart  [tab] swap  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
         pygame.display.flip()
         pygame.time.wait(16 if (done or paused) else delay)
