@@ -1581,7 +1581,16 @@ def catalogue(g, start, goal, max_routes=8, cell_m=1.37):
     g["used"] = None
     out = []
     for _ in range(max_routes):
-        raw = astar_route(g, start, goal, cell_m)
+        # LAZY THETA*, then a string-pull to drop the collinear runs it leaves.
+        # Measured against plain A* + string-pull on this map: 1.4 to 2.0%
+        # shorter for two to three times the time. The catalogue is baked once
+        # and held in memory, so a fraction of a second is worth nothing and
+        # twenty metres over eight hundred is worth having in a race.
+        #
+        #   A* + string-pull      829.3 / 826.2 m,  7 / 10 pts, 0.3 s
+        #   Lazy Theta*           812.6 / 814.6 m, 19 / 16 pts, 0.6 / 0.9 s
+        #   Lazy Theta* + pull    812.2 / 814.4 m, 13 / 11 pts, same
+        raw = theta_route(g, start, goal, cell_m)
         if raw is None:
             break
         out.append(thin(g, raw, cell_m))
@@ -1590,3 +1599,132 @@ def catalogue(g, start, goal, max_routes=8, cell_m=1.37):
     for k in [k for k in list(g.keys()) if k.startswith("coarse_")]:
         del g[k]
     return out
+
+
+# --------------------------------------------------------------------------
+# ANY-ANGLE: Lazy Theta*
+# --------------------------------------------------------------------------
+#
+# Path Studio's recommendation, and the published answer for a grid we can see
+# all of: Theta* (Nash, Daniel, Koenig, Felner, JAIR 2010) is A* whose parent
+# pointer skips to the furthest ancestor still in line of sight, so the path
+# comes out taut through the corners instead of zig-zagging along grid edges.
+# Lazy Theta* (AAAI 2010) defers the sight check to expansion, one per vertex
+# rather than one per neighbour.
+#
+# Worth measuring against A*-then-string-pull rather than assuming, because the
+# two are supposed to land in nearly the same place and one of them is already
+# built.
+
+def _los(blocked, r0, c0, r1, c1):
+    """Line of sight between two cells, refusing to slip through a corner."""
+    n = blocked.shape[0]
+    dr, dc = abs(r1 - r0), abs(c1 - c0)
+    sr = 1 if r1 > r0 else -1
+    sc = 1 if c1 > c0 else -1
+    err = dr - dc
+    r, c = r0, c0
+    while True:
+        if not (0 <= r < n and 0 <= c < n) or blocked[r, c]:
+            return False
+        if r == r1 and c == c1:
+            return True
+        e2 = 2 * err
+        mr = mc = False
+        if e2 > -dc:
+            err -= dc
+            r += sr
+            mr = True
+        if e2 < dr:
+            err += dr
+            c += sc
+            mc = True
+        if mr and mc:
+            # A diagonal that clips two solids meeting at a corner is not a
+            # line of sight - the tank does not fit through the corner even
+            # though the line does.
+            if blocked[r - sr, c] or blocked[r, c - sc]:
+                return False
+
+
+def theta_route(g, start, goal, cell_m=1.37):
+    """Lazy Theta* on the coarse grid. Returns the taut world polyline."""
+    import heapq
+    blocked, f = coarse_grid(g, cell_m)
+    n = blocked.shape[0]
+    span = g["wx1"] - g["wx0"]
+
+    def to_cell(x, z):
+        return (int((g["wz1"] - z) / span * g["W"]) // f,
+                int((x - g["wx0"]) / span * g["W"]) // f)
+
+    def to_world(rc):
+        return (g["wx0"] + (rc[1] + 0.5) * f * g["texel_m"],
+                g["wz1"] - (rc[0] + 0.5) * f * g["texel_m"])
+
+    def nearest_free(cell):
+        if 0 <= cell[0] < n and 0 <= cell[1] < n and not blocked[cell]:
+            return cell
+        for rad in range(1, 60):
+            for dr in range(-rad, rad + 1):
+                for dc in (-rad, rad) if abs(dr) < rad else range(-rad, rad + 1):
+                    r, c = cell[0] + dr, cell[1] + dc
+                    if 0 <= r < n and 0 <= c < n and not blocked[r, c]:
+                        return (r, c)
+        return None
+
+    s, t = nearest_free(to_cell(*start)), nearest_free(to_cell(*goal))
+    if s is None or t is None:
+        return None
+
+    def dist(a, b):
+        return np.hypot(a[0] - b[0], a[1] - b[1])
+
+    parent = {s: s}
+    gsc = {s: 0.0}
+    open_h = [(dist(s, t), s)]
+    closed = set()
+    while open_h:
+        _f, cur = heapq.heappop(open_h)
+        if cur in closed:
+            continue
+        # LAZY: the parent was assumed visible when this was pushed. Check it
+        # now, once, and if it was wrong fall back to the best neighbour that
+        # really is closed and adjacent.
+        p = parent[cur]
+        if p != cur and not _los(blocked, p[0], p[1], cur[0], cur[1]):
+            best, bg = None, 1e18
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    nb = (cur[0] + dr, cur[1] + dc)
+                    if nb in closed and gsc[nb] + dist(nb, cur) < bg:
+                        best, bg = nb, gsc[nb] + dist(nb, cur)
+            if best is None:
+                continue
+            parent[cur], gsc[cur] = best, bg
+        closed.add(cur)
+        if cur == t:
+            out, k = [], cur
+            while parent[k] != k:
+                out.append(to_world(k))
+                k = parent[k]
+            out.append(to_world(k))
+            out.reverse()
+            return out
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nb = (cur[0] + dr, cur[1] + dc)
+                if not (0 <= nb[0] < n and 0 <= nb[1] < n) or blocked[nb]:
+                    continue
+                if dr and dc and (blocked[cur[0], nb[1]] or blocked[nb[0], cur[1]]):
+                    continue
+                if nb in closed:
+                    continue
+                pc = parent[cur]
+                ng = gsc[pc] + dist(pc, nb)
+                if ng < gsc.get(nb, 1e18):
+                    gsc[nb], parent[nb] = ng, pc
+                    heapq.heappush(open_h, (ng + dist(nb, t), nb))
+    return None

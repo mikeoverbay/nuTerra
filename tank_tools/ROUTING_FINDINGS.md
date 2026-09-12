@@ -71,6 +71,49 @@ Two traps already paid for, do not re-enter them:
   costs. A mismatched heuristic is not a slower A*, it is Dijkstra wearing
   a hat - 466,229 expansions on this map once already.
 
+## Which planner: measured, not argued
+
+Path Studio's recommendation was Theta* (Nash, Daniel, Koenig, Felner,
+JAIR 2010) - A* whose parent pointer skips to the furthest ancestor still in
+line of sight, so the path is taut through corners instead of zig-zagging on
+grid edges - with the note that grid A* plus a string-pull gets most of the
+way there. Both were built and run:
+
+| | length 1->2 / 2->1 | points | time |
+|---|---|---|---|
+| A* + string-pull   | 829.3 / 826.2 m | 7 / 10 | 0.3 s |
+| Lazy Theta*        | 812.6 / 814.6 m | 19 / 16 | 0.6 / 0.9 s |
+| Lazy Theta* + pull | 812.2 / 814.4 m | 13 / 11 | same |
+
+Their prediction held: the string-pull alone lands within 2% of Theta*. The
+catalogue uses Lazy Theta* + string-pull anyway, because it is baked once at
+startup and then RACED on - a fraction of a second costs nothing there and
+twenty metres in eight hundred is worth having. Plain Theta* on its own is
+NOT the answer: it leaves collinear runs, so it gives more waypoints than the
+cheaper method, and the pull is what fixes that.
+
+The full catalogue, 19_monastery, 0 of 344,557 samples in solid either way:
+eight routes each direction, 812 m to 2,737 m. Asked for twelve and got
+eight BOTH ways - so eight is the map, not a cap. That is the owner's "when
+we cant find a way there, we are done" as an actual proof.
+
+## Plan with the search, drive with the rays
+
+Path Studio's framing, and it is the one that reconciles the measurements
+with the owner's instruction: *the short ray is right for driving and wrong
+for planning, and those are two jobs.* The catalogue is built by search and
+held in memory; the tank then DRIVES that polyline and uses its 3 m rays for
+the local dodge - a shell hole, another tank, something the bake never knew
+about. The rays were never the wrong idea, they were the wrong layer.
+
+Also worth recording, from Path Studio's own instrumentation: on their
+shipped monastery plan their tangent layer fired 0 of 313 moves, and their
+point-to-point walker base-to-base never arrived at all - 438 m short one
+way, 357 m the other. Neither of their bug-walk layers is the workhorse.
+Both TangentBug shapes - their fan silhouette and our expanding ring - come
+from the same 1998 paper (Kamon, Rimon, Rivlin, IJRR 17(9)), and both exist
+because a robot cannot see the map. We can.
+
 ## What is NOT decided
 
 Both resolvers are still in `ray_studio.py` and both still draw. The owner
