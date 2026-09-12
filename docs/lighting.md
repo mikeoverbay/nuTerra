@@ -159,23 +159,55 @@ the game's full `specAmbient`) and at :879 (legacy: a cube tap blended with the
 Phong lobe) — and **never read again**. Only `specular`, the analytic sun lobe,
 reaches `sun_add` and the output.
 
-So general surfaces get **no environment reflection at all** today. What you see
-instead is `ssr.frag`, which marches the frame, plus the separate water path.
+So `specAmbient` still reaches nothing. For **terrain and general surfaces** that
+is the whole story: no environment reflection, and what you see instead is
+`ssr.frag` marching the frame, plus the separate water path.
 
-This is deliberate in its current state, and the reason is worth knowing before
-"fixing" it: **nuTerra's cubemap is not PMREM-encoded.** The game decodes
+### Map MODELS are the exception, since `48c8b096`
+
+With `tank_mat` on - and on the PBR path, and only on models - a **second,
+separate** environment term is built and added straight to `final_color`. It does
+not go through `prefilteredColor`, which is why §4's claim survives around it.
+The model path is the tank shader's own IBL: the mip walked by roughness over
+four levels, the split-sum LUT on `(alphaRoughness, NdotV)`, then weighted
 
 ```
-env = c.rgb * c.rgb * exp2(9 * c.a) * 0.125
+env_w = mix(NdotV * gloss, 1.0, metal)
 ```
 
-from a DXT5 HDR cube. Ours is a plain 8-mip sRGB cube, so the port keeps the
-game's *mip curve* but leaves the *decode* alone - and feeding an undecoded cube
-into the reflection threw colours off badly enough on wet terrain that the whole
-environment term was pulled out of the composite rather than shipped wrong.
+as a DIELECTRIC for a wall - a rough one gets almost none, no grazing flare - but
+at FULL weight for a METAL, because a rough metal with no diffuse left has
+nothing else to show. Occluded by the model's baked AO and scaled by Ambient
+Level and by `tank_env`; not shadowed by the sun, because it is the sky.
 
-**Connecting env specular therefore means fixing the cube first, not the
-shader.** That is the largest single gap between this renderer and the game's.
+`gmm_curve` picks how the gloss/metal map is read: 0 raw bytes, 1 the Tank
+Exporter's curves, 2 the game's (pow 2.2).
+
+### The cube IS PMREM-encoded - this doc said otherwise and was wrong
+
+The cube on disk is the game's `probes/global/pmrem.dds`: DXT5 with the HDR
+exponent in alpha. Monastery's spans alpha 25..255 and decodes to a mean of
+**2.8**, against **0.64** read as sRGB - so reading it as sRGB is a quarter of
+the light, not a neutral simplification. `env_pmrem` selects:
+
+```
+env_pmrem = 1    c.rgb * c.rgb * exp2(9 * c.a) * 0.125     the game's decode
+env_pmrem = 0    SRGBtoLINEAR(c)                            what the tank shader does
+```
+
+The older claim here - "ours is a plain 8-mip sRGB cube, so connecting env
+specular means fixing the cube first" - was a wrong premise under a right
+conclusion. The term had indeed been pulled from the composite after it threw
+colours on wet terrain; the reason given was the encoding, and the encoding was
+never the problem. **The same wrong premise is still in `deferred.frag` at the
+`specAmbient` block**, where the comment says the cube "is not PMREM-encoded".
+That block genuinely does read sRGB, so it describes its own behaviour
+correctly - it is the justification that is false.
+
+**So connecting §4 for general surfaces no longer means fixing the cube.** The
+decode exists and is in use on models. What is left is deciding the weighting for
+surfaces that are not models, and whether `specAmbient` or the model path's shape
+is the one to keep.
 
 ## 5. Ours against the game, term by term
 
@@ -188,8 +220,9 @@ shader.** That is the largest single gap between this renderer and the game's.
 | specular Vis | Smith-Schlick | same, `pbr_spec = 1` only |
 | legacy specular | — | Phong + BRDF LUT on the wrong axes |
 | BRDF LUT axes | `(alphaR, NdotV)` | correct in PBR path, wrong in legacy |
-| environment specular | PMREM × split-sum LUT | **computed, discarded** (§4) |
-| PMREM decode | `rgb² · 2^(9a) / 8` | not applied; plain sRGB cube |
+| environment specular | PMREM × split-sum LUT | **discarded** on general surfaces; a separate term on MODELS under `tank_mat` (§4) |
+| PMREM decode | `rgb² · 2^(9a) / 8` | applied under `env_pmrem = 1`; the cube on disk is the game's `pmrem.dds` |
+| gloss/metal curve | Tank Exporter's | `gmm_curve` 0 raw / 1 exporter / 2 game |
 | reflection occlusion | `env *= min(local/global irradiance, 1)` | not implemented |
 | ambient | always added, scaled by AO only | multiplied by `(1 - direct_light)` |
 | ambient tint | `m_ambientTint`, ambient only | `AMBIENT_SAT` toward probe luminance |
@@ -336,9 +369,12 @@ in the same order.
 
 Ranked by how much they would change the image, largest first:
 
-1. **PMREM-decode the cubemap and connect §4.** General surfaces have no
-   environment reflection at all. This is the biggest visible gap and the
-   shader side of it is already written.
+1. **Connect §4 for general surfaces.** Terrain and non-model geometry still
+   have no environment reflection; models got one under `tank_mat` in
+   `48c8b096`. The decode is no longer the blocker - `env_pmrem` applies the
+   game's, and the cube on disk is the game's `pmrem.dds`. What is left is the
+   weighting for surfaces that are not models, and whether to keep
+   `specAmbient` or the model path's shape.
 2. **Widen `gColor` to Rgba16f.** Everything downstream clips at 1 today.
 3. **Metal energy conservation in the diffuse** - one multiply, and metals stop
    reading as bright plastic.
