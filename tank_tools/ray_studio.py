@@ -1409,18 +1409,39 @@ def main():
         map_ox, map_oy, w = map_rect()
         screen.fill((10, 10, 12))
 
-        # Only the visible slice is scaled up, and with NEAREST rather than
-        # smooth: this is a picture of CELLS and the question asked of it is
-        # whether a ray fits through a gap. Blurred, that is unanswerable at
-        # exactly the moment it matters.
-        ix, iz = int(view_cx), int(view_cz)
-        iw = max(1, int(round(view_cells)))
-        ix = max(0, min(N - 1, ix))
-        iz = max(0, min(N - 1, iz))
-        iw = min(iw, N - max(ix, iz)) if max(ix, iz) + iw > N else iw
-        iw = max(1, iw)
-        slice_ = surf.subsurface(pygame.Rect(ix, iz, iw, iw))
-        screen.blit(pygame.transform.scale(slice_, (w, w)), (map_ox, map_oy))
+        # THE MAP AND THE OVERLAYS MUST USE ONE MAPPING.
+        #
+        # They did not. The map was blitted from an integer cell slice that was
+        # CLAMPED to the surface, while every overlay was placed by to_px()
+        # from the unclamped FLOAT view. Any zoom that is not a whole number of
+        # cells, and any pan that runs off an edge, made those two disagree -
+        # so the paths slid off the ground they describe. It looked fine while
+        # the tree was plotting only because the view was following the current
+        # point and being recomputed every frame; the moment it halted and the
+        # owner zoomed, the drift showed.
+        #
+        # Now the destination rectangle is DERIVED from the same view numbers
+        # to_px uses, so the two cannot drift apart by construction. The source
+        # is the integer cell box that CONTAINS the view, clipped to the
+        # surface; where the map does not fill the frame, the background shows
+        # through rather than the picture being stretched to cover it.
+        cx0 = max(0, int(np.floor(view_cx)))
+        cz0 = max(0, int(np.floor(view_cz)))
+        cx1 = min(N, int(np.ceil(view_cx + view_cells)))
+        cz1 = min(N, int(np.ceil(view_cz + view_cells)))
+        if cx1 > cx0 and cz1 > cz0:
+            src = surf.subsurface(pygame.Rect(cx0, cz0, cx1 - cx0, cz1 - cz0))
+            dx0 = map_ox + (cx0 - view_cx) / view_cells * w
+            dz0 = map_oy + (cz0 - view_cz) / view_cells * w
+            dw = max(1, int(round((cx1 - cx0) / view_cells * w)))
+            dh = max(1, int(round((cz1 - cz0) / view_cells * w)))
+            screen.blit(pygame.transform.scale(src, (dw, dh)),
+                        (int(round(dx0)), int(round(dz0))))
+
+        # AND NOTHING DRAWN ON THE MAP MAY SPILL INTO THE PANELS. Zoomed in,
+        # a ring or a route runs far outside the frame; without a clip it was
+        # painting over the controls and the readouts.
+        screen.set_clip(pygame.Rect(map_ox, map_oy, w, w))
 
         # Which rays ended up on a path, so the dead ends can be told from the
         # ones that led somewhere.
@@ -1634,6 +1655,8 @@ def main():
                                max(4, int(50.0 / (g["wx1"] - g["wx0"]) * w)), 2)
             tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
             screen.blit(tag, (px_ + 14, pz_ - 8))
+
+        screen.set_clip(None)
 
         # ------------------------------------------------------------------
         # THE PANELS. Controls left, readouts right, map between.
