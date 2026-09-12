@@ -303,6 +303,117 @@ Public Class TankRoutes
         Return True
     End Function
 
+    ''' <summary>
+    ''' The catalogue as a picture, because a route is a shape and a log line
+    ''' is not.
+    '''
+    ''' One pixel a cell. The grid underneath in the same colours the nav dump
+    ''' uses so the two can be held side by side, dimmed so the routes read on
+    ''' top of it. Each catalogue draws its routes in its own hue, brightest
+    ''' first, with the waypoints the driver actually steers at marked - those
+    ''' are the thing being argued about, and their spacing IS the thinning.
+    ''' </summary>
+    Public Shared Sub DumpCatalogues(nav As TankNav, map As String,
+                                     cats() As TankRoutes, names() As String)
+        If nav Is Nothing OrElse Not nav.ready Then Return
+        Try
+            Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "tanks")
+            IO.Directory.CreateDirectory(dir)
+            Dim path = IO.Path.Combine(dir, map & "_routes.png")
+            Dim N = TankNav.SIZE
+
+            Using bmp As New Drawing.Bitmap(N, N, Drawing.Imaging.PixelFormat.Format24bppRgb)
+                Dim d = bmp.LockBits(New Drawing.Rectangle(0, 0, N, N),
+                                     Drawing.Imaging.ImageLockMode.WriteOnly,
+                                     Drawing.Imaging.PixelFormat.Format24bppRgb)
+                Dim stride = d.Stride
+                Dim px(stride * N - 1) As Byte
+                For r = 0 To N - 1
+                    For c = 0 To N - 1
+                        Dim f = nav.cell(r * N + c)
+                        Dim rr As Byte = 18, gg As Byte = 40, bb As Byte = 22   ' open
+                        If (f And TankNav.IMPASSABLE) <> 0 Then
+                            If (f And TankNav.OFFMAP) <> 0 Then
+                                rr = 8 : gg = 8 : bb = 10
+                            ElseIf (f And TankNav.WATER) <> 0 Then
+                                rr = 16 : gg = 34 : bb = 70
+                            ElseIf (f And TankNav.TRUNK) <> 0 Then
+                                rr = 52 : gg = 34 : bb = 18
+                            ElseIf (f And TankNav.STEEP) <> 0 Then
+                                rr = 70 : gg = 66 : bb = 26
+                            Else
+                                rr = 74 : gg = 34 : bb = 22                     ' blocked
+                            End If
+                        End If
+                        Dim o = r * stride + c * 3
+                        px(o) = bb : px(o + 1) = gg : px(o + 2) = rr            ' BGR
+                    Next
+                Next
+                Runtime.InteropServices.Marshal.Copy(px, 0, d.Scan0, px.Length)
+                bmp.UnlockBits(d)
+
+                Using gfx = Drawing.Graphics.FromImage(bmp)
+                    gfx.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+                    For ci = 0 To cats.Length - 1
+                        Dim cat = cats(ci)
+                        If cat Is Nothing OrElse Not cat.ready Then Continue For
+                        For ri = 0 To cat.routes.Count - 1
+                            ' Brightest for route 0 - the one a planner would
+                            ' take first - so the picture says which is the
+                            ' short way and which is the long way round.
+                            Dim fade = 1.0F - 0.45F * Math.Min(ri, 2) / 2.0F
+                            Dim col = If(ci = 0,
+                                Drawing.Color.FromArgb(255, CInt(90 * fade), CInt(240 * fade), CInt(120 * fade)),
+                                Drawing.Color.FromArgb(255, CInt(255 * fade), CInt(110 * fade), CInt(90 * fade)))
+                            Dim cells = cat.routes(ri).cells
+                            Using pen As New Drawing.Pen(col, 1.6F)
+                                For i = 1 To cells.Length - 1
+                                    gfx.DrawLine(pen,
+                                        cells(i - 1) Mod N, cells(i - 1) \ N,
+                                        cells(i) Mod N, cells(i) \ N)
+                                Next
+                            End Using
+
+                            ' The waypoints the driver steers at. Their spacing
+                            ' is the thinning, drawn rather than described.
+                            Dim wp = cat.Waypoints(nav, ri, TankDriveTune.HULL_R + THIN_SLACK_M)
+                            Using dot As New Drawing.SolidBrush(Drawing.Color.FromArgb(230, 255, 255, 255))
+                                For Each w In wp
+                                    Dim cx As Integer, cz As Integer
+                                    nav.CellOf(w.X, w.Y, cx, cz)
+                                    gfx.FillRectangle(dot, cx - 1, cz - 1, 3, 3)
+                                Next
+                            End Using
+                        Next
+                    Next
+
+                    ' The bases last so nothing is drawn over them.
+                    If map_scene.BASE_RINGS_LOADED Then
+                        DrawBase(gfx, nav, -TEAM_1.X, TEAM_1.Z, Drawing.Color.Lime)
+                        DrawBase(gfx, nav, -TEAM_2.X, TEAM_2.Z, Drawing.Color.OrangeRed)
+                    End If
+                End Using
+
+                bmp.Save(path, Drawing.Imaging.ImageFormat.Png)
+            End Using
+            LogThis("tank routes: wrote {0}", path)
+        Catch ex As Exception
+            LogThis("tank routes: could not write png - {0}", ex.Message)
+        End Try
+    End Sub
+
+    Private Shared Sub DrawBase(gfx As Drawing.Graphics, nav As TankNav,
+                                wx As Single, wz As Single, col As Drawing.Color)
+        Dim cx As Integer, cz As Integer
+        nav.CellOf(wx, wz, cx, cz)
+        Dim r = 50.0F / Math.Max(nav.cell_m, 0.001F)     ' the 50 m base ring
+        Using pen As New Drawing.Pen(col, 2.0F)
+            gfx.DrawEllipse(pen, cx - r, cz - r, r * 2.0F, r * 2.0F)
+            gfx.DrawLine(pen, cx - 6, cz, cx + 6, cz)
+            gfx.DrawLine(pen, cx, cz - 6, cx, cz + 6)
+        End Using
+    End Sub
+
     Private Shared Function NearCell(ax As Integer, az As Integer,
                                      bx As Integer, bz As Integer,
                                      r2 As Single) As Boolean

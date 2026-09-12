@@ -115,42 +115,7 @@ Public Class MapTanks
                     MAP_NAME_NO_PATH & "_nav.png"))
             End If
 
-            ' THEN THE CATALOGUE. Its own Try: the routes are a
-            ' convenience and the driver works from nav alone, so a fault here
-            ' must never take the vehicle load down with it. It did once -
-            ' thirty tanks silently absent behind one "tank: load failed" line -
-            ' which is far too much to pay for something nobody had asked for
-            ' yet.
-            Try
-                If map_scene.BASE_RINGS_LOADED Then
-                    ' TEAM_1 / TEAM_2 are the ctf base centres, stored RAW:
-                    ' negate X, take Z straight, the same conversion the spawn
-                    ' placement does above with -spawns(k).X / spawns(k).Z.
-                    '
-                    ' BASE_RINGS_LOADED, not TEAM_1 against zero - it is the
-                    ' return value of the function that fills them, and those
-                    ' markers used to carry across map loads, so a map with no
-                    ' ctf bases kept whatever the last one had.
-                    Dim b1x = -TEAM_1.X, b1z = TEAM_1.Z
-                    Dim b2x = -TEAM_2.X, b2z = TEAM_2.Z
-
-                    ' Logged in the WORLD frame so it can be held against the
-                    ' arena line the loader prints. Two readings that disagree
-                    ' by exactly a sign are each internally consistent, and only
-                    ' a shared number finds it.
-                    LogThis("tank routes: bases, world frame - team1 ({0:0.0}, {1:0.0}) team2 ({2:0.0}, {3:0.0})",
-                            b1x, b1z, b2x, b2z)
-
-                    cat_team1.Build(nav, TankDriveTune.HULL_R, b1x, b1z, b2x, b2z,
-                                    "team 1 -> team 2 base")
-                    cat_team2.Build(nav, TankDriveTune.HULL_R, b2x, b2z, b1x, b1z,
-                                    "team 2 -> team 1 base")
-                Else
-                    LogThis("tank routes: this map declares no ctf bases - no catalogue")
-                End If
-            Catch ex As Exception
-                LogThis("tank routes: build failed, carrying on without it - {0}", ex.ToString())
-            End Try
+            BuildCatalogues()
 
 
 
@@ -1409,6 +1374,110 @@ Public Class MapTanks
     ''' one shell at a time and charges more for each; a plain gun is the
     ''' same thing with a magazine of one.
     ''' </summary>
+
+    ''' <summary>
+    ''' Rebuild the navigation grid, both route catalogues and every hull's
+    ''' route - WITHOUT reloading the map or the vehicles.
+    '''
+    ''' HOT, because routing is the kind of thing you have to WATCH to judge. A
+    ''' full map load is tens of seconds and loses the fleet's positions, so
+    ''' iterating on a route rule by restarting means never seeing the same
+    ''' situation twice. This re-cuts the grid from the bake already on the
+    ''' card, re-runs both catalogues and re-hands the corridors - about 800 ms
+    ''' - and the tanks carry on from where they stand.
+    '''
+    ''' The owner's ask: "wire this in to nuTerra with a way to rebuild hot.
+    ''' You could test and I could watch."
+    '''
+    ''' Each hull is put back to the START of its route rather than the nearest
+    ''' point on it. Dropping a tank onto the middle of a freshly cut path is
+    ''' how you get one driving at a waypoint behind a wall it has already
+    ''' passed; starting over is honest, and over 855 m the difference is a few
+    ''' seconds of watching.
+    ''' </summary>
+    Public Sub RebuildRoutes()
+        If Not loaded Then
+            LogThis("tank routes: nothing loaded to rebuild")
+            Return
+        End If
+        Dim t0 = Date.UtcNow
+        Try
+            nav.Build(map_scene.flight_bake, MAP_NAME_NO_PATH)
+            BuildCatalogues()
+            HandOutRoutes()
+            LogThis("tank routes: hot rebuild in {0:0} ms",
+                    (Date.UtcNow - t0).TotalMilliseconds)
+        Catch ex As Exception
+            LogThis("tank routes: hot rebuild failed - {0}", ex.ToString())
+        End Try
+    End Sub
+
+    ''' <summary>Give every hull the corridor for its side and put it back to
+    ''' the start of it. Slot order within a team decides which route, so two a
+    ''' side go in by different ways.</summary>
+    Private Sub HandOutRoutes()
+        Dim slot1 = 0, slot2 = 0
+        For Each inst In instances
+            Dim green = (inst.team = TankTeam.Green)
+            Dim cat = If(green, cat_team1, cat_team2)
+            Dim k = If(green, slot1, slot2)
+            If green Then slot1 += 1 Else slot2 += 1
+            inst.drive.pathAt = 0
+            inst.drive.arrived = False
+            inst.drive.hasGoal = False
+            If cat.ready AndAlso cat.routes.Count > 0 Then
+                inst.drive.path = cat.Waypoints(nav, k Mod cat.routes.Count,
+                                                TankDriveTune.HULL_R + TankRoutes.THIN_SLACK_M)
+            Else
+                inst.drive.path = Nothing
+            End If
+        Next
+    End Sub
+
+    ''' <summary>Both sides' catalogues and the picture. Shared by the load and
+    ''' by the hot rebuild, so the two can never drift apart.</summary>
+    Private Sub BuildCatalogues()
+        ' THE CATALOGUE. Its own Try: the routes are a
+        ' convenience and the driver works from nav alone, so a fault here
+        ' must never take the vehicle load down with it. It did once -
+        ' thirty tanks silently absent behind one "tank: load failed" line -
+        ' which is far too much to pay for something nobody had asked for
+        ' yet.
+        Try
+            If map_scene.BASE_RINGS_LOADED Then
+                ' TEAM_1 / TEAM_2 are the ctf base centres, stored RAW:
+                ' negate X, take Z straight, the same conversion the spawn
+                ' placement does above with -spawns(k).X / spawns(k).Z.
+                '
+                ' BASE_RINGS_LOADED, not TEAM_1 against zero - it is the
+                ' return value of the function that fills them, and those
+                ' markers used to carry across map loads, so a map with no
+                ' ctf bases kept whatever the last one had.
+                Dim b1x = -TEAM_1.X, b1z = TEAM_1.Z
+                Dim b2x = -TEAM_2.X, b2z = TEAM_2.Z
+
+                ' Logged in the WORLD frame so it can be held against the
+                ' arena line the loader prints. Two readings that disagree
+                ' by exactly a sign are each internally consistent, and only
+                ' a shared number finds it.
+                LogThis("tank routes: bases, world frame - team1 ({0:0.0}, {1:0.0}) team2 ({2:0.0}, {3:0.0})",
+                        b1x, b1z, b2x, b2z)
+
+                cat_team1.Build(nav, TankDriveTune.HULL_R, b1x, b1z, b2x, b2z,
+                                "team 1 -> team 2 base")
+                cat_team2.Build(nav, TankDriveTune.HULL_R, b2x, b2z, b1x, b1z,
+                                "team 2 -> team 1 base")
+                TankRoutes.DumpCatalogues(nav, MAP_NAME_NO_PATH,
+                                          {cat_team1, cat_team2},
+                                          {"team 1", "team 2"})
+            Else
+                LogThis("tank routes: this map declares no ctf bases - no catalogue")
+            End If
+        Catch ex As Exception
+            LogThis("tank routes: build failed, carrying on without it - {0}", ex.ToString())
+        End Try
+    End Sub
+
     Private Sub advance_reload(inst As TankInstance)
         Dim v = inst.vehicle
         inst.sinceShotS += ANIM_DELTA
