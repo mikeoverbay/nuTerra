@@ -1076,7 +1076,29 @@ def main():
     # two legends over the terrain, and every control a keystroke you had to
     # already know. The map is the thing being looked at and it was the thing
     # being covered up.
-    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    # WINDOWED, FILLING THE SCREEN - not exclusive fullscreen. Exclusive takes
+    # the display over, hides the title bar and makes alt-tabbing a fight, and
+    # this is a tool that gets watched ALONGSIDE nuTerra rather than instead of
+    # it. So: a normal resizable window, sized to the desktop WORK AREA, which
+    # is the screen minus the taskbar - asked of Windows rather than guessed at
+    # with a magic offset.
+    os.environ.setdefault("SDL_VIDEO_WINDOW_POS", "0,0")
+    try:
+        import ctypes
+        import ctypes.wintypes          # a bare `import ctypes` does NOT bring
+                                        # this in, and without it the work-area
+                                        # query silently fell back to a guess
+        r = ctypes.wintypes.RECT()
+        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(r), 0)
+        win_w, win_h = r.right - r.left, r.bottom - r.top
+    except Exception:
+        try:
+            win_w, win_h = pygame.display.get_desktop_sizes()[0]
+            win_h -= 70
+        except Exception:
+            win_w, win_h = 1600, 900
+    screen = pygame.display.set_mode((max(900, win_w), max(600, win_h)),
+                                     pygame.RESIZABLE)
     LEFT_W, RIGHT_W = 250, 330
     PANEL_BG, PANEL_LINE = (24, 26, 32), (58, 62, 72)
     pygame.display.set_caption(f"Ray Studio - {map_name} - [Tank AI work]")
@@ -1190,6 +1212,9 @@ def main():
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
+            elif e.type == pygame.VIDEORESIZE:
+                screen = pygame.display.set_mode((max(900, e.w), max(600, e.h)),
+                                                 pygame.RESIZABLE)
             elif e.type == pygame.MOUSEWHEEL:
                 # ZOOM TO THE CURSOR: the cell under the mouse must not move.
                 # Work out which cell that is, change the zoom, then put the
