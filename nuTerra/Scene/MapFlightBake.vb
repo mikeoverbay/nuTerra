@@ -168,9 +168,41 @@ Public Class MapFlightBake
     '''
     ''' Eight keys at most, agreed with Path Studio, who colours them.
     ''' </summary>
+    ''' <summary>
+    ''' Every name kind_of was asked about, and what it answered. Only collected
+    ''' under `kinddump`, because it is a dictionary per map load otherwise.
+    '''
+    ''' It exists because the kind NAMES read as though they were derived from
+    ''' something - "rock", "building" - when they are the winner of a substring
+    ''' race over whatever string the model handed over. Anyone deciding what a
+    ''' tank collides with should read the names that landed in a bin rather than
+    ''' the name OF the bin.
+    ''' </summary>
+    Public Shared kind_seen As Dictionary(Of String, Byte)
+
+    Public Shared ReadOnly KIND_DUMP_SYNC As New Object
+
     Public Shared Function kind_of(path As String) As Byte
         If String.IsNullOrEmpty(path) Then Return KIND_OTHER
-        Dim p = path.Replace("\\", "/").ToLowerInvariant()
+        Dim answer = classify(path.Replace("\\", "/").ToLowerInvariant())
+
+        If KIND_DUMP Then
+            SyncLock KIND_DUMP_SYNC
+                If kind_seen Is Nothing Then kind_seen = New Dictionary(Of String, Byte)
+                kind_seen(path) = answer
+            End SyncLock
+        End If
+        Return answer
+    End Function
+
+    ''' <summary>
+    ''' The substring race itself. FIRST MATCH WINS AND THE ORDER IS LOAD-BEARING:
+    ''' rock is tested before building, so anything with "stone" in its name is a
+    ''' rock even when it is a house. Not a defect to fix blind - the order has
+    ''' been tuned against real maps - but it is why a kind name cannot be taken
+    ''' at face value.
+    ''' </summary>
+    Private Shared Function classify(p As String) As Byte
 
         If has(p, "fence", "zabor", "ograda", "rail", "hedge",
                "gate", "wire", "palisade") Then Return KIND_FENCE
@@ -182,6 +214,45 @@ Public Class MapFlightBake
                "misc", "barrel", "crate") Then Return KIND_PROP
         Return KIND_OTHER
     End Function
+
+    ''' <summary>
+    ''' Write what each name was classified as, beside the bake. Runs on the
+    ''' loaded path too - the classifier runs while MODELS load, which happens
+    ''' whether or not the bake itself was rebuilt.
+    ''' </summary>
+    Private Sub dump_kinds()
+        Try
+            Dim rows As New List(Of String)
+            Dim tally(7) As Integer
+            SyncLock KIND_DUMP_SYNC
+                If kind_seen Is Nothing Then Return
+                For Each kv In kind_seen
+                    Dim k = kv.Value And KIND_MASK
+                    tally(k) += 1
+                    rows.Add(String.Format("{0},{1},{2}", KIND_NAMES(k), k,
+                                           kv.Key.Replace(","c, "_"c)))
+                Next
+            End SyncLock
+            rows.Sort()
+
+            Dim path = bake_stem() & "_kinds.csv"
+            Dim sb As New Text.StringBuilder()
+            sb.AppendLine("kind,key,name")
+            For Each r In rows
+                sb.AppendLine(r)
+            Next
+            IO.File.WriteAllText(path, sb.ToString())
+
+            Dim parts As New List(Of String)
+            For k = 0 To 7
+                If tally(k) > 0 Then parts.Add(String.Format("{0} {1}", KIND_NAMES(k), tally(k)))
+            Next
+            LogThis("kind dump: {0} distinct name(s) - {1} - written to {2}",
+                    rows.Count, String.Join(", ", parts), path)
+        Catch ex As Exception
+            LogThis("kind dump: failed - {0}", ex.Message)
+        End Try
+    End Sub
 
     Private Shared Function has(p As String, ParamArray keys() As String) As Boolean
         For Each k In keys
@@ -282,6 +353,8 @@ Public Class MapFlightBake
             LogThis("flight bake: map extent is zero - skipped")
             Return
         End If
+
+        If KIND_DUMP Then dump_kinds()
 
         ' Straight down from clear above everything. For an orthographic
         ' projection the eye height changes no framing at all, only what near and
