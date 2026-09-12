@@ -197,6 +197,7 @@ def build_grid(map_name, hull_r_m):
                 collide_hull=collide_hull, used=None,
                 kind=kind, trunk=(key & TRUNK_BIT).astype(bool),
                 solid=solid, ids=ids, id_names=id_names, palette=palette,
+                map_name=map_name,
                 floor=fl16, hscale=scale,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
@@ -1178,6 +1179,10 @@ def main():
     # and can be dragged and zoomed while the search is crawling.
     steps_per_frame = 1
     step_delay_ms = 0
+    # HOW MUCH GROUND A FINISHED ROUTE CLOSES BEHIND IT, in squares, 1 to 5.
+    # A square is a metre, so 1 blocks a 3x3 - about a hull - and 5 blocks an
+    # 11x11, which is a corridor.
+    block_radius = 1
     last_step_ms = 0
     slider_rects = {}             # name -> (rect, lo, hi) from the last frame
     active_slider = None
@@ -1365,12 +1370,18 @@ def main():
                     astar_msg = "landmark now %.0f m2 - press [a] to re-class"                                 % landmark_m2
                 elif e.key == pygame.K_m:
                     show_marks = not show_marks
+                elif e.key in (pygame.K_1, pygame.K_2, pygame.K_3,
+                               pygame.K_4, pygame.K_5):
+                    block_radius = e.key - pygame.K_0
+                    if tree is not None:
+                        tree.block_radius = block_radius
                 elif e.key == pygame.K_b:
                     # THE BRANCH TREE. Every angle at every point, exhaustive,
                     # and drawn as it goes - the owner has been blind to this
                     # search while it was being tuned headless, which is the
                     # one thing he asked not to happen.
                     tree = BranchTree(g, start, goal, ring_max, min_gap)
+                    tree.block_radius = block_radius
                     tree_msg = "branch tree: running"
                 elif e.key == pygame.K_v:
                     base_mode = (base_mode + 1) % 3
@@ -1842,6 +1853,26 @@ def main():
         y = slider(LX, y, LW, "steps", "Steps per frame", steps_per_frame, 1, 64)
         y = slider(LX, y, LW, "delay", "Frame delay", step_delay_ms, 0, 50,
                    "%d ms")
+        # THE BLOCK RADIUS, as five buttons rather than a cycling one: the
+        # whole set is visible and the chosen one is lit, so it reads as the
+        # dropdown the owner asked for instead of a number you have to click
+        # through to see.
+        screen.blit(font.render("Block radius (squares)", True, (200, 205, 215)),
+                    (LX, y))
+        y += 18
+        bw = (LW - 16) // 5
+        for k in range(1, 6):
+            rb = pygame.Rect(LX + (k - 1) * (bw + 4), y, bw, 22)
+            on = (block_radius == k)
+            hov = rb.collidepoint(pygame.mouse.get_pos())
+            pygame.draw.rect(screen, (62, 96, 66) if on else
+                             ((52, 56, 66) if hov else (38, 41, 49)), rb,
+                             border_radius=3)
+            pygame.draw.rect(screen, PANEL_LINE, rb, 1, border_radius=3)
+            screen.blit(font.render(str(k), True, (235, 240, 248)),
+                        (rb.x + bw // 2 - 4, rb.y + 3))
+            buttons.append((rb, str(k), pygame.K_0 + k, on))
+        y += 30
         y += 4
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
@@ -1883,6 +1914,12 @@ def main():
             ry = readout(RX, ry, "items hit", "%d" % seen_i)
             ry = readout(RX, ry, "  one hand won", "%d" % half_i, (90, 230, 235))
             ry = readout(RX, ry, "  fully USED", "%d" % used_i, (235, 110, 235))
+            if tree.squares is not None:
+                ry = readout(RX, ry, "squares blocked", "%d" % tree.squares.driven,
+                             (255, 190, 120))
+                ry = readout(RX, ry, "block radius", "%d sq" % tree.block_radius)
+            else:
+                ry = readout(RX, ry, "square map", "NOT FOUND", (255, 150, 150))
             if tree.halted:
                 ry += 4
                 for line in ("*** PATH COMPLETE ***", "inside the base ring"):
@@ -2902,6 +2939,81 @@ def ring_branch(g, hx, hz, from_xz, indx, indz, obj, max_ring_m, goal,
 
 
 # ==========================================================================
+# THE ONE-METRE SQUARES
+# ==========================================================================
+#
+# The owner's design, built by nuTerra (nuTerra/Tanks/TankSquares.vb) and read
+# here straight off disk. A flat byte per square: 1 solid, 0 open.
+#
+#   "fit squares 1m apart... divide and round our position in xz and use that
+#    to find the [1 m] cube in the map. If its 1 its a collision."
+#
+# Finding your square is arithmetic, not a search - which is the whole reason
+# this replaced the discs that were cut out at aa100c09. Those were maximal
+# free-space circles with a neighbour graph: 770 ms to build, a nearest-disc
+# query to use, and they did not pay.
+#
+# AND IT IS ALSO THE MEMORY OF WHERE WE HAVE DRIVEN. A completed route sets the
+# last square it stood in to 1, so the next search cannot come home the same
+# way. One array answers "is this solid" and "has this been used" with the same
+# byte, which is why a reset RELOADS THE FILE rather than clearing a flag - the
+# pristine copy is on disk and the working copy has been written on.
+
+
+class Squares(object):
+    """The 1 m square map: collision, and where we have already driven."""
+
+    def __init__(self, map_name):
+        base = os.path.join(FLIGHT, map_name + "_squares")
+        meta = read_meta(base + ".txt")
+        self.n = int(meta["n"])
+        self.cell_m = float(meta["cell_m"])
+        self.wx0 = float(meta["wx_min"])
+        self.wz0 = float(meta["wz_min"])
+        self.path = base + ".u8"
+        self.grid = None
+        self.reload()
+
+    def reload(self):
+        """Back to what nuTerra baked. A reset has to do this."""
+        self.grid = np.fromfile(self.path, dtype=np.uint8).reshape(self.n, self.n)
+        self.driven = 0
+
+    def index(self, x, z):
+        """Divide and round. The owner's words, and it is the whole lookup."""
+        return (int((z - self.wz0) / self.cell_m),
+                int((x - self.wx0) / self.cell_m))
+
+    def blocked(self, x, z):
+        r, c = self.index(x, z)
+        if r < 0 or c < 0 or r >= self.n or c >= self.n:
+            return True
+        return self.grid[r, c] != 0
+
+    def mark(self, x, z, rad=1):
+        """Set this square AND its surround to 1.
+
+        "we make all surrounding that block are 1's as well. I want a way to
+        set that. drop down 1 to 5."
+
+        The radius is in squares, and a square is a metre, so rad 1 blocks a
+        3x3 - about a hull - and rad 5 blocks an 11x11, which is a corridor.
+        A single square is too small to close a way home: the next search steps
+        round it without noticing, which is no memory at all.
+        """
+        r, c = self.index(x, z)
+        r0, r1 = max(0, r - rad), min(self.n, r + rad + 1)
+        c0, c1 = max(0, c - rad), min(self.n, c + rad + 1)
+        if r1 <= r0 or c1 <= c0:
+            return 0
+        patch = self.grid[r0:r1, c0:c1]
+        n_new = int((patch == 0).sum())
+        patch[:] = 1
+        self.driven += n_new
+        return n_new
+
+
+# ==========================================================================
 # THE BRANCH TREE - every angle, at every point
 # ==========================================================================
 #
@@ -3030,6 +3142,15 @@ class BranchTree(object):
         self.halt_on_first = True
         self.halted = False
         self.win_chain = []
+        # THE SQUARE MAP, if nuTerra has written one. Optional so a v1 bake or
+        # a map without it still runs, but it is the ground memory the search
+        # was missing and without it the walk circles for ever.
+        try:
+            self.squares = Squares(g["map_name"])
+        except Exception:
+            self.squares = None
+        self.last_square = None      # only the last one. "we dont need a list."
+        self.block_radius = 1        # squares of surround blocked with it, 1..5
         self.casts = 0
         self.exhausted = False
         # The opening bearing is the owner's "start scanning left": the root
@@ -3115,6 +3236,15 @@ class BranchTree(object):
             # The winning point is therefore where the ray ACTUALLY got to,
             # inside the base, rather than the mark itself - which also stops
             # the drawing running a final hop through whatever surrounds it.
+            # THE SQUARE WE LANDED IN. Checked FIRST, before anything else is
+            # asked of this position: if it is already 1 the ground is either
+            # solid or spent, and this ray is dead either way.
+            if self.squares is not None and self.squares.blocked(hx, hz):
+                p["tried"][aid] = TAG_FAIL
+                return "square already 1 on %d at %d" % (aid, p["id"])
+            if self.squares is not None:
+                self.last_square = (hx, hz)
+
             if np.hypot(gx - hx, gz - hz) <= BASE_RING_M:
                 p["tried"][aid] = TAG_PASS
                 win = self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE)
@@ -3136,6 +3266,13 @@ class BranchTree(object):
                     k = self.points[k]["parent"]
                 chain.reverse()
                 self.win_chain = chain
+                # ONE SQUARE PER COMPLETED ROUTE. The last one we stood in
+                # becomes 1, so the next search cannot come home this way and
+                # has to find another. Not a trail - the owner was explicit:
+                # "just save the last zone we where in. we dont need a list."
+                if self.squares is not None and self.last_square is not None:
+                    self.squares.mark(self.last_square[0], self.last_square[1],
+                                      self.block_radius)
                 if self.halt_on_first:
                     self.halted = True
                 return "ARRIVED via %d" % aid

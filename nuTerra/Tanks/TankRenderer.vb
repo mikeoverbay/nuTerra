@@ -127,6 +127,17 @@ Public Class MapTanks
                     MAP_NAME_NO_PATH & "_nav.png"))
             End If
 
+            ' THE ONE-METRE SQUARE MAP, cut from the same bake. It is the tank
+            ' AI's collision test AND its memory of where it has already
+            ' driven, and the resolver reads it straight off disk. Its own Try
+            ' for the same reason the catalogue has one: a fault in something
+            ' nobody asked for must not take the load down with it.
+            Try
+                TankSquares.Build(map_scene.flight_bake, MAP_NAME_NO_PATH)
+            Catch ex As Exception
+                LogThis("tank squares: build failed - {0}", ex.Message)
+            End Try
+
             BuildCatalogues()
 
             ' ROUTES WITHOUT A FLEET. "i dont want the tanks. I want it to run

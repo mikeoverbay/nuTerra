@@ -188,10 +188,19 @@ Public Class TankNav
                         ' genuinely stop a hull, and OTHER is the unidentified
                         ' case - the one to be careful with rather than
                         ' generous toward.
+                        ' AND ONLY WHERE IT IS NOT ALSO SOLID. bake_version 2
+                        ' marks terrain-borne geometry measured with the trees
+                        ' left out, and on monastery 317,776 tree-keyed texels
+                        ' carry it - rock and walls standing UNDER a canopy.
+                        ' Exempting those by kind alone, which is what this did
+                        ' until the bit existed, drives a tank into a cliff.
                         Dim k7 = k And MapFlightBake.KIND_MASK
-                        If k7 <> MapFlightBake.KIND_TREE AndAlso
-                           k7 <> MapFlightBake.KIND_FENCE AndAlso
-                           k7 <> MapFlightBake.KIND_PROP Then
+                        Dim crushable =
+                            (k7 = MapFlightBake.KIND_TREE OrElse
+                             k7 = MapFlightBake.KIND_FENCE OrElse
+                             k7 = MapFlightBake.KIND_PROP) AndAlso
+                            (k And MapFlightBake.SOLID_BIT) = 0
+                        If Not crushable Then
                             If b.top_m(i) - fl > TankNavLimits.MAX_OBSTACLE Then f = f Or BLOCKED
                         End If
                     Next
