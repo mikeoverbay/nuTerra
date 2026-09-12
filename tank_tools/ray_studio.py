@@ -271,6 +271,15 @@ def march(g, x, z, dx, dz, goal, limit, squares=None):
     gx, gz = goal
     tex = g["texel_m"]
     ex, ez = x + dx * limit, z + dz * limit
+    # THE SQUARE YOU ARE STANDING IN CANNOT BLOCK YOU.
+    #
+    # The walk holds the square it occupies, so without this every ray it casts
+    # starts inside a 1: it collides at once, rings, sidesteps half a metre,
+    # holds THAT square and does it again. Measured on a 30 m route, 1,801 of
+    # 1,869 steps were cast from a point whose own square was blocked, and the
+    # result was 21 rings in 30 m - a tangle of sub-metre hooks rather than a
+    # wrap round anything.
+    home_sq = squares.index(x, z) if squares is not None else None
     t_prev = 0.0
     h_prev = None
     for col, row, t in walk_texels(g, x, z, ex, ez):
@@ -289,9 +298,12 @@ def march(g, x, z, dx, dz, goal, limit, squares=None):
         # tangent and goes round, exactly as it would round a building. Killing
         # the ray outright, which is what this did first, throws away the way
         # round instead of looking for it.
-        if blocked_at(g, col, row) or (
-                squares is not None and
-                squares.blocked(x + dx * t, z + dz * t)):
+        sq_hit = False
+        if squares is not None:
+            px_, pz_ = x + dx * t, z + dz * t
+            if squares.index(px_, pz_) != home_sq and squares.blocked(px_, pz_):
+                sq_hit = True
+        if blocked_at(g, col, row) or sq_hit:
             # STOP JUST SHORT OF WHAT WE CANNOT ENTER. Backing off a quarter of
             # a texel keeps the hit point inside the last clear one, which is
             # what the ring is then centred on.
@@ -1529,10 +1541,12 @@ def main():
                         % (len(tree.points), tree.casts, len(tree.paths),
                            len(tree.stack), seen_i, half_i, used_i,
                            "EXHAUSTED, a proof" if tree.exhausted else last))
-            if tree_follow and tree.stack:
-                # CENTRED ON THE POINT BEING WORKED, which is what the owner
-                # asked for the first time he asked to watch this at all.
-                cur = tree.points[tree.stack[-1]]["pos"]
+            if tree_follow:
+                # CENTRED ON THE CURSOR - the end of the ray just cast - not on
+                # the top of the stack. The stack top teleports across the map
+                # every time the search backs up, which is why following looked
+                # broken rather than merely jumpy.
+                cur = tree.cursor
                 cx = (cur[0] - g["wx0"]) / (g["wx1"] - g["wx0"]) * N
                 cz = (g["wz1"] - cur[1]) / (g["wz1"] - g["wz0"]) * N
                 view_cx, view_cz = cx - view_cells * 0.5, cz - view_cells * 0.5
@@ -1832,8 +1846,8 @@ def main():
         if tree is not None:
             if tree.halted and tree.win_chain:
                 cross = tree.win_chain[-1]["pos"]
-            elif tree.stack:
-                cross = tree.points[tree.stack[-1]]["pos"]
+            else:
+                cross = tree.cursor
         if cross is not None:
             qx, qy = to_px(cross[0], cross[1], w)
             pygame.draw.line(screen, (255, 255, 255),
@@ -3045,8 +3059,10 @@ def ring_branch(g, hx, hz, from_xz, indx, indz, obj, max_ring_m, goal,
                 a += RING_ANGLE_STEP
                 if not standable(g, px, pz):
                     continue
-                if squares is not None and squares.blocked(px, pz):
-                    continue          # cannot anchor on ground already spent
+                if squares is not None and squares.blocked(px, pz) and                         squares.index(px, pz) != squares.index(fx, fz):
+                    continue          # cannot anchor on ground already spent,
+                                      # but our own square is not "spent"
+
                 if not clear_line(g, fx, fz, px, pz):
                     continue
                 d2 = max(np.hypot(gx - px, gz - pz), 1e-6)
@@ -3232,21 +3248,52 @@ class Squares(object):
 # the honest measure and hop count is the cheap one. This is the honest one.
 WALK_BUDGET_M = 450.0
 
-ANGLE_STEP_DEG = 6.0                            # the quantisation
-N_ANGLES = int(round(360.0 / ANGLE_STEP_DEG))   # every angle has an id: 0..59
+# ONLY CAST FORWARD. "you cast rays only in front of you. no need to sweep
+# already travel areas."
+#
+# This does two things at once and the second is the one that matters. It cuts
+# the fan at every point from the whole circle to an arc - and it means the
+# walk never looks BACK at the ground it is standing on and has already marked,
+# which is what turned a 30 m route into 21 rings of sub-metre hooks: 1,801 of
+# 1,869 steps were cast from a point whose own square the walk had just held.
+#
+# Casting behind you is not exploration. It is re-asking a question you have
+# already answered, and on this search it was most of the work.
+FORWARD_ARC_DEG = 90.0
+
+# TWENTY RAYS, AND ONLY FORWARD. The owner's numbers.
+#
+# Twenty across a 180 degree forward arc is 9.5 degrees apart. That is honest
+# at this scale: measured earlier, at a 3 m step two rays 6 degrees apart land
+# 31 cm apart and the tank is 4.5 m wide, so sixty rays round the whole circle
+# was generating about sixteen times more branches than the geometry can tell
+# apart - and half of them pointed backwards.
+#
+# An angle id is now an offset WITHIN THIS POINT'S ARC, 0..19, not a compass
+# bearing. That is the right space for it: the hit list is per point, and what
+# it needs to record is which of the ways forward FROM HERE have been tried.
+RAYS_PER_POINT = 20
+N_ANGLES = RAYS_PER_POINT
 
 TAG_OPEN, TAG_PASS, TAG_FAIL = "OPEN", "PASS", "FAIL"
 ORIGIN_ROOT, ORIGIN_TANGENT, ORIGIN_CONTINUE = "ROOT", "TANGENT", "CONTINUE"
 
 
+def fan_offset(aid):
+    """Angle id -> offset from the heading, in radians.
+
+    CENTRE OUT: 0 is straight on, then alternately right and left. Iterating
+    the ids in order therefore tries the cheapest way first and works outward,
+    and the owner's "start scanning left" survives as which hand goes first.
+    """
+    step = np.deg2rad(2.0 * FORWARD_ARC_DEG / (RAYS_PER_POINT - 1))
+    k = (aid + 1) // 2
+    return k * step * (1 if aid % 2 else -1) if aid else 0.0
+
+
 def angle_of(aid):
-    """Angle id -> radians. The id IS the identity; the radians are derived."""
-    return np.deg2rad(aid * ANGLE_STEP_DEG)
-
-
-def angle_id(rad):
-    """Radians -> the nearest angle id."""
-    return int(round(np.rad2deg(rad) / ANGLE_STEP_DEG)) % N_ANGLES
+    """Kept for the spoke drawing, which wants an absolute direction."""
+    return fan_offset(aid)
 
 
 class ItemLedger(object):
@@ -3332,6 +3379,8 @@ class BranchTree(object):
         self.halt_on_first = True
         self.halted = False
         self.win_chain = []
+        self.win_rings = []          # (cx, cz, r, side, tangent x, tangent z)
+        self.win_pts = []
         # THE SQUARE MAP, if nuTerra has written one. Optional so a v1 bake or
         # a map without it still runs, but it is the ground memory the search
         # was missing and without it the walk circles for ever.
@@ -3348,31 +3397,50 @@ class BranchTree(object):
         self.block_radius = 1        # squares of surround blocked with it, 1..5
         self.casts = 0
         self.exhausted = False
+        # WHERE THE SEARCH ACTUALLY IS, for the view to follow.
+        #
+        # Following stack[-1] looked wrong because it IS wrong: the top of a
+        # depth-first stack teleports the moment the search backtracks, so the
+        # view jumped across the map instead of travelling with the walk. The
+        # cursor is the end of the ray just cast, which moves the way the
+        # search moves and only jumps where the search genuinely jumps.
+        self.cursor = start
         # The opening bearing is the owner's "start scanning left": the root
         # begins its angle order there and works round.
+        # The root has nothing behind it, so its arc is centred on the sweep's
+        # opening bearing - which is what "start scanning left" sets.
         to_goal = np.arctan2(goal[0] - start[0], goal[1] - start[1])
-        self.open_id = angle_id(to_goal + np.deg2rad(SWEEP_FROM_DEG))
-        root = self.add(None, start, None, ORIGIN_ROOT)
+        self.open_heading = to_goal + np.deg2rad(SWEEP_FROM_DEG)
+        root = self.add(None, start, None, ORIGIN_ROOT, self.open_heading)
         self.stack = [root["id"]]
 
-    def add(self, parent, pos, angle_in, origin):
+    def add(self, parent, pos, angle_in, origin, heading=0.0):
         p = dict(id=len(self.points), pos=pos, angle_in=angle_in,
                  parent=parent, origin=origin, tried={}, tag=TAG_OPEN,
-                 kids=[], hit=None, item=None, side=None, ring=None)
+                 kids=[], hit=None, item=None, side=None, ring=None,
+                 heading=heading)
         self.points.append(p)
         if parent is not None:
             self.points[parent]["kids"].append(p["id"])
         return p
 
     def next_angle(self, p):
-        """The next angle id never cast from this point, in sweep order.
+        """The next untried angle IN FRONT OF US, nearest the heading first.
 
         THE HIT LIST IN USE. Every angle already tried here - won or lost - is
         skipped, which is what stops the search re-casting a ray it has already
         settled and what lets backing up terminate rather than loop.
+
+        AND ONLY FORWARD. The arc is centred on the angle that REACHED this
+        point, so "forward" means the way we were going, not a compass
+        direction. The root has no incoming angle and uses the sweep's opening
+        bearing instead.
+
+        Order is straight-on first, then alternately left and right, so the
+        cheapest answer is tried before the expensive ones and the owner's
+        "start scanning left" survives as the tie-break.
         """
-        for k in range(N_ANGLES):
-            aid = (self.open_id + k) % N_ANGLES
+        for aid in range(RAYS_PER_POINT):
             if aid not in p["tried"]:
                 return aid
         return None
@@ -3415,13 +3483,17 @@ class BranchTree(object):
 
             p["tried"][aid] = TAG_OPEN
             self.casts += 1
-            a = angle_of(aid)
+            # FORWARD IS THE WAY WE CAME. The arc is centred on the heading
+            # that reached this point, so the fan never sweeps the ground
+            # behind us - which is ground we have already walked and marked.
+            a = p["heading"] + fan_offset(aid)
             dx, dz = np.sin(a), np.cos(a)
             d = np.hypot(gx - p["pos"][0], gz - p["pos"][1])
             limit = min(d + REACH_M, self.walk_m)
             got, hx, hz, reached, blocked = march(g, p["pos"][0], p["pos"][1],
                                                   dx, dz, self.goal, limit,
                                                   self.squares)
+            self.cursor = (hx, hz)
 
             # REACHING THE BASE IS REACHING THE BASE. "If the past point hits
             # base location, its done."
@@ -3452,7 +3524,7 @@ class BranchTree(object):
 
             if np.hypot(gx - hx, gz - hz) <= BASE_RING_M:
                 p["tried"][aid] = TAG_PASS
-                win = self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE)
+                win = self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE, a)
                 win["tag"] = TAG_PASS
                 self.paths.append(self.chain_to(win["id"]))
                 # CLAIM THE HANDS THIS ROUTE USED. Per side, never the whole
@@ -3471,6 +3543,14 @@ class BranchTree(object):
                     k = self.points[k]["parent"]
                 chain.reverse()
                 self.win_chain = chain
+                # THE PATH AND ITS RINGS, SAVED TOGETHER. A route without the
+                # rings that shaped it cannot be read back - the rings are the
+                # WHY of every turn it took, and they were only ever living in
+                # the tree that produced them.
+                self.win_rings = [(n["ring"][0], n["ring"][1], n["ring"][2],
+                                   n["side"], n["pos"][0], n["pos"][1])
+                                  for n in chain if n["ring"] is not None]
+                self.win_pts = [n["pos"] for n in chain]
                 # ONE SQUARE PER COMPLETED ROUTE. The last one we stood in
                 # becomes 1, so the next search cannot come home this way and
                 # has to find another. Not a trail - the owner was explicit:
@@ -3490,7 +3570,9 @@ class BranchTree(object):
                 # A CLEAR MOVE. The end of it is a new point, and by the owner's
                 # rule it is a branch point in its own right - we can leave it
                 # in any direction not already tried THERE.
-                self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE)
+                # The new point carries the heading that got it there, so
+                # its own fan opens forward from here.
+                self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE, a)
                 self.stack.append(self.points[-1]["id"])
                 return "moved %.0f m on %d" % (got, aid)
 
@@ -3518,7 +3600,10 @@ class BranchTree(object):
                 t = sides.get(side)
                 if t is None:
                     continue
-                node = self.add(p["id"], (t[0], t[1]), aid, ORIGIN_TANGENT)
+                # A TANGENT'S FORWARD IS THE WAY IT LEFT THE RING, not the
+                # way the blocked ray was pointing.
+                th = np.arctan2(t[0] - p["pos"][0], t[1] - p["pos"][1])
+                node = self.add(p["id"], (t[0], t[1]), aid, ORIGIN_TANGENT, th)
                 node["item"], node["side"] = obj, side
                 # THE RING THAT FOUND IT: centre and the radius it had grown
                 # to. Kept so a finished path can be redrawn with the rings
