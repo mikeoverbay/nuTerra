@@ -11,6 +11,7 @@ in Block
     flat uvec2 texHandle;
     flat uint flags;
     float trunk_r;
+    flat uint obj_id;
 } fs_in;
 
 // Moments for the MSM path. Discarded by the pipeline when the bake FBO has no
@@ -30,6 +31,21 @@ layout(location = 0) out vec4 moments;
 // Trees are one kind, so this is a constant rather than a lookup.
 layout(location = 1) out vec4 bake_key;
 const float BAKE_KIND_TREE = 3.0 / 255.0;
+
+// ---- THE FLIGHT BAKE'S ID CHANNEL ------------------------------------------
+//
+// Location 2: WHICH tree, not just that a tree is here. The vertex stage
+// already has the placement index; this carries it out so the bake can say a
+// texel belongs to that linden rather than to tree cover in general.
+//
+// THE TRUNK PASS MUST NOT REACH THIS ATTACHMENT. That pass runs with the depth
+// test off and ColorLogicOp OR, which is how a trunk records itself under its
+// own canopy - and a logic op applies to every enabled draw buffer, integer
+// ones included. ORing ids together would produce numbers that name no object
+// at all. MapFlightBake.draw_trunks masks this buffer off for the duration;
+// the write below still happens and is discarded, which is cheaper than a
+// branch and cannot be got wrong from in here.
+layout(location = 2) out uvec4 bake_id;
 
 // ---- THE TRUNK PASS --------------------------------------------------------
 //
@@ -70,6 +86,7 @@ void main(void)
         }
         bake_key = vec4(BAKE_TRUNK_BIT, 0.0, 0.0, 1.0);
         moments = vec4(0.0);
+        bake_id = uvec4(fs_in.obj_id, 0u, 0u, 0u);
         return;
     }
 
@@ -110,4 +127,5 @@ void main(void)
     float z2 = z * z;
     moments = vec4(z, z2, z2 * z, z2 * z2);
     bake_key = vec4(BAKE_KIND_TREE, 0.0, 0.0, 1.0);
+    bake_id = uvec4(fs_in.obj_id, 0u, 0u, 0u);
 }

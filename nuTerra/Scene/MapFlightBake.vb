@@ -72,19 +72,44 @@ Public Class MapFlightBake
     ''' So: change what the bake contains, bump this. Otherwise the next run loads
     ''' the bake from before your change and you measure the old one, which looks
     ''' exactly like your change having no effect.
+    '''
+    ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
+    ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 1
+    Public Const BAKE_VERSION As Integer = 2
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
     Private fbo As GLFramebuffer
     Private depth_tex As GLTexture
     Private kind_tex As GLTexture
+    Private id_tex As GLTexture
 
     ''' <summary>What stands at each texel - see kind_of. One byte per texel,
     ''' the kind of the TOPMOST thing, which the depth test decides for
     ''' free.</summary>
     Public kind_b(SIZE * SIZE - 1) As Byte
+
+    ''' <summary>
+    ''' WHICH object stands at each texel, biased by one so zero means nothing.
+    '''
+    ''' Not a field for the life of the map: it is filled by read_ids, written
+    ''' by export and erased. Nothing in the app reads it - the consumers are
+    ''' the planners, and they read the file - so keeping 268 MB resident for a
+    ''' map's lifetime would buy nobody anything.
+    ''' </summary>
+    Private id_u() As UInteger
+
+    ''' <summary>One byte a texel, 1 where something solid stands. Scratch
+    ''' between read_solid and apply_solid, erased as soon as the bit is in the
+    ''' key byte.</summary>
+    Private solid_b() As Byte
+
+    ''' <summary>What the last read_solid / read_ids measured, for the log and
+    ''' for the meta.</summary>
+    Private solid_cells As Integer
+    Private id_nonzero As Integer
+    Private id_max_seen As UInteger
 
     ''' <summary>
     ''' The two height maps, SIXTEEN BIT, in the same encoding the files use.
@@ -348,6 +373,35 @@ Public Class MapFlightBake
     ''' </summary>
     Public Const OUTLAND_BIT As Byte = &H10
 
+    ''' <summary>
+    ''' Bit 5: something SOLID stands at this texel - terrain-borne geometry
+    ''' over obstacle_min_h, measured with the trees left out.
+    '''
+    ''' It exists because the top map is a SINGLE LAYER and the canopy wins the
+    ''' depth test. On monastery 2,581 cells hold something solid over 1 m -
+    ''' median 1.70 m, up to 22.08 m, mostly rock - and every one of them keys
+    ''' as `tree`, because a tree stands over it. A reader whose rule is "a tank
+    ''' crushes trees" drives through all of them, and nothing in the bake said
+    ''' otherwise.
+    '''
+    ''' A BIT RATHER THAN A KEY CHANGE, for the reason OUTLAND_BIT gives: the
+    ''' tree really is the topmost thing and the camera still wants its height.
+    ''' Re-keying the texel to rock would answer the tank's question by
+    ''' destroying the camera's. With a bit, both are askable - a ground vehicle
+    ''' tests `solid Or trunk`, a camera keeps using the height.
+    '''
+    ''' AND NOT A SECOND HEIGHT LAYER, which was the other candidate. The
+    ''' question a reader has is whether something solid is there, not how tall
+    ''' it is - the height it wants is the one already in the top map. 67 MB a
+    ''' map to carry one bit a texel is the expensive way to say it, the same
+    ''' argument that made the trunk a bit.
+    '''
+    ''' Written by read_solid, from the depth buffer as it stands after the
+    ''' models and before the trees - a moment that already exists in the pass
+    ''' order and costs one readback to look at.
+    ''' </summary>
+    Public Const SOLID_BIT As Byte = &H20
+
     Public Const TRUNK_BIT As Byte = &H80
 
     ''' <summary>
@@ -431,6 +485,18 @@ Public Class MapFlightBake
             ' reason to happen.
             write_meta(bake_stem() & "_meta.txt")
 
+            ' The sidecar, if it has gone missing, WITHOUT rebaking for it. It
+            ' is not derived from the bake at all - it comes from the model and
+            ' tree tables this map load just built - so it can be rewritten from
+            ' live state, and losing a 20 KB text file is no reason to spend six
+            ' seconds rasterising the map again.
+            Try
+                Dim f_names = bake_stem() & "_ids.csv"
+                If Not IO.File.Exists(f_names) Then write_id_names(f_names)
+            Catch ex As Exception
+                LogThis("flight bake: could not rewrite the id sidecar - {0}", ex.Message)
+            End Try
+
             ready = True
             Return
         End If
@@ -490,10 +556,22 @@ Public Class MapFlightBake
         ' a texel nothing stood on reads as ground without the terrain pass
         ' having to write anything. Only the floor pass above skips the clear -
         ' it has no key to gather.
+        ' The ID channel is cleared the same way and for the same reason: zero
+        ' is "no object here", which is what a texel showing bare ground is.
         GL.Clear(ClearBufferMask.DepthBufferBit)
         GL.ClearBuffer(ClearBuffer.Color, 1, {0.0F, 0.0F, 0.0F, 0.0F})
+        GL.ClearBuffer(ClearBuffer.Color, 2, New UInteger() {0UI, 0UI, 0UI, 0UI})
         draw_terrain(vp)
         draw_models(vp)
+
+        ' BETWEEN THE MODELS AND THE TREES, and that is the whole of the idea.
+        ' The depth buffer at this instant holds terrain and built geometry and
+        ' no foliage at all, which is the one moment in the pass where the
+        ' question "is something SOLID standing here" has an answer. A texel
+        ' that later keys as tree because a canopy closed over it still carries
+        ' the bit this reads. See SOLID_BIT.
+        read_solid()
+
         draw_trees(vp)
 
         ' What a GROUND VEHICLE would hit, which is not what the camera hits.
@@ -503,6 +581,12 @@ Public Class MapFlightBake
 
         read_heights(True)
         read_kinds()
+
+        ' AFTER read_kinds, which overwrites the whole key array with what the
+        ' GL texture holds - the bit would be gone if it went in before.
+        apply_solid()
+
+        read_ids()
         despike_top()
 
         GL.Enable(EnableCap.CullFace)
@@ -566,10 +650,11 @@ Public Class MapFlightBake
             Dim stem = bake_stem()
             Dim f_top = stem & "_top.rgba"
             Dim f_floor = stem & "_floor.r16"
+            Dim f_ids = stem & "_ids.u32"
             Dim f_meta = stem & "_meta.txt"
 
             If Not (IO.File.Exists(f_top) AndAlso IO.File.Exists(f_floor) AndAlso
-                    IO.File.Exists(f_meta)) Then
+                    IO.File.Exists(f_ids) AndAlso IO.File.Exists(f_meta)) Then
                 LogThis("flight bake: nothing saved for {0} - baking", MAP_NAME_NO_PATH)
                 Return False
             End If
@@ -578,11 +663,13 @@ Public Class MapFlightBake
             ' corruption that reads as a perfectly good header.
             Dim want_top As Long = CLng(SIZE) * SIZE * 4
             Dim want_floor As Long = CLng(SIZE) * SIZE * 2
+            Dim want_ids As Long = CLng(SIZE) * SIZE * 4
             Dim got_top = New IO.FileInfo(f_top).Length
             Dim got_floor = New IO.FileInfo(f_floor).Length
-            If got_top <> want_top OrElse got_floor <> want_floor Then
-                LogThis("flight bake: saved bake is the wrong size (top {0} of {1}, floor {2} of {3}) - baking",
-                        got_top, want_top, got_floor, want_floor)
+            Dim got_ids = New IO.FileInfo(f_ids).Length
+            If got_top <> want_top OrElse got_floor <> want_floor OrElse got_ids <> want_ids Then
+                LogThis("flight bake: saved bake is the wrong size (top {0} of {1}, floor {2} of {3}, ids {4} of {5}) - baking",
+                        got_top, want_top, got_floor, want_floor, got_ids, want_ids)
                 Return False
             End If
 
@@ -615,7 +702,7 @@ Public Class MapFlightBake
                    Not near(num(meta, "trunk_radius"), TRUNK_RADIUS) Then
                 why = "a bake constant changed"
             ElseIf num(meta, "kind_mask") <> KIND_MASK OrElse num(meta, "outland_bit") <> OUTLAND_BIT OrElse
-                   num(meta, "trunk_bit") <> TRUNK_BIT Then
+                   num(meta, "trunk_bit") <> TRUNK_BIT OrElse num(meta, "solid_bit") <> SOLID_BIT Then
                 why = "the key bits changed"
             End If
 
@@ -650,6 +737,12 @@ Public Class MapFlightBake
             Dim floor_bytes = IO.File.ReadAllBytes(f_floor)
             Dim read_ms = clock.ElapsedMilliseconds
 
+            ' THE ID LAYER IS CHECKED ABOVE AND NOT READ. Its consumers are the
+            ' planners and they read the file; nothing in this process asks for
+            ' it, so pulling 268 MB into managed memory on every map load would
+            ' buy nobody anything. The size test above is what says it is there
+            ' and whole.
+            '
             ' THE FLOOR GOES STRAIGHT IN. write_floor_r16 puts the low byte
             ' first, which is exactly how a UShort sits in memory on x86, so the
             ' file IS the array and a 67-million-iteration loop to copy it to
@@ -790,10 +883,11 @@ Public Class MapFlightBake
                         top_m(i) = y
                         ' OR, not assign: the flag bits were set by other
                         ' passes and water raising the surface here does not
-                        ' mean the trunk stopped existing or the texel left
-                        ' the outland.
+                        ' mean the trunk stopped existing, the texel left the
+                        ' outland, or the wall standing in the shallows
+                        ' dissolved.
                         kind_b(i) = CByte(KIND_WATER Or
-                                          (kind_b(i) And (TRUNK_BIT Or OUTLAND_BIT)))
+                                          (kind_b(i) And (TRUNK_BIT Or OUTLAND_BIT Or SOLID_BIT)))
                     End If
                 Next
             Next
@@ -900,6 +994,117 @@ Public Class MapFlightBake
         End If
     End Sub
 
+    ''' <summary>
+    ''' The depth buffer as it stands with the models in and the trees not yet,
+    ''' turned into one bit a texel: is something solid standing here.
+    '''
+    ''' Compared against the FLOOR, not against the top map, which does not
+    ''' exist yet at this point in the pass - and against the same
+    ''' OBSTACLE_MIN_H that report_coverage and the mask PNG use, so "blocked"
+    ''' means one thing across the whole bake.
+    '''
+    ''' Held in its own array rather than ORed straight into kind_b because
+    ''' read_kinds has not run yet and overwrites every byte of it when it
+    ''' does. apply_solid puts the bit in afterwards.
+    ''' </summary>
+    Private Sub read_solid()
+        Dim d(SIZE * SIZE - 1) As Single
+        GL.GetTextureImage(depth_tex.texture_id, 0,
+                           OpenGL4.PixelFormat.DepthComponent, PixelType.Float,
+                           d.Length * 4, d)
+
+        If solid_b Is Nothing Then ReDim solid_b(SIZE * SIZE - 1)
+
+        ' Every texel is assigned, not just the set ones: this array outlives a
+        ' map load, and a rebake on a second map would otherwise inherit the
+        ' first map's bits wherever the new one has nothing standing.
+        Dim n = 0
+        For r = 0 To SIZE - 1
+            Dim src = (SIZE - 1 - r) * SIZE
+            Dim dst_row = r * SIZE
+            For c = 0 To SIZE - 1
+                Dim i = dst_row + c
+                If (eye_y - d(src + c) * far_d) - floor_m(i) > OBSTACLE_MIN_H Then
+                    solid_b(i) = 1
+                    n += 1
+                Else
+                    solid_b(i) = 0
+                End If
+            Next
+        Next
+        solid_cells = n
+    End Sub
+
+    ''' <summary>
+    ''' Put the solid bit into the key byte, and say how many texels it just
+    ''' rescued from being read as crushable foliage.
+    '''
+    ''' THE SECOND NUMBER IS THE POINT. Solid-and-keyed-tree is the canopy-over-
+    ''' rock population - documented at 2,581 cells on monastery when it was
+    ''' measured offline - and it is the only figure here that says whether
+    ''' this bit is earning its place on a given map.
+    ''' </summary>
+    Private Sub apply_solid()
+        If solid_b Is Nothing Then Return
+
+        Dim under_canopy = 0
+        For i = 0 To SIZE * SIZE - 1
+            If solid_b(i) = 0 Then Continue For
+            kind_b(i) = CByte(kind_b(i) Or SOLID_BIT)
+            If (kind_b(i) And KIND_MASK) = KIND_TREE Then under_canopy += 1
+        Next
+
+        LogThis("flight bake: solid bit set on {0} texel(s) ({1:0.0}% of the map), " &
+                "{2} of them keyed tree - solid ground under a canopy",
+                solid_cells, 100.0 * solid_cells / (SIZE * SIZE), under_canopy)
+
+        ' 67 MB of scratch, and the bit it carried is now in kind_b.
+        Erase solid_b
+    End Sub
+
+    ''' <summary>
+    ''' The id channel, flipped to the same row order as everything else.
+    '''
+    ''' FLIPPED IN PLACE, a row at a time. The other two readbacks copy out of
+    ''' a scratch array into their destination, which for this one would mean
+    ''' 268 MB of source and 268 MB of destination live at once for the sake of
+    ''' turning the map upside down. Swapping row r with row SIZE-1-r needs one
+    ''' 32 KB row of scratch and says the same thing.
+    ''' </summary>
+    Private Sub read_ids()
+        If id_u Is Nothing Then ReDim id_u(SIZE * SIZE - 1)
+        GL.GetTextureImage(id_tex.texture_id, 0,
+                           OpenGL4.PixelFormat.RedInteger, PixelType.UnsignedInt,
+                           id_u.Length * 4, id_u)
+
+        Dim row(SIZE - 1) As UInteger
+        For r = 0 To SIZE \ 2 - 1
+            Dim a = r * SIZE
+            Dim b = (SIZE - 1 - r) * SIZE
+            Array.Copy(id_u, a, row, 0, SIZE)
+            Array.Copy(id_u, b, id_u, a, SIZE)
+            Array.Copy(row, 0, id_u, b, SIZE)
+        Next
+
+        id_nonzero = 0
+        id_max_seen = 0UI
+        For i = 0 To id_u.Length - 1
+            Dim v = id_u(i)
+            If v <> 0UI Then
+                id_nonzero += 1
+                If v > id_max_seen Then id_max_seen = v
+            End If
+        Next
+
+        ' The ceiling this layer would need to wrap at if it were 16 bit - the
+        ' evidence for or against narrowing the format. See create_target.
+        LogThis("flight bake: ids on {0} texel(s) ({1:0.0}% of the map), highest id {2}, " &
+                "space is {3} model + {4} tree placement(s)",
+                id_nonzero, 100.0 * id_nonzero / (SIZE * SIZE), id_max_seen,
+                scene.static_models.numModelInstances,
+                If(scene.TREES_LOADED, scene.trees.total_instances, 0))
+    End Sub
+
     Private Sub read_kinds()
         Dim d(SIZE * SIZE - 1) As Byte
         GL.GetTextureImage(kind_tex.texture_id, 0,
@@ -1002,8 +1207,20 @@ Public Class MapFlightBake
 
     Private Sub draw_trees(vp As Matrix4)
         If Not scene.TREES_LOADED OrElse Not DONT_BLOCK_TREES Then Return
-        scene.trees.sun_depth_pass(vp)
+        scene.trees.sun_depth_pass(vp, id_base:=tree_id_base())
     End Sub
+
+    ''' <summary>
+    ''' Where the trees start in the ONE id space the bake writes.
+    '''
+    ''' Models take 1 .. numModelInstances and trees the block above them, so a
+    ''' texel carries a single number and a reader needs no second layer to say
+    ''' which kind of thing it indexes. The join goes in the meta as
+    ''' id_tree_base; the sidecar names both sides.
+    ''' </summary>
+    Private Function tree_id_base() As UInteger
+        Return CUInt(scene.static_models.numModelInstances) + 1UI
+    End Function
 
     ''' <summary>
     ''' Stamp the trunk bit wherever a tree's base stands.
@@ -1029,8 +1246,17 @@ Public Class MapFlightBake
         GL.Enable(EnableCap.ColorLogicOp)
         GL.LogicOp(LogicOp.Or)
 
-        scene.trees.sun_depth_pass(vp, trunk_only:=True)
+        ' THE ID BUFFER IS MASKED OFF FOR THIS PASS. A logic op applies to every
+        ' enabled draw buffer, integer ones included, so without this the OR
+        ' that accumulates the trunk bit would also OR ids together and produce
+        ' numbers naming no object at all - 5 OR 9 = 13, which is some third
+        ' tree. Index 2 is this buffer's position in the draw-buffer array named
+        ' in create_target, not its attachment number.
+        GL.ColorMask(2, False, False, False, False)
 
+        scene.trees.sun_depth_pass(vp, trunk_only:=True, id_base:=tree_id_base())
+
+        GL.ColorMask(2, True, True, True, True)
         GL.Disable(EnableCap.ColorLogicOp)
         GL.DepthMask(True)
         GL.Enable(EnableCap.DepthTest)
@@ -1054,9 +1280,24 @@ Public Class MapFlightBake
         kind_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
         kind_tex.Storage2D(1, DirectCast(InternalFormat.R8, SizedInternalFormat), SIZE, SIZE)
 
+        ' THE ID CHANNEL. Which object, where the key says only which kind.
+        '
+        ' R32UI AND NOT R16UI, which is 134 MB rather than 268 and was the size
+        ' the planners were told to expect. The id space is model placements
+        ' plus tree placements, and neither is bounded by anything: a map that
+        ' crossed 65,535 would wrap silently and hand back ids naming the wrong
+        ' objects, which is exactly the failure this file keeps warning about.
+        ' The count is logged at every bake, so if it turns out no map comes
+        ' near the ceiling this can be narrowed on evidence rather than hope.
+        id_tex = GLTexture.Create(TextureTarget.Texture2D, "FlightBakeId")
+        id_tex.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+        id_tex.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+        id_tex.Storage2D(1, DirectCast(InternalFormat.R32ui, SizedInternalFormat), SIZE, SIZE)
+
         fbo = GLFramebuffer.Create("FlightBakeFBO")
         fbo.Texture(FramebufferAttachment.DepthAttachment, depth_tex, 0)
         fbo.Texture(FramebufferAttachment.ColorAttachment1, kind_tex, 0)
+        fbo.Texture(FramebufferAttachment.ColorAttachment2, id_tex, 0)
 
         ' LOCATION 1, NOT 0. The depth shaders have written the Moment Shadow
         ' Map's four moments at location 0 since the sun bake needed them, and
@@ -1064,8 +1305,9 @@ Public Class MapFlightBake
         ' with a byte. The draw-buffer array is indexed BY OUTPUT LOCATION, so
         ' naming None first and ColorAttachment1 second sends the moments
         ' nowhere and the key to the texture above.
-        GL.NamedFramebufferDrawBuffers(fbo.fbo_id, 2,
-            {DrawBuffersEnum.None, DrawBuffersEnum.ColorAttachment1})
+        GL.NamedFramebufferDrawBuffers(fbo.fbo_id, 3,
+            {DrawBuffersEnum.None, DrawBuffersEnum.ColorAttachment1,
+             DrawBuffersEnum.ColorAttachment2})
         GL.NamedFramebufferReadBuffer(fbo.fbo_id, ReadBufferMode.None)
 
         If Not fbo.IsComplete Then
@@ -1101,10 +1343,15 @@ Public Class MapFlightBake
 
             write_top_rgba(stem & "_top.rgba")
             write_floor_r16(stem & "_floor.r16")
+            write_ids_u32(stem & "_ids.u32")
+            write_id_names(stem & "_ids.csv")
             write_mask_png(stem & "_mask.png")
             write_meta(stem & "_meta.txt")
 
-            LogThis("flight bake: exported {0}_top.rgba / _floor.r16 / _mask.png / _meta.txt to {1}",
+            ' 268 MB, and nothing in this process reads it - see id_u.
+            Erase id_u
+
+            LogThis("flight bake: exported {0}_top.rgba / _floor.r16 / _ids.u32 / _ids.csv / _mask.png / _meta.txt to {1}",
                     MAP_NAME_NO_PATH, dir)
         Catch ex As Exception
             LogThis("flight bake: export FAILED: {0}", ex.Message)
@@ -1119,6 +1366,46 @@ Public Class MapFlightBake
     ''' deeper pit than this one would otherwise encode negative and clamp
     ''' silently at zero - a whole quarry reading as flat ground.
     ''' </summary>
+    ''' <summary>
+    ''' The arena's playable box, for readers that need to know where the map
+    ''' ends - agreed with Path Studio and previously only inferable.
+    '''
+    ''' NOT THE BAKE BOX. wx_min..wz_max is the terrain CHUNK footprint; this is
+    ''' the box scripts/arena_defs declares, and the two are independently
+    ''' derived. The arena has fallen inside the bake on every map looked at,
+    ''' which is an observation and not a guarantee - so the containment is
+    ''' CHECKED here and logged when it fails, rather than assumed by anyone
+    ''' downstream.
+    '''
+    ''' Nothing is written when the arena was not read: MAP_BB stays zero when
+    ''' the XML is missing, and four zeros presented as a playable area would be
+    ''' worse than no keys at all - a reader would clip the whole map away.
+    ''' </summary>
+    Private Sub append_arena(sb As Text.StringBuilder, inv As Globalization.CultureInfo)
+        Dim x0 = Math.Min(MAP_BB_BL.X, MAP_BB_UR.X)
+        Dim x1 = Math.Max(MAP_BB_BL.X, MAP_BB_UR.X)
+        Dim z0 = Math.Min(MAP_BB_BL.Y, MAP_BB_UR.Y)
+        Dim z1 = Math.Max(MAP_BB_BL.Y, MAP_BB_UR.Y)
+
+        If x1 - x0 <= 0.0F OrElse z1 - z0 <= 0.0F Then
+            LogThis("flight bake: no arena box for {0} - arena_* keys not written",
+                    MAP_NAME_NO_PATH)
+            Return
+        End If
+
+        sb.AppendLine(String.Format(inv, "arena_x0={0:0.000}", x0))
+        sb.AppendLine(String.Format(inv, "arena_x1={0:0.000}", x1))
+        sb.AppendLine(String.Format(inv, "arena_z0={0:0.000}", z0))
+        sb.AppendLine(String.Format(inv, "arena_z1={0:0.000}", z1))
+
+        If x0 < wx_min OrElse x1 > wx_max OrElse z0 < wz_min OrElse z1 > wz_max Then
+            LogThis("flight bake: ARENA BOX IS NOT INSIDE THE BAKE BOX - arena x {0:0}..{1:0} z {2:0}..{3:0}, " &
+                    "bake x {4:0}..{5:0} z {6:0}..{7:0}. Either this map's arena really does " &
+                    "overhang the terrain chunks, or the two are in different X frames.",
+                    x0, x1, z0, z1, wx_min, wx_max, wz_min, wz_max)
+        End If
+    End Sub
+
     Private Function height_offset() As Single
         ' Fixed when the floor was read - see read_heights. It used to be
         ' rescanned here over 67 million texels to answer a question already
@@ -1168,6 +1455,91 @@ Public Class MapFlightBake
         Next
         IO.File.WriteAllBytes(path, b)
     End Sub
+
+    ''' <summary>
+    ''' The id layer: uint32 little endian, one per texel, row major, same row
+    ''' order and same world mapping as the other two.
+    '''
+    ''' WRITTEN A ROW AT A TIME rather than through one 268 MB byte array. The
+    ''' array is already little-endian uint32 in memory, so the file IS the
+    ''' array and the only work is moving it - doing that through a full-size
+    ''' copy would double the peak for no gain. 32 KB a row, 8192 writes,
+    ''' behind a 1 MB stream buffer.
+    ''' </summary>
+    Private Sub write_ids_u32(path As String)
+        If id_u Is Nothing Then Return
+        Dim row(SIZE * 4 - 1) As Byte
+        Using fs = New IO.FileStream(path, IO.FileMode.Create, IO.FileAccess.Write,
+                                     IO.FileShare.None, 1 << 20)
+            For r = 0 To SIZE - 1
+                System.Buffer.BlockCopy(id_u, r * SIZE * 4, row, 0, row.Length)
+                fs.Write(row, 0, row.Length)
+            Next
+        End Using
+    End Sub
+
+    ''' <summary>
+    ''' What each id IS: first_id, count, source, name.
+    '''
+    ''' RANGES, not one row per object. Placements come in runs that share a
+    ''' model - a hedge is forty instances of one .primitives file - so run-
+    ''' length encoding turns a hundred thousand rows into a few hundred
+    ''' without losing a single id. An id belongs to the row with the greatest
+    ''' first_id not above it.
+    '''
+    ''' NO KIND COLUMN, deliberately. The kind of what stands at a texel is in
+    ''' the key channel, written by the same fragment that wrote the id, and a
+    ''' second copy here derived from a different string could disagree with it.
+    ''' `source` is not a classification - it says which half of the id space
+    ''' the row is in, which is structural and cannot drift.
+    '''
+    ''' Model names come from PICK_DICTIONARY, which MapLoader already fills
+    ''' keyed by the very instance index the model shader turns into an id -
+    ''' the picker has been showing these strings on click all along.
+    ''' </summary>
+    Private Sub write_id_names(path As String)
+        Dim sb As New Text.StringBuilder()
+        sb.AppendLine("# nuTerra flight bake - id -> object")
+        sb.AppendLine("# id 0 is nothing: bare terrain, or nothing rasterised.")
+        sb.AppendLine("# a row covers ids first_id .. first_id + count - 1")
+        sb.AppendLine("first_id,count,source,name")
+
+        Dim rows = 0
+        Dim n_models = scene.static_models.numModelInstances
+        Dim i = 0
+        While i < n_models
+            Dim nm = pick_name(i)
+            Dim j = i + 1
+            While j < n_models AndAlso pick_name(j) = nm
+                j += 1
+            End While
+            sb.AppendLine(String.Format("{0},{1},model,{2}", i + 1, j - i, nm.Replace(","c, "_"c)))
+            rows += 1
+            i = j
+        End While
+
+        If scene.TREES_LOADED Then
+            For Each b In scene.trees.instance_blocks()
+                sb.AppendLine(String.Format("{0},{1},tree,{2}",
+                                            tree_id_base() + CUInt(b.first), b.count,
+                                            If(b.name, "?").Replace(","c, "_"c)))
+                rows += 1
+            Next
+        End If
+
+        IO.File.WriteAllText(path, sb.ToString())
+        LogThis("flight bake: {0} id range(s) named in {1}", rows, IO.Path.GetFileName(path))
+    End Sub
+
+    ''' <summary>The model directory PICK_DICTIONARY holds for an instance, or
+    ''' "?" - a gap is not fatal, it just leaves that id unnamed.</summary>
+    Private Function pick_name(instance As Integer) As String
+        Dim nm As String = Nothing
+        If scene.PICK_DICTIONARY.TryGetValue(CUInt(instance), nm) AndAlso nm IsNot Nothing Then
+            Return nm
+        End If
+        Return "?"
+    End Function
 
     Private Shared Sub write_r32(path As String, a() As Single)
         Dim b(a.Length * 4 - 1) As Byte
@@ -1332,16 +1704,43 @@ Public Class MapFlightBake
         sb.AppendLine(String.Format(inv, "kind_mask={0}", KIND_MASK))
         sb.AppendLine(String.Format(inv, "outland_bit={0}", OUTLAND_BIT))
         sb.AppendLine(String.Format(inv, "trunk_bit={0}", TRUNK_BIT))
+        sb.AppendLine(String.Format(inv, "solid_bit={0}", SOLID_BIT))
         sb.AppendLine(String.Format(inv, "trunk_radius={0:0.00}", TRUNK_RADIUS))
+
+        ' The id layer and where its two halves join. Written on the loaded path
+        ' too: both counts come from the model and tree tables the map load
+        ' built, not from the bake, so they are the same numbers either way.
+        sb.AppendLine("id_layer=" & MAP_NAME_NO_PATH & "_ids.u32")
+        sb.AppendLine("id_names=" & MAP_NAME_NO_PATH & "_ids.csv")
+        sb.AppendLine("id_format=u32")
+        sb.AppendLine(String.Format(inv, "id_model_count={0}",
+                                    scene.static_models.numModelInstances))
+        sb.AppendLine(String.Format(inv, "id_tree_base={0}", tree_id_base()))
+        sb.AppendLine(String.Format(inv, "id_tree_count={0}",
+                                    If(scene.TREES_LOADED, scene.trees.total_instances, 0)))
+
+        append_arena(sb, inv)
         sb.AppendLine("#")
-        sb.AppendLine("# R is THREE fields: kind = R & kind_mask, outland = R & outland_bit,")
-        sb.AppendLine("# trunk = R & trunk_bit. outland is the scenery ring outside the")
+        sb.AppendLine("# R is FOUR fields: kind = R & kind_mask, outland = R & outland_bit,")
+        sb.AppendLine("# solid = R & solid_bit, trunk = R & trunk_bit. outland is the ring outside the")
         sb.AppendLine("# playable area - real geometry, but nothing should ever route into")
         sb.AppendLine("# it; almost everything standing very tall on the map is out there.")
         sb.AppendLine("# trunk means a tree trunk stands at this texel whatever is above")
         sb.AppendLine("# it - the canopy still owns the height. A ground vehicle should")
         sb.AppendLine("# treat the trunk bit as solid and tree canopy as passable; a")
         sb.AppendLine("# camera should do the opposite and use the height.")
+        sb.AppendLine("# solid means terrain-borne geometry over obstacle_min_h stands here,")
+        sb.AppendLine("# measured with the trees left out. It is the answer to canopy over")
+        sb.AppendLine("# rock: a texel can key tree AND be solid, and a ground vehicle that")
+        sb.AppendLine("# crushes foliage must test 'kind = tree AND NOT solid', never kind")
+        sb.AppendLine("# alone. The height at such a texel is still the canopy's.")
+        sb.AppendLine("#")
+        sb.AppendLine("# ids.u32  uint32 little endian, one per texel, same rows and mapping.")
+        sb.AppendLine("#          WHICH object is on top, biased by one - 0 is nothing.")
+        sb.AppendLine("#          1 .. id_model_count are model placements; id_tree_base and")
+        sb.AppendLine("#          up are tree placements. ids.csv names every range.")
+        sb.AppendLine("#          The id and the key at a texel are written by the same")
+        sb.AppendLine("#          fragment, so they always describe the same surface.")
         sb.AppendLine("#")
         sb.AppendLine("# top.rgba  R = kind key, G = height high byte, B = height low byte,")
         sb.AppendLine("#           A = 255. height = height_offset + h16 / height_scale")
@@ -1360,6 +1759,7 @@ Public Class MapFlightBake
     Public Sub Dispose() Implements IDisposable.Dispose
         depth_tex?.Dispose()
         kind_tex?.Dispose()
+        id_tex?.Dispose()
         fbo?.Dispose()
         GC.SuppressFinalize(Me)
     End Sub

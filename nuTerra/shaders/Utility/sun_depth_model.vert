@@ -41,6 +41,12 @@ out Block
     flat uint material_id;
     vec2 uv;
     flat uint kind;
+    // WHICH placement this is, biased by one - see the id channel in the
+    // fragment stage. model_id + gl_InstanceID is the index into models[],
+    // which is to say the instance itself, so the bake's per-object id costs
+    // an interpolant and nothing else: the number was already being computed
+    // one line down to fetch the matrix.
+    flat uint obj_id;
 } vs_out;
 
 void main(void)
@@ -63,6 +69,7 @@ void main(void)
         vs_out.material_id = thisDraw.material_id;
         vs_out.uv = vertexTexCoord1;
         vs_out.kind = uint(bake_kind[gl_DrawIDARB]);
+        vs_out.obj_id = uint(int(thisDraw.model_id) + gl_InstanceID) + 1u;
         gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
         return;
     }
@@ -77,6 +84,7 @@ void main(void)
     vs_out.material_id = thisDraw.material_id;
     vs_out.uv = vertexTexCoord1;
     vs_out.kind = uint(bake_kind[gl_DrawIDARB]);
+    vs_out.obj_id = uint(thisDraw.model_id + gl_InstanceID) + 1u;
 
     gl_Position = sunViewProj * model * vec4(vertexPosition, 1.0);
 }
