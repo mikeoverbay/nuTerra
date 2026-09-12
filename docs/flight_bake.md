@@ -120,17 +120,30 @@ not, so a texel that later keys `tree` because a canopy closed over it still
 says whether something solid stands under that canopy. **A ground vehicle that
 crushes foliage must test `kind = tree AND NOT solid`, never `kind` alone.**
 
-Measured on two maps, and **the pair matters more than either number**:
+Measured on three maps, and **the spread matters more than any of the numbers**:
 
 | map | solid texels | share | also keyed tree |
 |---|---|---|---|
-| 19_monastery | 7,414,185 | 11.0% | **317,776** |
 | 114_czech | 7,902,876 | 11.8% | **7,017** |
+| 19_monastery | 7,414,185 | 11.0% | **317,776** |
+| 47_canada_a | 14,750,010 | 22.0% | **1,489,151** |
 
-The share of the map that is solid barely moves. The share of it *hidden under a
-canopy* moves by a factor of **45** - a rocky wooded map against a town. **Do not
-tune a threshold on monastery**, or on any one map: this is the quantity most
-likely to look like a constant and is not one. It is never set on a `terrain` texel - zero of
+Solid-under-canopy spans a factor of **212**. Two maps suggested 45 and were not
+wrong, only narrow - which is the argument for the third map rather than against
+the second. **Do not tune a threshold on one map**: this is the quantity most
+likely to look like a constant and is not one.
+
+Canada_a is also twice as solid overall, 22.0% against 11 to 12, and 29.1%
+blocked against monastery's 16.5% - so even the share that looked stable across
+two maps does not hold across three.
+
+**Canada_a is the cleanest demonstration of what the bit is for.** Its kind dump
+has **no `tree` bin at all** among 171 model names - every plant on that map is
+SpeedTree, nothing static classifies as foliage - so all 1,489,151 of those
+texels are canopy over built or rocky ground, with no static tree models mixed
+in. Monastery's figure includes whatever static tree models it has.
+
+The invariant holds on all three: `solid` is set on **zero** terrain texels. It is never set on a `terrain` texel - zero of
 them - which is the invariant you would expect, since anything solid standing at
 a texel is also the thing that keys it. 148,370 water texels carry it: the wall
 or rock the water was raised over is still there.
