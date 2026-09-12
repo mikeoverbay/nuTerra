@@ -1442,8 +1442,6 @@ def main():
     pygame.quit()
 
 
-if __name__ == "__main__":
-    main()
 
 
 # ==========================================================================
@@ -2556,3 +2554,17 @@ class BranchTree(object):
 
         self.exhausted = True
         return "EXHAUSTED"
+
+
+# THE ENTRY POINT LIVES AT THE END, and it has to.
+#
+# It was stranded in the middle of the file: code appended after it - the whole
+# branch tree - did not exist yet when main() ran, so the viewer died on its
+# first frame with a NameError and the owner got no window at all. It survived
+# my own testing only because I imported the module fully and THEN called
+# main(), which loads every definition first. Running it the way he runs it,
+# as a script, never worked.
+#
+# Anything appended to this file from here goes ABOVE this block.
+if __name__ == "__main__":
+    main()
