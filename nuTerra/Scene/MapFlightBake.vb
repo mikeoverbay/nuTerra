@@ -276,6 +276,31 @@ Public Class MapFlightBake
         "water", "other"}
 
     ''' <summary>
+    ''' The colour each kind is drawn in, written into the meta so every renderer
+    ''' reads ONE table.
+    '''
+    ''' These values are Path Studio's BAKE_KIND_RGB verbatim, because that is
+    ''' the legend the owner has been reading all along and a palette that
+    ''' changed appearance the day it moved would be a bug dressed as a feature.
+    ''' Ownership moved here - "your job is also to produce the height map and
+    ''' colour type" - and Path Studio reads the meta with its own table as the
+    ''' fallback for a bake written before the keys existed.
+    '''
+    ''' INDEX 0 IS DELIBERATELY UNUSED. Terrain is the ground, not a thing
+    ''' standing on it, and nothing renders it from this table - giving it a
+    ''' colour here would invent a convention neither renderer asked for.
+    ''' </summary>
+    Public Shared ReadOnly KIND_RGB()() As Byte = {
+        Nothing,
+        New Byte() {205, 150, 40},    ' building
+        New Byte() {230, 90, 40},     ' fence / rail
+        New Byte() {70, 160, 70},     ' tree / bush
+        New Byte() {120, 130, 150},   ' rock
+        New Byte() {170, 110, 200},   ' vehicle / prop
+        New Byte() {50, 110, 200},    ' water
+        New Byte() {200, 200, 200}}   ' other
+
+    ''' <summary>
     ''' Height encoding for the export: metres to a 16-bit count.
     '''
     ''' 64 steps to the metre is 1.5 cm, and 65535 of them is 1024 m of
@@ -379,6 +404,14 @@ Public Class MapFlightBake
             ' when it was baked, and they are printed either way so the two runs
             ' can be read against each other.
             report_coverage()
+
+            ' The meta, but only if this build would write it differently - a new
+            ' key, an edited palette. export() does not run on this path, so
+            ' without this a saved bake would keep its original meta for ever and
+            ' a reader waiting on a new key would wait for a rebake that has no
+            ' reason to happen.
+            write_meta(bake_stem() & "_meta.txt")
+
             ready = True
             Return
         End If
@@ -577,6 +610,21 @@ Public Class MapFlightBake
             ' taking this run's value instead would shift every height on the map
             ' by the difference with nothing looking wrong.
             h_offset = CSng(num(meta, "height_offset"))
+
+            ' Keep when these bytes were baked. The meta may be rewritten below
+            ' to carry keys this build adds, and that must not restamp the bake
+            ' itself as having been made just now.
+            meta_written = meta_or(meta, "written", "")
+            If meta_written = "" Then
+                ' A bake saved before this key existed. The honest answer is not
+                ' "now" - that would date yesterday's bytes to this launch - it is
+                ' when the bytes were actually written, which the file itself
+                ' knows.
+                Try
+                    meta_written = IO.File.GetLastWriteTime(f_top).ToString("s")
+                Catch
+                End Try
+            End If
 
             Dim clock = Diagnostics.Stopwatch.StartNew()
             Dim b = IO.File.ReadAllBytes(f_top)
@@ -1147,7 +1195,72 @@ Public Class MapFlightBake
         End Using
     End Sub
 
+    ''' <summary>
+    ''' When THESE BAKE BYTES were produced - not when the meta file was last
+    ''' touched. Carried across a meta-only refresh so it keeps meaning what it
+    ''' says: a bake loaded from disk and given new meta keys is still the bake
+    ''' that was made at this time.
+    ''' </summary>
+    Private meta_written As String = ""
+
+    ''' <summary>The commit the running exe was built from, found by walking up
+    ''' from the exe for the .git that defines the checkout - the same walk the
+    ''' window's owner tag uses. Empty when there is no repo, which is a normal
+    ''' state for a shipped build rather than an error.</summary>
+    Private Shared Function git_commit() As String
+        Try
+            Dim d = New IO.DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory)
+            While d IsNot Nothing
+                Dim g = IO.Path.Combine(d.FullName, ".git")
+                Dim dir = g
+                If IO.File.Exists(g) Then
+                    ' A worktree: .git is a file saying where the real one is.
+                    Dim first = IO.File.ReadAllText(g).Trim()
+                    If first.StartsWith("gitdir:") Then dir = first.Substring(7).Trim()
+                End If
+                If IO.Directory.Exists(dir) Then
+                    Dim head = IO.Path.Combine(dir, "HEAD")
+                    If IO.File.Exists(head) Then
+                        Dim h = IO.File.ReadAllText(head).Trim()
+                        If h.StartsWith("ref:") Then
+                            Dim rf = IO.Path.Combine(dir, h.Substring(4).Trim().Replace("/"c, IO.Path.DirectorySeparatorChar))
+                            If IO.File.Exists(rf) Then Return IO.File.ReadAllText(rf).Trim().Substring(0, 8)
+                        ElseIf h.Length >= 8 Then
+                            Return h.Substring(0, 8)
+                        End If
+                    End If
+                    Return ""
+                End If
+                d = d.Parent
+            End While
+        Catch
+        End Try
+        Return ""
+    End Function
+
+    ''' <summary>
+    ''' Write the meta ONLY IF IT WOULD DIFFER.
+    '''
+    ''' Path Studio stamps the bake files every two seconds and reloads on a
+    ''' change that holds still. Rewriting an identical meta every launch would
+    ''' move its timestamp and cost them a reload that carries no new
+    ''' information - so an unchanged meta is left alone, and "reloads on a real
+    ''' change only" stays true.
+    '''
+    ''' This is also what lets a meta-only change - a new key, a palette edit -
+    ''' reach an already-saved bake without rebuilding 400 MB to deliver it.
+    ''' </summary>
     Private Sub write_meta(path As String)
+        Dim want = meta_text()
+        Try
+            If IO.File.Exists(path) AndAlso IO.File.ReadAllText(path) = want Then Return
+        Catch
+            ' Unreadable: fall through and write it.
+        End Try
+        IO.File.WriteAllText(path, want)
+    End Sub
+
+    Private Function meta_text() As String
         Dim inv = Globalization.CultureInfo.InvariantCulture
         Dim sb As New Text.StringBuilder
 
@@ -1155,6 +1268,24 @@ Public Class MapFlightBake
         sb.AppendLine("map=" & MAP_NAME_NO_PATH)
         sb.AppendLine("bake_version=" & BAKE_VERSION)
         sb.AppendLine("game_version=" & game_version())
+
+        ' Provenance, asked for by Path Studio so its status line can say where a
+        ' bake came from. `written` is when the BYTES were baked, not when this
+        ' file was last touched - see meta_written.
+        ' THE FULL PATH, not the file name. Three checkouts build this app on this
+        ' machine and two of them share one temp folder, so "which exe wrote this
+        ' bake" is a real question with a useful answer. GetEntryAssembly gives
+        ' nuTerra.DLL on .NET, which answers it for nobody.
+        Try
+            Dim exe = Environment.ProcessPath
+            If String.IsNullOrEmpty(exe) Then exe = Reflection.Assembly.GetEntryAssembly().Location
+            sb.AppendLine("exe=" & exe)
+            sb.AppendLine("built=" & IO.File.GetLastWriteTime(exe).ToString("s"))
+        Catch
+        End Try
+        If git_commit() <> "" Then sb.AppendLine("commit=" & git_commit())
+        If meta_written = "" Then meta_written = Date.Now.ToString("s")
+        sb.AppendLine("written=" & meta_written)
         sb.AppendLine("width=" & SIZE)
         sb.AppendLine("height=" & SIZE)
         sb.AppendLine(String.Format(inv, "wx_min={0:0.000}", wx_min))
@@ -1168,6 +1299,16 @@ Public Class MapFlightBake
         sb.AppendLine(String.Format(inv, "height_offset={0:0}", height_offset()))
         For k = 0 To KIND_NAMES.Length - 1
             sb.AppendLine(String.Format("kind_{0}={1}", k, KIND_NAMES(k)))
+        Next
+
+        ' The colour each kind renders in. One table, written here, read by
+        ' everything that draws the bake - so the legend cannot drift between
+        ' two views of the same map. No key for kind 0: terrain is the ground.
+        For k = 1 To KIND_RGB.Length - 1
+            If KIND_RGB(k) IsNot Nothing Then
+                sb.AppendLine(String.Format("kind_{0}_rgb={1},{2},{3}", k,
+                                            KIND_RGB(k)(0), KIND_RGB(k)(1), KIND_RGB(k)(2)))
+            End If
         Next
         sb.AppendLine(String.Format(inv, "kind_mask={0}", KIND_MASK))
         sb.AppendLine(String.Format(inv, "outland_bit={0}", OUTLAND_BIT))
@@ -1194,8 +1335,8 @@ Public Class MapFlightBake
         sb.AppendLine("# world_x = wx_min + (col + 0.5) * (wx_max - wx_min) / width")
         sb.AppendLine("# world_z = wz_max - (row + 0.5) * (wz_max - wz_min) / height")
 
-        IO.File.WriteAllText(path, sb.ToString())
-    End Sub
+        Return sb.ToString()
+    End Function
 
     Public Sub Dispose() Implements IDisposable.Dispose
         depth_tex?.Dispose()
