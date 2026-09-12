@@ -1148,7 +1148,31 @@ def main():
     # screen" actually is: the right monitor, the right work area, the title
     # bar where the window manager knows to put it, and correct at any DPI
     # without a single number computed here.
-    screen = pygame.display.set_mode((1400, 900), pygame.RESIZABLE)
+    # A GL CONTEXT, and the panels on a surface over it.
+    #
+    # The map is textures and batched buffers now; text stays on the CPU
+    # because a glyph atlas would be a day's work to end up worse than
+    # pygame's font module. `screen` therefore becomes the OVERLAY SURFACE -
+    # every panel, label and readout below still draws to it exactly as it
+    # did, and it is uploaded as one texture at the end of the frame.
+    pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
+    pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
+    pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK,
+                                    pygame.GL_CONTEXT_PROFILE_CORE)
+    disp = pygame.display.set_mode((1400, 900),
+                                   pygame.OPENGL | pygame.DOUBLEBUF |
+                                   pygame.RESIZABLE)
+    # BOTH WAYS IN. Run as a script the directory of this file is on the path
+    # and there is no `tank_tools` package to import from; imported as a module
+    # there is. Testing only the second is how this shipped broken - the same
+    # mistake as the entry point that ended up mid-file, and the same lesson:
+    # verify it the way it is actually launched.
+    try:
+        from tank_tools.gl_view import GLView
+    except ImportError:
+        from gl_view import GLView
+    gv = GLView()
+    screen = pygame.Surface(disp.get_size(), pygame.SRCALPHA)
     try:
         import ctypes
         hwnd = pygame.display.get_wm_info()["window"]
@@ -1206,6 +1230,7 @@ def main():
     base_mode = 1
     MODE_NAME = {0: "passable", 1: "kind", 2: "item id"}
     base = build_base(base_mode)
+    ground_dirty = True
     surf = pygame.surfarray.make_surface(np.transpose(base, (1, 0, 2)))
     N = SHOW                     # the view works in picture texels
 
@@ -1297,6 +1322,55 @@ def main():
         return (int(map_ox + (cx - view_cx) / view_cells * w),
                 int(map_oy + (cz - view_cz) / view_cells * w))
 
+    # THE FRAME'S GEOMETRY, GATHERED THEN DRAWN ONCE.
+    #
+    # Every line and point in the map goes into these two lists and leaves in
+    # a single glDrawArrays. That is the change: 3,858 pygame.draw.line calls
+    # measured at 2.5 ms become one buffer upload measured at a fraction of
+    # it, and the rescale of the block layer - 14.6 ms, the real cost - stops
+    # happening at all because the GPU samples a texture instead.
+    LINES = []          # (x0, y0, x1, y1, r, g, b, a, width)
+    DOTS = []           # (x, y, r, g, b, a, size)
+
+    def L(p0, p1, col, wid=1.0, alpha=255):
+        LINES.append((p0[0], p0[1], p1[0], p1[1],
+                      col[0], col[1], col[2], alpha, wid))
+
+    def D(p0, col, size=3.0, alpha=255):
+        DOTS.append((p0[0], p0[1], col[0], col[1], col[2], alpha, size))
+
+    def CIRC(centre, rad_px, col, wid=1.0, segs=40, alpha=255):
+        """A circle as line segments - it joins the same batch as everything
+        else, so a hundred rings still cost one draw call."""
+        if rad_px < 1.0:
+            return
+        a = np.linspace(0.0, 2.0 * np.pi, segs + 1)
+        xs = centre[0] + np.cos(a) * rad_px
+        ys = centre[1] + np.sin(a) * rad_px
+        for k in range(segs):
+            LINES.append((xs[k], ys[k], xs[k + 1], ys[k + 1],
+                          col[0], col[1], col[2], alpha, wid))
+
+    def flush():
+        """Two draw calls: all the lines, then all the points."""
+        if LINES:
+            arr = np.array(LINES, dtype=np.float32)
+            for wid in np.unique(arr[:, 8]):
+                m = arr[arr[:, 8] == wid]
+                v = np.empty((len(m) * 2, 2), np.float32)
+                v[0::2] = m[:, 0:2]
+                v[1::2] = m[:, 2:4]
+                c = np.repeat(m[:, 4:8] / 255.0, 2, axis=0).astype(np.float32)
+                gv.draw("lines", v, c, float(wid))
+        if DOTS:
+            arr = np.array(DOTS, dtype=np.float32)
+            for size in np.unique(arr[:, 6]):
+                m = arr[arr[:, 6] == size]
+                gv.draw("points", m[:, 0:2],
+                        (m[:, 2:6] / 255.0).astype(np.float32), float(size))
+        del LINES[:]
+        del DOTS[:]
+
     def map_rect():
         """The square the map is drawn into: the middle column, fitted."""
         sw, sh = screen.get_width(), screen.get_height()
@@ -1310,8 +1384,11 @@ def main():
             if e.type == pygame.QUIT:
                 running = False
             elif e.type == pygame.VIDEORESIZE:
-                screen = pygame.display.set_mode((max(900, e.w), max(600, e.h)),
-                                                 pygame.RESIZABLE)
+                disp = pygame.display.set_mode((max(900, e.w), max(600, e.h)),
+                                               pygame.OPENGL |
+                                               pygame.DOUBLEBUF |
+                                               pygame.RESIZABLE)
+                screen = pygame.Surface(disp.get_size(), pygame.SRCALPHA)
             elif e.type == pygame.MOUSEWHEEL:
                 # ZOOM TO THE CURSOR: the cell under the mouse must not move.
                 # Work out which cell that is, change the zoom, then put the
@@ -1461,8 +1538,8 @@ def main():
                     tree_msg = "branch tree: running"
                 elif e.key == pygame.K_v:
                     base_mode = (base_mode + 1) % 3
-                    surf = pygame.surfarray.make_surface(
-                        np.transpose(build_base(base_mode), (1, 0, 2)))
+                    base = build_base(base_mode)
+                    ground_dirty = True
                 elif e.key == pygame.K_c:
                     tree_follow = not tree_follow
                 elif e.key == pygame.K_f:
@@ -1557,36 +1634,25 @@ def main():
                 view_cx, view_cz = cx - view_cells * 0.5, cz - view_cells * 0.5
 
         map_ox, map_oy, w = map_rect()
-        screen.fill((10, 10, 12))
+        SW0, SH0 = disp.get_size()
+        if screen.get_size() != (SW0, SH0):
+            screen = pygame.Surface((SW0, SH0), pygame.SRCALPHA)
+        gv.begin(SW0, SH0)
+        screen.fill((0, 0, 0, 0))
 
-        # THE MAP AND THE OVERLAYS MUST USE ONE MAPPING.
+        # THE GROUND, AS A TEXTURE. Uploaded once; a pan or a zoom is a
+        # change of uv on one quad rather than a CPU rescale of the whole
+        # image, which was 2.1 ms a frame for a picture that had not changed.
         #
-        # They did not. The map was blitted from an integer cell slice that was
-        # CLAMPED to the surface, while every overlay was placed by to_px()
-        # from the unclamped FLOAT view. Any zoom that is not a whole number of
-        # cells, and any pan that runs off an edge, made those two disagree -
-        # so the paths slid off the ground they describe. It looked fine while
-        # the tree was plotting only because the view was following the current
-        # point and being recomputed every frame; the moment it halted and the
-        # owner zoomed, the drift showed.
-        #
-        # Now the destination rectangle is DERIVED from the same view numbers
-        # to_px uses, so the two cannot drift apart by construction. The source
-        # is the integer cell box that CONTAINS the view, clipped to the
-        # surface; where the map does not fill the frame, the background shows
-        # through rather than the picture being stretched to cover it.
-        cx0 = max(0, int(np.floor(view_cx)))
-        cz0 = max(0, int(np.floor(view_cz)))
-        cx1 = min(N, int(np.ceil(view_cx + view_cells)))
-        cz1 = min(N, int(np.ceil(view_cz + view_cells)))
-        if cx1 > cx0 and cz1 > cz0:
-            src = surf.subsurface(pygame.Rect(cx0, cz0, cx1 - cx0, cz1 - cz0))
-            dx0 = map_ox + (cx0 - view_cx) / view_cells * w
-            dz0 = map_oy + (cz0 - view_cz) / view_cells * w
-            dw = max(1, int(round((cx1 - cx0) / view_cells * w)))
-            dh = max(1, int(round((cz1 - cz0) / view_cells * w)))
-            screen.blit(pygame.transform.scale(src, (dw, dh)),
-                        (int(round(dx0)), int(round(dz0))))
+        # The uv rectangle comes from the SAME view numbers to_px uses, so the
+        # map and everything drawn on it cannot drift apart - which they did
+        # before f26b19f4, from exactly this kind of second mapping.
+        if ground_dirty or not gv.has("ground"):
+            gv.upload("ground", base)
+            ground_dirty = False
+        u0, v0 = view_cx / N, view_cz / N
+        u1, v1 = (view_cx + view_cells) / N, (view_cz + view_cells) / N
+        gv.blit("ground", (map_ox, map_oy, w, w), (u0, v0, u1, v1))
 
         # AND NOTHING DRAWN ON THE MAP MAY SPILL INTO THE PANELS. Zoomed in,
         # a ring or a route runs far outside the frame; without a clip it was
@@ -1603,40 +1669,10 @@ def main():
         # Rebuilt only when the grid changes. A 1400 square surface every frame
         # is 2 million pixels of nothing new.
         if squares is not None and show_blocks:
-            sq = squares
-            if sq.dirty or sq_surf is None:
-                nsq = sq.n
-                # No flip: the square rows count down from the north edge, the
-                # same way the picture does.
-                sq_surf = pygame.image.frombuffer(
-                    np.ascontiguousarray(sq.rgba()).tobytes(), (nsq, nsq), "RGBA")
-                sq.dirty = False
-            nsq = sq.n
-            fx0 = view_cx / N * nsq
-            fz0 = view_cz / N * nsq
-            fw = view_cells / N * nsq
-            qc0, qc1 = max(0, int(np.floor(fx0))), min(nsq, int(np.ceil(fx0 + fw)))
-            qr0, qr1 = max(0, int(np.floor(fz0))), min(nsq, int(np.ceil(fz0 + fw)))
-            if qc1 > qc0 and qr1 > qr0:
-                src = sq_surf.subsurface(pygame.Rect(qc0, qr0,
-                                                     qc1 - qc0, qr1 - qr0))
-                # SAME VIEW NUMBERS AS to_px, so this cannot drift off the
-                # ground the way the map itself did before f26b19f4.
-                ddx = map_ox + ((qc0 / nsq * N) - view_cx) / view_cells * w
-                ddz = map_oy + ((qr0 / nsq * N) - view_cz) / view_cells * w
-                ddw = max(1, int(round(((qc1 - qc0) / nsq * N) / view_cells * w)))
-                ddh = max(1, int(round(((qr1 - qr0) / nsq * N) / view_cells * w)))
-                screen.blit(pygame.transform.scale(src, (ddw, ddh)),
-                            (int(round(ddx)), int(round(ddz))))
-
-        # Which rays ended up on a path, so the dead ends can be told from the
-        # ones that led somewhere.
-        # Every ray this sweep has cast: red where its chain died, green where
-        # it won. They are never cleared, so the picture builds into everywhere
-        # the resolver has been.
-        for (a0, b0, won) in nodes:
-            pygame.draw.line(screen, (70, 240, 110) if won else (150, 30, 36),
-                             to_px(a0[0], a0[1], w), to_px(b0[0], b0[1], w), 1)
+            if squares.dirty or not gv.has("blocks"):
+                gv.upload("blocks", squares.rgba())
+                squares.dirty = False
+            gv.blit("blocks", (map_ox, map_oy, w, w), (u0, v0, u1, v1))
 
         # THE EXPANDING RINGS. The heart of the algorithm and, until now, the
         # one part of it with no picture at all: "i want to see the expanding
@@ -1656,12 +1692,10 @@ def main():
             r_px = int(m_to_px(r_, w))
             won = lf is not None or rt is not None
             if r_px >= 2:
-                pygame.draw.circle(screen, (255, 225, 90) if won else (96, 82, 40),
-                                   cpx, r_px, 2 if won else 1)
+                CIRC(cpx, r_px, (255, 225, 90) if won else (96, 82, 40), 2 if won else 1)
             if r_px >= 3:
                 for (rx, rz, code) in rej:
-                    pygame.draw.circle(screen, REJ_COL[code],
-                                       to_px(rx, rz, w), 2)
+                    D(to_px(rx, rz, w), REJ_COL[code], (2) * 2.0)
             # THE HOP IS DRAWN FROM WHERE THE TANK STANDS, not from the ring
             # centre. The centre is where the RAY stopped; the tank is still
             # back at the last anchor and drives one straight line from there.
@@ -1675,12 +1709,12 @@ def main():
                 if t_ is None:
                     continue
                 tpx = to_px(t_[0], t_[1], w)
-                pygame.draw.line(screen, (90, 255, 235), apx, tpx, 2)
-                pygame.draw.circle(screen, (90, 255, 235), tpx, 4)
+                L(apx, tpx, (90, 255, 235), 2)
+                D(tpx, (90, 255, 235), (4) * 2.0)
                 # and a dim spur to the ring centre, so it stays clear WHICH
                 # ring produced this tangent without implying the tank drove
                 # through its middle.
-                pygame.draw.line(screen, (70, 110, 105), cpx, tpx, 1)
+                L(cpx, tpx, (70, 110, 105), 1)
 
         # WHERE THE CHAINS GAVE UP, and on what. A cross per dead chain in the
         # colour of its reason: the picture says at a glance whether the sweep
@@ -1694,8 +1728,8 @@ def main():
         for (_a, reason, wh) in deaths:
             dx_, dz_ = to_px(wh[0], wh[1], w)
             c = DEATH_COL.get(reason, (255, 255, 255))
-            pygame.draw.line(screen, c, (dx_ - 5, dz_ - 5), (dx_ + 5, dz_ + 5), 2)
-            pygame.draw.line(screen, c, (dx_ - 5, dz_ + 5), (dx_ + 5, dz_ - 5), 2)
+            L((dx_ - 5, dz_ - 5), (dx_ + 5, dz_ + 5), c, 2)
+            L((dx_ - 5, dz_ + 5), (dx_ + 5, dz_ - 5), c, 2)
 
         # THE LANDMARKS - the things big enough that going round the far side
         # of one counts as a different route. Drawn so the dial is visible:
@@ -1707,7 +1741,7 @@ def main():
                 for mi in range(len(sx_)):
                     mp = to_px(sx_[mi], sz_[mi], w)
                     if -20 <= mp[0] <= w + 20 and -20 <= mp[1] <= w + 20:
-                        pygame.draw.circle(screen, (255, 255, 255), mp, 2, 1)
+                        CIRC(mp, 2, (255, 255, 255), 1)
             except Exception:
                 pass
 
@@ -1716,11 +1750,9 @@ def main():
             col = (CLS_COLS[astar_class[i] % len(CLS_COLS)]
                    if i < len(astar_class) else A_COLS[i % len(A_COLS)])
             for k in range(len(pth) - 1):
-                pygame.draw.line(screen, col,
-                                 to_px(pth[k][0], pth[k][1], w),
-                                 to_px(pth[k + 1][0], pth[k + 1][1], w), 2)
+                L(to_px(pth[k][0], pth[k][1], w), to_px(pth[k + 1][0], pth[k + 1][1], w), col, 2)
             for (qx, qz) in pth:
-                pygame.draw.circle(screen, col, to_px(qx, qz, w), 3)
+                D(to_px(qx, qz, w), col, (3) * 2.0)
 
         # THE BRANCH TREE ITSELF. Every ray that has been cast, coloured by
         # what became of it, so the search is something to look at rather than
@@ -1735,37 +1767,31 @@ def main():
             # hand it took, not the search that found it.
             ch = tree.win_chain
             for k in range(len(ch) - 1):
-                pygame.draw.line(screen, (120, 255, 170),
-                                 to_px(ch[k]["pos"][0], ch[k]["pos"][1], w),
-                                 to_px(ch[k + 1]["pos"][0], ch[k + 1]["pos"][1], w), 3)
+                L(to_px(ch[k]["pos"][0], ch[k]["pos"][1], w), to_px(ch[k + 1]["pos"][0], ch[k + 1]["pos"][1], w), (120, 255, 170), 3)
             for node in ch:
                 if node["ring"] is not None:
                     rx, rz, rr = node["ring"]
                     cpx = to_px(rx, rz, w)
                     rpx = int(m_to_px(rr, w))
                     if rpx >= 2:
-                        pygame.draw.circle(screen, (255, 215, 80), cpx, rpx, 2)
-                    pygame.draw.line(screen, (255, 215, 80), cpx,
-                                     to_px(node["pos"][0], node["pos"][1], w), 1)
+                        CIRC(cpx, rpx, (255, 215, 80), 2)
+                    L(cpx, to_px(node["pos"][0], node["pos"][1], w), (255, 215, 80), 1)
                     # which hand it took round this one
-                    pygame.draw.circle(screen,
-                                       (90, 255, 235) if node["side"] > 0
-                                       else (255, 150, 90),
-                                       to_px(node["pos"][0], node["pos"][1], w), 5)
+                    D(to_px(node["pos"][0], node["pos"][1], w), (90, 255, 235) if node["side"] > 0
+                                       else (255, 150, 90), (5) * 2.0)
                 else:
-                    pygame.draw.circle(screen, (200, 220, 210),
-                                       to_px(node["pos"][0], node["pos"][1], w), 3)
+                    D(to_px(node["pos"][0], node["pos"][1], w), (200, 220, 210), (3) * 2.0)
             if ch:
                 # THE BASE RING ITSELF, so "it is inside" is something to see
                 # rather than something the status line asserts.
                 bpx = to_px(goal[0], goal[1], w)
                 br = int(m_to_px(BASE_RING_M, w))
                 if br >= 2:
-                    pygame.draw.circle(screen, (120, 255, 170), bpx, br, 2)
+                    CIRC(bpx, br, (120, 255, 170), 2)
                 for pt, col, lab in ((ch[0]["pos"], (0, 220, 255), "START"),
                                      (ch[-1]["pos"], (255, 150, 0), "IN THE BASE RING")):
                     q = to_px(pt[0], pt[1], w)
-                    pygame.draw.circle(screen, col, q, 9, 3)
+                    CIRC(q, 9, col, 3)
                     screen.blit(font.render(lab, True, col), (q[0] + 12, q[1] - 8))
 
         elif tree is not None:
@@ -1779,8 +1805,7 @@ def main():
                 col = TREE_COL.get(pt["tag"], (110, 110, 130))
                 if pt["origin"] == ORIGIN_TANGENT:
                     col = (220, 170, 70) if pt["tag"] == TAG_OPEN else col
-                pygame.draw.line(screen, col, to_px(a0[0], a0[1], w),
-                                 to_px(pt["pos"][0], pt["pos"][1], w), 1)
+                L(to_px(a0[0], a0[1], w), to_px(pt["pos"][0], pt["pos"][1], w), col, 1)
             for pt in tree.points:
                 r_ = 3 if pt["origin"] == ORIGIN_TANGENT else 2
                 col = TREE_COL.get(pt["tag"], (110, 110, 130))
@@ -1792,53 +1817,43 @@ def main():
                         col, r_ = (235, 110, 235), 4
                     elif tree.items.side_spent(pt["item"], pt["side"]):
                         col, r_ = (90, 230, 235), 4
-                pygame.draw.circle(screen, col,
-                                   to_px(pt["pos"][0], pt["pos"][1], w), r_)
+                D(to_px(pt["pos"][0], pt["pos"][1], w), col, (r_) * 2.0)
             # THE LIVE BRANCH: where the search is standing right now.
             if tree.stack:
                 for k in range(len(tree.stack) - 1):
                     p0 = tree.points[tree.stack[k]]["pos"]
                     p1 = tree.points[tree.stack[k + 1]]["pos"]
-                    pygame.draw.line(screen, (255, 245, 120),
-                                     to_px(p0[0], p0[1], w),
-                                     to_px(p1[0], p1[1], w), 2)
+                    L(to_px(p0[0], p0[1], w), to_px(p1[0], p1[1], w), (255, 245, 120), 2)
                 cur = tree.points[tree.stack[-1]]
                 cp = to_px(cur["pos"][0], cur["pos"][1], w)
-                pygame.draw.circle(screen, (255, 255, 255), cp, 6, 2)
+                CIRC(cp, 6, (255, 255, 255), 2)
                 # THE ANGLES ALREADY TRIED HERE - the hit list, drawn. Short
                 # spokes off the current point, green won, red lost.
                 for aid, tg in cur["tried"].items():
                     th = angle_of(aid)
                     ex = cur["pos"][0] + np.sin(th) * 14.0
                     ez = cur["pos"][1] + np.cos(th) * 14.0
-                    pygame.draw.line(screen, TREE_COL.get(tg, (150, 150, 160)),
-                                     cp, to_px(ex, ez, w), 1)
+                    L(cp, to_px(ex, ez, w), TREE_COL.get(tg, (150, 150, 160)), 1)
             for q in tree.paths:
                 for k in range(len(q) - 1):
-                    pygame.draw.line(screen, (140, 255, 180),
-                                     to_px(q[k][0], q[k][1], w),
-                                     to_px(q[k + 1][0], q[k + 1][1], w), 3)
+                    L(to_px(q[k][0], q[k][1], w), to_px(q[k + 1][0], q[k + 1][1], w), (140, 255, 180), 3)
 
         # The pooled paths, drawn thick over the top.
         for pth in paths:
             for k in range(len(pth) - 1):
-                pygame.draw.line(screen, (120, 255, 160),
-                                 to_px(pth[k][0], pth[k][1], w),
-                                 to_px(pth[k + 1][0], pth[k + 1][1], w), 3)
+                L(to_px(pth[k][0], pth[k][1], w), to_px(pth[k + 1][0], pth[k + 1][1], w), (120, 255, 160), 3)
 
         if nodes:
             a0, b0, _ = nodes[-1]
-            pygame.draw.line(screen, (255, 235, 90),
-                             to_px(a0[0], a0[1], w), to_px(b0[0], b0[1], w), 2)
+            L(to_px(a0[0], a0[1], w), to_px(b0[0], b0[1], w), (255, 235, 90), 2)
             hx, hz = to_px(b0[0], b0[1], w)
-            pygame.draw.line(screen, (255, 255, 255), (hx - 8, hz), (hx + 8, hz), 1)
-            pygame.draw.line(screen, (255, 255, 255), (hx, hz - 8), (hx, hz + 8), 1)
+            L((hx - 8, hz), (hx + 8, hz), (255, 255, 255), 1)
+            L((hx, hz - 8), (hx, hz + 8), (255, 255, 255), 1)
 
         for pt, col, lab in ((start, (0, 200, 255), "START  team 1 base"),
                              (goal, (255, 140, 0), "FLAG  team 2 base")):
             px_, pz_ = to_px(pt[0], pt[1], w)
-            pygame.draw.circle(screen, col, (px_, pz_),
-                               max(4, int(50.0 / (g["wx1"] - g["wx0"]) * w)), 2)
+            CIRC((px_, pz_), max(4, int(50.0 / (g["wx1"] - g["wx0"]) * w)), col, 2)
             tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
             screen.blit(tag, (px_ + 14, pz_ - 8))
 
@@ -1855,11 +1870,9 @@ def main():
                 cross = tree.cursor
         if cross is not None:
             qx, qy = to_px(cross[0], cross[1], w)
-            pygame.draw.line(screen, (255, 255, 255),
-                             (map_ox, qy), (map_ox + w, qy), 1)
-            pygame.draw.line(screen, (255, 255, 255),
-                             (qx, map_oy), (qx, map_oy + w), 1)
-            pygame.draw.circle(screen, (255, 255, 255), (qx, qy), 7, 1)
+            L((map_ox, qy), (map_ox + w, qy), (255, 255, 255), 1)
+            L((qx, map_oy), (qx, map_oy + w), (255, 255, 255), 1)
+            CIRC((qx, qy), 7, (255, 255, 255), 1)
 
         screen.set_clip(None)
 
@@ -2123,6 +2136,12 @@ def main():
             screen.blit(font.render(tree_msg[:70], True, (255, 245, 120)),
                         (LEFT_W + 10, SH - 22))
 
+        # TWO DRAW CALLS FOR THE WHOLE MAP, then the panels as one texture
+        # over the top. The overlay is uploaded every frame because its text
+        # changes every frame - but it is panels, not the whole window.
+        flush()
+        gv.surface_texture("ui", screen)
+        gv.blit("ui", (0, 0, SW0, SH0))
         pygame.display.flip()
         # THE FRAME ALWAYS TICKS. The search is paced by step_delay_ms above,
         # NOT by blocking the frame - so the window stays draggable and
