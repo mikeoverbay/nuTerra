@@ -1234,12 +1234,20 @@ def main():
                 # view back so that same cell is still under the pointer -
                 # which is what makes a wheel feel like a magnifier rather than
                 # a scrollbar.
+                # AND THE PUT-BACK HAS TO USE THE SAME ORIGIN AS THE LOOK-UP.
+                # cell_at_mouse() was moved onto the map's own origin when the
+                # panels went in and these two lines were not, so the zoom
+                # anchored to a point exactly the left panel's width away from
+                # the pointer. Half a fix is its own bug.
                 mx, my = pygame.mouse.get_pos()
+                if not (map_ox <= mx < map_ox + w_now and
+                        map_oy <= my < map_oy + w_now):
+                    continue          # the wheel over a panel is not a zoom
                 ax, az = cell_at_mouse(mx, my, w_now)
                 view_cells *= 0.85 ** e.y
                 view_cells = min(float(N), max(24.0, view_cells))
-                view_cx = ax - mx / w_now * view_cells
-                view_cz = az - my / w_now * view_cells
+                view_cx = ax - (mx - map_ox) / w_now * view_cells
+                view_cz = az - (my - map_oy) / w_now * view_cells
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 2, 3):
                 # A CLICK IN A PANEL IS A CONTROL, not a drag of the map. The
                 # button posts the SAME key event the keyboard would, so there
