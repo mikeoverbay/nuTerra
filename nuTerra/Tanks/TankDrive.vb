@@ -57,6 +57,26 @@ Public Class TankDrive
     ''' base.</summary>
     Public arrived As Boolean = False
 
+    ''' <summary>Set when the route this hull was given has stopped being
+    ''' usable. The driver cannot re-plan - it has no idea where the bases are -
+    ''' so it raises this and MapTanks cuts a fresh route from where the hull
+    ''' now stands, using the pins it has learned since.</summary>
+    Public wantsReplan As Boolean = False
+
+    ''' <summary>Which way round an obstacle this hull committed to, +1 or -1,
+    ''' and how long that choice still holds. Re-deciding every frame is how a
+    ''' hull oscillates in the mouth of a gap.</summary>
+    Public skirtSide As Integer = 0
+    Public skirtS As Single = 0.0F
+
+    ''' <summary>How far the tangent sweep opens, and in what steps. Twelve
+    ''' rings of 12 degrees reaches 144 degrees either side - past square to the
+    ''' obstacle, which is as far as skirting can sensibly go before the way
+    ''' round is genuinely behind you.</summary>
+    Private Const SKIRT_RINGS As Integer = 12
+    Private Const SKIRT_STEP_RAD As Single = 0.2094F
+    Private Const SKIRT_HOLD_S As Single = 1.5F
+
     ''' <summary>Metres a second, ramped rather than set - a hull that reaches
     ''' its top speed in one frame reads as a slide, and the track band is
     ''' driven off distance so it would scroll in a step too.</summary>
@@ -102,8 +122,13 @@ Public Class TankDrive
         Dim pos As New Vector2(inst.position.X, inst.position.Z)
 
         goalS += dt
-        If Not hasGoal OrElse (goal - pos).Length < TankDriveTune.ARRIVE_M OrElse
-           goalS > TankDriveTune.GOAL_PATIENCE_S Then
+        If skirtS > 0.0F Then
+            skirtS -= dt
+            If skirtS <= 0.0F Then skirtSide = 0
+        End If
+        If skirtS <= 0.0F AndAlso
+           (Not hasGoal OrElse (goal - pos).Length < TankDriveTune.ARRIVE_M OrElse
+            goalS > TankDriveTune.GOAL_PATIENCE_S) Then
             PickGoal(inst, nav, pos)
         End If
         If Not hasGoal Then Return
@@ -175,6 +200,60 @@ Public Class TankDrive
         Dim nxt = pos + fwd * stride
 
         If Not nav.CanStand(nxt.X, nxt.Y, TankDriveTune.HULL_R) Then
+
+            ' SKIRT IT BEFORE GIVING UP ON THE DIRECTION.
+            '
+            ' The owner, watching a hull re-plan onto the same route three times
+            ' running: "i think you missed draw the tangent expanding ring at
+            ' each collision point. It gives up easy on direction."
+            '
+            ' He is right, and the re-plan loop is the proof: a blocked hull was
+            ' abandoning its heading, asking for a new route, and being handed
+            ' the same one - because nothing about the MAP had changed, only
+            ' this hull's position against one obstacle. What it needed was to
+            ' go ROUND the thing, which is a steering problem and not a
+            ' planning one.
+            '
+            ' So: open a ring at the collision point and take the first tangent
+            ' that clears. Sweep out from the blocked heading in widening steps,
+            ' trying each side alternately, and steer down the first one a hull
+            ' fits through. A near-miss costs a few degrees; a wall costs more;
+            ' only a dead end runs out of ring, and that is the case where
+            ' giving up on the direction is the right answer rather than the
+            ' easy one.
+            '
+            ' THE SIDE IS REMEMBERED once chosen. Picking afresh each frame is
+            ' how a hull ends up oscillating in the mouth of a gap - left looks
+            ' best, it turns, right looks best, it turns back - and skirting an
+            ' obstacle means committing to one way round it until it is passed.
+            Dim skirted = False
+            If skirtSide = 0 Then skirtSide = 1
+            For ring = 1 To SKIRT_RINGS
+                Dim ang = SKIRT_STEP_RAD * ring
+                For pass = 0 To 1
+                    ' The remembered side first, the other second.
+                    Dim sgn = If(pass = 0, skirtSide, -skirtSide)
+                    Dim h = inst.headingRad + ang * sgn
+                    Dim probe2 = pos + New Vector2(CSng(Math.Sin(h)), CSng(Math.Cos(h))) * stride
+                    If nav.CanStand(probe2.X, probe2.Y, TankDriveTune.HULL_R) Then
+                        goal = pos + New Vector2(CSng(Math.Sin(h)), CSng(Math.Cos(h))) *
+                                     TankDriveTune.ARRIVE_M * 2.0F
+                        hasGoal = True
+                        skirtSide = sgn
+                        skirtS = SKIRT_HOLD_S
+                        skirted = True
+                        Exit For
+                    End If
+                Next
+                If skirted Then Exit For
+            Next
+            If skirted Then
+                stopReason = StopWhy.Turning
+                speed = 0.0F
+                blockedS = 0.0F
+                Return
+            End If
+
             stopReason = StopWhy.Ground
             speed = 0.0F
             stuckS += dt
@@ -188,6 +267,13 @@ Public Class TankDrive
             blockedS += dt
             If blockedS > TankDriveTune.REPICK_S Then
                 blockedS = 0.0F
+                ' A HULL ON A ROUTE THAT IS BLOCKED DOES NOT WANT A NEW
+                ' WAYPOINT, IT WANTS A NEW ROUTE. Re-aiming at the same point is
+                ' right for a moment's obstruction and useless against a wall:
+                ' the route was cut before this hull learned what is here, and
+                ' every pin it has dropped since is knowledge the plan does not
+                ' have. Wandering off a dart would lose the base entirely.
+                If path IsNot Nothing Then wantsReplan = True
                 PickGoal(inst, nav, pos)
             End If
 

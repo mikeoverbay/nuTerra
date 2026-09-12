@@ -469,6 +469,40 @@ Public Class TankNav
         If hits < PIN_CONFIRM Then Return
 
         cell(i) = cell(i) Or PINNED
+
+        ' AND TELL THE CLEARANCE FIELD, or the planner keeps routing through it.
+        '
+        ' A pin is a LEARNED obstacle - a wreck, a lip the height test forgave,
+        ' a hull that stopped - and PINNED is part of IMPASSABLE, so CanStand
+        ' refuses it the instant it exists. But clear_m was computed at load and
+        ' knows nothing about it, so the planner cuts a route straight through
+        ' the cell the driver just learned it cannot cross, and the hull meets
+        ' it again. Measured: a run that was 4/4 moving at a kilometre fell to
+        ' 1/4 with two blocked on ground, while the pin count climbed.
+        '
+        ' A new obstacle can only REDUCE clearance, and by a knowable amount: no
+        ' cell may now claim more room than its distance to this pin. That is
+        ' precisely what the transform would produce locally, so this is not an
+        ' approximation OF the field, it is the field.
+        '
+        ' 40 cells because nothing on this grid holds more clearance than that,
+        ' and pins are rare enough that the comparisons do not matter.
+        If clear_m IsNot Nothing Then
+            Const R As Integer = 40
+            For dz = -R To R
+                Dim rr = cz + dz
+                If rr < 0 OrElse rr >= SIZE Then Continue For
+                For dx = -R To R
+                    Dim cc = cx + dx
+                    If cc < 0 OrElse cc >= SIZE Then Continue For
+                    Dim bound = (CSng(Math.Sqrt(dx * dx + dz * dz)) - 0.5F) * cell_m
+                    If bound < 0.0F Then bound = 0.0F
+                    Dim k = rr * SIZE + cc
+                    If clear_m(k) > bound Then clear_m(k) = bound
+                Next
+            Next
+        End If
+
         suspect.Remove(i)
         n_pinned += 1
         pins_dirty = True

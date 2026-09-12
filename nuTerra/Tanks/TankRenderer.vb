@@ -102,6 +102,7 @@ Public Class MapTanks
     ''' </summary>
     Private Sub Load()
         loaded = True
+        TagWindowWithCheckout()
         Try
             shader = New Shader("tank_gbuffer")
 
@@ -374,6 +375,19 @@ Public Class MapTanks
             TANK_ROUTES_REBUILD_NOW = False
             RebuildRoutes()
         End If
+
+        ' A HULL WHOSE ROUTE HAS STOPPED WORKING GETS A NEW ONE, not a new
+        ' waypoint. The driver raises the flag because it cannot re-plan - it
+        ' has no idea where the bases are - and the re-cut happens here, from
+        ' where the hull now stands and against the pins it has learned since
+        ' its last plan. One hull at a time so a bad patch of map cannot stall
+        ' a frame with four searches at once.
+        For Each inst In instances
+            If Not inst.drive.wantsReplan Then Continue For
+            inst.drive.wantsReplan = False
+            ReplanOne(inst)
+            Exit For
+        Next
 
         GL_PUSH_GROUP("draw_tanks")
         MainFBO.attach_CNGP()
@@ -1411,6 +1425,92 @@ Public Class MapTanks
         Catch ex As Exception
             LogThis("tank routes: hot rebuild failed - {0}", ex.ToString())
         End Try
+    End Sub
+
+    ''' <summary>
+    ''' Put the CHECKOUT this build came from in the window title.
+    '''
+    ''' Three sessions run three builds of this app on one desktop and the
+    ''' windows are identical, so the owner cannot tell whose he is looking at -
+    ''' which matters the moment one of them is showing him a route and another
+    ''' is not. His ask: "put the sessions name on the title bar of who ones
+    ''' it."
+    '''
+    ''' Taken from the folder the exe sits under rather than from any name typed
+    ''' anywhere: a build under a folder named nuTerra_tankai says so, one
+    ''' under nuTerra says that, and nobody has to remember to set a flag. A tag
+    ''' that can disagree with the build it labels is worse than none.
+    '''
+    ''' INTERIM, AND IN THE WRONG FILE. The window belongs to Window.vb and this
+    ''' serves all three sessions, not just the tanks - asked of the nuTerra
+    ''' session to be moved there and done properly, at startup rather than when
+    ''' vehicles happen to load.
+    ''' </summary>
+    Private Shared Sub TagWindowWithCheckout()
+        Try
+            If main_window Is Nothing Then Return
+            Dim d = New IO.DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory)
+            ' up out of bin/Debug/net8.0-windows, then out of nuTerra
+            For i = 1 To 4
+                If d.Parent Is Nothing Then Exit For
+                d = d.Parent
+            Next
+            ' owner=<text> WINS, and is read straight off the command line
+            ' rather than through Program.vb's parser - the arg list is there
+            ' for the asking and this needs nothing from anyone else's file.
+            ' Everything after the = is used verbatim, so owner="Tank AI" comes
+            ' through with its space.
+            Dim tag = d.Name
+
+            ' A NAME WITH A SPACE IN IT STILL ARRIVES AS ONE NAME. Unquoted,
+            ' owner=Tank AI reaches the process as two arguments and the tag
+            ' came out "Tank" - which is exactly the sort of thing nobody
+            ' notices until two windows are labelled the same. So everything
+            ' after owner= is taken, and so is every following argument that is
+            ' not itself a key=value, up to the next one that is.
+            Dim args = Environment.GetCommandLineArgs()
+            For i = 0 To args.Length - 1
+                If Not args(i).StartsWith("owner=", StringComparison.OrdinalIgnoreCase) Then Continue For
+                Dim t = args(i).Substring(6).Trim()
+                For j = i + 1 To args.Length - 1
+                    If args(j).Contains("=") Then Exit For
+                    t = (t & " " & args(j)).Trim()
+                Next
+                If t <> "" Then tag = t
+                Exit For
+            Next
+            If Not main_window.Title.Contains(tag) Then
+                main_window.Title = main_window.Title & "   [" & tag & "]"
+            End If
+        Catch
+            ' A window title is never worth an exception.
+        End Try
+    End Sub
+
+    ''' <summary>Cut a fresh route for one hull from where it now stands. Used
+    ''' when its old route has stopped working - the pins it has dropped since
+    ''' are knowledge the old plan did not have.</summary>
+    Private Sub ReplanOne(inst As TankInstance)
+        If Not map_scene.BASE_RINGS_LOADED Then Return
+        Dim green = (inst.team = TankTeam.Green)
+        Dim ex = If(green, -TEAM_2.X, -TEAM_1.X)
+        Dim ez = If(green, TEAM_2.Z, TEAM_1.Z)
+        Dim fresh As New TankRoutes
+        fresh.Build(nav, TankDriveTune.HULL_R,
+                    inst.position.X, inst.position.Z, ex, ez,
+                    String.Format("{0} re-planning", inst.label))
+        inst.drive.pathAt = 0
+        inst.drive.hasGoal = False
+        If fresh.ready AndAlso fresh.routes.Count > 0 Then
+            inst.drive.path = fresh.Waypoints(nav, 0,
+                                              TankDriveTune.HULL_R + TankRoutes.THIN_SLACK_M)
+            LogThis("tank ai: {0} re-planned, {1:0} m, {2} waypoint(s)",
+                    inst.label, fresh.routes(0).length_m, inst.drive.path.Count)
+        Else
+            inst.drive.path = Nothing
+            LogThis("tank ai: {0} has no route to the enemy base from here - wandering",
+                    inst.label)
+        End If
     End Sub
 
     ''' <summary>Give every hull the corridor for its side and put it back to
