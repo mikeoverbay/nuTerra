@@ -2565,6 +2565,61 @@ try_again:
                 If ImGui.CollapsingHeader("Shadow Mapping") Then
                     ' Which of the four baked tiles each shadowed pixel came
                     ' from. Only meaningful while the tiled path is running.
+                    ImGui.Checkbox("Tanks cast", TANK_CAST_SHADOW)
+                    ImGui.Checkbox("PAINT tank shadows green", TANK_SHADOW_DEBUG)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Green where a tank casts, over" & vbLf &
+                                         "everything, instead of shadowing." & vbLf &
+                                         "The baked shadow is taken out of the" & vbLf &
+                                         "comparison, so a tank shadow falling" & vbLf &
+                                         "inside a building's is still visible.")
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("A 512 shadow map per tank, rebuilt" & vbLf &
+                                         "every frame. The sun map is baked once" & vbLf &
+                                         "at load and cannot hold anything that" & vbLf &
+                                         "moves, so a tank casts from its own" & vbLf &
+                                         "map or not at all." & vbLf &
+                                         "Draws the hull BOX today - the mesh" & vbLf &
+                                         "draw belongs to the tank session.")
+                    End If
+                    ImGui.SliderFloat("Cast range m", TANK_SHADOW_RANGE, 20.0, 800.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Past this a tank gets no map at all," & vbLf &
+                                         "and the shader skips it per pixel." & vbLf &
+                                         "Its shadow is a few pixels by then.")
+                    End If
+                    ImGui.SliderFloat("Fade from", TANK_SHADOW_FADE, 0.1, 1.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Fraction of the range where the fade" & vbLf &
+                                         "starts. Without it a tank crossing the" & vbLf &
+                                         "boundary pops.")
+                    End If
+                    ImGui.Separator()
+
+                    ImGui.Checkbox("Shadow the tanks", TANK_SHADOW)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("A tank shades itself and the resolve" & vbLf &
+                                         "passes it through unlit, so nothing" & vbLf &
+                                         "shadowed it - one parked in a building's" & vbLf &
+                                         "shadow was lit as if in open sun." & vbLf &
+                                         "Costs one fetch: the factor was already" & vbLf &
+                                         "computed at those pixels and discarded." & vbLf &
+                                         "RECEIVING only - a tank still casts" & vbLf &
+                                         "nothing, because the sun map is baked" & vbLf &
+                                         "once at load and cannot hold anything" & vbLf &
+                                         "that moves.")
+                    End If
+                    ImGui.SliderFloat("In-shadow floor", TANK_SHADOW_FLOOR, 0.0, 1.0)
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("How much of the tank's own colour" & vbLf &
+                                         "survives in full shadow. 1 is no" & vbLf &
+                                         "shadow at all; 0 paints it black," & vbLf &
+                                         "because that colour already carries" & vbLf &
+                                         "the tank's own ambient.")
+                    End If
+                    ImGui.Separator()
+
                     ImGui.Checkbox("Tint by shadow tile", SUN_TILE_TINT)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Colour the shadow by which of the four" & vbLf &

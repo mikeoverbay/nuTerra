@@ -84,6 +84,26 @@ Module Program
                 ' by whoever is producing the frames, who needs to see their own
                 ' film land somewhere.
                 RouteFilm.show = True
+            ElseIf a.StartsWith("set=", StringComparison.OrdinalIgnoreCase) Then
+                ' set=<map setting>=<value>, forced AFTER the map's own file
+                ' loads so it actually sticks - modMapSettings.ApplyOverrides.
+                '
+                ' Every one of the ~100 per-map settings becomes A/B-testable
+                ' from the command line with this, which is what CLI_FORCED was
+                ' built for and has never been wired to. Its own comment says
+                ' so: "Route them through here when someone next needs one of
+                ' them to work." An unknown key is reported by Load rather than
+                ' swallowed, so a typo is visible.
+                Dim kv = a.Substring(4)
+                Dim eq = kv.IndexOf("="c)
+                If eq > 0 Then
+                    Dim v As Single
+                    If Single.TryParse(kv.Substring(eq + 1),
+                                       Globalization.NumberStyles.Float,
+                                       Globalization.CultureInfo.InvariantCulture, v) Then
+                        modMapSettings.CLI_FORCED(kv.Substring(0, eq).Trim().ToLowerInvariant()) = v
+                    End If
+                End If
             ElseIf a.Equals("kinddump", StringComparison.OrdinalIgnoreCase) Then
                 ' Every name the kind classifier saw, and what it answered.
                 KIND_DUMP = True
