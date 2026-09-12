@@ -519,6 +519,23 @@ pictures in this section came from the session scratchpad's
 place for the TANKS - faster or better drives than the grid A*, with a
 number - is that session's to show the owner.
 
+## 13. The height map watcher (evening)
+
+The owner: "keep Path Studio open but put a file watcher on our height
+map." Every two seconds (`Studio.WATCH_MS`) the Studio stamps the loaded
+map's bake files (`_meta.txt`, `_top.rgba`/`_floor.r16` or the `.r32` pair)
+and compares them with what it loaded; a change that then holds still for
+one more poll - nuTerra takes seconds over the 256 MB top layer - calls
+`reload_bake()`: the bake is re-read, the mask re-rendered, the 3D surface
+rebuilt with the camera where it was, the radar world follows on the next
+generate. The route, targets and lights are untouched. Never while a
+generate is running or the Studio is busy. The status line says "height map
+changing on disk..." while the writer is at it and "height map reloaded at
+HH:MM:SS (written=..., commit=...)" after, with the provenance keys when
+the writer carries them. Tested on a synthetic bake rewritten under a
+running Studio with a new building: reloaded within two polls, the target
+and the 3D camera kept.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the

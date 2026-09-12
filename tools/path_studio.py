@@ -2926,6 +2926,18 @@ class Studio:
         self.status_lbl.grid(row=r, column=0, columnspan=2, sticky="w")
         r += 1
 
+        # THE HEIGHT MAP WATCHER. nuTerra re-bakes the map into the same
+        # files this Studio read at load, and until 2026-09-11 the only way
+        # to see a new bake was to re-pick the map, which also threw away
+        # the route being worked on. Every WATCH_MS the stamps of the loaded
+        # map's bake files are compared with what was loaded; a change that
+        # then holds still for one more poll - the writer takes seconds over
+        # the 256 MB top layer - reloads the BAKE only: mask, 3D surface,
+        # radar world. Route, targets, lights and the camera are untouched.
+        self.bake_seen = None
+        self.bake_pending = None
+        self.root.after(self.WATCH_MS, self._watch_bake)
+
         self.canvas = tk.Canvas(root, width=CANVAS, height=CANVAS,
                                 bg="#11141c", highlightthickness=0)
         self.canvas.grid(row=0, column=1, padx=(0, 8), pady=8, sticky="nsew")
@@ -3365,6 +3377,62 @@ class Studio:
             self.bake_selected()
 
 
+    WATCH_MS = 2000
+
+    def _bake_stamp(self, name):
+        """(size, mtime) of every bake file of the map that exists, or None
+        when none does. A tuple, so it compares whole."""
+        out = []
+        for suf in ("_meta.txt", "_top.rgba", "_floor.r16", "_top.r32", "_floor.r32"):
+            p = os.path.join(FOLDER, name + suf)
+            try:
+                st = os.stat(p)
+                out.append((suf, st.st_size, st.st_mtime))
+            except OSError:
+                pass
+        return tuple(out) or None
+
+    def _watch_bake(self):
+        try:
+            name = self.map_name
+            if name and self.bake is not None and not self.busy and self.live is None:
+                stamp = self._bake_stamp(name)
+                if stamp is not None and self.bake_seen is not None and stamp != self.bake_seen:
+                    if stamp == self.bake_pending:
+                        # changed, and still for a whole poll: the writer is done
+                        self.reload_bake()
+                    else:
+                        self.bake_pending = stamp
+                        self.status.set("height map changing on disk...")
+        except Exception as e:
+            self._trace("watch_bake", "error " + repr(e))
+        self.root.after(self.WATCH_MS, self._watch_bake)
+
+    def reload_bake(self):
+        """A new bake for the loaded map: read it, re-render the mask, rebuild
+        the 3D surface, keep everything the owner has placed."""
+        name = self.map_name
+        try:
+            b = fp.Bake(FOLDER, name)
+        except Exception as e:
+            self.status.set("height map changed but would not load: %s" % e)
+            self.bake_seen = self._bake_stamp(name)
+            return
+        self.bake = b
+        self.view_grid = b
+        self.bake_seen = self._bake_stamp(name)
+        self.bake_pending = None
+        if self.view3d is not None:
+            self.view3d.set_bake(render=False)     # the camera stays where it is
+        self.render_mask()
+        self.repaint()
+        if self.view3d is not None:
+            self.view3d.overlay()
+        meta = getattr(b, "meta", {})
+        prov = ", ".join("%s=%s" % (k, meta[k]) for k in ("written", "commit") if k in meta)
+        self.status.set("height map reloaded at %s%s - route, targets and lights kept"
+                        % (time.strftime("%H:%M:%S"), (" (" + prov + ")") if prov else ""))
+
     def load_named(self, name):
         self._trace("load_named", "want=" + repr(name))
         if self.busy or not name:
@@ -3395,6 +3463,8 @@ class Studio:
         # With a height map the canvas draws against the bake itself.
         self.view_grid = self.bake
         self.map_name = name
+        self.bake_seen = self._bake_stamp(name)
+        self.bake_pending = None
         if self.view3d is not None:
             # A new map: new surface, and the camera back to its overview.
             # render_mask below recolours it and renders.
