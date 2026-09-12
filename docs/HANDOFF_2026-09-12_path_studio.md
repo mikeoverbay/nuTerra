@@ -72,6 +72,26 @@ committed WITHOUT being wired into the Studio:
   objects passed by one route only are a near-miss, not a difference.
 - `same_route(...)`.
 
+**RETRACTED before you start (Tank AI, 12:30):** the "8 agrees with 8"
+pairing was a coincidence of two free numbers (a reach radius and a Jaccard
+tolerance on a steep curve), not a cross-validation. With the kind split
+and a hull-derived reach in, the SET signature discriminates on gravel
+(468 objects per route) and no tolerance gives eight. The exact test has no
+thresholds: two routes between the same points are the same class when the
+closed loop made by one forward and the other backward ENCLOSES NO
+OBSTACLE (point-in-polygon of each object's centroid against the loop, on
+objects at least L m2 - the ONE dial, in square metres, which the owner can
+answer by looking at a building). With it, their ray sweep finds ONE route
+where the catalogue finds eight - the honest result. So: build the compare
+on the exact test, not on `signature()`/`compare()` - keep
+`label_objects()` (kind split and trunk stamps, both right) and add
+`encloses(route_a, route_b, objects, min_area_m2)`: polygon = a + reversed
+b; count object centroids inside (shapely if present, else a ray-cast
+point-in-polygon); zero = same route; the enclosed objects are the rings to
+draw. The set signature can stay as a picture ("what was passed") but must
+not decide sameness. For the camera, an "over" flight encloses nothing in
+the ground plane, so the exact test handles the air with no third side.
+
 To finish, in this order:
 1. Wire it into `path_studio.Studio.apply_direction` (~line 5990): after
    `self.diverge = divergence(...)`, build the objects once per bake
