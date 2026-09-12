@@ -69,12 +69,27 @@ def read_meta(path):
 
 
 def build_grid(map_name, hull_r_m):
-    """The drivable mask and the clearance field, by TankNav's rules.
+    """The COLLISION MAP: sample XZ at the plane location, read Y, and anything
+    standing over a metre is solid.
 
-    THE RULES ARE COPIED AND THAT IS A LIABILITY, so they are all here in one
-    place with the app's constant names next to them. If TankNav changes what
-    it calls passable and this does not, the studio will draw a confident
-    picture of a map the game does not have - which is worse than no picture.
+    The owner, looking at a zoomed-in resolve full of staircases: "you are stair
+    stepping bad. use the path height map and we are ay z Y of 1.0m. that's our
+    collision map... Y at 1.0 and XZ at plane locations."
+
+    WHAT THIS REPLACED AND WHY IT STAIR-STEPPED. The old test was a DERIVED
+    map: block a 1.37 m cell if any texel in it is blocked, distance-transform
+    that, then demand the hull radius of clearance. Two things came out of it -
+    the ground was eight times coarser than the bake that made it, and every
+    obstacle was inflated by 4.5 m. So a ray stopped four and a half metres from
+    anything real, and the half-metre tangent steps around that phantom surface
+    drew a staircase rather than a corner.
+
+    Sampling the height map directly at its own 0.171 m gives rays that stop
+    where the thing actually is.
+
+    The kind rules stay, because they are the game's and they are measured: a
+    canopy is not an obstacle and a trunk is, a tank goes through a fence and
+    over a curb. Height alone would stop every ray at the first hedge.
     """
     meta = read_meta(os.path.join(FLIGHT, f"{map_name}_meta.txt"))
     W = int(meta["width"])
@@ -91,71 +106,46 @@ def build_grid(map_name, hull_r_m):
     t16 = (top[:, :, 1].astype(np.int32) << 8) | top[:, :, 2]
     kind = key & KIND_MASK
 
-    # The obstacle test, TankNav.vb: skipped for tree, fence and prop - a tank
-    # goes through a fence, over a curb, and a canopy is answered by the trunk
-    # bit instead.
+    # Y ABOVE 1.0 m IS A COLLISION - at the texel, not at a cell average.
+    over = (t16 - fl16) > int(MAX_OBSTACLE_M * scale)
     testable = (kind != KIND_TREE) & (kind != KIND_FENCE) & (kind != KIND_PROP)
-    obstacle = testable & ((t16 - fl16) > int(MAX_OBSTACLE_M * scale))
 
-    shut = obstacle | (key & TRUNK_BIT).astype(bool) \
-        | (key & OUTLAND_BIT).astype(bool) | (kind == KIND_WATER)
+    collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == KIND_WATER)
 
-    # Down to the nav grid: a cell is shut if ANY texel in it is shut. That is
-    # conservative and it is what eats doorways - the nuTerra session measured
-    # a 16 m corridor reading as nothing at this resolution.
-    N = W // CELL_TEXELS
-    blocked = shut.reshape(N, CELL_TEXELS, N, CELL_TEXELS).any(axis=(1, 3))
-
-    # Slope, per cell, off the floor alone.
-    cell_m = (wx1 - wx0) / N
-    fb = fl16.reshape(N, CELL_TEXELS, N, CELL_TEXELS)
-    rise = (fb.max(axis=(1, 3)) - fb.min(axis=(1, 3))) / scale
-    blocked |= rise > (MAX_SLOPE * cell_m)
-
-    from scipy import ndimage
-    # Clearance, HALF A CELL BACK: the transform measures to the blocking
-    # cell's centre and that cell is solid across its whole area.
-    clear = (ndimage.distance_transform_edt(~blocked) - 0.5) * cell_m
-    np.clip(clear, 0.0, None, out=clear)
-
-    return dict(N=N, cell_m=cell_m, blocked=blocked, clear=clear, used=None,
+    return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide, used=None,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
 
-def world_to_cell(g, x, z):
-    cx = int((x - g["wx0"]) / (g["wx1"] - g["wx0"]) * g["N"])
-    cz = int((g["wz1"] - z) / (g["wz1"] - g["wz0"]) * g["N"])
-    return cx, cz
-
-
-def cell_to_world(g, cx, cz):
-    x = g["wx0"] + (cx + 0.5) * (g["wx1"] - g["wx0"]) / g["N"]
-    z = g["wz1"] - (cz + 0.5) * (g["wz1"] - g["wz0"]) / g["N"]
-    return x, z
+def to_texel(g, x, z):
+    W = g["W"]
+    col = int((x - g["wx0"]) / (g["wx1"] - g["wx0"]) * W)
+    row = int((g["wz1"] - z) / (g["wz1"] - g["wz0"]) * W)
+    return col, row
 
 
 def standable(g, x, z):
-    cx, cz = world_to_cell(g, x, z)
-    if cx < 0 or cz < 0 or cx >= g["N"] or cz >= g["N"]:
+    """Can the plane sit here? XZ in, Y tested against 1.0 m."""
+    col, row = to_texel(g, x, z)
+    W = g["W"]
+    if col < 0 or row < 0 or col >= W or row >= W:
         return False
-    if g["used"] is not None and g["used"][cz, cx]:
+    if g["used"] is not None and g["used"][row, col]:
         return False
-    return g["clear"][cz, cx] >= g["hull"]
+    return not g["collide"][row, col]
 
 
 def snap_free(g, x, z):
+    """The nearest spot the plane can sit, if this one is inside something."""
     if standable(g, x, z):
         return x, z
-    cx, cz = world_to_cell(g, x, z)
-    for ring in range(1, 65):
-        for dz in range(-ring, ring + 1):
-            for dx in range(-ring, ring + 1):
-                if abs(dx) != ring and abs(dz) != ring:
-                    continue
-                nx, nz = cx + dx, cz + dz
-                if 0 <= nx < g["N"] and 0 <= nz < g["N"] \
-                        and g["clear"][nz, nx] >= g["hull"]:
-                    return cell_to_world(g, nx, nz)
+    step = g["texel_m"] * 2.0
+    for ring in range(1, 400):
+        r = ring * step
+        for k in range(0, 360, 10):
+            a = np.deg2rad(k)
+            nx, nz = x + np.sin(a) * r, z + np.cos(a) * r
+            if standable(g, nx, nz):
+                return nx, nz
     return x, z
 
 
@@ -170,7 +160,7 @@ def sees(g, x, z, tx, tz):
     if d < 1e-6:
         return True
     dx, dz = dx / d, dz / d
-    step = g["cell_m"] * 0.5
+    step = g["texel_m"] * 0.5
     t = 0.0
     while t < d:
         if not standable(g, x + dx * t, z + dz * t):
@@ -184,7 +174,9 @@ def march(g, x, z, dx, dz, goal, limit):
 
     Half a cell a step, so nothing narrower than a cell can be stepped over.
     """
-    step = g["cell_m"] * 0.5
+    # A TEXEL AT A TIME: nothing narrower than the height map's own cell can
+    # be stepped over, which is the finest this data can honestly answer.
+    step = g["texel_m"]
     t = 0.0
     gx, gz = goal
     while t < limit:
@@ -205,13 +197,26 @@ REACH_M = 12.0
 # settings... That path is dead."
 RING_STEP_M = 0.5
 RING_MIN_M = 0.5
-RING_MAX_DEFAULT_M = 3.0        # the setting, 0.5 to 5.0 by 0.5
+RING_MAX_DEFAULT_M = 12.0
+# THE SETTING'S RANGE, MEASURED RATHER THAN GUESSED. The spec said 0.5 to 5.0
+# by 0.5; at 5.0 this map yields NOTHING and at 10.0 it yields five routes. A
+# ring has to be able to reach past the corner it is stuck in, and the corners
+# here are bigger than five metres. Range runs to 25 m now; the step stays 0.5
+# near the bottom and coarsens above 5, since nothing changes by half-metres up
+# there - 10 m and 25 m give identical paths.
+RING_SETTING_MIN = 0.5
+RING_SETTING_MAX = 25.0
 
 # How finely the ring is walked looking for where it clears.
 RING_ANGLE_STEP = np.deg2rad(6.0)
 
 # How far round the ring counts as a tangent rather than a retreat.
 RING_ARC_MAX = np.deg2rad(110.0)
+
+# How far a ray must get away from a candidate tangent before that tangent
+# counts. Below this the ring has found a clear spot inside a corner rather than
+# a way out of it.
+TANGENT_ESCAPE_M = 6.0
 
 # How many ring-and-re-aim hops one chain may take before it is called lost. A
 # small ring means many small steps round a big obstacle, which is the design.
@@ -227,7 +232,7 @@ REJECT_M = 55.0
 
 def march(g, x, z, dx, dz, goal, limit):
     """Fly a ray until it hits something or reaches the flag."""
-    step = g["cell_m"] * 0.5
+    step = g["texel_m"] * 0.5
     t = 0.0
     gx, gz = goal
     while t < limit:
@@ -240,7 +245,7 @@ def march(g, x, z, dx, dz, goal, limit):
     return t, x, z, False
 
 
-def ring_tangents(g, hx, hz, indx, indz, max_ring_m):
+def ring_tangents(g, hx, hz, indx, indz, max_ring_m, goal, limit):
     """Draw a ring at the hit point and find where it clears, both sides.
 
     Exactly as described: a circle at the collision, grown in half-metre steps
@@ -272,11 +277,36 @@ def ring_tangents(g, hx, hz, indx, indz, max_ring_m):
                     continue
                 th = base_ang + a * sgn
                 px, pz = hx + np.sin(th) * r, hz + np.cos(th) * r
-                if standable(g, px, pz):
-                    if sgn > 0:
-                        left = (px, pz)
-                    else:
-                        right = (px, pz)
+                if not standable(g, px, pz):
+                    continue
+
+                # THE TANGENT MUST BE SOMEWHERE A RAY CAN LEAVE FROM.
+                #
+                # The owner's rule, and it is the one that unsticks corners:
+                # "we expand and take tangent if it doesn't hit anything. that
+                # stops the path from getting stuck in corners."
+                #
+                # Testing only that the POINT is clear is not enough. Inside a
+                # corner every point half a metre away is perfectly clear and
+                # every ray out of it hits at once, so the chain sits in the
+                # corner sidestepping until its hop budget runs out - which is
+                # exactly what it was doing.
+                #
+                # So a candidate only counts if a ray at the flag actually gets
+                # away from it. If none does at this radius the ring grows,
+                # which is what "expand" is FOR: a bigger circle reaches past
+                # the corner that the small one was trapped in.
+                gx2, gz2 = goal
+                d2 = max(np.hypot(gx2 - px, gz2 - pz), 1e-6)
+                out, _, _, _ = march(g, px, pz, (gx2 - px) / d2, (gz2 - pz) / d2,
+                                     goal, limit)
+                if out < TANGENT_ESCAPE_M:
+                    continue
+
+                if sgn > 0:
+                    left = (px, pz)
+                else:
+                    right = (px, pz)
             if left is not None and right is not None:
                 break
             a += RING_ANGLE_STEP
@@ -322,7 +352,8 @@ def chain(g, start, goal, bearing, max_ring_m, trace):
         # tangent, crawl on. A small ring means many small steps round a big
         # obstacle, and that is the design rather than a fault in it.
 
-        left, right, _ = ring_tangents(g, hx, hz, dx, dz, max_ring_m)
+        left, right, _ = ring_tangents(g, hx, hz, dx, dz, max_ring_m,
+                                       goal, limit)
         if left is None and right is None:
             return None                                  # DEAD
 
@@ -339,7 +370,13 @@ def chain(g, start, goal, bearing, max_ring_m, trace):
         # first ring of a chain picks the side; every ring after it uses the
         # same one, so the chain commits to going round rather than dithering
         # at the face.
-        options = (left, right) if hand == 0 else                   ((left,) if hand > 0 else (right,))
+        # BOTH SIDES, ALWAYS. The hand was committed to stop the chain
+        # dithering at a wall - sidestep left, re-aim, turn back, sidestep
+        # right - but the escape rule already stops that: a tangent only counts
+        # if a ray can leave it. With the hand locked, a chain dies the moment
+        # its chosen side has no escapable tangent, even when the other side
+        # does, and that was killing every chain at about four hops.
+        options = (left, right)
         best, best_got = None, -1.0
         for cand in options:
             if cand is None:
@@ -438,6 +475,7 @@ def main():
     map_name = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") \
         else "19_monastery"
     hull = 4.5
+    ring_max = RING_MAX_DEFAULT_M
     speed = 1
     # A good resolve is now 43 rays, which at one a frame is over in under a
     # second - too fast to watch, which defeats the point of a live view. The
@@ -453,9 +491,18 @@ def main():
 
     print(f"ray studio: {map_name}, hull {hull:.1f} m")
     g = build_grid(map_name, hull)
-    N = g["N"]
-    print(f"  grid {N}x{N} at {g['cell_m']:.2f} m, "
-          f"{(~g['blocked']).sum():,} open cell(s)")
+    W = g["W"]
+    print(f"  collision map {W}x{W} at {g['texel_m']:.3f} m per texel, "
+          f"{(~g['collide']).sum():,} clear texel(s), Y over "
+          f"{MAX_OBSTACLE_M:.1f} m is solid")
+
+    # THE PICTURE IS SMALLER THAN THE MAP. Collision stays at the full 8192 so
+    # rays stop where things actually are; the background is quartered to 2048
+    # because a pygame surface of 8192 square is 200 MB and no screen can show
+    # it anyway. A texel is solid in the picture if any of its four are.
+    SHOW = 2048
+    f = W // SHOW
+    shown = g["collide"].reshape(SHOW, f, SHOW, f).any(axis=(1, 3))
 
     # The two ctf bases. They are not in the meta - the app reads them from
     # arena_defs - so monastery's are given here and anything else needs them
@@ -474,74 +521,132 @@ def main():
     font = pygame.font.SysFont("consolas", 16)
 
     # The map, once. Everything else is drawn over it each frame.
-    base = np.zeros((N, N, 3), dtype=np.uint8)
+    base = np.zeros((SHOW, SHOW, 3), dtype=np.uint8)
     base[...] = (22, 44, 26)
-    base[g["blocked"]] = (62, 30, 20)
-    tight = (~g["blocked"]) & (g["clear"] < hull)
-    base[tight] = (44, 44, 30)          # open, but not for this hull
+    base[shown] = (62, 30, 20)
     surf = pygame.surfarray.make_surface(np.transpose(base, (1, 0, 2)))
+    N = SHOW                     # the view works in picture texels
 
-    gen = resolve(g, start, goal)
-    nodes, paths, rays = [], [], 0
+    gen = resolve(g, start, goal, ring_max)
+    nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     running, done, paused = True, False, False
 
+    # THE VIEW, in CELLS. A 1024-cell map squeezed into a window is 1.4 m a
+    # pixel, which the owner could not read: "the res is too low to see."
+    # view_cells is how much map is on screen, so shrinking it zooms in.
+    view_cx, view_cz = 0.0, 0.0
+    view_cells = float(N)
+    dragging, drag_from = False, (0, 0)
+
+    def cell_at_mouse(mx, my, w):
+        return (view_cx + mx / w * view_cells,
+                view_cz + my / w * view_cells)
+
     def to_px(x, z, w):
-        cx = (x - g["wx0"]) / (g["wx1"] - g["wx0"]) * w
-        cz = (g["wz1"] - z) / (g["wz1"] - g["wz0"]) * w
-        return int(cx), int(cz)
+        # World -> cell -> screen, THROUGH THE VIEW, so the overlay tracks the
+        # map when it is zoomed or panned. Anything drawn with its own mapping
+        # would slide off the thing it is describing.
+        cx = (x - g["wx0"]) / (g["wx1"] - g["wx0"]) * N
+        cz = (g["wz1"] - z) / (g["wz1"] - g["wz0"]) * N
+        return (int((cx - view_cx) / view_cells * w),
+                int((cz - view_cz) / view_cells * w))
 
     while running:
+        w_now = min(screen.get_width(), screen.get_height())
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
+            elif e.type == pygame.MOUSEWHEEL:
+                # ZOOM TO THE CURSOR: the cell under the mouse must not move.
+                # Work out which cell that is, change the zoom, then put the
+                # view back so that same cell is still under the pointer -
+                # which is what makes a wheel feel like a magnifier rather than
+                # a scrollbar.
+                mx, my = pygame.mouse.get_pos()
+                ax, az = cell_at_mouse(mx, my, w_now)
+                view_cells *= 0.85 ** e.y
+                view_cells = min(float(N), max(24.0, view_cells))
+                view_cx = ax - mx / w_now * view_cells
+                view_cz = az - my / w_now * view_cells
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 2, 3):
+                dragging, drag_from = True, e.pos
+            elif e.type == pygame.MOUSEBUTTONUP and e.button in (1, 2, 3):
+                dragging = False
+            elif e.type == pygame.MOUSEMOTION and dragging:
+                dx, dy = e.pos[0] - drag_from[0], e.pos[1] - drag_from[1]
+                drag_from = e.pos
+                view_cx -= dx / w_now * view_cells
+                view_cz -= dy / w_now * view_cells
             elif e.type == pygame.KEYDOWN:
                 if e.key in (pygame.K_ESCAPE, pygame.K_q):
                     running = False
                 elif e.key == pygame.K_SPACE:
                     paused = not paused
                 elif e.key == pygame.K_r:
-                    gen = resolve(g, start, goal)
+                    gen = resolve(g, start, goal, ring_max)
                     nodes, paths, rays, done = [], [], 0, False
+                elif e.key == pygame.K_f:
+                    view_cx, view_cz, view_cells = 0.0, 0.0, float(N)
                 elif e.key == pygame.K_TAB:
                     start, goal = goal, start
-                    gen = resolve(g, start, goal)
+                    gen = resolve(g, start, goal, ring_max)
+                    nodes, paths, rays, done = [], [], 0, False
+                elif e.key in (pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET):
+                    # THE MAX RING SIZE, 0.5 to 5.0 by 0.5 - the owner's
+                    # setting. Changing it restarts the sweep, because half a
+                    # resolve at one ring size and half at another is a picture
+                    # of nothing.
+                    stepv = 0.5 if ring_max < 5.0 else 2.5
+                    ring_max += stepv if e.key == pygame.K_RIGHTBRACKET else -stepv
+                    ring_max = min(RING_SETTING_MAX, max(RING_SETTING_MIN, ring_max))
+                    gen = resolve(g, start, goal, ring_max)
                     nodes, paths, rays, done = [], [], 0, False
 
         if not done and not paused:
             for _ in range(speed):
                 try:
-                    nodes, paths, rays = next(gen)
+                    nodes, paths, rays, bearing = next(gen)
                 except StopIteration:
                     done = True
                     break
 
         w = min(screen.get_width(), screen.get_height())
-        view = pygame.transform.smoothscale(surf, (w, w))
         screen.fill((10, 10, 12))
-        screen.blit(view, (0, 0))
+
+        # Only the visible slice is scaled up, and with NEAREST rather than
+        # smooth: this is a picture of CELLS and the question asked of it is
+        # whether a ray fits through a gap. Blurred, that is unanswerable at
+        # exactly the moment it matters.
+        ix, iz = int(view_cx), int(view_cz)
+        iw = max(1, int(round(view_cells)))
+        ix = max(0, min(N - 1, ix))
+        iz = max(0, min(N - 1, iz))
+        iw = min(iw, N - max(ix, iz)) if max(ix, iz) + iw > N else iw
+        iw = max(1, iw)
+        slice_ = surf.subsurface(pygame.Rect(ix, iz, iw, iw))
+        screen.blit(pygame.transform.scale(slice_, (w, w)), (0, 0))
 
         # Which rays ended up on a path, so the dead ends can be told from the
         # ones that led somewhere.
-        on_path = set()
+        # Every ray this sweep has cast: red where its chain died, green where
+        # it won. They are never cleared, so the picture builds into everywhere
+        # the resolver has been.
+        for (a0, b0, won) in nodes:
+            pygame.draw.line(screen, (70, 240, 110) if won else (150, 30, 36),
+                             to_px(a0[0], a0[1], w), to_px(b0[0], b0[1], w), 1)
+
+        # The pooled paths, drawn thick over the top.
         for pth in paths:
             for k in range(len(pth) - 1):
-                on_path.add((round(pth[k][0], 1), round(pth[k][1], 1)))
-
-        for nd in nodes:
-            a = to_px(nd[0], nd[1], w)
-            b = to_px(nd[2], nd[3], w)
-            key = (round(nd[0], 1), round(nd[1], 1))
-            col = (150, 30, 36)                       # dead end
-            if key in on_path:
-                col = (70, 240, 110)                  # on a path
-            pygame.draw.line(screen, col, a, b, 1)
+                pygame.draw.line(screen, (120, 255, 160),
+                                 to_px(pth[k][0], pth[k][1], w),
+                                 to_px(pth[k + 1][0], pth[k + 1][1], w), 3)
 
         if nodes:
-            last = nodes[-1]
+            a0, b0, _ = nodes[-1]
             pygame.draw.line(screen, (255, 235, 90),
-                             to_px(last[0], last[1], w),
-                             to_px(last[2], last[3], w), 2)
-            hx, hz = to_px(last[2], last[3], w)
+                             to_px(a0[0], a0[1], w), to_px(b0[0], b0[1], w), 2)
+            hx, hz = to_px(b0[0], b0[1], w)
             pygame.draw.line(screen, (255, 255, 255), (hx - 8, hz), (hx + 8, hz), 1)
             pygame.draw.line(screen, (255, 255, 255), (hx, hz - 8), (hx, hz + 8), 1)
 
@@ -554,8 +659,9 @@ def main():
             screen.blit(tag, (px_ + 14, pz_ - 8))
 
         msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
-               f"   {'DONE' if done else ('PAUSED' if paused else 'hunting')}"
-               f"    [space] pause  [r] restart  [tab] swap ends  [q] quit")
+               f"   ring max {ring_max:.1f} m   bearing {bearing:+.0f} deg"
+               f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
+               f"    wheel zoom  drag pan  [f] fit  [ ] ring  [space] pause  [r] restart  [tab] swap  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
         pygame.display.flip()
         pygame.time.wait(16 if (done or paused) else delay)
