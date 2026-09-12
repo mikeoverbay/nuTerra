@@ -71,6 +71,26 @@ Two traps already paid for, do not re-enter them:
   costs. A mismatched heuristic is not a slower A*, it is Dijkstra wearing
   a hat - 466,229 expansions on this map once already.
 
+## Where the ray walker dies, three times over
+
+Three independent locations, none of them blocked terrain:
+
+| where | what the ground is | what the rays did | what the search did |
+|---|---|---|---|
+| west, near (-115, -313) | one free region crossing N-S, 67.9% takes the hull, widest 58.7 m | stall, "no progress" | routes 0 and 1 pass within 75 m |
+| south from team 2, band near (-32, 101) | 53% takes the hull, 2 regions cross N-S, but 41 separate free regions in a 180 m box | 31 of 31 sampled chains die here | route 0 passes 33 m away |
+| team 1's base, any bearing | - | all 121 fan rays blocked at a 90 m look | unaffected |
+
+The common factor is CLUTTER, not blockage. The bug walk fails where the
+ground is broken into many small free regions, which on a town map is most
+of it. That is why the direction asymmetry exists at all: team 1 to team 2
+wins 100 chains of 121, team 2 to team 1 wins 3 - on a map the search
+crosses in 812 m one way and 814 m the other, i.e. a symmetric problem.
+
+An asymmetry that large on a symmetric problem is the clearest statement
+available that the number of routes a bug walk finds is a property of the
+walk, not of the map.
+
 ## Which planner: measured, not argued
 
 Path Studio's recommendation was Theta* (Nash, Daniel, Koenig, Felner,
