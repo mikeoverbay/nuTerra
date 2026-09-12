@@ -114,10 +114,52 @@ Both TangentBug shapes - their fan silhouette and our expanding ring - come
 from the same 1998 paper (Kamon, Rimon, Rivlin, IJRR 17(9)), and both exist
 because a robot cannot see the map. We can.
 
-## What is NOT decided
+## The joint recommendation
 
-Both resolvers are still in `ray_studio.py` and both still draw. The owner
-asked for the expanding rings and asked to watch them; `[a]` in the viewer
-draws the search catalogue beside them in a different family of colour so
-the two can be compared on the same ground. Which one the tanks actually
-use is his call, not one taken behind him.
+Agreed between the Tank AI and Path Studio sessions on 2026-09-12, put as
+one recommendation rather than two half-arguments:
+
+> **The search plans the route. The short rays drive it.**
+> In the air and on the ground alike.
+
+Path Studio's layer hit rates say the same thing from the other end. On
+their shipped monastery plan, where waypoints are close together: direct
+93%, ring 7%, search 0.3%, tangent **0 of 313 moves**. Treated as two far
+apart points, base to base: search 92-100%, and their walker never arrived.
+So the fan / tangent / ring family is the DRIVER in both apps, and the
+search is the PLANNER in both.
+
+Concretely here: the catalogue is built by search and held in memory at
+startup, and the tank drives that polyline using its 3 m rays for the local
+dodge - a shell hole, another tank, anything the bake never knew about. The
+ray work is not discarded; it is the other half, and most of it already
+exists in `nuTerra/Tanks/TankDrive.vb`.
+
+One correction to something said earlier in this file's own history: the
+claim that "the honest range is the map" only holds where you can SEE. In
+clutter you cannot, which is one more reason the planner has to be a search
+rather than a longer ray.
+
+## Which ring he meant
+
+Settled, and not the way it first looked. Two different objects share the
+name: Path Studio's acceptance ring is a tolerance around the TARGET; ours
+is an obstacle-rounding circle at the HIT POINT. The worry was that the
+owner had pictured theirs from watching the Studio, which would have meant
+a day spent building the wrong thing.
+
+His own words decide it. On zoning: *"draw rings and find areas as large as
+we can that the ring fits without hitting something"* - a free-space circle
+grown until it touches. On obstacles: *"expanding rings"* for getting round
+one. Both are a circle grown until it hits something, which is ours.
+
+The ring resolver therefore stays, and stays drawn: `[a]` in the viewer puts
+the search catalogue beside it in a different family of colour so the two
+can be read apart on the same ground.
+
+## What is still HIS to decide
+
+Whether the tanks actually switch to search-planned routes. Everything above
+is evidence for that decision, gathered because he asked the two sessions to
+work the algorithm out between them - but the switch itself has not been
+made behind him, and both resolvers still run.

@@ -626,6 +626,7 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
     hand = 0                    # 0 undecided, +1 keep it on the left, -1 right
     best_d = np.hypot(gx - x, gz - z)   # closest to the flag we have ever been
     stall = 0                           # hops since that got better
+    has_turned = False                  # has anything stopped us yet?
 
     for _ in range(MAX_HOPS):
         # STILL GETTING SOMEWHERE? The old test asked whether the last few
@@ -690,6 +691,32 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
             # bearing explores its own ground instead of the first corner.
             x, z = hx, hz
             pts.append((x, z))
+
+            # AND THE LEAVE CONDITION, or it never comes home.
+            #
+            # Holding the bearing is right - re-aiming every stride made the
+            # tangent survive one step and turn straight back into the wall -
+            # but holding it ALONE is fatal the other way: the chain runs off
+            # in a straight line and 114 of 121 die having made no progress,
+            # 0 routes either direction. A bug walk needs a rule for when to
+            # stop following and head for the target again, and that is what
+            # this is: we go back to aiming at the base only when the base has
+            # actually opened up, not every stride on principle.
+            # NOT UNTIL SOMETHING HAS STOPPED US. The opening ray is the
+            # sweep's whole point - it is the direction this chain exists to
+            # explore - and letting it re-aim before it has hit anything threw
+            # that away on the first stride: every chain snapped onto the
+            # northward line within nine metres of the base and died there,
+            # whatever bearing it was given. "our rays should run the same ray
+            # direction on till we hit something."
+            if not has_turned:
+                continue
+            dg = max(np.hypot(gx - x, gz - z), 1e-6)
+            agx, agz = (gx - x) / dg, (gz - z) / dg
+            _t, _hx, _hz, _r, gblocked = march(g, x, z, agx, agz, goal,
+                                               min(ray_cap_m, dg + REACH_M))
+            if not gblocked:
+                dx, dz = agx, agz
             continue
         # A RAY THAT TRAVELS NOTHING IS NOT A DEAD PATH, IT IS ANOTHER HIT.
         #
@@ -761,10 +788,31 @@ def chain(g, start, goal, bearing, max_ring_m, trace, min_gap_m,
         # recorded and - now that ring_tangents tests it from here - the line
         # that was proved clear. Routing it via the hit point drew a dogleg
         # into the wall and back out that nothing ever drives.
+        has_turned = True
+        prev_x, prev_z = x, z
         x, z = best
         pts.append(best)
-        d = max(np.hypot(gx - x, gz - z), 1e-6)
-        dx, dz = (gx - x) / d, (gz - z) / d              # scan at base location
+
+        # THE RAY KEEPS ITS DIRECTION UNTIL SOMETHING STOPS IT.
+        #
+        # "our rays should run the same ray direction on till we hit something.
+        #  keep moving to next ray point. we move on and try and go to base..
+        #  wrong method."
+        #
+        # Re-aiming at the flag the instant a tangent was taken meant the
+        # tangent survived for exactly one stride: the chain stepped aside,
+        # turned straight back into the face it had just got round, and did it
+        # again. Going round something means CARRYING ON round it, so the
+        # direction that reached the tangent becomes the heading and is held
+        # until the next thing blocks it. Aiming at the base is what the ring
+        # does when it scores its tangents; it is not what every stride does.
+        ddx, ddz = x - prev_x, z - prev_z
+        dl = np.hypot(ddx, ddz)
+        if dl > 1e-6:
+            dx, dz = ddx / dl, ddz / dl
+        else:
+            d = max(np.hypot(gx - x, gz - z), 1e-6)
+            dx, dz = (gx - x) / d, (gz - z) / d
     return dead(why, "ran out of hops", (x, z))
 
 
