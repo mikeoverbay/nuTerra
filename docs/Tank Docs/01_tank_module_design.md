@@ -283,3 +283,38 @@ chassis) are stored with Z reversed relative to the hull and turret, which
 both exporters already knew and which now lives behind `FlipSkinnedZ`. Second
 still: the 203 mm barrel runs forward over the engine deck, the spade at the
 rear, the sprocket at the front.
+
+## 11. What moved after milestone 1 (as of 2026-09-12, from the log)
+
+Twenty-eight commits, `d7fd0a87`..`bc784ea6`, by the Tank AI session. Read the
+paper above as the starting point, not the state.
+
+* **§2 isolation** - the core is touched in six files now, not two:
+  `Window.vb` (the panel and the load button), `modGlobalVars.vb` (`TANK_*`
+  switches), `Program.vb` (the `tanks`, `ai=` and nav-grid PNG arguments),
+  `modRender.vb`, `MapScene.vb`, and `Scene\MapTankRays.vb` (new, the live
+  ray lines, `a24e7fad`). The rule that nothing in `Tanks\` is reached from a
+  core loop other than the draw call no longer holds; the muzzle flash lights
+  the world through the FX pass (`20967a88`).
+* **§4 loader** - still raw buffers, but skinned now: the bone palette is
+  uploaded and `tank_gbuffer.vert` skins on the GPU. Primitive groups were
+  found drawing off the end of their own vertex buffer and fixed (`2888299a`).
+* **§5 placement** - thirty tier tens on both bases (`0e1b8d5e`), a settable
+  side (`bc784ea6`), and they drive themselves on a navigation grid seeded from
+  the map (`e5af39a5`, `0ec96c5c`) - see the Tank AI handoff.
+* **§6 drawing** - the shader is the Tank Exporter's port with the game's tinted
+  specular and the owner's own levels (`d7fd0a87`, `2da5c10f`, `55ccf436`); the
+  plastic look was the tonemap (`f1e221ec`).
+* **§7 "deliberately not done"** - most of it is done: tracks run and wheels
+  turn off the vertices (`7a339a9d`); turrets traverse and guns elevate inside
+  the def's envelope (`aea27133`); guns fire with TEPY's recoil rule
+  (`d49e24b0`), a shot pool per tank, tracer, trail, flash as three cards on the
+  barrel and impact from the game's own sprites and blast table. Still not done:
+  triangle lists, res_mods lookup, crash models, skins, LOD 1+.
+* **§8 files** - `Tanks\` is 17 files (adds `TankAtlas`, `TankBlast`,
+  `TankCards`, `TankDrive`, `TankFx`, `TankNav`, `TankPuffs`, `TankRecoil`,
+  `TankShotPool`, `TankShots`, `TankTrail`) and `shaders\Tanks\` is five
+  programs (`tank_gbuffer`, `tank_billboard`, `tank_flash`, `tank_fx`,
+  `tank_particle`).
+* **§9.1 team card** - landed as a card over each tank with its number and two
+  condition bars (`32c91c93`), later the gun's reload (`a3e3225f`).

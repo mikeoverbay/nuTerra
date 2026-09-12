@@ -131,12 +131,36 @@ line beside the buttons already says whether the last compile passed.
 `BottomBarHeight` is what both the editor and the bar agree on, so they cannot
 drift.
 
+## What it depends on
+
+| piece | where | why |
+|---|---|---|
+| `ImGuiColorTextEditNet` 0.1.9 | `nuTerra.vbproj` | the `TextEditor` widget. Needs ImGui.NET 1.91.x |
+| `ImGui.NET` 1.91.6.1 | `nuTerra.vbproj` | was 1.87.2; the editor swap forced the upgrade. It removed `io.KeyMap`/`KeysDown`, changed `BeginChild` and `ImageButton`, and made a native build with asserts on - `ui_panels.md` has the Begin/End rule and the per-version list of what moved |
+| Consolas, 17 px | `ImGuiController.vb` (`MONO_FONT`, `HAS_MONO`) | loaded from `C:\Windows\Fonts\consola.ttf` at font-atlas build. When it is missing the editor silently uses the UI font; nothing else changes. The font is pushed only around the editor, so the rest of the window keeps the UI face |
+
+The IDE reads and writes the **bin copy** under `bin\...\shaders` - that is what
+the loader compiled - and mirrors every successful write to the project source
+via `SourcePathFor` (`StartupPath\..\..\..\shaders`). Run from anywhere other
+than the build output tree, or with a file that has no project counterpart,
+and only the bin copy is written - the status line ends in `(bin only)` instead
+of `(bin + project)`.
+
 ## Core touch points
 
 Four, all small: `LAST_SHADER_ERROR` and `gl_error` appending to it, and the
 `DefinesCopy` property, in `ShaderLoader.vb`; the font in
 `ImGuiController.vb`; the button and the `ShaderIDE.Draw()` call in
-`Window.vb`.
+`Window.vb`. Plus the two package references above. Everything else is in
+`Tools\ShaderIDE.vb`.
+
+## History
+
+| date | change |
+|---|---|
+| 2026-09-08 | first version: `InputTextMultiline` with a hand-rolled GLSL tokenizer painted over it in a re-entered child window, trial compile, revert guard |
+| 2026-09-09 | line-number gutter, edit buffer sized to the file; then the editor swap to `ImGuiColorTextEditNet` (about 200 lines of overlay code gone), error markers on their lines |
+| 2026-09-09 | window clamped on screen, editor height measured inside the tab, compiler box drawn only when non-empty, NVIDIA's optional source index, BOMs preserved on write |
 
 ## Not yet
 

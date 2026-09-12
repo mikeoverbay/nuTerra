@@ -752,8 +752,12 @@ Public Class MapTrees
     ''' <param name="trunk_only">Keep only the column at each tree's base -
     ''' see sun_depth_tree.frag. False for every shadow pass, which wants the
     ''' whole tree; true for the flight bake's extra vehicle pass.</param>
+    ''' <param name="id_base">Where this pass's placements start in the flight
+    ''' bake's one id space. Zero for the shadow bakes, which have no id
+    ''' attachment bound and throw the number away.</param>
     Public Sub sun_depth_pass(sun_view_proj As Matrix4,
-                              Optional trunk_only As Boolean = False)
+                              Optional trunk_only As Boolean = False,
+                              Optional id_base As UInteger = 0UI)
         If Not scene.TREES_LOADED OrElse vao Is Nothing Then
             Return
         End If
@@ -764,6 +768,7 @@ Public Class MapTrees
         GL.UniformMatrix4(sunDepthTreeShader("sunViewProj"), False, sun_view_proj)
         GL.Uniform1(sunDepthTreeShader("u_trunk_only"), If(trunk_only, 1, 0))
         GL.Uniform1(sunDepthTreeShader("u_trunk_radius"), MapFlightBake.TRUNK_RADIUS)
+        GL.Uniform1(sunDepthTreeShader("u_tree_id_base"), id_base)
 
         ' Leaf cards are two sided, and the x mirror reverses winding anyway.
         GL.Disable(EnableCap.CullFace)
@@ -782,6 +787,44 @@ Public Class MapTrees
 
         GL_POP_GROUP()
     End Sub
+
+    ''' <summary>One species' run of placements in the shared instance
+    ''' buffer, for the flight bake's id sidecar.</summary>
+    Public Structure InstanceBlock
+        Public first As Integer
+        Public count As Integer
+        Public name As String
+    End Structure
+
+    ''' <summary>
+    ''' Every species' block, in instance-buffer order.
+    '''
+    ''' RANGES, not one row per tree. Monastery places tens of thousands of
+    ''' plants from a couple of dozen .srt files, and a row apiece would be a
+    ''' megabyte of CSV repeating the same forty names. The id of a placement is
+    ''' first + n, so a reader bisects.
+    ''' </summary>
+    Public Function instance_blocks() As List(Of InstanceBlock)
+        Dim out As New List(Of InstanceBlock)
+        For Each p In parts
+            out.Add(New InstanceBlock With {
+                .first = p.base_instance, .count = p.instance_count, .name = p.name})
+        Next
+        Return out
+    End Function
+
+    ''' <summary>Placements in the shared instance buffer - the size of the
+    ''' tree half of the flight bake's id space. Taken from the blocks rather
+    ''' than counted separately, so the two cannot disagree.</summary>
+    Public ReadOnly Property total_instances As Integer
+        Get
+            Dim n = 0
+            For Each p In parts
+                n = Math.Max(n, p.base_instance + p.instance_count)
+            Next
+            Return n
+        End Get
+    End Property
 
     Public Sub Dispose() Implements IDisposable.Dispose
         vertices_buffer?.Dispose()

@@ -1,5 +1,15 @@
 # Tank Docs
 
+> **Status 2026-09-12: these three papers describe milestone 1 (2026-09-09) and
+> stop there.** The module has since taken 28 commits on `master` from the Tank
+> AI session: the Tank Exporter shader port, skinning, running tracks and wheels,
+> thirty tier-ten vehicles on the two bases, ID cards, firing with recoil, flash,
+> tracer, impact and smoke from the game's own tables, a loading panel, the
+> navigation grid and the self-driving. `01_tank_module_design.md` §11 lists what
+> that changed against the paper; the navigation and driver are in
+> `..\HANDOFF_2026-09-11_tank_ai.md`. The formats in `03_formats_verified.md` are
+> unaffected and still hold.
+
 Papers for the tank-loading module, kept apart from the map renderer's docs the
 way the code is kept apart from its core.
 

@@ -30,10 +30,28 @@ layout(location = 0) out vec4 moments;
 // The models and trees never showed it because they do write theirs.
 layout(location = 1) out vec4 bake_key;
 
+// ---- THE FLIGHT BAKE'S ID CHANNEL ------------------------------------------
+//
+// Location 2, the third attachment: WHICH object is on top, where the key
+// channel says only what KIND it is. The owner's ask - "render ids so we know
+// what is what on the map, colors is not enough" - and the reason Path Studio's
+// route signature has to split a kind mask into components today: two adjacent
+// buildings are one blob of key 1 and it cannot tell them apart.
+//
+// Zero means nothing was drawn here, so every id is BIASED BY ONE. The same
+// bias ModelPicker already uses on its own pick buffer, for the same reason.
+//
+// Terrain writes zero for the same reason it writes a zero key: an output a
+// fragment shader leaves alone on an ACTIVE draw buffer is UNDEFINED, not
+// unchanged, and this driver has already been caught handing back the depth it
+// had just computed. Ground is not an object and has no id.
+layout(location = 2) out uvec4 bake_id;
+
 void main(void)
 {
     float z  = gl_FragCoord.z;
     float z2 = z * z;
     moments = vec4(z, z2, z2 * z, z2 * z2);
     bake_key = vec4(0.0, 0.0, 0.0, 1.0);
+    bake_id = uvec4(0u);
 }

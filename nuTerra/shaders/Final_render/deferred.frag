@@ -1374,9 +1374,18 @@ void main (void)
                                               clamp(g_gloss * 1.35, 0.0, 1.0)));
                     Rdom.xz *= -1.0;
 
-                    // Grazing angles blur. nuTerra's cube is 8 mips and is not
-                    // PMREM-encoded, so the mip curve is the game's shape
-                    // against this cube's range - the DECODE is left alone.
+                    // Grazing angles blur. 8 mips, the game's mip curve shape,
+                    // and this block reads the cube as sRGB - the decode is
+                    // left alone HERE.
+                    //
+                    // Not because the cube lacks one: it is the game's
+                    // probes/global/pmrem.dds, HDR exponent in alpha, and
+                    // env_pmrem applies that decode on the model path below.
+                    // This comment used to say the cube "is not PMREM-encoded",
+                    // which was a false premise under a true statement - the
+                    // behaviour was right, the reason was not. specAmbient is
+                    // discarded anyway (see docs/lighting.md section 4), so
+                    // nothing downstream depends on which it reads.
                     float mip = alphaR * alphaR * 8.0
                               * (min(2.0 * NdotV, 1.0) * 0.5 + 0.5);
                     vec4 c = SRGBtoLINEAR(textureLod(cubeMap, Rdom,

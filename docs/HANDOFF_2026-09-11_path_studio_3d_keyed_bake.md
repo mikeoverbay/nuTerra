@@ -536,6 +536,53 @@ the writer carries them. Tested on a synthetic bake rewritten under a
 running Studio with a new building: reloaded within two polls, the target
 and the 3D camera kept.
 
+## 14. Point-to-point routing, measured for the Tank AI session (night)
+
+The owner, to both sessions: "look at how Path Studio searches paths; it is
+point to point; we have 2; the algo should still apply." `radar_tangent.py`
+(direct / acceptance rings / fan tangents / bounded A*) measured tonight on
+the monastery: on the shipped 1,068-waypoint plan the deciding layer is
+direct 93%, ring 7%, search 0.3%, tangent NEVER - the A* course already
+avoids everything, so the walker only fine-tunes. Base to base as two
+points (-20,-388 -> +20,+388), camera mask: search decides 92-100% of
+moves, the walker takes 163-364 s and never arrives (438 m and 357 m short)
+- the bounded A* re-runs every step and the taut aim returns 0 m, so it
+crawls a cell at a time. Verdict handed over: do not port the layers. The
+tank side's own grid A* (9 ms) plus a string-pull (Theta* / Lazy Theta*: the
+parent pointer skips to the furthest ancestor still in line of sight) is
+the planner; the owner's 3 m ray is the DRIVER - two jobs. Their ring walk
+and my fan silhouette are both TangentBug (Kamon, Rimon, Rivlin, IJRR 1998),
+which exists for a robot that cannot see the map; we can. The two "rings"
+are different objects: mine an acceptance tolerance round the target
+(asin(R/d) cone), theirs an obstacle-rounding circle at the hit point - the
+owner should be shown both before either side builds further on his word.
+`flight_plan.astar(cost, start, goal, stats)` is self-contained (60 lines,
+2-D cost array, inf blocked, 8-neighbour, admissible) and importable.
+
+The tank side built it the same night (`tank_tools/ray_studio.py`, their
+lane): on a hull-grown 1.37 m grid, A* + string-pull 829 / 826 m in 0.3 s;
+Lazy Theta* 813 / 815 m but MORE waypoints (19 against 7 - it leaves
+collinear runs down a straight corridor, taut but not minimal); Lazy Theta*
++ string-pull 812 / 814 m, 13 / 11 points - taken for their route
+catalogue. Twelve routes asked for, eight found both ways: eight is the
+map, a proof, not a budget. 0 of 344,557 samples in solid. Against their
+ray/ring walk: 939 m, 45-84 s, not repeatable. The line put to the owner,
+jointly: plan with the search, drive with the rays - his 3 m ray is the
+right instinct at the driving layer. The ring resolver stays drawn in
+their viewer until he says which ring he meant.
+
+A lesson from their side worth keeping for ours: their ray resolver
+validated a centre line through single 17 cm texels and every "0 samples
+in solid" check tested the same line, so a 4.5 m hull overlapped solid on
+12% of a drive (distance transform along the route: min 0.17 m against a
+2.25 m radius) and nothing caught it - the check and the flaw shared an
+assumption. The camera side does not have that hole: `Radar.march` walks
+`plan`, the blocked set dilated by `BODY_R` (0.5 m) and `TERRAIN_R` (3 m)
+in `build_world`, so the body is in the mask before any ray is cast. The
+general rule: a validation must sample something the planner did not plan
+on - the eroded mask is the planner's most important input, more than the
+search algorithm.
+
 Not done, and measured above for whoever does it: the block-max lift and the
 canopy threshold. A tree-cell rule that needs a SHARE of the block tall,
 and a `CANOPY_H` above the bush band or tied to the solid bit, are the

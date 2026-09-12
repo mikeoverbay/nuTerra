@@ -1242,6 +1242,10 @@ Module modGlobalVars
     ''' </summary>
     Public FLIGHT_REBAKE As Boolean = False
 
+    ''' <summary>Write every model name the kind classifier saw, and what it
+    ''' decided, to &lt;map&gt;_kinds.csv beside the bake.</summary>
+    Public KIND_DUMP As Boolean = False
+
     Public TANK_AIM As Boolean = False
 
     ''' <summary>
