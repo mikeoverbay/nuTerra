@@ -94,6 +94,19 @@ To finish, in this order:
    the air; they asked. Render ids in the bake (nuTerra's) would replace the
    kind split; the 2,581 rock-keyed-as-tree cells should land first.
 
+## The bake contract has a reference now
+
+`docs/flight_bake.md` (nuTerra Work, 2026-09-12) is the format three sessions
+read: the layers, the key byte, the palette and provenance keys, the kind
+classifier's substring-race trap, the per-kind area table. Read it before
+touching a reader. Coming in ONE bake-version bump, both from nuTerra: the
+canopy-over-rock key fix and PER-OBJECT IDS in the bake (the owner: "render
+ids ... so we know what is what on the map. colors is not enough") - a
+second render target, a `<map>_ids.u16` layer of ~134 MB and an id ->
+model-name sidecar. When it lands, `route_sig.label_objects` should take
+the ids as the objects instead of kind-split components, which is what the
+kind split stands in for today.
+
 ## Open with the other sessions
 
 - nuTerra Work: the canopy-over-rock key (a 1.7 m rock under a 2.5 m bush
