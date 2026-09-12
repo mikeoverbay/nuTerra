@@ -350,6 +350,11 @@ REACH_M = 12.0
 # is very nearly not standable and is the wrong thing to require.
 BASE_RING_M = 50.0
 
+# Ground this close to either end is never stamped spent. Every route leaves
+# the same base and reaches the same flag, so that ground is common to all of
+# them - stamp it and the first route walls in the second.
+END_GUARD_M = 45.0
+
 # THE RING IS A CIRCLE IN METRES, expanding half a metre at a time. The owner's
 # words: "we draw a ring at that hit point and hit the tangent on both sides. if
 # we could not after expanding the ring in .5m steps to max ring size in
@@ -3459,6 +3464,16 @@ class BranchTree(object):
         cheapest answer is tried before the expensive ones and the owner's
         "start scanning left" survives as the tie-break.
         """
+        # STRAIGHT ON FIRST, then alternately out. Iterating the ids in
+        # order does that, because fan_offset() is laid out centre-out.
+        #
+        # TRYING THE RAY NEAREST THE FLAG FIRST WAS TRIED AND IS WORSE. It
+        # sounds obviously right and it is not: depth first then drives
+        # straight at the goal and into every cul-de-sac between here and it,
+        # and this map is full of them. Measured, base to base: 5,732 m and a
+        # second route before exhausting, against 10,483 m - 13.3x the direct
+        # line - and exhausted after ONE. Keeping the heading is what lets a
+        # walk follow a wall round to where it opens.
         for aid in range(RAYS_PER_POINT):
             if aid not in p["tried"]:
                 return aid
@@ -3593,9 +3608,40 @@ class BranchTree(object):
                 # becomes 1, so the next search cannot come home this way and
                 # has to find another. Not a trail - the owner was explicit:
                 # "just save the last zone we where in. we dont need a list."
-                if self.squares is not None and self.last_square is not None:
-                    self.squares.mark(self.last_square[0], self.last_square[1],
-                                      self.block_radius)
+                # THE WHOLE ROUTE IS SPENT, not just the square it ended on.
+                #
+                # "most of the map should be greyed out when all possible paths
+                # has been ran" and "It should still be 1 behind any start
+                # paths." One square per route cannot grey out a map: it has to
+                # be the ground the route actually drove.
+                #
+                # This does NOT need the list the owner said we do not need -
+                # nothing is tracked while walking. The finished chain is
+                # already in hand at this point, so the corridor is stamped in
+                # one pass at the end.
+                # AND THE ENDS ARE SPARED. Every route has to leave the same
+                # base and reach the same flag, so the ground around each is
+                # common to all of them. Stamping it walls in the start with
+                # the FIRST route: measured, the third run found no path and it
+                # was not the map - the start square itself had been marked, so
+                # the search could not begin. Both earlier versions of this
+                # carried a 45 m guard and this one had lost it.
+                if self.squares is not None and self.win_pts:
+                    step = max(0.5, self.squares.cell_m)
+                    a0, b0 = self.win_pts[0], self.win_pts[-1]
+                    for k in range(len(self.win_pts) - 1):
+                        ax, az = self.win_pts[k]
+                        bx, bz = self.win_pts[k + 1]
+                        d = np.hypot(bx - ax, bz - az)
+                        n_s = max(1, int(d / step))
+                        for j in range(n_s + 1):
+                            u = j / n_s
+                            px, pz = ax + (bx - ax) * u, az + (bz - az) * u
+                            if np.hypot(px - a0[0], pz - a0[1]) < END_GUARD_M:
+                                continue
+                            if np.hypot(px - b0[0], pz - b0[1]) < END_GUARD_M:
+                                continue
+                            self.squares.mark(px, pz, self.block_radius)
                 if self.halt_on_first:
                     self.halted = True
                 return "ARRIVED via %d" % aid
