@@ -198,191 +198,183 @@ def march(g, x, z, dx, dz, goal, limit):
 
 
 REACH_M = 12.0
-RING_STEP = np.deg2rad(12.0)
-RING_MAX = 13
-MIN_PROGRESS_M = 8.0
-NEW_GROUND_M = 18.0
-RAY_BUDGET = 4000
 
-# How far round an obstacle to follow before admitting this side does not go
-# round it. Longer than any single building or rock band on a map; short enough
-# that a ray cannot circumnavigate the whole world looking for a view.
-CORNER_MAX_M = 320.0
+# THE RING IS A CIRCLE IN METRES, expanding half a metre at a time. The owner's
+# words: "we draw a ring at that hit point and hit the tangent on both sides. if
+# we could not after expanding the ring in .5m steps to max ring size in
+# settings... That path is dead."
+RING_STEP_M = 0.5
+RING_MIN_M = 0.5
+RING_MAX_DEFAULT_M = 3.0        # the setting, 0.5 to 5.0 by 0.5
 
-# How far a ray at the flag must travel from a candidate leave point before the
-# corner counts as rounded. Short enough that a real gap qualifies, long enough
-# that shuffling one cell sideways does not.
-LEAVE_M = 45.0
+# How finely the ring is walked looking for where it clears.
+RING_ANGLE_STEP = np.deg2rad(6.0)
 
-# How far to bother looking when testing that. Beyond this the answer stops
-# changing and the march is just expensive.
-LEAVE_LOOK_M = 160.0
-PATH_MAX = 12
+# How far round the ring counts as a tangent rather than a retreat.
+RING_ARC_MAX = np.deg2rad(110.0)
 
+# How many ring-and-re-aim hops one chain may take before it is called lost. A
+# small ring means many small steps round a big obstacle, which is the design.
+MAX_HOPS = 260
 
-def hunt(g, start, goal, open_angle=0.0):
-    """The owner's algorithm, as a GENERATOR so it can be watched.
+# The sweep: start pointing LEFT, finish pointing EAST.
+SWEEP_FROM_DEG = -90.0
+SWEEP_TO_DEG = 90.0
+SWEEP_STEP_DEG = 3.0
 
-    Yields after every ray, which is what makes this live rather than a
-    picture of an answer: the window draws whatever has happened so far and
-    the search carries on where it left off.
-    """
-    sx, sz = snap_free(g, *start)
-    gx, gz = snap_free(g, *goal)
-    limit = (g["wx1"] - g["wx0"]) * 1.5
-
-    nodes = []          # (x0,z0, x1,z1, parent, reached)
-    openq = []
-    been = set()
-
-    def bucket(x, z):
-        return (int((x - g["wx0"]) / NEW_GROUND_M),
-                int((z - g["wz0"]) / NEW_GROUND_M))
-
-    def cast(x, z, dx, dz, parent, cost):
-        travelled, hx, hz, reached = march(g, x, z, dx, dz, (gx, gz), limit)
-        nodes.append([x, z, hx, hz, parent, reached])
-        openq.append((len(nodes) - 1, cost + travelled))
-        return len(nodes) - 1
-
-    d = np.hypot(gx - sx, gz - sz)
-    # The OPENING ANGLE is how the sweep aims this hunt. Zero is straight at
-    # the flag; the sweep walks it left to right so each hunt sets off into
-    # different ground rather than all of them starting down the same line.
-    ca, sa = np.cos(open_angle), np.sin(open_angle)
-    ux, uz = (gx - sx) / d, (gz - sz) / d
-    cast(sx, sz, ux * ca - uz * sa, ux * sa + uz * ca, -1, 0.0)
-    been.add(bucket(sx, sz))
-    paths = []
-    rays = 1
-    yield nodes, paths, rays
-
-    while openq and rays < RAY_BUDGET and not paths:
-        # Best-first: the branch nearest the flag for what it has spent.
-        bi = min(range(len(openq)),
-                 key=lambda k: openq[k][1] +
-                 np.hypot(gx - nodes[openq[k][0]][2], gz - nodes[openq[k][0]][3]))
-        ni, cost = openq.pop(bi)
-        n = nodes[ni]
-
-        if n[5]:
-            chain, k = [], ni
-            while k >= 0:
-                chain.append((nodes[k][2], nodes[k][3]))
-                chain.append((nodes[k][0], nodes[k][1]))
-                k = nodes[k][4]
-            paths.append(list(reversed(chain)))
-            yield nodes, paths, rays
-            continue
-
-        hx, hz = n[2], n[3]
-        bdx, bdz = n[2] - n[0], n[3] - n[1]
-        bl = np.hypot(bdx, bdz)
-        if bl < 1e-6:
-            bdx, bdz, bl = gx - hx, gz - hz, max(np.hypot(gx - hx, gz - hz), 1e-6)
-        bdx, bdz = bdx / bl, bdz / bl
-
-        # GO AROUND IT. This is the part that was missing and it is the whole
-        # difference between a resolver and a screensaver.
-        #
-        # The old version picked an angle that "went somewhere" and then flew
-        # off down it until it hit the next thing. Nothing about that goes
-        # AROUND an obstacle - it just scatters, which is exactly what it
-        # looked like: "ever see that screen saver that draws ramdom lines..
-        # that this. We have goals. we are stopping at the first hit. we dot
-        # try and go around at all."
-        #
-        # Rounding a corner means following the obstacle's edge until the flag
-        # is VISIBLE, and then going straight at it. So: step along the tangent
-        # and, every few steps, ask whether a clear line to the goal has opened
-        # up. The first place it has is where the corner ends. That point is the
-        # branch, and its ray is aimed at the FLAG - not off into the map.
-        #
-        # A side that never opens a line within CORNER_MAX_M has not gone round
-        # anything; it is wandering, and it is dropped.
-        spawned = 0
-        for sgn in (1.0, -1.0):                 # LEFT first, as asked
-            found = None
-            for ring in range(1, RING_MAX + 1):
-                a = RING_STEP * ring * sgn
-                ca, sa = np.cos(a), np.sin(a)
-                dx2, dz2 = bdx * ca - bdz * sa, bdx * sa + bdz * ca
-                ox, oz = hx + dx2 * g["cell_m"] * 1.5, hz + dz2 * g["cell_m"] * 1.5
-                if not standable(g, ox, oz):
-                    continue
-
-                # Walk out along this tangent until heading AT THE FLAG makes
-                # progress again. That is the leave point.
-                #
-                # The first rule tried here was "until you can SEE the flag",
-                # which is right for one rock in an empty field and useless on a
-                # map: the flag is 800 m away through a monastery and you can
-                # essentially never see it. Every side failed and the resolve
-                # cast one ray and stopped.
-                #
-                # What ends a corner is not seeing the goal, it is getting PAST
-                # the thing - and the test for that is whether a ray at the flag
-                # now travels a decent distance where a moment ago it travelled
-                # nothing.
-                step = g["cell_m"] * 4.0
-                t = 0.0
-                px, pz = ox, oz
-                while t < CORNER_MAX_M:
-                    if not standable(g, px, pz):
-                        break
-                    gd = max(np.hypot(gx - px, gz - pz), 1e-6)
-                    got, _, _, _ = march(g, px, pz, (gx - px) / gd, (gz - pz) / gd,
-                                         (gx, gz), LEAVE_LOOK_M)
-                    if got >= LEAVE_M:
-                        found = (px, pz)
-                        break
-                    px, pz = px + dx2 * step, pz + dz2 * step
-                    t += step
-                if found:
-                    break
-
-            if not found:
-                continue
-            ex, ez = found
-            b = bucket(ex, ez)
-            if b in been:
-                continue
-            been.add(b)
-            # Aimed at the FLAG from where the corner ended.
-            d2 = max(np.hypot(gx - ex, gz - ez), 1e-6)
-            cast(ex, ez, (gx - ex) / d2, (gz - ez) / d2, ni, cost)
-            rays += 1
-            spawned += 1
-            yield nodes, paths, rays
-
-        if spawned == 0:
-            yield nodes, paths, rays
-
-    yield nodes, paths, rays
-
-
-# The opening fan: how wide the sweep looks and in what steps. Left first.
-SWEEP_DEG = 75.0
-SWEEP_STEP_DEG = 7.5
-
-# Two solutions whose rays run this close together are the same way in wearing
-# two hats. The owner's rule: "any rays that solve with close rays are
-# rejected."
 REJECT_M = 55.0
 
-# How wide a solved corridor is taken off the map, and how much ground around
-# each base is spared so the next hunt can still get out of the gate.
-USED_W_M = 26.0
-GUARD_M = 45.0
 
-# Ground is only "used up" where its clearance is at least this many hull radii
-# - anywhere tighter is a mandatory gap shared by every route through it.
-PINCH_SPARE = 1.6
+def march(g, x, z, dx, dz, goal, limit):
+    """Fly a ray until it hits something or reaches the flag."""
+    step = g["cell_m"] * 0.5
+    t = 0.0
+    gx, gz = goal
+    while t < limit:
+        if (x - gx) ** 2 + (z - gz) ** 2 <= REACH_M ** 2:
+            return t, x, z, True
+        nx, nz = x + dx * step, z + dz * step
+        if not standable(g, nx, nz):
+            return t, x, z, False
+        x, z, t = nx, nz, t + step
+    return t, x, z, False
+
+
+def ring_tangents(g, hx, hz, indx, indz, max_ring_m):
+    """Draw a ring at the hit point and find where it clears, both sides.
+
+    Exactly as described: a circle at the collision, grown in half-metre steps
+    until a point on it is standable. Walked outward from the direction we were
+    travelling, both ways at once, so the first clear angle on each side is the
+    tangent past the thing we hit.
+
+    Returns the two tangent points, either of which may be None, and the radius
+    the ring had reached. Nothing found by max_ring_m means this path is DEAD -
+    that is the owner's rule and it is what stops a chain crawling for ever.
+    """
+    base_ang = np.arctan2(indx, indz)
+    r = RING_MIN_M
+    while r <= max_ring_m + 1e-6:
+        left = right = None
+        a = RING_ANGLE_STEP
+        # NEVER ALL THE WAY ROUND. Walking the ring to 180 degrees always finds
+        # clear ground - straight back the way we came, which is where we have
+        # just been. That is a retreat, not a tangent, and it was found at the
+        # very first 0.5 m radius every single time, so the ring never expanded
+        # and the max size made no difference at all from 1 m to 35 m. Identical
+        # ray counts across seven times the setting is what gave it away.
+        #
+        # A tangent is the way PAST a thing, so it lives out to about square
+        # with the direction of travel. Past that you are going home.
+        while a <= RING_ARC_MAX:
+            for sgn in (1.0, -1.0):
+                if (sgn > 0 and left is not None) or (sgn < 0 and right is not None):
+                    continue
+                th = base_ang + a * sgn
+                px, pz = hx + np.sin(th) * r, hz + np.cos(th) * r
+                if standable(g, px, pz):
+                    if sgn > 0:
+                        left = (px, pz)
+                    else:
+                        right = (px, pz)
+            if left is not None and right is not None:
+                break
+            a += RING_ANGLE_STEP
+        if left is not None or right is not None:
+            return left, right, r
+        r += RING_STEP_M
+    return None, None, r
+
+
+def chain(g, start, goal, bearing, max_ring_m, trace):
+    """One path attempt: ray, ring, tangent, re-aim at the base, repeat.
+
+    "if we could not... That path is dead. If we can hit it, we anchor at
+    tangent and scan at base location. same thing."
+
+    So every hop after the first aims AT THE FLAG. The opening ray is the only
+    one that goes where the sweep points it; after that the chain is always
+    trying to go home and only turning aside to get round what is in the way.
+    """
+    gx, gz = goal
+    limit = (g["wx1"] - g["wx0"]) * 1.5
+    pts = [start]
+    x, z = start
+    dx, dz = np.sin(bearing), np.cos(bearing)
+    seen_here = set()
+    hand = 0                    # 0 undecided, +1 keep it on the left, -1 right
+
+    for _ in range(MAX_HOPS):
+        got, hx, hz, reached = march(g, x, z, dx, dz, goal, limit)
+        trace.append(((x, z), (hx, hz), reached))
+        if reached:
+            pts.append((gx, gz))
+            return pts                                   # THE PRIZE
+        # A RAY THAT TRAVELS NOTHING IS NOT A DEAD PATH, IT IS ANOTHER HIT.
+        #
+        # After anchoring on a tangent, aiming at the base points straight back
+        # into the thing we just went round, so the next ray is zero long. The
+        # first version called that wedged and gave up - every chain died in two
+        # hops, and the ring size made no difference at all from 5 m to 35 m,
+        # which is what proved the ring was never the problem.
+        #
+        # By the rule it is simply the next collision: ring again, take a
+        # tangent, crawl on. A small ring means many small steps round a big
+        # obstacle, and that is the design rather than a fault in it.
+
+        left, right, _ = ring_tangents(g, hx, hz, dx, dz, max_ring_m)
+        if left is None and right is None:
+            return None                                  # DEAD
+
+        # COMMIT TO A HAND AND KEEP IT.
+        #
+        # Choosing the better side at every hop is why this oscillated: it
+        # sidesteps left, re-aims at the base, turns back into the same wall,
+        # and now the RIGHT side looks better - so it steps back, and round it
+        # goes. Twenty hops later it revisits its own ground and the loop guard
+        # kills it. That happened identically at 260 hops and at 4,000, which is
+        # what showed it was never running out of room to crawl.
+        #
+        # Going round something means keeping it on one hand the whole way. The
+        # first ring of a chain picks the side; every ring after it uses the
+        # same one, so the chain commits to going round rather than dithering
+        # at the face.
+        options = (left, right) if hand == 0 else                   ((left,) if hand > 0 else (right,))
+        best, best_got = None, -1.0
+        for cand in options:
+            if cand is None:
+                continue
+            cxx, czz = cand
+            d = max(np.hypot(gx - cxx, gz - czz), 1e-6)
+            g2, _, _, _ = march(g, cxx, czz, (gx - cxx) / d, (gz - czz) / d,
+                                goal, limit)
+            if g2 > best_got:
+                best, best_got = cand, g2
+        if best is None:
+            return None
+
+        # BUT IT MUST ACTUALLY MOVE. Crawling is fine; crawling on the spot is
+        # a loop, and a loop is a dead path however long you let it run.
+        # The bucket has to be FINER than a ring step, or crawling looks like
+        # looping: a 0.5 m ring moves the anchor less than a 2 m bucket, so the
+        # second anchor landed in the first one's square and every chain was
+        # killed for going round in a circle it had not gone round.
+        key = (round(best[0] / 0.4), round(best[1] / 0.4))
+        if key in seen_here:
+            return None
+        seen_here.add(key)
+
+        if hand == 0:
+            hand = 1 if best is left else -1
+
+        x, z = best
+        pts.append(best)
+        d = max(np.hypot(gx - x, gz - z), 1e-6)
+        dx, dz = (gx - x) / d, (gz - z) / d              # scan at base location
+    return None
 
 
 def resample(path, n=24):
-    """A path as n points evenly along its length, so two of different shapes
-    can be compared point for point."""
     if len(path) < 2:
         return [path[0]] * n if path else []
     segs, total = [], 0.0
@@ -392,7 +384,7 @@ def resample(path, n=24):
         total += d
     if total < 1e-6:
         return [path[0]] * n
-    out, want, acc, i = [], 0.0, 0.0, 1
+    out, acc, i = [], 0.0, 1
     for k in range(n):
         want = total * k / (n - 1)
         while i < len(segs) and acc + segs[i - 1] < want:
@@ -408,112 +400,36 @@ def resample(path, n=24):
 
 
 def too_close(path, pool):
-    """Is this the same way in as something already solved?
-
-    Compared as SHAPES, resampled to the same count, so a route with 16 turns
-    and one with 9 can still be recognised as the same corridor. The mean
-    separation is used rather than the worst: two routes that share a corridor
-    and differ only where they leave it are still the same corridor.
-    """
     a = resample(path)
     for other in pool:
         b = resample(other)
-        dsum = sum(np.hypot(p[0] - q[0], p[1] - q[1]) for p, q in zip(a, b))
-        if dsum / len(a) < REJECT_M:
+        if sum(np.hypot(p[0] - q[0], p[1] - q[1])
+               for p, q in zip(a, b)) / len(a) < REJECT_M:
             return True
     return False
 
 
-def mark_used(g, path, start, goal):
-    """Take a solved corridor off the map.
+def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M):
+    """Sweep from LEFT round to EAST, one chain per bearing.
 
-    The owner: "and that found a solution.. save it our pool of solved paths.
-    That one is done shoot ray right and move on."
+    "We will start scanning left. every fail or win, we change ray and try for
+    another path chain. We do this until we are point east."
 
-    DONE means done - the ground it used is not available to the next hunt.
-    Without this every opening angle in the sweep curves back onto the same
-    corridor the moment the corner logic re-aims at the flag, and 2,130 rays
-    return one route twenty-one times.
-
-    The ENDS ARE SPARED. Both bases sit in tight ground, so marking there would
-    wall the next hunt in before it started.
+    A win and a loss cost the same thing - the next bearing - so the sweep is
+    the whole outer loop and there is no backtracking anywhere in it.
     """
-    if g["used"] is None:
-        g["used"] = np.zeros_like(g["blocked"])
-    N, cm = g["N"], g["cell_m"]
-    # Wide enough that the next hunt cannot simply run alongside; capped so a
-    # pass over open ground does not consume the field.
-    r_cells = max(1, int(min(USED_W_M, 40.0) / cm))
-    guard2 = (GUARD_M / cm) ** 2
-    scx, scz = world_to_cell(g, *start)
-    gcx, gcz = world_to_cell(g, *goal)
-    step = cm * 0.5
-    for i in range(1, len(path)):
-        ax, az = path[i - 1]
-        bx, bz = path[i]
-        d = np.hypot(bx - ax, bz - az)
-        if d < 1e-6:
-            continue
-        ux, uz = (bx - ax) / d, (bz - az) / d
-        t = 0.0
-        while t <= d:
-            cx, cz = world_to_cell(g, ax + ux * t, az + uz * t)
-            t += step
-            if not (0 <= cx < N and 0 <= cz < N):
-                continue
-            if (cx - scx) ** 2 + (cz - scz) ** 2 < guard2:
-                continue
-            if (cx - gcx) ** 2 + (cz - gcz) ** 2 < guard2:
-                continue
-            # A PINCH IS NEVER TAKEN OFF THE MAP. You can only use up ground
-            # that had room for an alternative; where a corridor is barely
-            # wider than the hull there was never a second way through it, and
-            # marking it does not retire a route, it seals the map.
-            #
-            # Measured: both ways into team 2's base leave team 1's through the
-            # SAME 8.5 m pinch at (50, -390). Marking the first corridor at 26 m
-            # closed it, and the remaining twenty sweep angles found nothing at
-            # all - not because the map has one route, but because the gate had
-            # been welded shut behind the first one.
-            if g["clear"][cz, cx] < g["hull"] * PINCH_SPARE:
-                continue
-            x0, x1 = max(0, cx - r_cells), min(N, cx + r_cells + 1)
-            z0, z1 = max(0, cz - r_cells), min(N, cz + r_cells + 1)
-            g["used"][z0:z1, x0:x1] = True
-
-
-def resolve(g, start, goal):
-    """Sweep the opening ray left to right and collect every DISTINCT way in.
-
-    The owner's rule, in his words: "and that found a solution.. save it our
-    pool of solved paths. That one is done shoot ray right and move on. any
-    rays that solve with close rays are rejected."
-
-    So a solve is not the end of the resolve, it is one entry. The sweep keeps
-    going rightward, and a later hunt that lands on the same corridor is thrown
-    away rather than stored twice - which is what makes the pool a list of the
-    map's actual ways in rather than a list of how many times we looked.
-    """
-    pool, all_nodes = [], []
-    g["used"] = None                            # a fresh resolve sees a whole map
-    angles = np.arange(SWEEP_DEG, -SWEEP_DEG - 0.1, -SWEEP_STEP_DEG)  # LEFT first
-    for a_deg in angles:
-        got = None
-        for nodes, paths, rays in hunt(g, start, goal, np.deg2rad(a_deg)):
-            all_nodes = all_nodes[:len(all_nodes)] + nodes
-            if paths:
-                got = paths[0]
-            yield all_nodes, pool + ([got] if got else []), len(all_nodes)
-            if got:
-                break
-        if got is None:
-            continue
-        if too_close(got, pool):
-            continue                      # same way in, wearing a different hat
-        pool.append(got)
-        mark_used(g, got, start, goal)          # that one is done
-        yield all_nodes, pool, len(all_nodes)
-    yield all_nodes, pool, len(all_nodes)
+    sx, sz = snap_free(g, *start)
+    gxy = snap_free(g, *goal)
+    pool, rays = [], []
+    for a_deg in np.arange(SWEEP_FROM_DEG, SWEEP_TO_DEG + 1e-6, SWEEP_STEP_DEG):
+        trace = []
+        got = chain(g, (sx, sz), gxy, np.deg2rad(a_deg), max_ring_m, trace)
+        for seg in trace:
+            rays.append((seg[0], seg[1], got is not None))
+        if got is not None and not too_close(got, pool):
+            pool.append(got)
+        yield rays, pool, len(rays), a_deg
+    yield rays, pool, len(rays), SWEEP_TO_DEG
 
 
 def main():
@@ -586,6 +502,10 @@ def main():
                 elif e.key == pygame.K_r:
                     gen = resolve(g, start, goal)
                     nodes, paths, rays, done = [], [], 0, False
+                elif e.key == pygame.K_TAB:
+                    start, goal = goal, start
+                    gen = resolve(g, start, goal)
+                    nodes, paths, rays, done = [], [], 0, False
 
         if not done and not paused:
             for _ in range(speed):
@@ -625,13 +545,17 @@ def main():
             pygame.draw.line(screen, (255, 255, 255), (hx - 8, hz), (hx + 8, hz), 1)
             pygame.draw.line(screen, (255, 255, 255), (hx, hz - 8), (hx, hz + 8), 1)
 
-        for pt, col in ((start, (0, 200, 255)), (goal, (255, 140, 0))):
-            pygame.draw.circle(screen, col, to_px(pt[0], pt[1], w),
+        for pt, col, lab in ((start, (0, 200, 255), "START  team 1 base"),
+                             (goal, (255, 140, 0), "FLAG  team 2 base")):
+            px_, pz_ = to_px(pt[0], pt[1], w)
+            pygame.draw.circle(screen, col, (px_, pz_),
                                max(4, int(50.0 / (g["wx1"] - g["wx0"]) * w)), 2)
+            tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
+            screen.blit(tag, (px_ + 14, pz_ - 8))
 
         msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
                f"   {'DONE' if done else ('PAUSED' if paused else 'hunting')}"
-               f"    [space] pause  [r] restart  [q] quit")
+               f"    [space] pause  [r] restart  [tab] swap ends  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
         pygame.display.flip()
         pygame.time.wait(16 if (done or paused) else delay)
