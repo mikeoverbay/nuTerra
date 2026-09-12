@@ -113,9 +113,31 @@ def build_grid(map_name, hull_r_m):
 
     collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == KIND_WATER)
 
+    # GROW IT BY THE HULL, ONCE, AT FULL RESOLUTION.
+    #
+    # Without this the ray resolver had no hull width ANYWHERE: it validated a
+    # centre line through single 17 cm texels, with a gap test only at tangent
+    # candidates. Measured against a distance transform, 12% of a finished ray
+    # route had a 4.5 m tank overlapping solid geometry, closest approach
+    # 0.17 m - one texel.
+    #
+    # Worse, the in-solid checks that passed it sampled the centre line too, so
+    # the check and the flaw shared an assumption and the routes looked clean.
+    # The search results were never affected because they plan on a hull-grown
+    # grid - that erosion was doing more work than the search algorithm.
+    #
+    # 6.4 s and 537 MB transient on an 8192 square map, once per build.
+    from scipy.ndimage import distance_transform_edt
+    reach = distance_transform_edt(~collide, sampling=(wx1 - wx0) / W)
+    collide_hull = reach < (hull_r_m * 0.5)
+    del reach
+
     # THE FLOOR IS KEPT, not just the collision bits, because a slope is a
     # difference between two heights and cannot be read off a boolean.
-    return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide, used=None,
+    # collide is the RAW obstacle map and stays, because the independent
+    # in-solid check has to be able to ask a question the planner never asked.
+    return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide,
+                collide_hull=collide_hull, used=None,
                 floor=fl16, hscale=scale,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
@@ -135,7 +157,7 @@ def standable(g, x, z):
         return False
     if g["used"] is not None and g["used"][row, col]:
         return False
-    return not g["collide"][row, col]
+    return not g["collide_hull"][row, col]
 
 
 def snap_free(g, x, z):
@@ -448,13 +470,17 @@ def walk_texels(g, ax, az, bx, bz):
 
 
 def blocked_at(g, col, row):
-    """Is this texel one the hull cannot occupy?"""
+    """Is this texel one the hull cannot occupy?
+
+    The HULL-GROWN map, not the raw one. "Can the centre line pass" and "can
+    the tank pass" are different questions and only the second one matters.
+    """
     W = g["W"]
     if col < 0 or row < 0 or col >= W or row >= W:
         return True
     if g["used"] is not None and g["used"][row, col]:
         return True
-    return bool(g["collide"][row, col])
+    return bool(g["collide_hull"][row, col])
 
 
 def clear_line(g, ax, az, bx, bz):
