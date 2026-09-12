@@ -1,4 +1,4 @@
-# The flight bake
+﻿# The flight bake
 
 A top-down snapshot of a whole map: for every 0.17 m of ground, what is the
 highest thing standing there, how high it is, what kind of thing it is, and where
@@ -148,13 +148,30 @@ nine of the seventeen names in the rock bin are not rock: `env_19_01_stonestairs
 x2, `env_19_23_StoneSteps` x4, `env_19_17_Gravestones` x2. A kind name cannot be
 taken at face value.
 
-**And the match is a plain substring, not a word.** `env_19_08_StreetLamp_01`
-and `_02` key as **tree**, because "S`tree`tLamp" contains `tree`. Found by
+**And the match is a plain substring, not a word.** `env_19_08_StreetLamp01`
+and `02` keyed as **tree**, because "S`tree`tLamp" contains `tree`. Found by
 cross-tabulating the key channel against the id layer: 3,046 monastery texels
-key `tree` while carrying a MODEL id, and all of them are those two lamps plus
-`hd_env_EU_456_BurnedTrees`, which is genuinely a tree. Unfixed as of
-`bake_version` 2 - reordering this race is not a blind edit - but the solid bit
-now stops a reader driving through the lamps.
+key `tree` while carrying a MODEL id, and all of them were those two lamps plus
+`hd_env_EU_456_BurnedTrees`, which is genuinely a tree.
+
+**Fixed in `bake_version` 3** by testing `lamp` before `tree` and returning
+`prop`. The fix is deliberately that narrow, because the obvious one is a
+regression. Requiring a word boundary around every keyword would break fifteen
+correct answers to fix one wrong one - a survey of all 212 monastery names found
+**23 with a keyword buried inside a longer word, and most of them are right**:
+
+| name | matched | verdict |
+|---|---|---|
+| `WoodFence`, `StoneFence`, `ForgedFence`, `GrapevineFence`, `RabitzFence` | `fence` | correct |
+| `ItalyOutlandHousesCluster` | `house` | correct |
+| `VendorCart`, `WoodenCart` | `car` | correct - a cart IS a prop |
+| `Gravestones01`, `Gravestones03` | `stone` | wrong, harmless: solid either way |
+| `BurnedTrees` | `tree` | correct |
+| `StreetLamp01`, `StreetLamp02` | `tree` | **wrong, and the one that mattered** |
+
+`lamp` appears in exactly two names on this map and both are lamps; no name
+contains `light` or `lantern`, so neither was added on speculation. Add a keyword
+when a map produces a collision, not before.
 
 **`other` is a genuine bin** - 134 of monastery's 212 names. Mostly things a tank
 flattens (petunias, clay jugs, milk cans, baskets, sidewalks, canisters), but it
