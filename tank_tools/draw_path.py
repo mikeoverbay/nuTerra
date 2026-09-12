@@ -77,16 +77,24 @@ def render(g, squares, pts, rings, out_png, pad_m=40.0, px=1400):
     d = ImageDraw.Draw(im, "RGBA")
 
     # THE RINGS FIRST, under the route, at the radius they actually grew to.
-    for (rx, rz, rr, side, tx, tz) in rings:
+    for r in rings:
+        rx, rz, rr, side, tx, tz = r[:6]
         c = to_px(rx, rz)
         rp = rr / mpp
         d.ellipse([c[0] - rp, c[1] - rp, c[0] + rp, c[1] + rp],
                   outline=(255, 215, 80, 200), width=2)
-        d.line([c, to_px(tx, tz)], fill=(255, 215, 80, 140), width=1)
+        # THE HOP IS FROM THE ANCHOR, not from the ring centre. The centre is
+        # where the RAY stopped; the tank is back at the previous point and
+        # drives one straight line to the tangent.
+        if len(r) >= 8:
+            d.line([to_px(r[6], r[7]), to_px(tx, tz)],
+                   fill=(120, 255, 170, 220), width=3)
+        d.line([c, to_px(tx, tz)], fill=(150, 140, 70, 120), width=1)
 
     # THE ROUTE over them.
     d.line([to_px(p[0], p[1]) for p in pts], fill=(120, 255, 170), width=4)
-    for (rx, rz, rr, side, tx, tz) in rings:
+    for r in rings:
+        rx, rz, rr, side, tx, tz = r[:6]
         t = to_px(tx, tz)
         col = (90, 255, 235) if side > 0 else (255, 150, 90)
         d.ellipse([t[0] - 5, t[1] - 5, t[0] + 5, t[1] + 5], fill=col)

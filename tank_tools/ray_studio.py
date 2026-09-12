@@ -1768,14 +1768,26 @@ def main():
             ch = tree.win_chain
             for k in range(len(ch) - 1):
                 L(to_px(ch[k]["pos"][0], ch[k]["pos"][1], w), to_px(ch[k + 1]["pos"][0], ch[k + 1]["pos"][1], w), (120, 255, 170), 3)
-            for node in ch:
+            for ci, node in enumerate(ch):
                 if node["ring"] is not None:
                     rx, rz, rr = node["ring"]
                     cpx = to_px(rx, rz, w)
                     rpx = int(m_to_px(rr, w))
                     if rpx >= 2:
                         CIRC(cpx, rpx, (255, 215, 80), 2)
-                    L(cpx, to_px(node["pos"][0], node["pos"][1], w), (255, 215, 80), 1)
+                    # THE HOP IS PREVIOUS POINT -> TANGENT. Drawing it from
+                    # the ring centre shows a line the tank never drove: the
+                    # centre is where the RAY stopped, and the tank is back at
+                    # the last anchor. The live view was fixed for this at
+                    # 0d694c34 and this redraw was missed.
+                    pv = ch[ci - 1]["pos"] if ci else node["pos"]
+                    L(to_px(pv[0], pv[1], w),
+                      to_px(node["pos"][0], node["pos"][1], w),
+                      (120, 255, 170), 2)
+                    # a dim spur to the ring centre, so which ring produced
+                    # this tangent is still legible
+                    L(cpx, to_px(node["pos"][0], node["pos"][1], w),
+                      (120, 110, 60), 1)
                     # which hand it took round this one
                     D(to_px(node["pos"][0], node["pos"][1], w), (90, 255, 235) if node["side"] > 0
                                        else (255, 150, 90), (5) * 2.0)
@@ -3283,7 +3295,16 @@ WALK_BUDGET_M = 450.0
 #
 # Casting behind you is not exploration. It is re-asking a question you have
 # already answered, and on this search it was most of the work.
-FORWARD_ARC_DEG = 90.0
+# FORTY-FIVE EITHER WAY. "we dont need to scan any more than 45 either way
+# from our direction." Ninety was mine and it was too wide: a ray 90 degrees
+# off the heading is a sideways step, not a way forward, and every one of them
+# was a branch the tree had to exhaust before it could back up.
+#
+# Worth knowing at this width: 20 rays across 90 degrees is 4.7 degrees apart,
+# and at a 3 m step two rays that close land 25 cm apart against a 4.5 m hull.
+# So most of the twenty are the same move. The cap is the owner's and it is a
+# CAP - the arc is what decides how many of them mean anything.
+FORWARD_ARC_DEG = 45.0
 
 # TWENTY RAYS, AND ONLY FORWARD. The owner's numbers.
 #
@@ -3619,9 +3640,19 @@ class BranchTree(object):
                 # rings that shaped it cannot be read back - the rings are the
                 # WHY of every turn it took, and they were only ever living in
                 # the tree that produced them.
-                self.win_rings = [(n["ring"][0], n["ring"][1], n["ring"][2],
-                                   n["side"], n["pos"][0], n["pos"][1])
-                                  for n in chain if n["ring"] is not None]
+                # AND THE ANCHOR IT WAS DRIVEN FROM. Without it a redraw can
+                # only join the ring CENTRE to the tangent - which is the hit
+                # point, not a place the tank ever stood. The hop is from the
+                # previous point.
+                self.win_rings = []
+                for ci, n in enumerate(chain):
+                    if n["ring"] is None:
+                        continue
+                    prev = chain[ci - 1]["pos"] if ci else n["pos"]
+                    self.win_rings.append((n["ring"][0], n["ring"][1],
+                                           n["ring"][2], n["side"],
+                                           n["pos"][0], n["pos"][1],
+                                           prev[0], prev[1]))
                 self.win_pts = [n["pos"] for n in chain]
                 # ONE SQUARE PER COMPLETED ROUTE. The last one we stood in
                 # becomes 1, so the next search cannot come home this way and
