@@ -245,3 +245,51 @@ argument.
 `47_canada_a` is the candidate if anyone wants the area question settled
 properly. That needs a flight bake of that map, which is a nuTerra run, not a
 package scan — so it is a decision to take rather than something to slip in.
+
+## Settled on 47_canada_a — and both hypotheses were wrong
+
+The engine session baked `47_canada_a` (the top map in the table above, 96 `d_`
+identifiers against monastery's 33) into its own sandbox, so the area question
+could be finished without a baking programme. Read in place from
+`C:\nuTerra_opus\_tmp\nuTerra\flight`. Same method both maps: match every model
+asset to its visual, then rebuild `collide_hull` with those assets deleted and
+count cells that flip from blocked to free.
+
+| | 19_monastery | 47_canada_a |
+|---|---|---|
+| `d_` identifiers in `space.bin` | 33 | 96 |
+| model collide texels | 7,137,362 | 13,231,727 |
+| **`d_` assets** | 2.5% (2 assets) | **0.4% (4 assets)** |
+| `d_` hull test | 0.31% of map, +0.43% free | **0.08%, +0.16%** |
+| **`s_ramp` assets** | 0.03% (12 assets) | **1.6% (24 assets)** |
+| `s_ramp` hull test | 0.02% of map, +0.02% free | **0.50%, +0.96%** |
+
+**1. Identifier variety does not predict area, at all.** canada_a has three
+times monastery's destructible material variety and FOUR TIMES LESS
+destructible area. The 69-map ranking is therefore useless as a proxy for
+where the crush bit pays, and so was my "measure it on a richer map" — the
+richer map is the weaker one. A material is not a part and a part is not an
+area, and here that stops being a caution and becomes the result.
+
+**2. The ramps flip, and the engine session was right after all.** I told them
+their `s_ramp` promotion was unsupported. On monastery it was: 0.02%. On
+canada_a removing the ramp assets frees +0.96% of the free ground — 48 times
+monastery's figure, and six times canada_a's own crush bit. Ramps are the
+larger of the two effects on this map, which is exactly what they claimed and
+I dismissed on one map's evidence.
+
+Both remain under 1% of free ground, so neither is transformative anywhere yet
+measured. What changes is the ORDER, and it changes per map.
+
+### The measurement is bounded, and only the bit unbinds it
+
+Every number here removes a WHOLE ASSET — its walls included — because
+whole-asset attribution is all the bake's per-placement ids can express. So
++0.96% is an upper bound that mostly credits the ramp asset's walls to its
+ramp, and canada_a's ramp assets include large buildings.
+
+Which is the chicken and egg worth naming: the value of PER-PART information
+cannot be measured with per-asset attribution. Every figure in this document
+is an upper bound of unknown tightness, and the only way to a real number is
+the CRUSH_BIT itself. That is an honest argument for building it cheaply and
+measuring after, not for measuring harder first.
