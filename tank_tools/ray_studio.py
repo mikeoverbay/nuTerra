@@ -1251,7 +1251,18 @@ def main():
     surf = pygame.surfarray.make_surface(np.transpose(base, (1, 0, 2)))
     N = SHOW                     # the view works in picture texels
 
-    gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
+    # THE BEARING SWEEP DOES NOT START ON ITS OWN ANY MORE.
+    #
+    # It used to run from the first frame, so within seconds of launch the
+    # screen had finished routes on it that nobody had asked for - drawn the
+    # same green as the branch tree's answer. "are you drawing old solutions
+    # because it has a completed path instantly": near enough, they were not
+    # old, they were a DIFFERENT SEARCH's, and there was no way to tell from
+    # looking.
+    #
+    # One search at a time, and only when asked. [r] starts the sweep, [b]
+    # starts the tree.
+    gen = None
     nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     rings, deaths = [], []
     astar_paths, astar_msg = [], ""
@@ -1267,7 +1278,11 @@ def main():
     # until that time is up; it does not run on and get drawn late. The frame
     # itself keeps ticking at ~60 Hz regardless, so the window stays responsive
     # and can be dragged and zoomed while the search is crawling.
-    steps_per_frame = 1
+    # RUN IT FAST BY DEFAULT, and slow it down when there is something worth
+    # watching slowly. At 1 step a frame a 5,444 cast win takes ninety seconds
+    # to arrive, which reads exactly like a search that never stops - "It never
+    # stops like I ask for." The slider still goes down to 1.
+    steps_per_frame = 250
     step_delay_ms = 0
     # HOW MUCH GROUND A FINISHED ROUTE CLOSES BEHIND IT, in squares, 1 to 5.
     # A square is a metre, so 1 blocks a 3x3 - about a hull - and 5 blocks an
@@ -1307,7 +1322,7 @@ def main():
     # and it should be visible without reading a number.
     CLS_COLS = [(255, 96, 96), (96, 255, 128), (120, 170, 255), (255, 210, 80),
                 (230, 120, 255), (100, 245, 235), (255, 155, 70), (190, 190, 190)]
-    running, done, paused = True, False, False
+    running, done, paused = True, True, False   # done: nothing sweeping yet
 
     # THE VIEW, in CELLS. A 1024-cell map squeezed into a window is 1.4 m a
     # pixel, which the owner could not read: "the res is too low to see."
@@ -1549,6 +1564,11 @@ def main():
                     # one thing he asked not to happen.
                     # THE RING FOR THIS ATTEMPT, from the set rather than
                     # from the global slider.
+                    # AND CLEAR THE OTHER SEARCH'S ANSWER. Two sets of
+                    # finished routes on one map, in the same colours, is how
+                    # a fresh result gets mistaken for a stale one.
+                    gen, done = None, True
+                    nodes, paths, rays = [], [], 0
                     tree = BranchTree(g, start, goal, RING_SET[ring_slot],
                                       min_gap, squares=squares)
                     tree.block_radius = block_radius
@@ -1622,7 +1642,7 @@ def main():
         # step_delay_ms now and the frame is left free.
         now_ms = pygame.time.get_ticks()
         step_due = (now_ms - last_step_ms) >= step_delay_ms
-        if not done and not paused and step_due:
+        if gen is not None and not done and not paused and step_due:
             last_step_ms = now_ms
             for _ in range(speed):
                 try:
@@ -1639,7 +1659,11 @@ def main():
             last = ""
             for _ in range(steps_per_frame):
                 last = tree.step()
-                if tree.exhausted:
+                # STOP THE BURST ON THE WIN. Without this a burst of 250 keeps
+                # calling step() after the route has landed - harmless, because
+                # step() returns early once halted, but it also means the frame
+                # that WINS does not draw the win until the next one.
+                if tree.exhausted or tree.halted:
                     break
             seen_i, half_i, used_i = tree.items.report()
             if tree.halted:
@@ -1657,11 +1681,19 @@ def main():
                 tree_msg = ("*** PATH COMPLETE - INSIDE THE BASE RING *** %.0f m, %d pt, %d ring(s) - "
                             "found after %d cast(s). [b] restarts."
                             % (length, len(tree.win_chain), rings_n, tree.casts))
-            tree_msg = ("branch tree: %d point(s), %d cast(s), %d path(s), "
-                        "depth %d | items %d hit, %d half-settled, %d USED - %s"
-                        % (len(tree.points), tree.casts, len(tree.paths),
-                           len(tree.stack), seen_i, half_i, used_i,
-                           "EXHAUSTED, a proof" if tree.exhausted else last))
+            else:
+                # ONLY WHILE IT IS STILL RUNNING. This was unconditional and
+                # therefore clobbered the PATH COMPLETE line the moment after
+                # it was set - so the search DID win and DID stop, and then
+                # reported its running status instead. From outside that is
+                # indistinguishable from never winning: "the code can't tell
+                # when it wins a path.. It never stops like I ask for."
+                tree_msg = ("branch tree: %d point(s), %d cast(s), %d path(s), "
+                            "depth %d | items %d hit, %d half-settled, %d USED"
+                            " - %s"
+                            % (len(tree.points), tree.casts, len(tree.paths),
+                               len(tree.stack), seen_i, half_i, used_i,
+                               "EXHAUSTED, a proof" if tree.exhausted else last))
             if tree_follow:
                 # CENTRED ON THE CURSOR - the end of the ray just cast - not on
                 # the top of the stack. The stack top teleports across the map
