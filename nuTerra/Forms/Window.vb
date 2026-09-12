@@ -173,7 +173,7 @@ Public Class Window
             .DepthBits = 0,
             .AlphaBits = 0,
             .StencilBits = 0,
-            .Title = Application.ProductName
+            .Title = owner_prefix() & Application.ProductName
         }
 #If DEBUG Then
         setting.Flags = setting.Flags Or ContextFlags.Debug
@@ -241,6 +241,7 @@ Public Class Window
             Directory.CreateDirectory(TEMP_STORAGE)
         End If
         LogThis("{0}ms Temp storage is located at: {1}", launch_timer.ElapsedMilliseconds, TEMP_STORAGE)
+        LogThis("window owner: {0}", If(OWNER_TAG = "", "(none - and no checkout found either)", OWNER_TAG.Trim()))
 
         ' Put the shipped per-map settings in place before any map can load.
         modMapSettings.SeedWorkFolder()
@@ -602,9 +603,9 @@ try_again:
             ' because that is what the settings file and the packages use.
             Dim pretty = MapMenuScreen.MAP_REALNAME
             If String.IsNullOrEmpty(pretty) OrElse pretty = map_name Then
-                Title = String.Format("{0} - {1}", Application.ProductName, map_name)
+                Title = String.Format("{0}{1} - {2}", owner_prefix(), Application.ProductName, map_name)
             Else
-                Title = String.Format("{0} - {1} ({2})", Application.ProductName, pretty, map_name)
+                Title = String.Format("{0}{1} - {2} ({3})", owner_prefix(), Application.ProductName, pretty, map_name)
             End If
         End If
     End Sub
@@ -1238,6 +1239,86 @@ try_again:
         Return String.Format("| model draws {0} of {1} instances | trees {2}/{3} lods {6} | chunks {4}/{5}",
                              models, model_total, TREES_DRAWN, TREES_TOTAL, chunks, chunk_total,
                              If(TREES_LOD_TEXT = "", "-", TREES_LOD_TEXT)) & outland
+    End Function
+
+    ''' <summary>
+    ''' Whose window this is: " [Tank AI] ", or "" when nothing says.
+    '''
+    ''' Three checkouts run this app at once and every window was called the same
+    ''' thing, so the owner could not tell whose route he was looking at. His
+    ''' instruction: "put the sessions name on the title bar of who ones it".
+    '''
+    ''' FIRST IN THE TITLE, not last. A taskbar button truncates from the END, and
+    ''' the whole point is telling three windows apart at a glance - which is most
+    ''' often from the taskbar, where a trailing tag is the first thing to go.
+    '''
+    ''' Read here rather than through Program.vb's parser because that one is a
+    ''' For Each over the arguments and cannot look ahead, and looking ahead is
+    ''' the whole difficulty: `owner=Tank AI` unquoted arrives as TWO arguments
+    ''' and a naive read tags the window "Tank".
+    '''
+    ''' So it absorbs what follows, and the rule is a judgement rather than a law:
+    ''' take following words until one contains "=" or is entirely lower case.
+    ''' Every bare flag this app takes is lower case - tanks, freezefx, snapquit,
+    ''' navdump - and every session is a name with a capital, so
+    ''' `owner=Tank AI tanks ai=1` gives "Tank AI" and not "Tank AI tanks". Quote
+    ''' the name if you want a lower-case word inside it. The resolved tag is
+    ''' logged at startup, so a wrong guess is visible rather than merely wrong.
+    '''
+    ''' With no owner= at all it falls back to the CHECKOUT the exe came from,
+    ''' found by walking up for the .git that defines it rather than by counting
+    ''' the build folders, which are a layout and not a fact. An
+    ''' unlabelled build then still says which tree built it.
+    ''' </summary>
+    Private Shared ReadOnly OWNER_TAG As String = build_owner_tag()
+
+    ''' <summary>The tag as a leading piece: "[Tank AI] ", or "".</summary>
+    Private Shared Function owner_prefix() As String
+        If OWNER_TAG = "" Then Return ""
+        Return OWNER_TAG.Trim() & " "
+    End Function
+
+    Private Shared Function build_owner_tag() As String
+        Try
+            Dim args = Environment.GetCommandLineArgs()
+            For i = 0 To args.Length - 1
+                If Not args(i).StartsWith("owner=", StringComparison.OrdinalIgnoreCase) Then Continue For
+
+                Dim name = args(i).Substring(6).Trim()
+                For j = i + 1 To args.Length - 1
+                    Dim w = args(j)
+                    If w.Contains("=") Then Exit For
+
+                    ' "HAS A CAPITAL IN IT", spelled out. The obvious way to ask
+                    ' this - w = w.ToLowerInvariant() - is ALWAYS TRUE in this
+                    ' project, because the vbproj sets OptionCompare Text and
+                    ' that makes every `=` between strings case-blind. It cost a
+                    ' build: owner=Opus Five came out "[Opus]" because the loop
+                    ' decided "Five" was already lower case and stopped.
+                    Dim capital = False
+                    For Each ch In w
+                        If Char.IsUpper(ch) Then capital = True : Exit For
+                    Next
+                    If Not capital Then Exit For
+
+                    name &= " " & w
+                Next
+                name = name.Trim()
+                If name.Length > 0 Then Return " [" & name & "]"
+            Next
+
+            ' Nothing given: name the checkout instead of nothing.
+            Dim d = New IO.DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory)
+            While d IsNot Nothing
+                Dim g = IO.Path.Combine(d.FullName, ".git")
+                If IO.Directory.Exists(g) OrElse IO.File.Exists(g) Then Return " [" & d.Name & "]"
+                d = d.Parent
+            End While
+        Catch
+            ' A window with no tag is a small loss; a window that failed to open
+            ' because of one is not.
+        End Try
+        Return ""
     End Function
 
     Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
