@@ -1177,6 +1177,23 @@ def main():
         import ctypes
         hwnd = pygame.display.get_wm_info()["window"]
         ctypes.windll.user32.ShowWindow(hwnd, 3)      # SW_MAXIMIZE
+        # AND TELL PYGAME, or it goes on believing the window is the size it
+        # asked for.
+        #
+        # ShowWindow resizes the window behind SDL's back: pygame kept
+        # reporting 1400x900 while the client area was really 1920x1057, so
+        # the GL viewport and the UI surface were built at 1400x900 in the
+        # bottom-left corner of a bigger window while mouse events arrived in
+        # the REAL coordinate space. Everything was offset and scaled, and
+        # clicking a button picked whichever one happened to be under the
+        # wrong point - "left plane and mouse click position is messed up."
+        import ctypes.wintypes
+        cr = ctypes.wintypes.RECT()
+        ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(cr))
+        real = (cr.right - cr.left, cr.bottom - cr.top)
+        if real[0] > 200 and real[1] > 200:
+            disp = pygame.display.set_mode(real, pygame.OPENGL |
+                                           pygame.DOUBLEBUF | pygame.RESIZABLE)
     except Exception:
         pass                                          # a 1400x900 window is fine
     LEFT_W, RIGHT_W = 250, 330
@@ -1656,7 +1673,10 @@ def main():
                 view_cx, view_cz = cx - view_cells * 0.5, cz - view_cells * 0.5
 
         map_ox, map_oy, w = map_rect()
-        SW0, SH0 = disp.get_size()
+        # THE WINDOW'S REAL SIZE, asked of pygame's window rather than of the
+        # surface it handed back at set_mode time. They disagree the moment
+        # anything outside SDL resizes the window.
+        SW0, SH0 = pygame.display.get_window_size()
         if screen.get_size() != (SW0, SH0):
             screen = pygame.Surface((SW0, SH0), pygame.SRCALPHA)
         gv.begin(SW0, SH0)
