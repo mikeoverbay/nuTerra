@@ -255,7 +255,7 @@ def sees(g, x, z, tx, tz):
     return True
 
 
-def march(g, x, z, dx, dz, goal, limit):
+def march(g, x, z, dx, dz, goal, limit, squares=None):
     """How far a ray gets, and where it stops.
 
     Walks the collision map texel by texel - the SAME exact traversal that
@@ -275,10 +275,21 @@ def march(g, x, z, dx, dz, goal, limit):
         if (px - gx) ** 2 + (pz - gz) ** 2 <= REACH_M ** 2:
             return t, px, pz, True, False              # arrived
 
-        if blocked_at(g, col, row):
-            # STOP JUST SHORT OF THE TEXEL WE CANNOT ENTER. Backing off a
-            # quarter of a texel keeps the hit point inside the last clear one,
-            # which is what the ring is then centred on.
+        # A SQUARE THAT IS 1 STOPS THE RAY LIKE A WALL DOES, and the check is
+        # AHEAD of the move rather than after landing on it.
+        #
+        # 1 means solid ground OR ground a finished route has used, and neither
+        # may be entered - "we cant move in to already blocked areas". Crucially
+        # this is a COLLISION and not a death: the walk rings it, takes a
+        # tangent and goes round, exactly as it would round a building. Killing
+        # the ray outright, which is what this did first, throws away the way
+        # round instead of looking for it.
+        if blocked_at(g, col, row) or (
+                squares is not None and
+                squares.blocked(x + dx * t, z + dz * t)):
+            # STOP JUST SHORT OF WHAT WE CANNOT ENTER. Backing off a quarter of
+            # a texel keeps the hit point inside the last clear one, which is
+            # what the ring is then centred on.
             tb = max(0.0, t - tex * 0.25)
             return tb, x + dx * tb, z + dz * tb, False, True
 
@@ -2926,7 +2937,7 @@ def object_at(g, x, z, dx, dz):
 
 
 def ring_branch(g, hx, hz, from_xz, indx, indz, obj, max_ring_m, goal,
-                min_gap_m, claimed):
+                min_gap_m, claimed, squares=None):
     """Both ways round one obstacle, each found by growing the ring on its own.
 
     Two things this does that ring_tangents does not, and the trial run needed
@@ -2962,12 +2973,15 @@ def ring_branch(g, hx, hz, from_xz, indx, indz, obj, max_ring_m, goal,
                 a += RING_ANGLE_STEP
                 if not standable(g, px, pz):
                     continue
+                if squares is not None and squares.blocked(px, pz):
+                    continue          # cannot anchor on ground already spent
                 if not clear_line(g, fx, fz, px, pz):
                     continue
                 d2 = max(np.hypot(gx - px, gz - pz), 1e-6)
                 ux, uz = (gx - px) / d2, (gz - pz) / d2
                 t2, ex, ez, reached, blocked = march(g, px, pz, ux, uz, goal,
-                                                     min(d2 + REACH_M, 120.0))
+                                                     min(d2 + REACH_M, 120.0),
+                                                     squares)
                 if blocked and obj and object_at(g, ex, ez, ux, uz) == obj:
                     continue               # still stuck on the same thing
                 if t2 < TANGENT_ESCAPE_M and not reached:
@@ -3058,6 +3072,20 @@ class Squares(object):
         if r < 0 or c < 0 or r >= self.n or c >= self.n:
             return True
         return self.grid[r, c] != 0
+
+    def release(self, x, z):
+        """Give a square back. Used when a branch backs out of it.
+
+        A square held by the branch currently being walked is not spent - it is
+        merely occupied. If it stays 1 after the branch dies, ground that was
+        only bad because of a wrong turn further up is closed for ever, and the
+        search walls itself into a corner it dug.
+        """
+        r, c = self.index(x, z)
+        if 0 <= r < self.n and 0 <= c < self.n and self.base[r, c] == 0                 and self.grid[r, c] != 0:
+            self.grid[r, c] = 0
+            self.driven -= 1
+            self.dirty = True
 
     def mark(self, x, z, rad=1):
         """Set this square AND its surround to 1.
@@ -3280,6 +3308,11 @@ class BranchTree(object):
                 # USED and no later ray bothers with it again.
                 if p["tag"] == TAG_FAIL and p["origin"] == ORIGIN_TANGENT                         and p.get("item"):
                     self.items.fail(p["item"], p["side"])
+                # AND GIVE THE GROUND BACK ON THE WAY OUT. A dead branch was
+                # only occupying its squares; another branch may need them.
+                # Ground is kept for good only by a route that finished.
+                if self.squares is not None and p["tag"] == TAG_FAIL:
+                    self.squares.release(p["pos"][0], p["pos"][1])
                 self.stack.pop()
                 return "backed up from %d" % p["id"]
 
@@ -3290,7 +3323,8 @@ class BranchTree(object):
             d = np.hypot(gx - p["pos"][0], gz - p["pos"][1])
             limit = min(d + REACH_M, self.walk_m)
             got, hx, hz, reached, blocked = march(g, p["pos"][0], p["pos"][1],
-                                                  dx, dz, self.goal, limit)
+                                                  dx, dz, self.goal, limit,
+                                                  self.squares)
 
             # REACHING THE BASE IS REACHING THE BASE. "If the past point hits
             # base location, its done."
@@ -3306,14 +3340,18 @@ class BranchTree(object):
             # The winning point is therefore where the ray ACTUALLY got to,
             # inside the base, rather than the mark itself - which also stops
             # the drawing running a final hop through whatever surrounds it.
-            # THE SQUARE WE LANDED IN. Checked FIRST, before anything else is
-            # asked of this position: if it is already 1 the ground is either
-            # solid or spent, and this ray is dead either way.
-            if self.squares is not None and self.squares.blocked(hx, hz):
-                p["tried"][aid] = TAG_FAIL
-                return "square already 1 on %d at %d" % (aid, p["id"])
+            # WHERE WE GOT TO IS THE LAST SQUARE WE STOOD IN. The blocked
+            # test now lives inside march(), which stops the ray AHEAD of a 1
+            # and reports it as a collision - so the ring below goes round used
+            # ground the same way it goes round a wall.
             if self.squares is not None:
                 self.last_square = (hx, hz)
+                # HOLD THE SQUARE WE ARE STANDING ON. Not spent - occupied.
+                # Without this the walk re-enters ground it is already on and
+                # never runs out of angles, so it never backs up: 16,577 points
+                # crowding 81 to a patch and the stack never shrinking once.
+                # With it, 352 points, 4.8 to a patch, and the tree unwinds.
+                self.squares.mark(hx, hz, 0)
 
             if np.hypot(gx - hx, gz - hz) <= BASE_RING_M:
                 p["tried"][aid] = TAG_PASS
@@ -3377,7 +3415,7 @@ class BranchTree(object):
                     spent.add(side)
             sides = ring_branch(g, hx, hz, p["pos"], dx, dz, obj,
                                 self.max_ring_m, self.goal, self.min_gap_m,
-                                set((obj, sd) for sd in spent))
+                                set((obj, sd) for sd in spent), self.squares)
             made = []
             for side in (1, -1):
                 t = sides.get(side)
