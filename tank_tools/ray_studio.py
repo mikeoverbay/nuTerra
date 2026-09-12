@@ -3227,8 +3227,15 @@ class Squares(object):
         img = np.zeros((n, n, 4), dtype=np.uint8)
         was = self.base != 0
         now = (self.grid != 0) & ~was
-        img[was] = (10, 12, 20, 190)        # baked solid: nearly opaque
-        img[now] = (255, 60, 60, 220)       # set by a finished route
+        # GREYED OUT, which is the owner's own word for it, and near opaque.
+        #
+        # Dimming was not enough and he said so twice. Measured, it WAS
+        # drawing - 19.2% of pixels changed with the layer on - but against a
+        # palette that is already dark it reads as "the map is dimmer", not as
+        # "this ground is closed". Blocked ground should stop looking like
+        # ground.
+        img[was] = (96, 100, 108, 245)      # baked solid: flat grey, closed
+        img[now] = (255, 55, 55, 255)       # set by a finished route: red
         return img
 
     def mark(self, x, z, rad=1):
