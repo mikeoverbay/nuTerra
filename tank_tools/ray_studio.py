@@ -1023,6 +1023,8 @@ def main():
     nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     rings, deaths = [], []
     astar_paths, astar_msg = [], ""
+    tree, tree_msg, tree_follow = None, "", True
+    TREE_STEPS = 12               # ray casts per frame, so it can be watched
     astar_class = []              # which homotopy class each route belongs to
     landmark_m2 = LANDMARK_M2
     show_marks = True
@@ -1144,6 +1146,15 @@ def main():
                     astar_msg = "landmark now %.0f m2 - press [a] to re-class"                                 % landmark_m2
                 elif e.key == pygame.K_m:
                     show_marks = not show_marks
+                elif e.key == pygame.K_b:
+                    # THE BRANCH TREE. Every angle at every point, exhaustive,
+                    # and drawn as it goes - the owner has been blind to this
+                    # search while it was being tuned headless, which is the
+                    # one thing he asked not to happen.
+                    tree = BranchTree(g, start, goal, ring_max, min_gap)
+                    tree_msg = "branch tree: running"
+                elif e.key == pygame.K_c:
+                    tree_follow = not tree_follow
                 elif e.key == pygame.K_f:
                     view_cx, view_cz, view_cells = 0.0, 0.0, float(N)
                 elif e.key == pygame.K_TAB:
@@ -1189,6 +1200,27 @@ def main():
                 except StopIteration:
                     done = True
                     break
+
+        # STEP THE TREE. A few casts a frame: enough to make progress, few
+        # enough that the shape of the search is something a person can follow.
+        if tree is not None and not paused and not tree.exhausted:
+            last = ""
+            for _ in range(TREE_STEPS):
+                last = tree.step()
+                if tree.exhausted:
+                    break
+            tree_msg = ("branch tree: %d point(s), %d cast(s), %d path(s), "
+                        "depth %d - %s"
+                        % (len(tree.points), tree.casts, len(tree.paths),
+                           len(tree.stack),
+                           "EXHAUSTED, a proof" if tree.exhausted else last))
+            if tree_follow and tree.stack:
+                # CENTRED ON THE POINT BEING WORKED, which is what the owner
+                # asked for the first time he asked to watch this at all.
+                cur = tree.points[tree.stack[-1]]["pos"]
+                cx = (cur[0] - g["wx0"]) / (g["wx1"] - g["wx0"]) * N
+                cz = (g["wz1"] - cur[1]) / (g["wz1"] - g["wz0"]) * N
+                view_cx, view_cz = cx - view_cells * 0.5, cz - view_cells * 0.5
 
         w = min(screen.get_width(), screen.get_height())
         screen.fill((10, 10, 12))
@@ -1299,6 +1331,51 @@ def main():
             for (qx, qz) in pth:
                 pygame.draw.circle(screen, col, to_px(qx, qz, w), 3)
 
+        # THE BRANCH TREE ITSELF. Every ray that has been cast, coloured by
+        # what became of it, so the search is something to look at rather than
+        # a number to be told.
+        if tree is not None:
+            TREE_COL = {TAG_OPEN: (110, 110, 130),
+                        TAG_PASS: (90, 240, 130),
+                        TAG_FAIL: (170, 60, 55)}
+            for pt in tree.points:
+                if pt["parent"] is None:
+                    continue
+                a0 = tree.points[pt["parent"]]["pos"]
+                col = TREE_COL.get(pt["tag"], (110, 110, 130))
+                if pt["origin"] == ORIGIN_TANGENT:
+                    col = (220, 170, 70) if pt["tag"] == TAG_OPEN else col
+                pygame.draw.line(screen, col, to_px(a0[0], a0[1], w),
+                                 to_px(pt["pos"][0], pt["pos"][1], w), 1)
+            for pt in tree.points:
+                r_ = 3 if pt["origin"] == ORIGIN_TANGENT else 2
+                pygame.draw.circle(screen, TREE_COL.get(pt["tag"], (110, 110, 130)),
+                                   to_px(pt["pos"][0], pt["pos"][1], w), r_)
+            # THE LIVE BRANCH: where the search is standing right now.
+            if tree.stack:
+                for k in range(len(tree.stack) - 1):
+                    p0 = tree.points[tree.stack[k]]["pos"]
+                    p1 = tree.points[tree.stack[k + 1]]["pos"]
+                    pygame.draw.line(screen, (255, 245, 120),
+                                     to_px(p0[0], p0[1], w),
+                                     to_px(p1[0], p1[1], w), 2)
+                cur = tree.points[tree.stack[-1]]
+                cp = to_px(cur["pos"][0], cur["pos"][1], w)
+                pygame.draw.circle(screen, (255, 255, 255), cp, 6, 2)
+                # THE ANGLES ALREADY TRIED HERE - the hit list, drawn. Short
+                # spokes off the current point, green won, red lost.
+                for aid, tg in cur["tried"].items():
+                    th = angle_of(aid)
+                    ex = cur["pos"][0] + np.sin(th) * 14.0
+                    ez = cur["pos"][1] + np.cos(th) * 14.0
+                    pygame.draw.line(screen, TREE_COL.get(tg, (150, 150, 160)),
+                                     cp, to_px(ex, ez, w), 1)
+            for q in tree.paths:
+                for k in range(len(q) - 1):
+                    pygame.draw.line(screen, (140, 255, 180),
+                                     to_px(q[k][0], q[k][1], w),
+                                     to_px(q[k + 1][0], q[k + 1][1], w), 3)
+
         # The pooled paths, drawn thick over the top.
         for pth in paths:
             for k in range(len(pth) - 1):
@@ -1325,7 +1402,7 @@ def main():
         msg = (f"rays {rays}   paths {len(paths)}   hull {hull:.1f} m"
                f"   step {ray_cap:.0f} m   ring {ring_max:.1f} m   gap {min_gap:.1f} m   bearing {bearing:+.0f}"
                f"   {'DONE' if done else ('PAUSED' if paused else 'sweeping')}"
-               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [a] catalogue  [k] landmark  [m] marks  [space] pause  [r] reset  [tab] swap  [q] quit")
+               f"    zoom/drag  [f] fit  , . step  [ ] ring  - = gap  [b] BRANCH TREE  [c] follow  [a] catalogue  [k] landmark  [m] marks  [space] pause  [r] reset  [tab] swap  [q] quit")
         screen.blit(font.render(msg, True, (255, 255, 255)), (8, 8))
 
         # WHAT THE COLOURS MEAN, and how many chains died of each. The tally is
@@ -1346,6 +1423,9 @@ def main():
             screen.blit(font.render(lab, True, col), (26, yy))
             yy += 17
         yy += 6
+        if tree_msg:
+            screen.blit(font.render(tree_msg, True, (255, 245, 120)), (8, yy))
+            yy += 20
         if astar_msg:
             screen.blit(font.render(astar_msg, True, (120, 220, 255)), (8, yy))
             yy += 20
@@ -2232,3 +2312,247 @@ def is_prefix_of_known(seq, known):
         if len(k) >= len(t) and tuple(k[:len(t)]) == t:
             return True
     return False
+
+
+def object_at(g, x, z, dx, dz):
+    """Which object stopped a ray that stopped here.
+
+    Looks just PAST the backed-off hit point, along the direction of travel:
+    march() stops a quarter texel short of the texel it cannot enter, so the
+    obstacle is the next one along, not the one under the hit.
+    """
+    lab, _n = object_map(g)
+    tex = g["texel_m"]
+    for k in range(1, 5):
+        c, r = to_texel(g, x + dx * tex * k * 0.5, z + dz * tex * k * 0.5)
+        if 0 <= c < g["W"] and 0 <= r < g["W"] and lab[r, c] != 0:
+            return int(lab[r, c])
+    return 0
+
+
+def ring_branch(g, hx, hz, from_xz, indx, indz, obj, max_ring_m, goal,
+                min_gap_m, claimed):
+    """Both ways round one obstacle, each found by growing the ring on its own.
+
+    Two things this does that ring_tangents does not, and the trial run needed
+    both:
+
+    EACH SIDE GROWS INDEPENDENTLY. ring_tangents returns at the first radius
+    where EITHER hand clears, so a collision almost always yielded ONE tangent
+    and the "tree" came out as a 2,996-deep chain with a branching factor of
+    1.00. A branch search with one branch is a walk.
+
+    AND "ESCAPE" MEANS PAST THIS OBJECT, not six metres. The old test asked
+    whether a ray could travel TANGENT_ESCAPE_M from the tangent; a tangent
+    half a metre round a building passes that easily and then re-aims straight
+    back into the same building. Measured: every ray travelled a median 6.26 m
+    - the escape distance exactly - and 3,000 of them advanced 65 m of 785.
+    The ring now grows until a ray at the flag leaves the tangent WITHOUT
+    hitting the object we are going round. That is what "expand until it
+    doesn't hit anything" was always asking for.
+    """
+    gx, gz = goal
+    base_ang = np.arctan2(indx, indz)
+    fx, fz = from_xz
+    out = {}
+    for side in (1, -1):
+        if obj and (obj, side) in claimed:
+            continue                       # this hand is spent
+        r = RING_MIN_M
+        while r <= max_ring_m + 1e-6 and side not in out:
+            a = RING_ANGLE_STEP
+            while a <= RING_ARC_MAX:
+                th = base_ang + a * side
+                px, pz = hx + np.sin(th) * r, hz + np.cos(th) * r
+                a += RING_ANGLE_STEP
+                if not standable(g, px, pz):
+                    continue
+                if not clear_line(g, fx, fz, px, pz):
+                    continue
+                d2 = max(np.hypot(gx - px, gz - pz), 1e-6)
+                ux, uz = (gx - px) / d2, (gz - pz) / d2
+                t2, ex, ez, reached, blocked = march(g, px, pz, ux, uz, goal,
+                                                     min(d2 + REACH_M, 120.0))
+                if blocked and obj and object_at(g, ex, ez, ux, uz) == obj:
+                    continue               # still stuck on the same thing
+                if t2 < TANGENT_ESCAPE_M and not reached:
+                    continue
+                wide, _, _ = measure_gap(g, px, pz, ux, uz, min_gap_m)
+                if wide < min_gap_m:
+                    continue
+                out[side] = (px, pz)
+                break
+            r += RING_STEP_M
+    return out
+
+
+# ==========================================================================
+# THE BRANCH TREE - every angle, at every point
+# ==========================================================================
+#
+# The owner's structure. Spec and history: tank_tools/BRANCH_SEARCH.md, which
+# is a LIVING document - if this code and that file disagree, one is a bug.
+#
+# The first attempt branched only at COLLISIONS and it does not work: branching
+# factor 1.00, a 2,996-deep chain, 4,000 rays and no route. The structure is
+# per-POINT.
+#
+#   "each angle is an id.. we need a list that grows with each new ray angle
+#    tried tagged as fail or pass"
+#   "After we save this, we will back up, check if the point came from tangent
+#    intersection or not. If it was just a continuation of move, we try ray
+#    cast rays except for ones that won or lost."
+#
+# So a point reached by simply moving is STILL a branch point: we can leave it
+# in any direction we have not already tried there. The per-point angle list is
+# what makes that terminate instead of looping - it is the memory of the search.
+#
+# This is exhaustive by design. It will run for a long time. That is the point:
+# "we are creating every possible solution for every ray at every point."
+
+# How far one ray may fly before it counts as a move rather than a journey.
+# Open in the spec (BRANCH_SEARCH.md, "still to settle"): distance travelled is
+# the honest measure and hop count is the cheap one. This is the honest one.
+WALK_BUDGET_M = 450.0
+
+ANGLE_STEP_DEG = 6.0                            # the quantisation
+N_ANGLES = int(round(360.0 / ANGLE_STEP_DEG))   # every angle has an id: 0..59
+
+TAG_OPEN, TAG_PASS, TAG_FAIL = "OPEN", "PASS", "FAIL"
+ORIGIN_ROOT, ORIGIN_TANGENT, ORIGIN_CONTINUE = "ROOT", "TANGENT", "CONTINUE"
+
+
+def angle_of(aid):
+    """Angle id -> radians. The id IS the identity; the radians are derived."""
+    return np.deg2rad(aid * ANGLE_STEP_DEG)
+
+
+def angle_id(rad):
+    """Radians -> the nearest angle id."""
+    return int(round(np.rad2deg(rad) / ANGLE_STEP_DEG)) % N_ANGLES
+
+
+class BranchTree(object):
+    """Every point reached, the angle that reached it, and what it has tried."""
+
+    def __init__(self, g, start, goal, max_ring_m=RING_MAX_DEFAULT_M,
+                 min_gap_m=MIN_GAP_DEFAULT_M, walk_m=None):
+        self.g = g
+        self.goal = goal
+        self.max_ring_m = max_ring_m
+        self.min_gap_m = min_gap_m
+        # ONE STEP PER CAST. "we make our step and cast ray left. keep going
+        # until we hit something." A ray that is allowed to fly 450 m hits
+        # something on this map every single time, so EVERY point came out a
+        # TANGENT and not one continuation existed - which deletes half the
+        # owner's structure. A step at a time: a clear step makes a CONTINUE
+        # point, which is a branch point in its own right, and only a blocked
+        # one draws a ring.
+        self.walk_m = walk_m or RAY_CAP_DEFAULT_M
+        self.points = []
+        self.paths = []
+        self.claimed = set()
+        self.casts = 0
+        self.exhausted = False
+        # The opening bearing is the owner's "start scanning left": the root
+        # begins its angle order there and works round.
+        to_goal = np.arctan2(goal[0] - start[0], goal[1] - start[1])
+        self.open_id = angle_id(to_goal + np.deg2rad(SWEEP_FROM_DEG))
+        root = self.add(None, start, None, ORIGIN_ROOT)
+        self.stack = [root["id"]]
+
+    def add(self, parent, pos, angle_in, origin):
+        p = dict(id=len(self.points), pos=pos, angle_in=angle_in,
+                 parent=parent, origin=origin, tried={}, tag=TAG_OPEN,
+                 kids=[], hit=None)
+        self.points.append(p)
+        if parent is not None:
+            self.points[parent]["kids"].append(p["id"])
+        return p
+
+    def next_angle(self, p):
+        """The next angle id never cast from this point, in sweep order.
+
+        THE HIT LIST IN USE. Every angle already tried here - won or lost - is
+        skipped, which is what stops the search re-casting a ray it has already
+        settled and what lets backing up terminate rather than loop.
+        """
+        for k in range(N_ANGLES):
+            aid = (self.open_id + k) % N_ANGLES
+            if aid not in p["tried"]:
+                return aid
+        return None
+
+    def chain_to(self, pid):
+        """The whole route from the root down to this point, kept start to end."""
+        out = []
+        k = pid
+        while k is not None:
+            out.append(self.points[k]["pos"])
+            k = self.points[k]["parent"]
+        out.reverse()
+        return out
+
+    def step(self):
+        """One ray cast. Returns a short string describing what happened."""
+        g, (gx, gz) = self.g, self.goal
+        while self.stack:
+            p = self.points[self.stack[-1]]
+            aid = self.next_angle(p)
+            if aid is None:
+                # EVERY ANGLE AT THIS POINT HAS BEEN TRIED. Settle it from what
+                # its children became and back up a level.
+                kid_tags = [self.points[k]["tag"] for k in p["kids"]]
+                p["tag"] = TAG_PASS if TAG_PASS in kid_tags else TAG_FAIL
+                self.stack.pop()
+                return "backed up from %d" % p["id"]
+
+            p["tried"][aid] = TAG_OPEN
+            self.casts += 1
+            a = angle_of(aid)
+            dx, dz = np.sin(a), np.cos(a)
+            d = np.hypot(gx - p["pos"][0], gz - p["pos"][1])
+            limit = min(d + REACH_M, self.walk_m)
+            got, hx, hz, reached, blocked = march(g, p["pos"][0], p["pos"][1],
+                                                  dx, dz, self.goal, limit)
+
+            if reached and clear_line(g, hx, hz, gx, gz):
+                p["tried"][aid] = TAG_PASS
+                win = self.add(p["id"], (gx, gz), aid, ORIGIN_CONTINUE)
+                win["tag"] = TAG_PASS
+                self.paths.append(self.chain_to(win["id"]))
+                return "ARRIVED via %d" % aid
+
+            if got < g["texel_m"]:
+                p["tried"][aid] = TAG_FAIL      # wedged: this angle goes nowhere
+                return "dead angle %d at %d" % (aid, p["id"])
+
+            if not blocked:
+                # A CLEAR MOVE. The end of it is a new point, and by the owner's
+                # rule it is a branch point in its own right - we can leave it
+                # in any direction not already tried THERE.
+                self.add(p["id"], (hx, hz), aid, ORIGIN_CONTINUE)
+                self.stack.append(self.points[-1]["id"])
+                return "moved %.0f m on %d" % (got, aid)
+
+            # A COLLISION. Ring it, both hands, and each tangent is a point.
+            obj = object_at(g, hx, hz, dx, dz)
+            p["hit"] = (hx, hz)
+            sides = ring_branch(g, hx, hz, p["pos"], dx, dz, obj,
+                                self.max_ring_m, self.goal, self.min_gap_m,
+                                self.claimed)
+            made = []
+            for side in (1, -1):
+                t = sides.get(side)
+                if t is None:
+                    continue
+                made.append(self.add(p["id"], t, aid, ORIGIN_TANGENT))
+            if not made:
+                p["tried"][aid] = TAG_FAIL
+                return "no way round on %d at %d" % (aid, p["id"])
+            for m in reversed(made):
+                self.stack.append(m["id"])
+            return "ring gave %d tangent(s) on %d" % (len(made), aid)
+
+        self.exhausted = True
+        return "EXHAUSTED"
