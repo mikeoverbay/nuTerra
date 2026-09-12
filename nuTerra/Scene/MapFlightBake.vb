@@ -672,9 +672,22 @@ Public Class MapFlightBake
             Dim f_ids = stem & "_ids.u32"
             Dim f_meta = stem & "_meta.txt"
 
-            If Not (IO.File.Exists(f_top) AndAlso IO.File.Exists(f_floor) AndAlso
-                    IO.File.Exists(f_ids) AndAlso IO.File.Exists(f_meta)) Then
-                LogThis("flight bake: nothing saved for {0} - baking", MAP_NAME_NO_PATH)
+            ' NAME THE FILE THAT IS MISSING. "nothing saved" was honest while
+            ' the set was three files that had always appeared together; since
+            ' _ids.u32 arrived in bake_version 2 the common case is a bake that
+            ' is entirely there EXCEPT the new layer, and being told "nothing
+            ' saved" while looking at 400 MB of bake on disk reads as a broken
+            ' cache rather than as a version gate doing its job. It cost the
+            ' tank AI session an hour of believing a rebake was impossible.
+            Dim missing As New List(Of String)
+            If Not IO.File.Exists(f_top) Then missing.Add("_top.rgba")
+            If Not IO.File.Exists(f_floor) Then missing.Add("_floor.r16")
+            If Not IO.File.Exists(f_ids) Then missing.Add("_ids.u32")
+            If Not IO.File.Exists(f_meta) Then missing.Add("_meta.txt")
+            If missing.Count > 0 Then
+                LogThis("flight bake: {0} for {1} - baking. Missing: {2}",
+                        If(missing.Count = 4, "nothing saved", "the saved bake is incomplete"),
+                        MAP_NAME_NO_PATH, String.Join(", ", missing))
                 Return False
             End If
 
