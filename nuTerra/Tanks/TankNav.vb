@@ -44,8 +44,9 @@ Public Class TankNav
     Public Const STEEP As Byte = 2
     ''' <summary>The scenery ring outside the playable area.</summary>
     Public Const OUTLAND As Byte = 4
-    ''' <summary>A tree trunk stands here. Its canopy does NOT block - that was
-    ''' the whole point of keeping the two apart in the bake.</summary>
+    ''' <summary>A tree trunk stands here. NEITHER THIS NOR THE CANOPY BLOCKS -
+    ''' the flag is kept because it says where the woods are, not because it
+    ''' stops anything. See IMPASSABLE.</summary>
     Public Const TRUNK As Byte = 8
     ''' <summary>Water. Not a slope and not a wall; a tank simply does not
     ''' go there.</summary>
@@ -72,8 +73,17 @@ Public Class TankNav
 
     ''' <summary>Everything that stops a tank. Kept as one constant so no
     ''' caller assembles its own idea of impassable.</summary>
+    ''' <remarks>
+    ''' TRUNK IS NOT IN HERE. A tree is crushable and a tank knocks the whole
+    ''' thing flat - trunk included - so re-blocking the trunk refused the very
+    ''' ground the crushable rule had just opened. 98.05% of trunk texels key
+    ''' tree; the
+    ''' 1.95% landing on building, rock or other carry the solid bit and stay
+    ''' blocked by the height test on their own. What still stops a tank in a
+    ''' wood is `tree AND solid` - rock or wall standing under the canopy.
+    ''' </remarks>
     Public Const IMPASSABLE As Byte =
-        BLOCKED Or STEEP Or OUTLAND Or TRUNK Or WATER Or PINNED Or OFFMAP
+        BLOCKED Or STEEP Or OUTLAND Or WATER Or PINNED Or OFFMAP
 
     Public ReadOnly cell(SIZE * SIZE - 1) As Byte
 
@@ -659,8 +669,6 @@ Public Class TankNav
                             rr = 55 : gg = 55 : bb = 60
                         ElseIf (f And WATER) <> 0 Then
                             rr = 40 : gg = 90 : bb = 190
-                        ElseIf (f And TRUNK) <> 0 Then
-                            rr = 120 : gg = 80 : bb = 40
                         ElseIf (f And BLOCKED) <> 0 Then
                             rr = 200 : gg = 90 : bb = 60
                         ElseIf (f And STEEP) <> 0 Then

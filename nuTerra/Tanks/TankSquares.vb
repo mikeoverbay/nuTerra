@@ -84,10 +84,17 @@ Public Class TankSquares
                         Dim i = row + c
                         Dim k = b.kind_b(i)
 
-                        ' The three that always stop a hull whatever their
-                        ' height: the ring outside the arena, a trunk, water.
+                        ' The two that always stop a hull whatever their
+                        ' height: the ring outside the arena, and water.
+                        ' THE TRUNK USED TO BE A THIRD.
+                        ' A tree is crushable and a tank knocks the whole thing flat -
+                        ' trunk included - so re-blocking the trunk refused the very ground
+                        ' the crushable rule had just opened. 98.05% of trunk texels key
+                        ' tree; the
+                        ' 1.95% landing on building, rock or other carry the solid bit and stay
+                        ' blocked by the height test on their own. What still stops a tank in a
+                        ' wood is `tree AND solid` - rock or wall standing under the canopy.
                         If (k And MapFlightBake.OUTLAND_BIT) <> 0 OrElse
-                           (k And MapFlightBake.TRUNK_BIT) <> 0 OrElse
                            (k And MapFlightBake.KIND_MASK) = MapFlightBake.KIND_WATER Then
                             hit = True
                             Exit For

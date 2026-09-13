@@ -173,7 +173,18 @@ def build_grid(map_name, hull_r_m):
                  ((kind == k_tree) & ~solid))
     testable = ~crushable
 
-    collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == k_water)
+    # THE TRUNK DOES NOT BLOCK.
+    # A tree is crushable and a tank knocks the whole thing flat -
+    # trunk included - so re-blocking the trunk refused the very ground
+    # the crushable rule had just opened. 98.05% of trunk texels key
+    # tree; the
+    # 1.95% landing on building, rock or other carry the solid bit and stay
+    # blocked by the height test on their own. What still stops a tank in a
+    # wood is `tree AND solid` - rock or wall standing under the canopy.
+    #
+    # Measured on monastery: after the half-hull growth the planner saw
+    # 26.78% of the bake blocked with trunks in, 24.00% with them out.
+    collide = (over & testable)         | (key & OUTLAND_BIT).astype(bool)         | (kind == k_water)
 
     # GROW IT BY THE HULL, ONCE, AT FULL RESOLUTION.
     #
