@@ -97,6 +97,24 @@ Public NotInheritable Class PrimitivesFile
     '''     BPVTxyznuviiiwwtb   40     392 sections
     '''     BPVTxyznuvitb       36     164 sections
     '''
+    ''' Since re-censused over the WHOLE install - 121,000 vertex sections, not
+    ''' just the buildings - and the same arithmetic returns ONE stride per
+    ''' format, unanimously:
+    '''
+    '''     BPVTxyznuvtb        32   64,836
+    '''     BPVTxyznuviiiwwtb   40   53,300
+    '''     BPVTxyznuvitb       36    2,128
+    '''     BPVTxyznuv          24      608
+    '''     BPVTxyz             12       67   audio occluders, position only
+    '''     BPVTxyznuviiiww     32       36   env_birds
+    '''
+    ''' NO NON-BPVT FORMAT SHIPS. Not one section in 121,000 uses a bare
+    ''' `xyznuv`-style header, so the three non-BPVT rows in the table below are
+    ''' dead paths kept only as a fallback - the 136-byte body offset is right
+    ''' for 100% of real data. Cross-checked against the PKG Explorer session's
+    ''' independent census of a 9,335-section sample, which agrees on every
+    ''' format and every ordering.
+    '''
     ''' The first two agree with the engine's own table, which is what makes the
     ''' third trustworthy: the method reproduces the known answers before it is
     ''' believed on the unknown one. 36 is also exactly what the name predicts -
@@ -112,7 +130,7 @@ Public NotInheritable Class PrimitivesFile
         {"xyznuv", 32}, {"BPVTxyznuv", 24},
         {"xyznuvtb", 32}, {"BPVTxyznuvtb", 32},
         {"xyznuviiiwwtb", 37}, {"BPVTxyznuviiiww", 32}, {"BPVTxyznuviiiwwtb", 40},
-        {"BPVTxyznuvitb", 36}}
+        {"BPVTxyznuvitb", 36}, {"BPVTxyz", 12}}
 
     Public Structure SectionRef
         Public Offset As Integer
@@ -301,6 +319,16 @@ Public NotInheritable Class PrimitivesFile
         Dim tanAt = 24 + boneSkip
         Dim hasTB = fmt.EndsWith("tb", StringComparison.Ordinal) AndAlso (tanAt + 8) <= stride
 
+        ' NOT every format has a normal or a uv, and the reads below are at fixed
+        ' offsets. `BPVTxyz` is position only at stride 12 - 67 sections, all of
+        ' them audio occluders under content/Audio/SoundObstacle - so reading a
+        ' normal at +12 and a uv at +16..+23 would take 12 bytes out of the NEXT
+        ' vertex, and run off the end of the buffer on the last one. The
+        ' bounds check above only guarantees nVerts * stride, which those reads
+        ' would exceed.
+        Dim hasNrm = stride >= 16
+        Dim hasUv = stride >= 24
+
         Dim mesh As New PrimMesh With {.Name = nm, .Format = fmt, .Stride = stride}
         Dim pos(nVerts - 1) As Vector3
         Dim uv(nVerts - 1) As Vector2
@@ -317,10 +345,12 @@ Public NotInheritable Class PrimitivesFile
                                   BitConverter.ToSingle(raw, at + 8))
             ' Position is 12 bytes and the packed normal 4, so uv sits at +16 in
             ' all three shipped layouts - they only differ after it.
-            uv(i) = New Vector2(BitConverter.ToSingle(raw, at + 16),
-                                BitConverter.ToSingle(raw, at + 20))
+            If hasUv Then
+                uv(i) = New Vector2(BitConverter.ToSingle(raw, at + 16),
+                                    BitConverter.ToSingle(raw, at + 20))
+            End If
             ' The packed normal sits between position and uv, at +12.
-            nrm(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + 12))
+            If hasNrm Then nrm(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + 12))
             If hasTB Then
                 tan(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + tanAt))
                 bin(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + tanAt + 4))
