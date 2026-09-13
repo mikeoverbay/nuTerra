@@ -390,6 +390,17 @@ Public Class MapTanks
     ''' back. Depth WRITES on: the models had a pre-pass, we do not.
     ''' </summary>
     Public Sub Draw()
+        ' TIMED AS ONE REGION, through a wrapper. Draw() returns early in half
+        ' a dozen places - not loaded, failed, nothing to draw - and a
+        ' StopPass skipped by any of them would leave a GL timer query open
+        ' and every later measurement wrong.
+        TankProbe.StartPass("tank meshes")
+        DrawInner()
+        TankProbe.StopPass("tank meshes")
+        TankProbe.Tick()
+    End Sub
+
+    Private Sub DrawInner()
         If Not Enabled Then Return
         If Not MAP_LOADED OrElse map_scene Is Nothing OrElse Not map_scene.TERRAIN_LOADED Then Return
         ' NOT AT MAP LOAD unless asked. The button in Tank Lighting sets
@@ -423,12 +434,34 @@ Public Class MapTanks
         ' where the hull now stands and against the pins it has learned since
         ' its last plan. One hull at a time so a bad patch of map cannot stall
         ' a frame with four searches at once.
-        For Each inst In instances
-            If Not inst.drive.wantsReplan Then Continue For
-            inst.drive.wantsReplan = False
-            ReplanOne(inst)
-            Exit For
-        Next
+        ' ONLY WHEN SOMETHING IS ACTUALLY DRIVING ON THE CATALOGUE.
+        '
+        ' The first version of this guard read `If Not TankSim.SIM_RUN` - which
+        ' permitted the 400 ms search in exactly the case where nothing is
+        ' moving, and forbade it in the only case where a hull could ask. It
+        ' was harmless solely because movement is gated too, so nothing ever
+        ' raised the flag; two guards, one of them backwards, the other quietly
+        ' covering for it. That is the shape of a bug that surfaces months
+        ' later when someone changes the other one.
+        '
+        ' Said properly: a re-plan is wanted when a hull is being driven AND it
+        ' is following the route catalogue. Under the sim it follows Ray
+        ' Studio's graph instead, so the catalogue has nothing to say.
+        '
+        ' WHICH MAKES THIS UNREACHABLE TODAY, and that is correct rather than
+        ' an oversight - nothing drives except the sim. If the free-roam AI is
+        ' ever brought back, MOVE THE SEARCH OFF THIS THREAD FIRST: measured at
+        ' 279-422 ms over 530,000-736,000 cells, once a frame, with the GPU
+        ' idle behind it. That alone took the app from 80 fps to 6.
+        Dim catalogueDriving = TANK_AI AndAlso nav.ready AndAlso Not TankSim.SIM_RUN
+        If catalogueDriving Then
+            For Each inst In instances
+                If Not inst.drive.wantsReplan Then Continue For
+                inst.drive.wantsReplan = False
+                ReplanOne(inst)
+                Exit For
+            Next
+        End If
 
         GL_PUSH_GROUP("draw_tanks")
         MainFBO.attach_CNGP()
@@ -950,8 +983,49 @@ Public Class MapTanks
     ''' doing the same measurable thing. TANK_AI off returns to it.
     ''' </summary>
     Private Sub advance_movement()
+        ' NOTHING MOVES UNTIL THE SIM SAYS GO.
+        '
+        ' "we have something starting before I tell it to go." The vehicles
+        ' were handed a route catalogue at load and TANK_AI was already on, so
+        ' they drove off the moment they existed - blocking, raising
+        ' wantsReplan, and spending 422 ms a frame in ReplanOne before the
+        ' button had been touched. Reset Sim looked like a fix because it
+        ' cleared their paths.
+        '
+        ' The button is the only thing that starts them now. `ai=0` still
+        ' reaches the shuttle for runs that are about the vehicles rather than
+        ' about where they go.
+        If Not TankSim.SIM_RUN Then Return
+
+        ' HELD MEANS HELD. Returning before Advance freezes the hulls where
+        ' they are and keeps every goal, so resuming carries on the same run
+        ' rather than starting a different one. The guns and the shuttle stop
+        ' with them - a paused sim that was still firing would not be a
+        ' picture of anything.
+        If TankSim.SIM_RUN AndAlso TankSim.SIM_PAUSED Then Return
+
+        ' ONE FRAME STAMP, so every ray is cast once and the driving and the
+        ' drawing read the same eight answers.
+        TankSim.frame += 1
+
+        Dim aiSw = Stopwatch.StartNew()
         If TANK_AI AndAlso nav.ready Then
             For Each inst In instances
+                ' THE SIM OVERRIDES WHERE, NOT HOW. TankDrive still does the
+                ' turning, the braking and the backing out; the sim only says
+                ' which point. One goal assignment, then out of the way.
+                If TankSim.SIM_RUN AndAlso TankSim.HasPaths() Then
+                    ' TargetFor walks the hull along Ray Studio's run and
+                    ' advances it on arrival - the first target is the start
+                    ' point, and after that it is the path leaving it.
+                    inst.drive.simTarget = TankSim.TargetFor(inst)
+                    inst.drive.hasSimTarget = True
+                    ' AND THE CATALOGUE IS NOT IN THIS. Cleared every frame so
+                    ' there is nothing for anything to fall back on: the sim
+                    ' follows a path a person drew, or it follows nothing.
+                    inst.drive.path = Nothing
+                    inst.drive.pathAt = 0
+                End If
                 inst.drive.Advance(inst, nav, instances, ANIM_DELTA)
             Next
             report_fleet()
@@ -961,6 +1035,65 @@ Public Class MapTanks
         Else
             advance_shuttle()
         End If
+        aiSw.[Stop]()
+        TankProbe.CpuOnly("tank ai", aiSw.Elapsed.TotalMilliseconds)
+    End Sub
+
+    ''' <summary>
+    ''' Put every hull back on its base, in the block it was first placed in.
+    '''
+    ''' "tanks dont start lined up at base." A SIM run has to begin from a
+    ''' defined position or two runs cannot be compared: the tanks were left
+    ''' wherever the last run put them, which is a different starting grid
+    ''' every time and makes every observation about the sim unrepeatable.
+    '''
+    ''' Same block as the load-time placement - five abreast, rows one
+    ''' SPACING back from the marker so nothing lands on the base ring, each
+    ''' spot cleared against the ones already taken. The drive state goes
+    ''' with it: a goal, a route or an arrival kept from the previous run
+    ''' would have a hull driving off the instant the grid formed.
+    ''' </summary>
+    Public Sub sim_line_up()
+        If instances Is Nothing OrElse instances.Count = 0 Then Return
+        Const ROW_N As Integer = 5
+        Const SPACING As Single = 14.0F
+        Dim placed As New List(Of Vector2)
+        Dim slot As New Dictionary(Of Integer, Integer)
+        For Each inst In instances
+            If inst Is Nothing Then Continue For
+            Dim team = If(inst.team = TankTeam.Green, 1, 2)
+            Dim k = 0
+            slot.TryGetValue(team, k)
+            slot(team) = k + 1
+
+            Dim marker = If(team = 1, TEAM_1, TEAM_2)
+            Dim col = CSng(k Mod ROW_N) - (ROW_N - 1) / 2.0F
+            Dim row = k \ ROW_N
+            Dim back = If(team = 1, -1.0F, 1.0F)
+            Dim x = -marker.X + col * SPACING
+            Dim z = marker.Z + (row + 1) * SPACING * back
+
+            Dim spot = find_clear_spot(x, z, placed)
+            placed.Add(spot)
+            inst.position = New Vector3(spot.X, get_Y_at_XZ(spot.X, spot.Y), spot.Y)
+            inst.headingRad = If(team = 1, 0.0F, CSng(Math.PI))
+
+            inst.drive.hasGoal = False
+            inst.drive.path = Nothing
+            inst.drive.pathAt = 0
+            inst.drive.arrived = False
+            inst.drive.speed = 0.0F
+            inst.drive.stuckS = 0.0F
+            inst.drive.goalS = 0.0F
+            inst.drive.blockedS = 0.0F
+            inst.drive.reverseS = 0.0F
+            inst.drive.wantsReplan = False
+            inst.drive.passS = 0.0F
+            inst.drive.skirtS = 0.0F
+            inst.drive.skirtSide = 0
+            inst.drive.hasSimTarget = False
+        Next
+        LogThis("tank sim: {0} hull(s) lined up on their bases", instances.Count)
     End Sub
 
     ''' <summary>

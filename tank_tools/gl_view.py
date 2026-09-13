@@ -103,11 +103,25 @@ class GLView(object):
         self._line_cap = 0
         self.textures = {}
         self._fbos = {}
+        self._max_line_w = None
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
         GL.glDisable(GL.GL_DEPTH_TEST)
 
     # ---------------------------------------------------------------- textures
+    @property
+    def max_line_w(self):
+        """The widest GL_LINES this driver will actually draw.
+
+        glLineWidth above the ceiling does not fail - it silently clamps - so
+        a pick pass that asks for 14 and gets 1 would look like picking simply
+        does not work on that machine. Measured here: 10.0 on this one.
+        """
+        if self._max_line_w is None:
+            self._max_line_w = float(
+                GL.glGetFloatv(GL.GL_ALIASED_LINE_WIDTH_RANGE)[1])
+        return self._max_line_w
+
     def upload(self, name, arr):
         """RGB or RGBA numpy array -> a texture, kept under `name`.
 
@@ -262,3 +276,34 @@ class GLView(object):
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         GL.glViewport(0, 0, int(win_w), int(win_h))
         self.win = (float(win_w), float(win_h))
+
+    def pick(self, name, x, y):
+        """The colour at one pixel of an offscreen buffer, as (r, g, b).
+
+        SELECTION BY COLOUR. Draw the pickable things into their own buffer,
+        each in a flat colour that encodes what it is and which one it is, and
+        one pixel read then answers both questions at once. No hit-test
+        geometry to keep in step with the drawing, no picking a line by
+        distance to a segment, and a thing is grabbable exactly where it is
+        visible - or wider, if it is drawn wider in the pick pass than on
+        screen, which is how a small dot gets a big target.
+
+        x and y are in the same TOP-LEFT-origin pixel coordinates everything
+        is drawn in. glReadPixels counts rows from the bottom, hence the flip;
+        without it the buffer reads upside down and every pick lands on
+        whatever is mirrored about the middle of the panel.
+        """
+        cur = self._fbos.get(name)
+        if cur is None:
+            return (0, 0, 0)
+        fb, (w, h) = cur
+        x, y = int(x), int(y)
+        if not (0 <= x < w and 0 <= y < h):
+            return (0, 0, 0)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fb)
+        GL.glPixelStorei(GL.GL_PACK_ALIGNMENT, 1)
+        raw = GL.glReadPixels(x, h - 1 - y, 1, 1,
+                              GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        d = np.frombuffer(bytes(raw), dtype=np.uint8)
+        return (int(d[0]), int(d[1]), int(d[2]))

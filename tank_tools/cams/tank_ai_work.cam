@@ -1,0 +1,24 @@
+# Camera positions saved by the Tank AI work session.
+#
+# Each entry is the `cam=` line verbatim from nuTerra's Set Cam Position
+# button, which writes C:\ProgramData\nuTerra\cam.txt. That file is
+# overwritten by the next press and by any other session pressing it, so
+# anything worth keeping is copied here.
+#
+# To use one, paste the cam= line onto the command line as it stands:
+#
+#   nuTerra.exe 19_monastery cam=<line> perteam=15 tanks ai=1
+#
+# Signed per DIRECTIVES.md rule 9 - the session that saved it and the date.
+
+
+## sim-overwatch  -  19_monastery
+# The owner set this one while we were looking at the tank sim: the two bases
+# and the lanes between them, from above the team 2 end. Kept because the sim
+# is judged by eye and comparing two runs means looking at them from the same
+# place - a different camera is a different picture of the same behaviour.
+#
+# Saved 2026-09-13 by Tank AI work, set by mikeoverbay.
+cam=-45.6497,0.9564,-0.589,-10.4261,0,414.647
+map=19_monastery
+sun=-1782.5,682.8,450.1

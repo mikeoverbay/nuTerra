@@ -1392,6 +1392,13 @@ try_again:
                     RECORD_PAUSED = Not RECORD_PAUSED
                     LogThis("record: {0} at frame {1}",
                             If(RECORD_PAUSED, "paused", "resumed"), RECORD_FRAME_INDEX)
+                ElseIf TankSim.SIM_RUN Then
+                    ' THE SAME KEY BOTH WAYS - "pause with space and restart
+                    ' with space". Second in the chain on purpose: a recording
+                    ' in progress still owns space, because stopping a capture
+                    ' halfway is the more expensive mistake of the two.
+                    TankSim.SIM_PAUSED = Not TankSim.SIM_PAUSED
+                    LogThis("tank sim: {0}", If(TankSim.SIM_PAUSED, "held", "running"))
                 End If
             Case Keys.Escape
                 If RECORD_FLIGHT OrElse RECORD_STILL > 0 Then
@@ -2007,18 +2014,117 @@ try_again:
                         ImGui.TextDisabled("tanks loaded")
                     End If
 
-                    ' DRIVE THEM, OR JUST MOVE THEM. Off is the old shuttle -
-                    ' every hull sliding a few metres along its own heading off
-                    ' one shared distance, which is the mode to be in when the
-                    ' question is about the vehicles themselves rather than
-                    ' about where they go: tracks, recoil, armour, lighting.
-                    ImGui.Checkbox("Drive (AI)", TANK_AI)
-                    If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("On: each tank picks somewhere open," & vbLf &
-                                         "turns and drives at it." & vbLf &
-                                         "Off: they shuttle on the spot in base," & vbLf &
-                                         "which is the steadier view for looking" & vbLf &
-                                         "at the tanks themselves.")
+                    ' RESET, in the owner's words: "clear the tanks path info and
+                    ' put them back where they started." Replaced the Drive (AI)
+                    ' checkbox, which the SIM now decides - the shuttle is still
+                    ' reachable with `ai=0` on the command line for the runs that
+                    ' are about the vehicles rather than about where they go.
+                    If map_scene IsNot Nothing AndAlso map_scene.tanks IsNot Nothing AndAlso
+                       map_scene.tanks.HasTanks Then
+                        If ImGui.Button("Reset Sim") Then
+                            TankSim.SIM_RUN = False
+                            TankSim.SIM_PAUSED = False
+                            TankSim.Reroll()
+                            map_scene.tanks.sim_line_up()
+                            LogThis("tank sim: reset")
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Forget every goal, route and" & vbLf &
+                                             "assignment, and put the hulls back" & vbLf &
+                                             "on their bases." & vbLf &
+                                             "Stops the sim - press SIM for a" & vbLf &
+                                             "fresh run.")
+                        End If
+                    End If
+
+                    ' ---- THE SIM ------------------------------------------
+                    ' Drive every hull to a start point the path editor marked,
+                    ' and draw what each one can see of its neighbours. The
+                    ' button only sets the flag; everything it starts lives in
+                    ' Tanks/Sim/TankSim.vb.
+                    If map_scene IsNot Nothing AndAlso map_scene.tanks IsNot Nothing AndAlso
+                       map_scene.tanks.HasTanks Then
+                        Dim sim_launch_btn = If(TankSim.SIM_RUN, "SIM  stop", "SIM")
+                        If ImGui.Button(sim_launch_btn) Then
+                            TankSim.SIM_RUN = Not TankSim.SIM_RUN
+                            TankSim.SIM_PAUSED = False
+                            ' The shuttle cannot drive a sim, and the checkbox
+                            ' that used to switch it is gone.
+                            If TankSim.SIM_RUN Then TANK_AI = True
+                            If TankSim.SIM_RUN Then
+                                ' RE-READ AND RE-ROLL on every start, because
+                                ' the graph is edited between runs and a start
+                                ' kept from the last one would send a tank at a
+                                ' point that is no longer there. Then back onto
+                                ' the base, so the run begins from a grid that
+                                ' is the same every time.
+                                ' REFUSE RATHER THAN DRIVE NOTHING. A sim
+                                ' that starts with no paths puts thirty hulls
+                                ' on their bases and leaves them there, which
+                                ' reads as the sim being broken rather than as
+                                ' the file being absent.
+                                If TankSim.LoadPaths(MAP_NAME_NO_PATH) = 0 Then
+                                    TankSim.SIM_RUN = False
+                                Else
+                                    TankSim.Reroll()
+                                    map_scene.tanks.sim_line_up()
+                                End If
+                            End If
+                            LogThis("tank sim: {0}", If(TankSim.SIM_RUN, "running", "stopped"))
+                        End If
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Send every tank to a start point" & vbLf &
+                                             "the path editor marked." & vbLf &
+                                             "SPACE holds and resumes." & vbLf &
+                                             "Starts come from Ray Studio - save" & vbLf &
+                                             "the paths there first.")
+                        End If
+                        If TankSim.SIM_RUN Then
+                            ImGui.SameLine()
+                            If TankSim.SIM_PAUSED Then
+                                ImGui.TextColored(New System.Numerics.Vector4(1.0F, 0.72F, 0.12F, 1.0F),
+                                                  "HELD - space")
+                            Else
+                                ImGui.TextDisabled("space holds")
+                            End If
+                        End If
+                        If TankSim.StartCount = 0 Then
+                            ImGui.TextColored(New System.Numerics.Vector4(1.0F, 0.4F, 0.35F, 1.0F),
+                                              TankSim.startsMsg)
+                        Else
+                            ImGui.TextDisabled(TankSim.startsMsg)
+                            If TankSim.pathsStamp <> "" Then
+                                ImGui.TextDisabled(TankSim.pathsStamp)
+                            End If
+                        End If
+
+                        ImGui.Checkbox("Timing probe", TankProbe.TANK_PROBE)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Log what the tank half of a frame" & vbLf &
+                                             "costs - GPU and CPU, separately," & vbLf &
+                                             "every two seconds." & vbLf &
+                                             "GPU time is the one that matters for" & vbLf &
+                                             "drawing; a stopwatch alone only" & vbLf &
+                                             "measures how long it took to ASK.")
+                        End If
+
+                        ImGui.Checkbox("Show sim paths", TankSim.SIM_SHOW_PATHS)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("The run each hull is following," & vbLf &
+                                             "from Ray Studio's saved graph." & vbLf &
+                                             "Brighter ahead of the tank, dim" & vbLf &
+                                             "behind it.")
+                        End If
+
+                        ImGui.Checkbox("Show avoidance rays", TankSim.SIM_SHOW_RAYS)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Sixteen rays a hull - four corners" & vbLf &
+                                             "and three down each side, " &
+                                             TankSim.SIM_RAY_M.ToString("0.#") & " m long." & vbLf &
+                                             "Nothing reads them yet; they are drawn" & vbLf &
+                                             "so the avoidance can be judged before" & vbLf &
+                                             "it is written.")
+                        End If
                     End If
 
                     ' A FULL RESET: forget the saved bake and reload the map, which

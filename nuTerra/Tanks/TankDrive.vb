@@ -82,6 +82,23 @@ Public Class TankDrive
     Public skirtSide As Integer = 0
     Public skirtS As Single = 0.0F
 
+    ''' <summary>Where the SIM sent this hull, kept apart from `goal`.
+    '''
+    ''' THESE MUST BE TWO DIFFERENT THINGS. `goal` is where the hull is
+    ''' steering RIGHT NOW, and skirting an obstacle or passing another tank
+    ''' moves it to a tangent a few metres away. The first version of the sim
+    ''' wrote the start point straight into `goal` every frame, which put it
+    ''' back the instant either manoeuvre set it - so a hull could never
+    ''' complete a way round anything. The destination persists here and
+    ''' `goal` is free to be the next few metres.</summary>
+    Public simTarget As Vector2
+    Public hasSimTarget As Boolean = False
+
+    ''' <summary>Seconds left of a go-around. While it runs the hull keeps
+    ''' the tangent it turned onto instead of re-aiming at its
+    ''' destination.</summary>
+    Public passS As Single = 0.0F
+
     ''' <summary>How far the tangent sweep opens, and in what steps. Twelve
     ''' rings of 12 degrees reaches 144 degrees either side - past square to the
     ''' obstacle, which is as far as skirting can sensibly go before the way
@@ -89,6 +106,22 @@ Public Class TankDrive
     Private Const SKIRT_RINGS As Integer = 12
     Private Const SKIRT_STEP_RAD As Single = 0.2094F
     Private Const SKIRT_HOLD_S As Single = 1.5F
+
+    ''' <summary>The go-around: how far right to turn, how far to drive that
+    ''' way, and how long to hold it before re-aiming.
+    '''
+    ''' RIGHT, ALWAYS RIGHT - the owner's rule: "if both turn right to their
+    ''' heading, they should pass." That is the whole reason it works. Two
+    ''' hulls meeting head-on each choose the same hand, so they swing apart
+    ''' rather than mirroring each other into the same gap. A cleverer rule
+    ''' that picked the roomier side per tank would have both of them pick
+    ''' the same side of the road and meet again there.
+    '''
+    ''' Fifty degrees is enough to clear a hull's width in a couple of
+    ''' lengths without turning the drive into a detour.</summary>
+    Private Const PASS_TURN_RAD As Single = 0.9F
+    Private Const PASS_M As Single = 12.0F
+    Private Const PASS_HOLD_S As Single = 1.2F
 
     ''' <summary>Metres a second, ramped rather than set - a hull that reaches
     ''' its top speed in one frame reads as a slide, and the track band is
@@ -136,9 +169,36 @@ Public Class TankDrive
             skirtS -= dt
             If skirtS <= 0.0F Then skirtSide = 0
         End If
-        If skirtS <= 0.0F AndAlso
-           (Not hasGoal OrElse (goal - pos).Length < TankDriveTune.ARRIVE_M OrElse
-            goalS > TankDriveTune.GOAL_PATIENCE_S) Then
+        If passS > 0.0F Then passS -= dt
+        ' THE SIM OWNS THE GOAL WHILE IT RUNS, and this is where that has to
+        ' be said or it does not hold. The sim assigns a start point each
+        ' frame, and then this ran anyway: PickGoal fires the moment a hull is
+        ' within ARRIVE_M, or after GOAL_PATIENCE_S, or whenever the way ahead
+        ' is shut - and it takes the next waypoint of the route catalogue
+        ' instead. So every tank was handed a start and then immediately sent
+        ' somewhere else by its own corridor, which looked exactly like the
+        ' assignment never arriving. It arrived; it was overwritten.
+        '
+        ' Arrival still ends the drive - hasGoal stays set and the hull stops
+        ' on the point rather than picking a new one.
+        If TankSim.SIM_RUN Then
+            ' BACK ONTO THE DESTINATION, but only once whatever the hull was
+            ' doing has finished. Re-aiming during a skirt or a go-around is
+            ' what cancels it - the tangent is abandoned on the frame after it
+            ' is chosen and the hull turns straight back into what it was
+            ' avoiding.
+            If hasSimTarget AndAlso skirtS <= 0.0F AndAlso passS <= 0.0F Then
+                If Not hasGoal OrElse (goal - simTarget).Length > 0.5F Then
+                    goal = simTarget
+                    hasGoal = True
+                End If
+            End If
+            If hasGoal AndAlso (goal - pos).Length < TankDriveTune.ARRIVE_M Then
+                arrived = True
+            End If
+        ElseIf skirtS <= 0.0F AndAlso
+               (Not hasGoal OrElse (goal - pos).Length < TankDriveTune.ARRIVE_M OrElse
+                goalS > TankDriveTune.GOAL_PATIENCE_S) Then
             PickGoal(inst, nav, pos)
         End If
         If Not hasGoal Then Return
@@ -312,11 +372,58 @@ Public Class TankDrive
         ' permanent hole in the map where a tank happened to pause. Waiting is
         ' the right answer, and the stuck timer eventually sends this one
         ' somewhere else if the other never clears.
-        If Crowded(inst, others, nxt) Then
+        ' THE RAYS DECIDE, not a circle round the nose.
+        '
+        ' Crowded asks "is any hull within SEPARATION_M and forward of my
+        ' beam", which is an eight-metre disc and says nothing about WHERE in
+        ' it. The rays are the hull's own eight, cast from its corners and
+        ' sides, and they answer the two questions this actually needs: is
+        ' something in front of me, and is the side I am about to swing into
+        ' clear. That is what they were made for.
+        Dim rayBlocked = TankSim.SIM_RUN AndAlso TankSim.BlockedAhead(inst, others)
+        If rayBlocked OrElse Crowded(inst, others, nxt) Then
+            ' GO ROUND TO THE RIGHT rather than stand and wait.
+            '
+            ' Waiting is correct when the other hull is passing THROUGH; it is
+            ' a deadlock when both are trying to reach the same place, which is
+            ' most of a sim run - two tanks nose to nose each waiting for the
+            ' other to clear, neither of them moving, both of them counting up
+            ' a stuck timer.
+            '
+            ' The turn is committed to for PASS_HOLD_S so the hull actually
+            ' gets round rather than re-deciding every frame in the same spot,
+            ' and it is only taken if the ground that way can be stood on and
+            ' is not itself occupied - otherwise going round is just a second
+            ' way to get stuck.
+            If passS <= 0.0F Then
+                Dim ph = inst.headingRad + PASS_TURN_RAD
+                Dim pd As New Vector2(CSng(Math.Sin(ph)), CSng(Math.Cos(ph)))
+                Dim spot = pos + pd * PASS_M
+                ' Right has to be clear BY THE RAYS as well as standable - a
+                ' hull with a neighbour already alongside on that side would
+                ' otherwise turn straight into it, which is the one way a
+                ' right-hand rule can make things worse instead of better.
+                Dim rightOk = (Not TankSim.SIM_RUN) OrElse
+                              TankSim.RightIsClear(inst, others)
+                If rightOk AndAlso
+                   nav.CanStand(spot.X, spot.Y, TankDriveTune.HULL_R) AndAlso
+                   Not Crowded(inst, others, spot) Then
+                    goal = spot
+                    hasGoal = True
+                    passS = PASS_HOLD_S
+                    stopReason = StopWhy.Turning
+                    speed = 0.0F
+                    stuckS = 0.0F
+                    Return
+                End If
+            End If
             stopReason = StopWhy.Traffic
             speed = 0.0F
             stuckS += dt
-            If stuckS > TankDriveTune.STUCK_S Then PickGoal(inst, nav, pos)
+            ' Under the sim the destination is not this hull's to change.
+            If stuckS > TankDriveTune.STUCK_S AndAlso Not TankSim.SIM_RUN Then
+                PickGoal(inst, nav, pos)
+            End If
             Return
         End If
 
