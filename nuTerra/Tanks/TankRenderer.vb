@@ -1617,13 +1617,6 @@ Public Class MapTanks
                     End If
                 Next
 
-                ' THE RAY RESOLVER, against the grid search it replaces.
-                ' Cast at the flag, go round what you hit, branch at the
-                ' tangent. Logged side by side so the cost is not a claim.
-                Dim rr As New TankRayPath
-                rr.Resolve(nav, TankDriveTune.HULL_R, b1x, b1z, b2x, b2z,
-                           "team 1 -> team 2 base, BY RAY")
-
                 ' HOW MANY WAYS ARE THERE, REALLY? Two caps on the erase - 8 m
                 ' and 12 m - both give two routes, so the erase is not what
                 ' limits the count. The remaining suspect is the grid: TankNav
