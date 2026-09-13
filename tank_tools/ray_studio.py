@@ -1494,8 +1494,20 @@ def main():
     while running:
         if auto_run:
             auto_run = False
-            pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b,
-                                                 mod=0, unicode="", scancode=0))
+            # THE MAZE METHOD IS WHAT THIS OPENS WITH NOW.
+            #
+            # "its using our old method to seek. not the new maze method." It
+            # was posting [b] - the branch tree, the ray-and-tangent search -
+            # so the app launched showing the thing the flood fill replaced,
+            # with the new work sitting behind two keys nobody was told about.
+            #
+            # [g] the exact optimum, then [t] the tactical roads. The branch
+            # tree is still there on [b] for a side-by-side, but it is no
+            # longer what the window shows you when it opens.
+            for k in (pygame.K_g, pygame.K_t):
+                pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=k,
+                                                     mod=0, unicode="",
+                                                     scancode=0))
         map_ox, map_oy, w_now = map_rect()
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -2242,12 +2254,15 @@ def main():
                      tree_follow)
         y = button(LX, y, LW, "RESET - reload blocks  [x]", pygame.K_x,
                    False, (255, 190, 150))
+        # THE MAZE METHOD FIRST, because it is the one that works: exact, no
+        # parameters, and 846 m against the branch tree's 877 on this map.
+        y = button(LX, y, LW, "MAZE: the optimum  [g]", pygame.K_g,
+                   bool(maze_pts), (150, 255, 200))
+        y = button(LX, y, LW, "MAZE: tactical roads  [t]", pygame.K_t,
+                   bool(maze_roads), (150, 255, 200))
+        y += 4
         y = button(LX, y, LW, "Bearing sweep  [r]", pygame.K_r)
         y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a, bool(astar_paths))
-        y = button(LX, y, LW, "Flood fill: the optimum  [g]", pygame.K_g,
-                   bool(maze_pts), (150, 255, 200))
-        y = button(LX, y, LW, "Tactical roads  [t]", pygame.K_t,
-                   bool(maze_roads), (150, 255, 200))
         y = button(LX, y, LW, "PAUSED  [space]" if paused else "Pause  [space]",
                    pygame.K_SPACE, paused)
         y += 4
