@@ -23,12 +23,28 @@ Public Class ModelInfo
     ''' <summary>model_id -> the static report, built once per model.</summary>
     Private Shared FACTS As New Dictionary(Of Integer, String)
 
+    ''' <summary>
+    ''' The .primitives path per model, kept so the picked model can be handed
+    ''' to another program.
+    '''
+    ''' FACTS holds the finished REPORT TEXT, with the directory formatted into
+    ''' the middle of it. Recovering a path by parsing that back out would break
+    ''' the first time a line was reworded, so the path is kept as a path.
+    '''
+    ''' It is the value Capture is already given - and note what it actually
+    ''' contains: a render set's verts_name ends in "/vertices", so
+    ''' GetDirectoryName leaves the .primitives path WITH THE MODEL NAME on it,
+    ''' not the folder. That is the stem Exporter Studio wants.
+    ''' </summary>
+    Private Shared PATHS As New Dictionary(Of Integer, String)
+
     ''' <summary>pick instance -> (model_id, index into MODEL_INDEX_LIST).</summary>
     Private Shared OWNER As New Dictionary(Of UInteger, Integer)
     Private Shared XFORM As New Dictionary(Of UInteger, Integer)
 
     Public Shared Sub Reset()
         FACTS.Clear()
+        PATHS.Clear()
         OWNER.Clear()
         XFORM.Clear()
         SLOTS.Clear()
@@ -81,6 +97,7 @@ Public Class ModelInfo
         ' list with a model id instead of filling the map.
         Dim slot_list As New List(Of Integer)
         FACTS(model_id) = build_model_facts(model_id, count, model_dir, slot_list)
+        PATHS(model_id) = model_dir
         SLOTS(model_id) = slot_list
 
         If model_dir IsNot Nothing Then
@@ -295,6 +312,17 @@ Public Class ModelInfo
     ''' particular copy of the model stands. Empty string if nothing is known,
     ''' which is what a tree pick or a stale index gives.
     ''' </summary>
+    ''' <summary>The .primitives path behind a picked instance, or Nothing.
+    ''' Same lookup chain as Report: pick id -> instance -> model.</summary>
+    Public Shared Function PathForPick(pick_id As UInteger) As String
+        If pick_id = 0 Then Return Nothing
+        Dim model_id As Integer
+        If Not OWNER.TryGetValue(pick_id - 1UI, model_id) Then Return Nothing
+        Dim p As String = Nothing
+        If PATHS.TryGetValue(model_id, p) Then Return p
+        Return Nothing
+    End Function
+
     Public Shared Function Report(pick_id As UInteger) As String
         If pick_id = 0 Then Return ""
         Dim inst = pick_id - 1UI
