@@ -31,6 +31,7 @@ Public Class MapScene
     Public water As New MapWater(Me)
     Public base_rings As New MapBaseRings(Me)
     Public tank_rays As New MapTankRays(Me)
+    Public tank_shadow As New MapTankShadow(Me)
     Public mini_map As New MapMinimap(Me)
     Public fog As New MapFog(Me)
     Public particles As New MapParticles
@@ -246,6 +247,7 @@ Public Class MapScene
         water.Dispose()
         base_rings.Dispose()
         tank_rays.Dispose()
+        tank_shadow.Dispose()
         mini_map.Dispose()
         fog.Dispose()
         trees.Dispose()

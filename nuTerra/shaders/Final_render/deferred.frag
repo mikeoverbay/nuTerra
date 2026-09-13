@@ -389,6 +389,32 @@ layout(binding = 13) uniform sampler2D sun_shadow_pre;
 // fall. Off by default; costs one texel fetch when on.
 uniform int sun_tile_tint;
 
+// Shadow the pixels the resolve does NOT shade - the tanks.
+//
+// A tank writes GFLAG_UNLIT because it shades ITSELF, exactly as the exporter
+// does, so the branch at the bottom of main() passes its gColor through
+// untouched. Correct for lighting and wrong for shadow: a tank parked in a
+// building's shadow was lit as though standing in open sun, because nothing in
+// this shader ever touched it.
+//
+// The fix costs one fetch, because THE ANSWER IS ALREADY THERE.
+// sun_shadow_tiles.frag resolves the baked shadow from gPosition, which tanks
+// write like everything else, so a correct shadow factor has been sitting in
+// sun_shadow_pre at those exact pixels every frame and being discarded. No
+// second map, no extra pass, and nothing reordered - which matters, because the
+// obvious alternative does not work: tanks draw at modRender line 204 and the
+// tiles resolve at 258, so a tank cannot sample this during its own draw.
+//
+// FLOOR rather than multiply-to-zero. The lit path multiplies only the SUN term
+// and leaves ambient alone. Here the colour is already finished and carries the
+// tank's own ambient, so scaling it to zero would paint a black tank rather than
+// a shaded one. The floor is what fraction survives in full shadow.
+// DEBUG: paint where the tanks cast, in green, over everything. Pairs with
+// tank_debug in sun_shadow_tiles.frag, which under the same flag puts the TANK
+// factor alone in R. Nothing subtle survives a first look at a new shadow pass -
+// this answers "is it landing, where, and what shape" in one frame.
+uniform int   tank_debug;
+
 // Moment Shadow Map variant of the same bake - four power moments instead of a
 // comparison sampler. Plain sampler2D, mipmapped and pre-blurred.
 layout(binding = 9) uniform sampler2D sun_moment_map;
@@ -1881,7 +1907,33 @@ void main (void)
         }
     // if flag != 0
     } else {
+        // PASSTHROUGH, AND IT MUST STAY ONE.
+        //
+        // A shadow term lived here for part of 2026-09-12 so that tanks - which
+        // shade themselves and write GFLAG_UNLIT - would darken in a building's
+        // shadow. It was reverted, and the reason is worth keeping: this branch
+        // is not "the tanks". It is EVERY pixel whose gGMF flag is zero, and
+        // FF_billboard.frag writes gColor and nothing else, so the SUN BILLBOARD
+        // arrives here carrying whatever flag was already in the buffer. The
+        // shadow term multiplied the sun down and the sun stopped being drawn.
+        //
+        // Anything wanting to shade only tanks needs a flag the tank writes and
+        // the billboard does not - GFLAG_UNLIT is not that flag, it is the
+        // absence of one. Do not put a term here that assumes what these pixels
+        // are.
         outColor = texelFetch(gColor, ivec2(gl_FragCoord), 0) * props.BRIGHTNESS;
+    }
+
+    // ---- tank shadows, painted ----------------------------------------
+    if (tank_debug != 0 && has_sun_shadow == 3) {
+        float tf = texelFetch(sun_shadow_pre, ivec2(gl_FragCoord), 0).r;
+        // A GRADIENT, not a flag. Painting full green on any tf < 1 turns a
+        // soft-edged shadow and a saturated square into the same picture, which
+        // is how an evening went into deciding which one was on screen. Green
+        // rises with how shadowed the texel is, so the penumbra and the shape
+        // are both visible, and a solid uniform patch now means saturation
+        // rather than "something is there".
+        outColor.rgb = mix(outColor.rgb, vec3(0.0, 1.0, 0.0), (1.0 - tf) * 0.9);
     }
 
     // ---- which shadow tile did this pixel come from? ------------------

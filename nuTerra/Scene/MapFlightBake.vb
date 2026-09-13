@@ -76,7 +76,7 @@ Public Class MapFlightBake
     ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
     ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 2
+    Public Const BAKE_VERSION As Integer = 3
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
@@ -231,6 +231,25 @@ Public Class MapFlightBake
 
         If has(p, "fence", "zabor", "ograda", "rail", "hedge",
                "gate", "wire", "palisade") Then Return KIND_FENCE
+        ' BEFORE the tree test, and this is the whole reason it exists:
+        ' "StreetLamp" CONTAINS "tree". s-t-r-e-e-t. Both of monastery's street
+        ' lamps keyed as TREE until this line, which means a vehicle rule of the
+        ' form "a tank crushes trees" drove through the lamp posts.
+        '
+        ' Narrow on purpose. The tempting fix is to require a word boundary
+        ' around every keyword, and that is a REGRESSION: 23 of monastery's 212
+        ' names match a keyword buried inside a longer word and most of them are
+        ' right anyway - WoodFence, StoneFence, ForgedFence, GrapevineFence and
+        ' RabitzFence are all fences; ItalyOutlandHousesCluster is a building;
+        ' VendorCart and WoodenCart reach prop through "car" and a cart IS a
+        ' prop. A boundary rule breaks fifteen correct answers to fix one wrong
+        ' one. So the fix is the one keyword that actually collides.
+        '
+        ' "lamp" appears in exactly two names on this map and both are lamps.
+        ' No name contains "light" or "lantern", so neither is added on
+        ' speculation - add them when a map produces one.
+        If has(p, "lamp") Then Return KIND_PROP
+
         If has(p, "tree", "bush", "foliage", "vine") Then Return KIND_TREE
         If has(p, "rock", "stone", "cliff", "boulder") Then Return KIND_ROCK
         If has(p, "building", "house", "church", "barn", "ruin",
@@ -653,9 +672,22 @@ Public Class MapFlightBake
             Dim f_ids = stem & "_ids.u32"
             Dim f_meta = stem & "_meta.txt"
 
-            If Not (IO.File.Exists(f_top) AndAlso IO.File.Exists(f_floor) AndAlso
-                    IO.File.Exists(f_ids) AndAlso IO.File.Exists(f_meta)) Then
-                LogThis("flight bake: nothing saved for {0} - baking", MAP_NAME_NO_PATH)
+            ' NAME THE FILE THAT IS MISSING. "nothing saved" was honest while
+            ' the set was three files that had always appeared together; since
+            ' _ids.u32 arrived in bake_version 2 the common case is a bake that
+            ' is entirely there EXCEPT the new layer, and being told "nothing
+            ' saved" while looking at 400 MB of bake on disk reads as a broken
+            ' cache rather than as a version gate doing its job. It cost the
+            ' tank AI session an hour of believing a rebake was impossible.
+            Dim missing As New List(Of String)
+            If Not IO.File.Exists(f_top) Then missing.Add("_top.rgba")
+            If Not IO.File.Exists(f_floor) Then missing.Add("_floor.r16")
+            If Not IO.File.Exists(f_ids) Then missing.Add("_ids.u32")
+            If Not IO.File.Exists(f_meta) Then missing.Add("_meta.txt")
+            If missing.Count > 0 Then
+                LogThis("flight bake: {0} for {1} - baking. Missing: {2}",
+                        If(missing.Count = 4, "nothing saved", "the saved bake is incomplete"),
+                        MAP_NAME_NO_PATH, String.Join(", ", missing))
                 Return False
             End If
 

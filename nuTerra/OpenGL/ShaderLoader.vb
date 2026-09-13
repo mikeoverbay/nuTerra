@@ -206,6 +206,7 @@ Module ShaderLoader
     Public cullLodClearShader As Shader
     Public cullRasterShader As Shader
     Public cullInvalidateShader As Shader
+    Public tankShadowShader As Shader
     Public campathShader As Shader
     Public camlightShader As Shader
     Public lampBulbShader As Shader
@@ -308,6 +309,7 @@ Module ShaderLoader
         cullLodClearShader = New Shader("cullLodClear")
         cullRasterShader = New Shader("cull-raster")
         cullInvalidateShader = New Shader("cull-invalidate")
+        tankShadowShader = New Shader("tank_shadow")
         campathShader = New Shader("campath")
         camlightShader = New Shader("camlight")
         lampBulbShader = New Shader("lamp_bulb")

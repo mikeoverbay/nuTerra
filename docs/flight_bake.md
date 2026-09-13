@@ -1,4 +1,4 @@
-# The flight bake
+﻿# The flight bake
 
 A top-down snapshot of a whole map: for every 0.17 m of ground, what is the
 highest thing standing there, how high it is, what kind of thing it is, and where
@@ -120,8 +120,30 @@ not, so a texel that later keys `tree` because a canopy closed over it still
 says whether something solid stands under that canopy. **A ground vehicle that
 crushes foliage must test `kind = tree AND NOT solid`, never `kind` alone.**
 
-Measured on monastery: **7,414,185 texels, 11.0% of the map**, of which
-**317,776 also key as tree**. It is never set on a `terrain` texel - zero of
+Measured on three maps, and **the spread matters more than any of the numbers**:
+
+| map | solid texels | share | also keyed tree |
+|---|---|---|---|
+| 114_czech | 7,902,876 | 11.8% | **7,017** |
+| 19_monastery | 7,414,185 | 11.0% | **317,776** |
+| 47_canada_a | 14,750,010 | 22.0% | **1,489,151** |
+
+Solid-under-canopy spans a factor of **212**. Two maps suggested 45 and were not
+wrong, only narrow - which is the argument for the third map rather than against
+the second. **Do not tune a threshold on one map**: this is the quantity most
+likely to look like a constant and is not one.
+
+Canada_a is also twice as solid overall, 22.0% against 11 to 12, and 29.1%
+blocked against monastery's 16.5% - so even the share that looked stable across
+two maps does not hold across three.
+
+**Canada_a is the cleanest demonstration of what the bit is for.** Its kind dump
+has **no `tree` bin at all** among 171 model names - every plant on that map is
+SpeedTree, nothing static classifies as foliage - so all 1,489,151 of those
+texels are canopy over built or rocky ground, with no static tree models mixed
+in. Monastery's figure includes whatever static tree models it has.
+
+The invariant holds on all three: `solid` is set on **zero** terrain texels. It is never set on a `terrain` texel - zero of
 them - which is the invariant you would expect, since anything solid standing at
 a texel is also the thing that keys it. 148,370 water texels carry it: the wall
 or rock the water was raised over is still there.
@@ -129,6 +151,17 @@ or rock the water was raised over is still there.
 Note the outland bit does not narrow that tree figure: outland is stamped per
 model DRAW and the tree shader writes a constant kind with no place bit, so no
 tree-keyed texel anywhere carries `outland_bit`. Do not read "inland" off it.
+
+**`solid_bit = 32` had an earlier, different meaning agreed and never shipped.**
+On 2026-09-11 the same bit value was agreed as a *trunk* stamp - a tree stem that
+survived a size threshold, `stem_min_m` - and that is what
+`HANDOFF_2026-09-11_tank_ai.md` and the 09-11 Path Studio handoff still describe.
+No bake on disk ever carried that meaning, so there is no ambiguity in the DATA;
+the collision was in a reader written against the agreement rather than against
+the file. `stem_min_m` does not exist and is not coming. **This document and the
+meta's own comment block are the contract** - the meta says what `solid` means in
+the file itself, so a reader that consults it cannot inherit the old meaning.
+Read the bit, not the minutes.
 
 ## `kind` is a substring race, and the order is load-bearing
 
@@ -148,13 +181,30 @@ nine of the seventeen names in the rock bin are not rock: `env_19_01_stonestairs
 x2, `env_19_23_StoneSteps` x4, `env_19_17_Gravestones` x2. A kind name cannot be
 taken at face value.
 
-**And the match is a plain substring, not a word.** `env_19_08_StreetLamp_01`
-and `_02` key as **tree**, because "S`tree`tLamp" contains `tree`. Found by
+**And the match is a plain substring, not a word.** `env_19_08_StreetLamp01`
+and `02` keyed as **tree**, because "S`tree`tLamp" contains `tree`. Found by
 cross-tabulating the key channel against the id layer: 3,046 monastery texels
-key `tree` while carrying a MODEL id, and all of them are those two lamps plus
-`hd_env_EU_456_BurnedTrees`, which is genuinely a tree. Unfixed as of
-`bake_version` 2 - reordering this race is not a blind edit - but the solid bit
-now stops a reader driving through the lamps.
+key `tree` while carrying a MODEL id, and all of them were those two lamps plus
+`hd_env_EU_456_BurnedTrees`, which is genuinely a tree.
+
+**Fixed in `bake_version` 3** by testing `lamp` before `tree` and returning
+`prop`. The fix is deliberately that narrow, because the obvious one is a
+regression. Requiring a word boundary around every keyword would break fifteen
+correct answers to fix one wrong one - a survey of all 212 monastery names found
+**23 with a keyword buried inside a longer word, and most of them are right**:
+
+| name | matched | verdict |
+|---|---|---|
+| `WoodFence`, `StoneFence`, `ForgedFence`, `GrapevineFence`, `RabitzFence` | `fence` | correct |
+| `ItalyOutlandHousesCluster` | `house` | correct |
+| `VendorCart`, `WoodenCart` | `car` | correct - a cart IS a prop |
+| `Gravestones01`, `Gravestones03` | `stone` | wrong, harmless: solid either way |
+| `BurnedTrees` | `tree` | correct |
+| `StreetLamp01`, `StreetLamp02` | `tree` | **wrong, and the one that mattered** |
+
+`lamp` appears in exactly two names on this map and both are lamps; no name
+contains `light` or `lantern`, so neither was added on speculation. Add a keyword
+when a map produces a collision, not before.
 
 **`other` is a genuine bin** - 134 of monastery's 212 names. Mostly things a tank
 flattens (petunias, clay jugs, milk cans, baskets, sidewalks, canisters), but it
@@ -305,7 +355,10 @@ and a burned-tree mesh. **water** is painted on the CPU after the passes, by
 over open water, a model where a jetty or a rock stands in the shallows.
 
 **uint32, not uint16.** 134 MB was what the planners were told to expect, and
-monastery's id space is 14,163 - a fifth of the 65,535 a u16 would allow. But
+monastery's id space is 14,163 - a fifth of the 65,535 a u16 would allow. And
+114_czech's is 15,665, from 11,467 model placements against monastery's 6,179:
+**1.8x the models on a map with fewer trees**, so the total is near-constant here
+only by coincidence and the split behind it is not. Two maps is not a bound. But
 neither the model count nor the tree count is bounded by anything, and a map
 that crossed the ceiling would wrap silently and hand back ids naming the wrong
 objects. The count is logged at every bake, so this can be narrowed later on
@@ -360,6 +413,17 @@ measured clean while 12% of a finished drive had a hull overlapping solid
 geometry. **A validator derived from the same assumption as the thing it
 validates cannot see the error they share.**
 
+**The id layer is the standing example of the cure.** The key channel said `tree`
+at the street lamps from the day the classifier was written, and every check of
+the key channel agreed with it - because they all consulted the same string.
+Nothing that reads names could have found it. What found it was cross-tabulating
+the key against the ID LAYER, which knows nothing about names: a texel keyed
+`tree` while carrying a MODEL id is a contradiction the classifier cannot
+produce on its own, and 3,046 monastery texels were in it. The fix is in
+`bake_version` 3; the method is the point. When you add a layer that is derived
+differently from an existing one, the cross-tab between them is free and it is
+the only check that can see what a single source agrees with itself about.
+
 ## Two things a reader should not be surprised by
 
 **Canopy over rock - now answered by the solid bit, and it was bigger than we
@@ -389,6 +453,109 @@ nothing in the app consumes it.
 property of a plant: 136 monastery olives with a linden within 7 m read 9.8 m,
 while the 828 standing alone read 4.8 m. Use the trunk bit for "does it stop a
 hull", never the height.
+
+## Crushability, and the two things known about it
+
+Not in the bake. Recorded here because it was measured, the owner has settled the
+question it hung on, and the sessions that found it are stopped - so this is where
+whoever picks it up will look.
+
+**`<identifier>` is per PRIMITIVE GROUP** and carries a prefix: `s_` structure,
+`d_` destructible, `n_` non-destructible. `d_` is not a separate destroyed model -
+`d_` and `n_` parts sit in the same file at the same LOD
+(`hd_bld_AM_025_HousesShanty_01` lod1 is 14 `d_` against 24 `n_`: one shed, its
+planks destructible and its frame not).
+
+What makes it trustworthy is the collision hull. Across 526 havok proxies, 510
+are `s_`, 52 are `n_`, and **exactly one** is `d_`. A destructible part is in the
+render mesh and absent from the collision hull, so the game has already decided
+and this would only read the decision back.
+
+It is cheap to carry. The engine already reads the identifier -
+`cBSMA.MaterialItem(k).identifier_fnv` out of space.bin with a string resolver,
+and lookup by `material_id` is a live path. The bake's per-draw key array is
+built per primitive group and each group carries exactly one `material_id`, which
+is the granularity the identifier lives at - so a crush bit is one more bit OR'd
+into the byte already being built, beside `outland_bit`. Free bits are **0x08**
+and **0x40**.
+
+**THE BASE IS CRUSHABLE, AND THE IDENTIFIER DOES NOT SAY SO.** The owner settled
+it: "bases are crushable". `hd_bld_UNI_000_Base` is `n_wood0_1..5` and `s_wall_0`
+with no `d_` part at all, so a rule reading only the prefix calls it solid and is
+wrong. Either the drivable thing is the capture circle rather than this model, or
+the asset is an exception the identifier scheme does not describe. Nobody has
+separated those two, and until someone does, **a crush rule needs the base as a
+known exception rather than a counter-example that quietly discredits the
+scheme.**
+
+**`s_ramp` looked like the bigger finding and is not.** 343 parts across the
+packages are named `s_ramp_N`, and a ramp is geometry the game considers DRIVABLE
+that this bake keys as an obstacle like any wall. An earlier version of this
+section called that "the bake calling drivable geometry solid, at scale" and put
+it ahead of the crush bit. **That was a part count standing in for a blocked-cell
+count, and the measurement does not support it.** Monastery holds 12 of the 343,
+and they are flowerbeds, a well, a fountain, an arch, a Dodge WC54 and a track
+decal.
+
+Measured properly - every monastery asset matched to its visual (3,072 texels,
+0.04%, unmatched), then the hull-grown collide map rebuilt with assets deleted,
+counting cells that flip blocked to free:
+
+| removing | cells freed | of the map |
+|---|---|---|
+| every `s_ramp` asset | 10,295 | **0.02%** |
+| every destructible asset | 209,312 | **0.31%** |
+
+Against 49,118,301 cells already free. Both are whole-ASSET deletions, so both are
+UPPER bounds - the `n_` and `s_` parts inside those assets are included. Neither
+shows up in the 9% of the planner's tangent rings that turn at a real obstacle.
+
+**And monastery is NOT an unusually poor map to have measured on** - an earlier
+version of this section said it was, and sent the reader off to find a
+shanty-heavy map instead. All 69 map packages were then scanned for distinct
+identifiers in each `space.bin` material table:
+
+    47_canada_a            96 d_   120 n_   2 s_ramp
+    252_br_battle_city4    95      113      3
+    217_er_alaska          87      109      3
+    19_monastery           33       38      2
+    median of 69 maps      18       21      1
+
+Monastery is **above** the median, and the richest map has about three times its
+variety rather than ten. `s_ramp` is one or two per map EVERYWHERE, which retires
+the ramp argument completely.
+
+**So the area case is WEAK, on 69 maps' worth of evidence - not "unproven pending
+a better map".** Deciding against the bit on those numbers would be deciding
+correctly.
+
+Two cautions on that table, both cutting the same way: a distinct identifier is a
+MATERIAL, not a part and not an area - monastery's 33 `d_` belong to just two
+assets - and none of it is a blocked-cell count.
+
+**THE MISTAKE UNDERNEATH BOTH CORRECTIONS IS ONE MISTAKE, MADE TWICE IN TWO
+HOURS, BY TWO SESSIONS.** 343 ramp parts and "go find a shanty map" were both
+counts of what EXISTS IN THE PACKAGES standing in for what A MAP CONTAINS. With a
+package scanner to hand it is a cheap error to keep making, and it survives review
+because the number is real - it is the question it answers that is wrong.
+
+**The argument that survives the measurement is not about area.** The identifier
+is the GAME'S OWN answer, and every alternative is a classifier we invent. Today
+priced that: `StreetLamp` keyed as `tree` because a classifier we wrote matched a
+substring, it survived every check that consulted the same string, and only a
+second source that knew nothing about names caught it.
+
+**The runtime link is VERIFIED**, and by a better route than the one first
+proposed. `spaces/19_monastery/space.bin` carries the identifier STRINGS directly
+- 78 of them, which is what `cBWST` resolves the hashes to: 38 `n_`, 33 `d_`, 6
+`s_` (`s_nd_0/1`, `s_ramp_0/1`, `s_wall_0/1`) and one `ivy_flat_01`. Same
+vocabulary as the offline file scan, so the two sources agree and nothing here
+rests on an assumption. The `cBSMA.MaterialItem` route also works; it was not
+needed.
+
+**And agree the bit's name and value with the readers before spending one.**
+`solid_bit` was agreed with one meaning and shipped with another while the value
+stayed 32, and nothing in any file looked wrong to either side.
 
 ## Tools
 

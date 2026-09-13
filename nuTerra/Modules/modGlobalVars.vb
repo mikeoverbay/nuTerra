@@ -1174,6 +1174,38 @@ Module modGlobalVars
     ''' until something looks subtly wrong at a distance. Only the shadowed part
     ''' of a pixel is tinted, so the map still reads normally.
     ''' </summary>
+    ''' <summary>
+    ''' Let the baked sun shadow reach the tanks.
+    '''
+    ''' They shade themselves and are passed through the resolve unlit, so
+    ''' nothing shadowed them - a tank in a building's shadow was lit as though
+    ''' it stood in open sun. The factor was already being computed at those
+    ''' pixels and thrown away; this spends it.
+    ''' </summary>
+    ''' <summary>Tanks CAST - a 512 map per tank, rebuilt every frame. Separate
+    ''' from TANK_SHADOW, which is only about a tank RECEIVING.</summary>
+    ''' <summary>Paint where the tanks cast, in green, instead of shadowing.
+    ''' Answers "is it landing, where, what shape" in one frame.</summary>
+    Public TANK_SHADOW_DEBUG As Boolean = False
+
+    Public TANK_CAST_SHADOW As Boolean = True
+
+    ''' <summary>Metres from the camera past which a tank stops casting. Its
+    ''' shadow is a few pixels by then and both halves of the cost - a draw here
+    ''' and a sample in the shader - buy nothing.</summary>
+    Public TANK_SHADOW_RANGE As Single = 250.0F
+
+    ''' <summary>Where the fade begins, as a fraction of the range. The last
+    ''' stretch fades out so a tank crossing the boundary does not pop.</summary>
+    Public TANK_SHADOW_FADE As Single = 0.75F
+
+    Public TANK_SHADOW As Boolean = True
+
+    ''' <summary>What fraction of a tank's own colour survives in full shadow.
+    ''' Not zero: the colour is already finished and carries its own ambient, so
+    ''' scaling it out paints a black tank rather than a shaded one.</summary>
+    Public TANK_SHADOW_FLOOR As Single = 0.5F
+
     Public SUN_TILE_TINT As Boolean = False
 
     Public TANK_SOLO_TAG As String = ""

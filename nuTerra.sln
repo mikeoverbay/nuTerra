@@ -19,6 +19,8 @@ Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "SrtViewer", "SrtViewer\SrtV
 EndProject
 Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "PathStudio", "PathStudio\PathStudio.vbproj", "{9C4E1A73-06B8-4E52-B0F1-3D5A7E2C48D1}"
 EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Slicer", "Slicer\Slicer.vbproj", "{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -77,6 +79,18 @@ Global
 		{9C4E1A73-06B8-4E52-B0F1-3D5A7E2C48D1}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9C4E1A73-06B8-4E52-B0F1-3D5A7E2C48D1}.Release|x86.ActiveCfg = Release|Any CPU
 		{9C4E1A73-06B8-4E52-B0F1-3D5A7E2C48D1}.Release|x86.Build.0 = Release|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Debug|x64.Build.0 = Debug|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Debug|x86.Build.0 = Debug|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Release|x64.ActiveCfg = Release|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Release|x64.Build.0 = Release|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Release|x86.ActiveCfg = Release|Any CPU
+		{4D7C1E92-8B3A-4F65-9C21-A7E5B0D38F14}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
