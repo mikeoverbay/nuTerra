@@ -8,6 +8,42 @@ Ordered roughly by how much they will bite.
 
 ---
 
+## 0. The FXAA toggle does nothing, and the fix crosses two lanes
+
+`perform_SSAA_Pass` in `modRender.vb` does
+
+    GL.Uniform1(FXAAShader("pass_through"), CInt(FXAA_enable))
+
+and **`shaders/PostProcessing/FXAA.frag` declares no such uniform.** The lookup
+returns -1, GL discards the set silently, and the shader has no pass-through
+branch in it at all. So FXAA runs on every frame regardless of what the
+checkbox says, and has done for as long as the line has existed.
+
+**Why it is not a one-line fix.** The uniform is named `pass_through` but is
+fed `FXAA_enable` - opposite senses. Declaring `uniform int pass_through` in
+the shader and branching on it literally would make ticking "FXAA" SKIP FXAA.
+The semantics have to be settled before either half is written, and the two
+halves are in different lanes: the call site is nuTerra's `modRender.vb`, the
+branch is in the shader.
+
+**Decided 2026-09-13:** rename the uniform to `apply_fxaa` and pass
+`FXAA_enable` through unchanged, rather than inverting at the call site with
+`CInt(Not FXAA_enable)`. The name then matches the value it carries and nobody
+has to remember an inversion - an inverted flag whose name says the opposite is
+how this bug happened in the first place.
+
+**Next step:** one line in `modRender.vb` (rename the uniform in the lookup),
+one declaration plus a branch in `FXAA.frag`. Held until after the pending push
+so it does not land in a tree four sessions have just declared ready.
+
+**Worth knowing while it stands:** any A/B done by toggling FXAA is comparing a
+frame against itself. Found by the Shader IDE + engine session while checking
+whether FXAA was responsible for a measured lift in the frame's transfer curve;
+it was not, and the toggle being inert is why that had to be checked another
+way.
+
+---
+
 ## 1. Three new maps crash natively
 
 The 2026-09-01 game patch added three maps nuTerra has never seen:

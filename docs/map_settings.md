@@ -1,4 +1,4 @@
-# Per-map render settings
+﻿# Per-map render settings
 
 Every map keeps its own copy of the render settings, so a look tuned for one
 space does not follow you to the next.
@@ -21,6 +21,37 @@ shipped copy.
 
 To promote a tuned map to a shipped default, copy its file from the work folder
 into `nuTerra\MapSettings\`.
+
+## The work folder is NOT per session, and `set=` writes to it
+
+Everything above assumes one person at one machine. With several Claude
+sessions on the same box it stops holding, in two ways that both look like the
+app misbehaving:
+
+**`%TEMP%` is per USER, and per redirect.** A session that redirects TMP into
+its own clone gets its own work folder; one that does not shares the owner's.
+So two sessions can read *different settings for the same map* and compare
+frames that were never comparable. Measured 2026-09-12: one clone's
+`19_monastery` work copy held `brightness=1.384, fog_level=0.139` while the
+shipped file and the owner's own work copy held `1.02` and `0.155`. An entire
+evening's transfer-curve measurement described one instance and was reported as
+if it described the other.
+
+**A `set=` override persists.** `set=brightness=0.5` is applied after the file
+loads, which makes it count as a change, so the on-close save writes it into
+the work folder. The next run you believe is a baseline is not one. Before
+trusting any A/B here: read the work copy, not the shipped file.
+
+The log says which file was used - `Reading map settings from ...` - and
+`Map settings: seeded N, kept M existing` says whether yours was freshly seeded
+or is one you have been accumulating. Read those two lines before believing a
+measurement.
+
+Recovery is as above: delete the work copy and it comes back shipped.
+
+*Added 2026-09-13 by nuTerra work. The single-user behaviour was already
+documented here correctly and I rederived it from measurements instead of
+reading this file first - which cost about an hour.*
 
 ## Format
 
