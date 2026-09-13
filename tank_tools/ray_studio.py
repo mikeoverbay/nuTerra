@@ -975,6 +975,7 @@ def main():
     # panel cannot drift from the thing it is describing.
     from tank_tools import maze as _mz
     maze_cell, maze_climb = _mz.CELL_M, _mz.MAX_CLIMB_DEG
+    play_bb = _mz.play_box(map_name)   # the battle box, drawn in red
     # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
     #
     # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
@@ -1618,6 +1619,19 @@ def main():
             for (qx, qz) in pth:
                 D(to_px(qx, qz, w), col, (3) * 2.0)
 
+        # THE PLAY FIELD BOUNDARY, in red.
+        #
+        # The space is 1400 x 1400 and the battle box is 1000 x 1000, so more
+        # than half the ground on screen is somewhere no tank may go. Worth a
+        # line rather than being left to the black layer to imply.
+        if play_bb is not None:
+            bx0, bz0, bx1, bz1 = play_bb
+            corners = [(bx0, bz0), (bx1, bz0), (bx1, bz1), (bx0, bz1), (bx0, bz0)]
+            for k in range(4):
+                L(to_px(corners[k][0], corners[k][1], w),
+                  to_px(corners[k + 1][0], corners[k + 1][1], w),
+                  (255, 60, 60), 2)
+
         for pt, col, lab in ((start, (0, 200, 255), "START  team 1 base"),
                              (goal, (255, 140, 0), "FLAG  team 2 base")):
             px_, pz_ = to_px(pt[0], pt[1], w)
@@ -1795,6 +1809,11 @@ def main():
                      (150, 255, 200))
         ry = readout(RX, ry, "wall standoff", "%.0f m" % standoff_m,
                      (150, 255, 200))
+        if play_bb is not None:
+            ry = readout(RX, ry, "play field",
+                         "%.0f x %.0f m" % (play_bb[2] - play_bb[0],
+                                            play_bb[3] - play_bb[1]),
+                         (255, 120, 120))
         ry += 10
 
         ry = header(RX, ry, "BLOCK LAYER", RW)
