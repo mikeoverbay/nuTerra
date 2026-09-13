@@ -1328,6 +1328,15 @@ def main():
     nodes, paths, rays, bearing = [], [], 0, SWEEP_FROM_DEG
     rings, deaths = [], []
     astar_paths, astar_msg = [], ""
+    # THE FLOOD FILL'S ANSWER, drawn beside the ray planner's so the two can be
+    # compared by eye instead of by me quoting numbers. [g] is the exact
+    # optimum, [t] the tactical roads - one down each side of everything the
+    # affordable ground encloses.
+    maze_pts, maze_roads, maze_msg = [], [], ""
+    MAZE_COLS = [(255, 120, 120), (255, 190, 90), (255, 255, 120),
+                 (150, 255, 120), (120, 255, 220), (120, 190, 255),
+                 (170, 150, 255), (255, 140, 220), (200, 200, 200),
+                 (255, 160, 160), (200, 255, 180), (180, 220, 255)]
     tree, tree_msg, tree_follow = None, "", True
     found_routes = []             # every route this session has completed
     saved_route = None            # the json the last win was written to
@@ -1568,6 +1577,49 @@ def main():
                     gen = resolve(g, start, goal, ring_max, min_gap, ray_cap)
                     nodes, paths, rays, done = [], [], 0, False
                     rings, deaths = [], []
+                elif e.key in (pygame.K_g, pygame.K_t):
+                    # THE FLOOD FILL, ON THE MAP.
+                    #
+                    # [g] the exact shortest drivable route - the ruler that
+                    # says whether the ray planner's answer is good. [t] every
+                    # genuinely different way round, one down each side of
+                    # anything the affordable ground encloses.
+                    #
+                    # Both come from the same two floods and take about two
+                    # seconds, so they are computed on the key rather than kept
+                    # warm. Drawn straight onto the same map as the branch tree
+                    # so the comparison is by eye.
+                    screen.blit(font.render("flooding...", True, (255, 255, 0)),
+                                (8, 8))
+                    pygame.display.flip()
+                    t_m = time.time()
+                    try:
+                        from tank_tools import maze
+                        direct = np.hypot(goal[0] - start[0], goal[1] - start[1])
+                        if e.key == pygame.K_g:
+                            r = maze.solve(g, start, goal)
+                            maze_pts = r["pts"]
+                            maze_msg = ("flood fill: OPTIMUM %.0f m = %.2fx the "
+                                        "%.0f m direct line, %d cells, %.1f s"
+                                        % (r["length"], r["length"] / direct,
+                                           direct, len(r["pts"]),
+                                           r["grid_s"] + r["flood_s"]))
+                        else:
+                            r = maze.class_routes(g, start, goal, budget=0.25)
+                            maze_roads = r["routes"]
+                            if maze_roads:
+                                ln = [q["length"] for q in maze_roads]
+                                maze_msg = ("%d tactical road(s): %.0f-%.0f m "
+                                            "against a %.0f m optimum "
+                                            "(%.2f-%.2fx), %.1f s"
+                                            % (len(maze_roads), min(ln), max(ln),
+                                               r["opt"], min(ln) / r["opt"],
+                                               max(ln) / r["opt"],
+                                               time.time() - t_m))
+                            else:
+                                maze_msg = "no distinct roads at this budget"
+                    except Exception as exc:
+                        maze_msg = "flood fill failed: %s" % exc
                 elif e.key == pygame.K_a:
                     # THE SEARCH, on the same picture as the rays. The whole
                     # catalogue, not one route: search, tag the corridor spent,
@@ -1915,6 +1967,22 @@ def main():
             except Exception:
                 pass
 
+        # THE FLOOD FILL'S ROADS, under everything else. Each gets its own
+        # colour, because the whole point of showing twelve is telling them
+        # apart, and a dot at the waypoint that defines it.
+        for i, road in enumerate(maze_roads):
+            col = MAZE_COLS[i % len(MAZE_COLS)]
+            pth = road["pts"]
+            for k in range(len(pth) - 1):
+                L(to_px(pth[k][0], pth[k][1], w),
+                  to_px(pth[k + 1][0], pth[k + 1][1], w), col, 2)
+            D(to_px(road["via"][0], road["via"][1], w), col, 7.0)
+        # AND THE OPTIMUM OVER THEM, white, because it is the ruler.
+        for k in range(len(maze_pts) - 1):
+            L(to_px(maze_pts[k][0], maze_pts[k][1], w),
+              to_px(maze_pts[k + 1][0], maze_pts[k + 1][1], w),
+              (255, 255, 255), 3)
+
         # THE SEARCH RESULTS, under the ray paths so neither hides the other.
         for i, pth in enumerate(astar_paths):
             col = (CLS_COLS[astar_class[i] % len(CLS_COLS)]
@@ -2169,6 +2237,10 @@ def main():
                    False, (255, 190, 150))
         y = button(LX, y, LW, "Bearing sweep  [r]", pygame.K_r)
         y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a, bool(astar_paths))
+        y = button(LX, y, LW, "Flood fill: the optimum  [g]", pygame.K_g,
+                   bool(maze_pts), (150, 255, 200))
+        y = button(LX, y, LW, "Tactical roads  [t]", pygame.K_t,
+                   bool(maze_roads), (150, 255, 200))
         y = button(LX, y, LW, "PAUSED  [space]" if paused else "Pause  [space]",
                    pygame.K_SPACE, paused)
         y += 4
