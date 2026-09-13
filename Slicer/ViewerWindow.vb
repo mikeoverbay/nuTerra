@@ -246,6 +246,11 @@ Public Class ViewerWindow
     ''' the two differ and which one is right.</summary>
     Private atlasPad As Single = 0.0F
 
+    ''' <summary>Whether globalTex is mixed into the normal/gloss channel at
+    ''' half, as nuTerra does. Switchable because it is the first suspect when
+    ''' the surface normal comes out flat.</summary>
+    Private atlasMixGlobal As Boolean = True
+
     Private boundsMin, boundsMax As Vector3
     Private totalVerts, totalTris, clippedTris, cutSegs As Integer
 
@@ -622,6 +627,50 @@ Public Class ViewerWindow
                             End If
                         End If
 
+                        If Not pt.IsAtlas AndAlso mat.IsTiled Then
+                            ' TILED, which is the MAJORITY - 19,121 materials
+                            ' against the atlas family's 118, and about four
+                            ' fifths of the surface of a typical building. It drew
+                            ' flat white until now because the live shader only
+                            ' ever implemented PBS_ext, which is why every render
+                            ' came out mostly grey.
+                            '
+                            ' Reuses the atlas path exactly: three tiles in a
+                            ' three-layer array, indices 0/1/2, and the blend mask
+                            ' on uv2 with a ONE-CELL grid. The grid is forced to
+                            ' 1x1 rather than read from g_atlasSizes - tiled
+                            ' materials carry that property too, with the atlas
+                            ' family's values, and honouring it here would sample
+                            ' a twentieth of the blend mask.
+                            Dim tAm = TileList(mat.TiledMaps(), 3)
+                            Dim tNgs = TileList(mat.TiledNormalMaps(), 3)
+                            Dim tMao = TileList(mat.TiledMetalMaps(), 3)
+                            If tAm IsNot Nothing AndAlso tNgs IsNot Nothing AndAlso tMao IsNot Nothing Then
+                                Dim nA = 0, nB = 0, nC = 0
+                                pt.AtlasAm = LoadTileArray(tAm, nA)
+                                pt.AtlasNgs = LoadTileArray(tNgs, nB)
+                                pt.AtlasMao = LoadTileArray(tMao, nC)
+                                pt.IsAtlas = pt.AtlasAm <> 0 AndAlso pt.AtlasNgs <> 0 AndAlso pt.AtlasMao <> 0
+                                If pt.IsAtlas Then
+                                    Dim one As New Vector4(1.0F, 1.0F, 1.0F, 1.0F)
+                                    Dim bm = mat.Texture("blendMask")
+                                    Dim dm = mat.Texture("dirtMap")
+                                    pt.AtlasBlend = If(bm IsNot Nothing, LoadTex(AsDds(bm), whiteTex), whiteTex)
+                                    pt.AtlasDirt = If(dm IsNot Nothing, LoadTex(AsDds(dm), 0), 0)
+                                    pt.AtlasGlobal = 0
+                                    pt.Idx = New Vector4(0.0F, 1.0F, 2.0F, 0.0F)
+                                    pt.Grid = one
+                                    pt.Tint0 = mat.Vec4("g_tile0Tint", one)
+                                    pt.Tint1 = mat.Vec4("g_tile1Tint", one)
+                                    pt.Tint2 = mat.Vec4("g_tile2Tint", one)
+                                    pt.UvScale = mat.Vec4("g_tileUVScale", Vector4.Zero)
+                                    pt.DirtColor = mat.Vec4("g_dirtColor", Vector4.Zero)
+                                    pt.DirtParams = mat.Vec4("g_dirtParams", one)
+                                    atlasParts += 1
+                                End If
+                            End If
+                        End If
+
                         Dim maps = mat.ExtMaps()
                         If maps(0) IsNot Nothing Then pt.Albedo = LoadTex(maps(0), whiteTex)
                         If maps(1) IsNot Nothing Then
@@ -845,6 +894,7 @@ Public Class ViewerWindow
         GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_debug"), pbrDebug)
         GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_exposure"), pbrExposure)
         GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_pad"), atlasPad)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_mixGlobal"), If(atlasMixGlobal, 1, 0))
 
         ' Every sampler gets its OWN unit. They all default to unit 0, and two
         ' samplers of DIFFERENT TYPES on one unit is undefined - it shows up as
@@ -907,6 +957,33 @@ Public Class ViewerWindow
             Return pth.Substring(0, pth.Length - 4) & ".dds"
         End If
         Return pth
+    End Function
+
+    ''' <summary>The first `want` tile paths as .dds, or Nothing if any is
+    ''' absent. All three or none: a two-layer array indexed at layer 2 samples
+    ''' the wrong tile rather than failing.</summary>
+    Private Shared Function TileList(src As String(), want As Integer) As List(Of String)
+        If src Is Nothing OrElse src.Length < want Then Return Nothing
+        Dim outp As New List(Of String)
+        For i = 0 To want - 1
+            If src(i) Is Nothing Then Return Nothing
+            outp.Add(AsDds(src(i)))
+        Next
+        Return outp
+    End Function
+
+    ''' <summary>Three tile textures as one three-layer array, cached on the
+    ''' joined paths - tile sets are shared heavily across the library, so the
+    ''' same trio recurs on many materials.</summary>
+    Private Function LoadTileArray(paths As List(Of String), ByRef layers As Integer) As Integer
+        layers = 0
+        If paths Is Nothing OrElse paths.Count = 0 Then Return 0
+        Dim key = String.Join("|", paths)
+        Dim got = 0
+        If atlasCache.TryGetValue(key, got) Then Return got
+        Dim tex = AtlasFile.UploadLayers(pkg, paths, layers, quiet:=True)
+        atlasCache(key) = tex
+        Return tex
     End Function
 
     Private Function LoadAtlas(atlasPath As String, ByRef layers As Integer) As Integer

@@ -81,6 +81,7 @@ Public NotInheritable Class AtlasShader
         "uniform int  u_hasDirt;" & vbLf &
         "uniform int  u_hasGlobal;" & vbLf &
         "uniform float u_pad;" & vbLf &
+        "uniform int  u_mixGlobal;" & vbLf &
         "uniform vec3 u_eye;" & vbLf &
         "uniform vec3 u_lightDir;" & vbLf &
         "uniform vec3 u_lightColor;" & vbLf &
@@ -171,7 +172,9 @@ Public NotInheritable Class AtlasShader
         "// The global texture is a per-object map on UV2 and it is mixed into the" & vbLf &
         "// NORMAL/GLOSS channel at half, not into the albedo - it is how one" & vbLf &
         "// shared tile set picks up per-building variation." & vbLf &
-        "    if (u_hasGlobal == 1) GBMT = mix(GBMT, texture(u_global, v_uv2), 0.5);" & vbLf &
+        "    vec4 rawGBMT = GBMT;" & vbLf &
+        "    vec4 gt = (u_hasGlobal == 1) ? texture(u_global, v_uv2) : vec4(0.5,0.5,0.5,0.5);" & vbLf &
+        "    if (u_hasGlobal == 1 && u_mixGlobal == 1) GBMT = mix(GBMT, gt, 0.5);" & vbLf &
         "" & vbLf &
         "// GREEN and ALPHA, not RG. These are DXT5-packed two-channel normals:" & vbLf &
         "// alpha has its own high-precision block and green carries the most bits" & vbLf &
@@ -210,6 +213,12 @@ Public NotInheritable Class AtlasShader
         "    if (u_debug == 8) col = vec3(h);" & vbLf &
         "    if (u_debug == 9) col = vec3(fract(uv1), 0.0);" & vbLf &
         "    if (u_debug == 10) col = vec3(fract(v_uv), 0.0);" & vbLf &
+        "// 11 and 12 separate the two things that can flatten a normal: the" & vbLf &
+        "// packed GBMT itself, and the globalTex that gets mixed into it." & vbLf &
+        "    if (u_debug == 11) col = vec3(rawGBMT.ga, 0.0);" & vbLf &
+        "    if (u_debug == 12) col = gt.rgb;" & vbLf &
+        "    if (u_debug == 13) col = vec3(gt.ga, 0.0);" & vbLf &
+        "    if (u_debug == 14) col = rawGBMT.rgb;" & vbLf &
         "" & vbLf &
         "    if (u_debug == 0) col = vec3(1.0) - exp(-col * u_exposure);" & vbLf &
         "    o_col = vec4(pow(max(col, 0.0), vec3(1.0 / 2.2)), 1.0);" & vbLf &
@@ -218,7 +227,8 @@ Public NotInheritable Class AtlasShader
     ''' <summary>Extra debug views this path has and the flat one does not: the
     ''' three blend weights as RGB, and the dominant tile's height.</summary>
     Public Shared ReadOnly DebugNames As String() =
-        {"lit", "albedo", "normal", "gloss", "metal", "occl", "uv2", "blend", "height", "tileUV", "uv1"}
+        {"lit", "albedo", "normal", "gloss", "metal", "occl", "uv2", "blend", "height", "tileUV", "uv1",
+         "GBMT.ga", "globalTex", "globalTex.ga", "GBMT.rgb"}
 
     Public Shared Function Build() As Integer
         Dim vs = Compile(ShaderType.VertexShader, VERT)

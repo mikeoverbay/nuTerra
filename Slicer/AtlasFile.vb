@@ -163,15 +163,36 @@ Public NotInheritable Class AtlasFile
     ''' back to the flat path rather than draw a black building.
     ''' </summary>
     Public Function Upload(pkg As PkgIndex, ByRef layers As Integer, Optional quiet As Boolean = True) As Integer
+        Dim paths As New List(Of String)
+        For Each c In Cells
+            paths.Add(c.Path)
+        Next
+        Return UploadLayers(pkg, paths, layers, quiet)
+    End Function
+
+    ''' <summary>
+    ''' Build a texture array from an explicit list of .dds paths, one layer
+    ''' each.
+    '''
+    ''' Shared with the PBS_tiled family, which is why it takes paths rather
+    ''' than a manifest. A tiled material names its three tiles directly instead
+    ''' of indexing an atlas, but three tiles in a three-layer array is the same
+    ''' object the atlas shader already samples - so tiled becomes the atlas path
+    ''' with indices 0,1,2 and a one-cell blend grid, and there is one blend
+    ''' implementation rather than two that can drift apart.
+    ''' </summary>
+    Public Shared Function UploadLayers(pkg As PkgIndex, paths As List(Of String),
+                                        ByRef layers As Integer,
+                                        Optional quiet As Boolean = True) As Integer
         layers = 0
-        If Cells.Count = 0 Then Return 0
+        If paths Is Nothing OrElse paths.Count = 0 Then Return 0
 
         Dim datas As New List(Of Byte())
         Dim w = 0, h = 0, fourCC As String = Nothing
-        For Each c In Cells
-            Dim raw = pkg.ReadPath(c.Path)
+        For Each cp In paths
+            Dim raw = pkg.ReadPath(cp)
             If raw Is Nothing OrElse raw.Length < 128 Then
-                If Not quiet Then Console.WriteLine("    atlas: missing {0}", c.Path)
+                If Not quiet Then Console.WriteLine("    atlas: missing {0}", cp)
                 Return 0
             End If
             If Encoding.ASCII.GetString(raw, 0, 4) <> "DDS " Then Return 0
@@ -184,7 +205,7 @@ Public NotInheritable Class AtlasFile
                 ' A member that disagrees cannot be a layer of the same array.
                 If Not quiet Then
                     Console.WriteLine("    atlas: {0} is {1}x{2} {3}, expected {4}x{5} {6}",
-                                      c.Path, cw, ch, cc, w, h, fourCC)
+                                      cp, cw, ch, cc, w, h, fourCC)
                 End If
                 Return 0
             End If
@@ -221,13 +242,23 @@ Public NotInheritable Class AtlasFile
             Next
             If Not allHave Then Exit For
 
+            While GL.GetError() <> ErrorCode.NoError
+            End While
             GL.CompressedTexImage3D(TextureTarget3d.Texture2DArray, level, fmt,
                                     lw, lh, datas.Count, 0, size * datas.Count, IntPtr.Zero)
+            Dim eAlloc = GL.GetError()
+            If eAlloc <> ErrorCode.NoError AndAlso Not quiet Then
+                Console.WriteLine("    atlas: alloc level {0} -> {1}", level, eAlloc)
+            End If
             For i = 0 To datas.Count - 1
                 Dim px(size - 1) As Byte
                 Array.Copy(datas(i), OffsetOfLevel(datas(i), level, w, h, blockBytes), px, 0, size)
                 GL.CompressedTexSubImage3D(TextureTarget3d.Texture2DArray, level,
                                            0, 0, i, lw, lh, 1, CType(fmt, PixelFormat), size, px)
+                Dim eSub = GL.GetError()
+                If eSub <> ErrorCode.NoError AndAlso Not quiet AndAlso i = 0 Then
+                    Console.WriteLine("    atlas: sub level {0} layer {1} -> {2}", level, i, eSub)
+                End If
             Next
             levels += 1
             If lw = 1 AndAlso lh = 1 Then Exit For
