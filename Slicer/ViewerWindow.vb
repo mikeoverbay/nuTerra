@@ -96,8 +96,38 @@ Public Class ViewerWindow
         Public First As Integer
         Public Count As Integer
         Public Tint As Vector3
+        ''' <summary>True for triangles this app invented to close the bottom,
+        ''' false for geometry that shipped in the package. Kept apart so the
+        ''' fill can be inspected rather than blending into the model.</summary>
+        Public IsFill As Boolean
     End Class
     Private ReadOnly parts As New List(Of DrawPart)
+
+    ''' <summary>Paint the bottom fill red and everything else blue. On by
+    ''' default because the fill is the thing being checked; B turns it off to
+    ''' get the ordinary per-part tints back.</summary>
+    Private fillDebug As Boolean = True
+    Private fillOn As Boolean = True
+    Private fillTris, fillRings, fillOpen, fillEdges As Integer
+    ''' <summary>
+    ''' The worst Y spread of any ONE mesh's fill, and the real check - stronger
+    ''' than the picture, because a fill that climbed off its plane shows as a
+    ''' number even when the render looks plausible.
+    '''
+    ''' PER MESH, not across the asset. An asset-wide spread was the first
+    ''' version and it was meaningless: a kit's pieces each sit at their own
+    ''' height, so hd_bld_eu_049_thouse legitimately spreads 0.99 m across its
+    ''' eleven parts while every individual fill is dead flat. What must be flat
+    ''' is each fill, not the set of them.
+    ''' </summary>
+    Private fillWorstSpread As Single
+    Private fillWorstName As String
+
+    ''' <summary>Set by --shot: render one frame, save it, quit. The window
+    ''' still opens - reading the default framebuffer is the point, so there
+    ''' has to be one.</summary>
+    Private shotPath As String = Nothing
+    Private shotFrames As Integer = 0
 
     Private boundsMin, boundsMax As Vector3
     Private totalVerts, totalTris, clippedTris, cutSegs As Integer
@@ -136,7 +166,8 @@ Public Class ViewerWindow
     Private Const PITCH_MIN As Single = -1.5697963F   ' -PI/2 + 0.001, as nuTerra clamps
     Private Const PITCH_MAX As Single = 1.3F
 
-    Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings)
+    Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings,
+                   Optional shot As String = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -148,6 +179,16 @@ Public Class ViewerWindow
         settings = cfg
         assetIndex = Math.Max(0, Math.Min(startAsset, assets.Count - 1))
         lodIndex = Math.Max(0, cfg.Lod)
+        shotPath = shot
+        If shotPath IsNot Nothing Then
+            ' Look UP at the underside - that is the face being checked. After
+            ' the Y flip a positive pitch is below the model, and 1.15 is just
+            ' inside the 1.3 clamp, so the camera sits low and looks up at the
+            ' bottom rather than edge-on to it.
+            pitch = 1.15F
+            yaw = 0.9F
+            slicing = False          ' a cut would hide the bottom behind the half it keeps
+        End If
     End Sub
 
     Protected Overrides Sub OnLoad()
@@ -228,7 +269,9 @@ Public Class ViewerWindow
 
         boundsMin = lo : boundsMax = hi
         target = (lo + hi) * 0.5F
-        dist = Math.Max((hi - lo).Length * 0.9F, 2.0F)
+        ' A shot frames wider than the interactive default: the whole model
+        ' has to be inside the image for the picture to prove anything.
+        dist = Math.Max((hi - lo).Length * If(shotPath IsNot Nothing, 1.35F, 0.9F), 2.0F)
         planeNudge = 0.0F
         Rebuild()
         Console.WriteLine("{0}  lod{1}  {2} mesh(es)  {3:N0} tris  span {4:F1} m",
@@ -263,6 +306,8 @@ Public Class ViewerWindow
     Private Sub Rebuild()
         parts.Clear()
         totalVerts = 0 : totalTris = 0 : clippedTris = 0 : cutSegs = 0
+        fillTris = 0 : fillRings = 0 : fillOpen = 0 : fillEdges = 0
+        fillWorstSpread = 0.0F : fillWorstName = Nothing
 
         Dim verts As New List(Of Single)
         Dim idx As New List(Of Integer)
@@ -351,6 +396,69 @@ Public Class ViewerWindow
                 .Tint = palette(parts.Count Mod palette.Length)})
             totalVerts += pos.Length
             totalTris += tri.Length \ 3
+
+            ' ---- close the bottom.
+            ' Built from the geometry AS DRAWN, not from the raw mesh, so a cut
+            ' that removes the bottom correctly leaves nothing to fill.
+            '
+            ' EACH MESH USES ITS OWN LOWEST POINT, not the asset's. This was
+            ' the other way round first, on the theory that a roof's lowest
+            ' boundary is up in the air and filling it would staple a lid across
+            ' the eaves. Measuring hd_bld_eu_049_thouse killed that: it is a KIT
+            ' of 11 independent pieces - lowerfloors, upperfloors, roof, balcony
+            ' - each plane-cut at its own base and sitting at its own height,
+            ' spread over a metre. Against the asset minimum, ten of the eleven
+            ' were excluded and the building rendered wide open from below.
+            '
+            '     lowerfloorssmall_01  -1.1138   8 bottom edges  <- the only match
+            '     lowerfloorsbig_01    -1.0000  12 bottom edges
+            '     upperfloorsbig_03    -0.1379  24 bottom edges
+            '     roof_01              -0.7378   8 bottom edges
+            '
+            ' A roof HAS a bottom opening - the underside that sits on the walls
+            ' - and closing it is right rather than a mistake.
+            If fillOn Then
+                Dim meshBottom = Single.MaxValue
+                For Each mp In pos
+                    If mp.Y < meshBottom Then meshBottom = mp.Y
+                Next
+                ' A FIXED 2 cm, not a fraction of the model. Scaling it with
+                ' the asset span was wrong: the bottom is a PLANE CUT, so the
+                ' tolerance only has to absorb float noise and authoring slop,
+                ' neither of which grows with the building. At span-scaled
+                ' tolerance the 102 m cathedral got 0.205 m of slack and swept
+                ' in edges that were never on its bottom plane - its worst fill
+                ' spread 0.18 m, which the flatness check caught.
+                Dim bf = BottomFill.Build(pos, tri, meshBottom, 0.02F, settings.WeldTolerance)
+                If bf.Indices.Count >= 3 Then
+                    Dim fb = totalVerts
+                    ' Flat-down normals: the fill is planar and faces the ground.
+                    Dim mlo = Single.MaxValue, mhi = Single.MinValue
+                    For Each p In bf.Positions
+                        verts.Add(p.X) : verts.Add(p.Y) : verts.Add(p.Z)
+                        verts.Add(0.0F) : verts.Add(-1.0F) : verts.Add(0.0F)
+                        mlo = Math.Min(mlo, p.Y)
+                        mhi = Math.Max(mhi, p.Y)
+                    Next
+                    If mhi - mlo > fillWorstSpread Then
+                        fillWorstSpread = mhi - mlo
+                        fillWorstName = rp.Name
+                    End If
+                    Dim ffirst = idx.Count
+                    For Each i In bf.Indices
+                        idx.Add(fb + i)
+                    Next
+                    parts.Add(New DrawPart With {
+                        .Name = rp.Name & " [bottom fill]", .First = ffirst,
+                        .Count = bf.Indices.Count, .Tint = New Vector3(0.85F, 0.12F, 0.12F),
+                        .IsFill = True})
+                    totalVerts += bf.Positions.Count
+                    fillTris += bf.Indices.Count \ 3
+                    fillRings += bf.Rings
+                    fillOpen += bf.OpenChains
+                    fillEdges += bf.BottomEdges
+                End If
+            End If
         Next
 
         GL.BindVertexArray(vao)
@@ -386,7 +494,11 @@ Public Class ViewerWindow
             If(slicing,
                String.Format("   CUT {0} {1} @ {2:F2} m   {3:N0} clipped, {4:N0} cut edges",
                              EffectiveAxis().ToUpperInvariant(), EffectiveKeep(), planeD, clippedTris, cutSegs),
-               "   cut OFF"))
+               "   cut OFF") &
+            If(fillOn,
+               String.Format("   FILL {0:N0} tris / {1} ring(s), {2} open, {3} edges",
+                             fillTris, fillRings, fillOpen, fillEdges),
+               "   fill OFF"))
     End Sub
 
     Private Shared Function PrimitivesPathFor(part As BuildingPart) As String
@@ -434,6 +546,15 @@ Public Class ViewerWindow
             For i = 0 To parts.Count - 1
                 If soloPart >= 0 AndAlso i <> soloPart Then Continue For
                 Dim tc = parts(i).Tint
+                If fillDebug Then
+                    ' The owner's check: bottom fill red, everything that
+                    ' shipped in the package blue. Any red NOT on the underside
+                    ' is a fill in the wrong place, which is the failure this is
+                    ' meant to make obvious.
+                    tc = If(parts(i).IsFill,
+                            New Vector3(0.9F, 0.1F, 0.1F),
+                            New Vector3(0.16F, 0.34F, 0.78F))
+                End If
                 GL.Uniform3(uTint, tc.X, tc.Y, tc.Z)
                 GL.Uniform1(uFlat, If(wireframe, 1, 0))
                 GL.DrawElements(PrimitiveType.Triangles, parts(i).Count,
@@ -457,6 +578,60 @@ Public Class ViewerWindow
         End If
 
         SwapBuffers()
+
+        If shotPath IsNot Nothing Then
+            shotFrames += 1
+            ' Not the first frame. The window is still sizing itself and the
+            ' driver has not necessarily presented anything yet; reading too
+            ' early gives a black or half-cleared buffer, which would look
+            ' exactly like the fill having failed.
+            If shotFrames >= 3 Then
+                SaveShot(shotPath)
+                shotPath = Nothing
+                Close()
+            End If
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' Read the default framebuffer and write it out, so this can be checked
+    ''' without anyone having to look at the screen.
+    '''
+    ''' OpenGL hands back rows bottom-up and PNG wants them top-down, so the
+    ''' scanlines are reversed on the way into the encoder. Skip that and the
+    ''' image is a perfect vertical mirror - which on a symmetrical building is
+    ''' genuinely hard to notice, and would quietly invert every up/down
+    ''' judgement made from it.
+    ''' </summary>
+    Private Sub SaveShot(path As String)
+        Dim w = ClientSize.X, h = ClientSize.Y
+        If w <= 0 OrElse h <= 0 Then Return
+        Dim buf(w * h * 3 - 1) As Byte
+        GL.PixelStore(PixelStoreParameter.PackAlignment, 1)
+        GL.ReadBuffer(ReadBufferMode.Front)
+        GL.ReadPixels(0, 0, w, h, PixelFormat.Rgb, PixelType.UnsignedByte, buf)
+
+        Dim flipped(buf.Length - 1) As Byte
+        For y = 0 To h - 1
+            Array.Copy(buf, (h - 1 - y) * w * 3, flipped, y * w * 3, w * 3)
+        Next
+
+        Try
+            Dim dir = IO.Path.GetDirectoryName(IO.Path.GetFullPath(path))
+            If dir IsNot Nothing AndAlso Not IO.Directory.Exists(dir) Then IO.Directory.CreateDirectory(dir)
+            PngWriter.WriteRgb(path, w, h, flipped)
+            Console.WriteLine("shot: {0}  ({1}x{2})", IO.Path.GetFullPath(path), w, h)
+            Console.WriteLine("      fill {0:N0} tris / {1} ring(s), {2} open chain(s), {3} bottom edges",
+                              fillTris, fillRings, fillOpen, fillEdges)
+            If fillTris > 0 Then
+                Console.WriteLine("      worst single-mesh fill spread {0:F4} m{1}{2}",
+                                  fillWorstSpread,
+                                  If(fillWorstName Is Nothing, "", "  (" & fillWorstName & ")"),
+                                  If(fillWorstSpread > 0.05F, "   <-- NOT FLAT, that fill is off its plane", "   flat"))
+            End If
+        Catch ex As Exception
+            Console.WriteLine("shot failed: {0}: {1}", ex.GetType().Name, ex.Message)
+        End Try
     End Sub
 
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
@@ -489,10 +664,12 @@ Public Class ViewerWindow
         End If
 
         If k.IsKeyPressed(Keys.W) Then wireframe = Not wireframe
+        If k.IsKeyPressed(Keys.B) Then fillDebug = Not fillDebug
         If k.IsKeyPressed(Keys.R) Then LoadCurrent()
 
-        ' ---- the cut ----
+        ' ---- the cut and the fill ----
         Dim dirty = False
+        If k.IsKeyPressed(Keys.F) Then fillOn = Not fillOn : dirty = True
         If k.IsKeyPressed(Keys.S) Then slicing = Not slicing : dirty = True
         If k.IsKeyPressed(Keys.C) Then showCut = Not showCut
         If k.IsKeyPressed(Keys.X) Then axisOverride = "x" : dirty = True

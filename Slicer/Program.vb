@@ -39,6 +39,7 @@ Module Program
         Dim csvPath As String = Nothing
         Dim doList = False, doFailures = False, skipVehicles = False, doView = False
         Dim settingsPath As String = Nothing
+        Dim shotPath As String = Nothing
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -61,6 +62,8 @@ Module Program
                     showSettings = True
                 Case "--save-settings"
                     saveSettings = True
+                Case "--shot"
+                    i += 1 : If i < args.Length Then shotPath = args(i)
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -224,7 +227,7 @@ Module Program
 
         If csvPath IsNot Nothing Then WriteCsv(library, csvPath)
 
-        If doView Then
+        If doView OrElse shotPath IsNot Nothing Then
             ' --asset picks the building to open on; without one it starts at
             ' the first and the arrow keys walk the library.
             Dim startAt = 0
@@ -241,7 +244,7 @@ Module Program
             Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
             Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath)
                 win.Run()
             End Using
         End If
@@ -350,6 +353,7 @@ Module Program
         Console.WriteLine("Building Slicer - finds the buildings in the World of Tanks packages")
         Console.WriteLine()
         Console.WriteLine("  --view               open the 3D viewer")
+        Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")

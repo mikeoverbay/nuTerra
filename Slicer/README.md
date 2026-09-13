@@ -409,6 +409,70 @@ Anything in this section marked not-verified should be checked before it is
 built on. It is recorded this way rather than left out because knowing which
 half of a claim is solid is more useful than a clean-looking paragraph.
 
+## Closing the bottom
+
+The owner's observation, and it measures out: these models are **cut off flat
+where they meet the ground**, so the boundary at the bottom is already planar
+and can simply be triangulated. No general hole-filling, nothing invented.
+
+Measured over 128 lod0 meshes before any of it was written:
+
+| | |
+|---|---|
+| with a bottom boundary ring of 3+ edges | 69 — 54% |
+| of those, every bottom vertex has degree 2 (clean rings) | 30 — 43% |
+| bottom boundary edges per mesh | median 12, mean 20, max 183 |
+| with no bottom edge at all | 23 |
+
+54% rather than 100% is correct, not a shortfall — a roof or a tower that never
+reaches the ground has no bottom cut to fill. And because only 43% of rings are
+clean, the walker handles open chains and T-junctions rather than assuming a
+closed loop.
+
+**The plane is each MESH's own lowest point, not the asset's.** That was the
+other way round first, reasoning that a roof's lowest boundary is in mid-air.
+Measuring `hd_bld_eu_049_thouse` killed it: the asset is a KIT of eleven
+independent pieces, each plane-cut at its own base, spread over a metre of
+height. Against the asset minimum ten of eleven were excluded and the building
+rendered wide open from below.
+
+    lowerfloorssmall_01  -1.1138   8 bottom edges   <- the only match
+    lowerfloorsbig_01    -1.0000  12 bottom edges
+    upperfloorsbig_03    -0.1379  24 bottom edges
+    roof_01              -0.7378   8 bottom edges
+
+**The tolerance is a fixed 2 cm, not a fraction of the model.** Span-scaling it
+gave the 102 m cathedral 0.205 m of slack, which swept in edges never on its
+bottom plane — 148 spurious triangles, and a worst fill spread of 0.18 m. A
+plane cut is exact; the tolerance only absorbs float noise, which does not grow
+with the building.
+
+### Checking it without looking at the screen
+
+`--shot <file.png>` renders one frame from below, paints the fill red and
+everything shipped in the package blue, and writes a PNG — so the result can be
+inspected without anyone watching the window.
+
+The stronger check is the number beside it: **the worst Y spread of any single
+mesh's fill**. Each fill is supposed to lie in one plane, so a fill that climbed
+off its plane shows up as a spread even when the picture looks plausible. Per
+mesh, not across the asset — a kit legitimately spreads a metre across its
+pieces while every individual fill is dead flat.
+
+| asset | fill | rings | worst single-mesh spread |
+|---|---|---|---|
+| `bld_101_02_vhouse02` | 47 tris | 4 | 0.0110 m |
+| `hd_bld_eu_049_thouse` | 82 tris | 11 | 0.0187 m |
+| `hd_bld_eu_211_lighthouse` | 122 tris | 4 | 0.0102 m |
+| `hd_bld_eu_225_cathedral` | 321 tris | 34 | 0.0193 m |
+
+**Known limits.** The fan is from the ring centroid, which is exact for a convex
+outline and will put slivers outside a strongly concave one — an ear clip is the
+upgrade if an export ever needs it. 29 of the cathedral's 34 rings are open
+chains rather than closed loops, and those are fanned anyway. And a mesh with no
+bottom boundary gets nothing, which is why the cathedral is only partly red from
+below.
+
 ## Not done yet
 
 **Export.** The cut exists only on screen; `out.dir` and `out.format` are
