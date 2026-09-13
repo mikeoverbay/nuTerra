@@ -25,6 +25,14 @@ Imports OpenTK.Mathematics
 ''' BINARY STL, not ASCII. Same geometry at about a sixth the size, and the
 ''' 126,000-triangle workshop is 6 MB binary against 35 MB of text.
 ''' </summary>
+''' <summary>One run of faces in the OBJ, with the material it uses.</summary>
+Public Class ObjGroup
+    Public Property Name As String
+    Public Property Material As String
+    Public Property FirstIndex As Integer
+    Public Property IndexCount As Integer
+End Class
+
 Public Class ExportResult
     Public Property Path As String
     Public Property Format As String
@@ -45,7 +53,9 @@ Public NotInheritable Class MeshExport
     Public Shared Function Write(path As String, formatName As String,
                                  pos As Vector3(), idx As Integer(),
                                  zUp As Boolean, scale As Single,
-                                 Optional uv As Vector2() = Nothing) As ExportResult
+                                 Optional uv As Vector2() = Nothing,
+                                 Optional groups As List(Of ObjGroup) = Nothing,
+                                 Optional mtlLib As String = Nothing) As ExportResult
         Dim kind = If(formatName, "stl").Trim().ToLowerInvariant()
         Dim dir = IO.Path.GetDirectoryName(IO.Path.GetFullPath(path))
         If dir IsNot Nothing AndAlso Not Directory.Exists(dir) Then Directory.CreateDirectory(dir)
@@ -64,7 +74,7 @@ Public NotInheritable Class MeshExport
         If pos.Length > 0 Then r.SizeMm = hi - lo
 
         If kind = "obj" Then
-            WriteObj(path, pos, idx, zUp, scale, uv)
+            WriteObj(path, pos, idx, zUp, scale, uv, groups, mtlLib)
         Else
             WriteStlBinary(path, pos, idx, zUp, scale)
             r.Format = "stl"
@@ -173,6 +183,7 @@ Public NotInheritable Class MeshExport
             Dim allPos As New List(Of Vector3)
             Dim allIdx As New List(Of Integer)
             Dim allUv As New List(Of Vector2)
+            Dim groups As New List(Of ObjGroup)
             ' A mesh with no uv2 still has to contribute the right NUMBER of
             ' entries or every uv after it is attached to the wrong vertex. Zero
             ' is honest for those - it says "no unwrap here" rather than
@@ -208,17 +219,35 @@ Public NotInheritable Class MeshExport
 
                     Dim b = allPos.Count
                     allPos.AddRange(m.Positions)
+
+                    ' UV2 BECOMES THE UV SET, and UV2 is not written as a second
+                    ' set - OBJ carries one, and this is it.
+                    '
+                    ' Falling back to UV1 when there is no uv2 is not a
+                    ' compromise, it is the correct answer for that material: a
+                    ' PBS_ext mesh has no uv2 because its texture is a
+                    ' per-object map already addressed by UV1, so UV1 IS its
+                    ' unwrap. Writing nothing there - which is what this did
+                    ' first - left every PBS_ext part untextured.
                     If m.HasUV2 Then
                         allUv.AddRange(m.UV2)
+                        anyUv = True
+                    ElseIf m.UVs.Length = m.Positions.Length Then
+                        allUv.AddRange(m.UVs)
                         anyUv = True
                     Else
                         For k = 1 To m.Positions.Length
                             allUv.Add(Vector2.Zero)
                         Next
                     End If
+
+                    Dim gFirst = allIdx.Count
                     For Each i In tri
                         allIdx.Add(b + i)
                     Next
+                    groups.Add(New ObjGroup With {
+                        .Name = part.Name, .Material = part.Name,
+                        .FirstIndex = gFirst, .IndexCount = allIdx.Count - gFirst})
 
                     Dim bottom = Single.MaxValue
                     For Each p In m.Positions
@@ -226,6 +255,7 @@ Public NotInheritable Class MeshExport
                     Next
                     Dim bf = BottomFill.Build(m.Positions, tri, bottom, 0.02F, cfg.WeldTolerance)
                     If bf.Indices.Count >= 3 Then
+                        Dim fbFirst = allIdx.Count
                         Dim fb = allPos.Count
                         allPos.AddRange(bf.Positions)
                         ' Fill triangles are invented, so they have no unwrap.
@@ -235,6 +265,9 @@ Public NotInheritable Class MeshExport
                         For Each i In bf.Indices
                             allIdx.Add(fb + i)
                         Next
+                        groups.Add(New ObjGroup With {
+                            .Name = part.Name & "_bottom", .Material = Nothing,
+                            .FirstIndex = fbFirst, .IndexCount = allIdx.Count - fbFirst})
                         fillTris += bf.Indices.Count \ 3
                     End If
                 Next
@@ -248,7 +281,8 @@ Public NotInheritable Class MeshExport
 
             Dim outPath = IO.Path.Combine(cfg.OutDir, asset.Name & ext)
             Dim res = Write(outPath, cfg.OutFormat, allPos.ToArray(), allIdx.ToArray(), zUp, cfg.OutScale,
-                            If(anyUv, allUv.ToArray(), Nothing))
+                            If(anyUv, allUv.ToArray(), Nothing), groups,
+                            If(ext = ".obj", asset.Name & ".mtl", Nothing))
             written += 1
             totalBytes += res.Bytes
             Console.WriteLine("  {0,-40} {1,7:N0} tris  {2,5:N0} fill  {3,5:N0} kill  {4,6:N0} KB  {5:F0}x{6:F0}x{7:F0} mm  {8}",
@@ -278,14 +312,15 @@ Public NotInheritable Class MeshExport
     ''' as garbage or not at all.
     ''' </summary>
     Private Shared Sub WriteObj(path As String, pos As Vector3(), idx As Integer(),
-                                zUp As Boolean, scale As Single, uv As Vector2())
+                                zUp As Boolean, scale As Single, uv As Vector2(),
+                                groups As List(Of ObjGroup), mtlLib As String)
         Dim inv = CultureInfo.InvariantCulture
         Using w As New StreamWriter(path, False, New Text.UTF8Encoding(False))
             w.WriteLine("# Slicer - nuTerra building export")
             w.WriteLine("# {0} vertices, {1} triangles, {2}, scale x{3}",
                         pos.Length, idx.Length \ 3, If(zUp, "Z-up", "Y-up"),
                         scale.ToString("0.####", inv))
-            w.WriteLine("o building")
+            If mtlLib IsNot Nothing Then w.WriteLine("mtllib " & mtlLib)
             For Each p In pos
                 Dim q = Convert(p, zUp, scale)
                 w.WriteLine("v {0} {1} {2}",
@@ -312,22 +347,37 @@ Public NotInheritable Class MeshExport
                 Next
             End If
 
-            Dim t = 0
-            While t + 2 < idx.Length
-                Dim a = idx(t), b = idx(t + 1), c = idx(t + 2)
-                If a >= 0 AndAlso b >= 0 AndAlso c >= 0 AndAlso
-                   a < pos.Length AndAlso b < pos.Length AndAlso c < pos.Length Then
-                    ' OBJ indices are 1-based. Off by one here writes a file that
-                    ' opens, looks almost right, and has one corner of every face
-                    ' attached to the wrong vertex.
-                    If hasUv Then
-                        w.WriteLine("f {0}/{0} {1}/{1} {2}/{2}", a + 1, b + 1, c + 1)
-                    Else
-                        w.WriteLine("f {0} {1} {2}", a + 1, b + 1, c + 1)
+            ' Faces, grouped so each part carries its own material. Without
+            ' the o/usemtl pair the whole building arrives as one object with
+            ' one texture, which is the wrong texture for all but one part.
+            Dim spans = groups
+            If spans Is Nothing OrElse spans.Count = 0 Then
+                spans = New List(Of ObjGroup) From {
+                    New ObjGroup With {.Name = "building", .Material = Nothing,
+                                       .FirstIndex = 0, .IndexCount = idx.Length}}
+            End If
+
+            For Each g In spans
+                w.WriteLine("o " & g.Name)
+                If g.Material IsNot Nothing Then w.WriteLine("usemtl " & g.Material)
+                Dim t = g.FirstIndex
+                Dim stop_ = Math.Min(idx.Length, g.FirstIndex + g.IndexCount)
+                While t + 2 < stop_
+                    Dim a = idx(t), b = idx(t + 1), c = idx(t + 2)
+                    If a >= 0 AndAlso b >= 0 AndAlso c >= 0 AndAlso
+                       a < pos.Length AndAlso b < pos.Length AndAlso c < pos.Length Then
+                        ' OBJ indices are 1-based. Off by one here writes a file
+                        ' that opens, looks almost right, and has one corner of
+                        ' every face attached to the wrong vertex.
+                        If hasUv Then
+                            w.WriteLine("f {0}/{0} {1}/{1} {2}/{2}", a + 1, b + 1, c + 1)
+                        Else
+                            w.WriteLine("f {0} {1} {2}", a + 1, b + 1, c + 1)
+                        End If
                     End If
-                End If
-                t += 3
-            End While
+                    t += 3
+                End While
+            Next
         End Using
     End Sub
 End Class
