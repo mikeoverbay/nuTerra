@@ -95,6 +95,30 @@ def grid_1m(g, cell_m=CELL_M):
         sums = np.add.reduceat(fb, edges[:n])
         counts = np.diff(np.append(edges[:n], W)).astype(np.float32)
         height[r] = sums / np.maximum(counts, 1.0)
+
+    # THE STEEPEST GROUND INSIDE EACH CELL, at the bake's own resolution.
+    #
+    # The cell-to-cell test on mean heights is not enough on its own and the
+    # sweep proved it: with the climb limit on, 0 of 16 lanes changed. Averaging
+    # a metre of ground flattens exactly the thing being looked for - measured,
+    # 0.41% of clear bake edges exceed 40 degrees against 0.138% of metre
+    # edges, so the mean under-reports steepness by about three times.
+    #
+    # So the gradient is measured where it is real - between adjacent TEXELS,
+    # 0.171 m apart - and max-pooled to the metre. A cell whose worst internal
+    # slope is unclimbable is unclimbable, however gentle its average looks.
+    tex = span / W
+    gy = np.abs(np.diff(floor, axis=0)) / tex
+    gx = np.abs(np.diff(floor, axis=1)) / tex
+    grad = np.zeros((W, W), np.float32)
+    grad[:-1, :] = gy
+    grad[:, :-1] = np.maximum(grad[:, :-1], gx)
+    steep = np.zeros((n, n), np.float32)
+    for r in range(n):
+        r0, r1 = edges[r], max(edges[r] + 1, edges[r + 1])
+        band = grad[r0:r1, :].max(axis=0)
+        steep[r] = np.maximum.reduceat(band, edges[:n])
+    blocked |= (steep > MAX_CLIMB_TAN)
     return blocked, n, height
 
 
@@ -222,7 +246,7 @@ def walk_down(field, start_rc):
     return out
 
 
-def solve(g, start, goal, cell_m=CELL_M):
+def solve(g, start, goal, cell_m=CELL_M, standoff_m=0.0):
     """The shortest drivable route, and what it cost to find."""
     import time
     t0 = time.time()
@@ -230,7 +254,10 @@ def solve(g, start, goal, cell_m=CELL_M):
     t1 = time.time()
     gr, gsnap = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
     sr, ssnap = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
-    field = flood(blocked, gr, height=height)
+    # The optimum is the RULER, so it defaults to no standoff: it has to be
+    # the shortest drivable route, not the shortest comfortable one.
+    cost = standoff_cost(blocked, want_m=standoff_m, cell_m=cell_m)         if standoff_m > 0 else None
+    field = flood(blocked, gr, cost=cost, height=height)
     t2 = time.time()
     cells = walk_down(field, sr)
     pts = [to_world(g, r, c, cell_m) for r, c in cells]
@@ -939,7 +966,7 @@ def simplify(pts, tol_m=0.35):
 
 
 def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
-                dedupe=0.85):
+                dedupe=0.85, standoff_m=6.0):
     """A lane per X: BOTH ends on that X, then hooked to the base.
 
     "ffs. end and start." Right - a lane is a line of constant X, so the start
@@ -960,7 +987,12 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
     blocked, n, height = grid_1m(g, cell_m)
     s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
     g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
-    f_goal = flood(blocked, g_rc, height=height)
+    # KEEP OFF THE WALLS. A cost rather than a wall, so a tight gap is still
+    # driveable, just expensive. Measured base to base: 26% of the route was
+    # within 3 m of something, and at a 6 m standoff that is 1% for 16 m more
+    # road on 846.
+    cost = standoff_cost(blocked, want_m=standoff_m, cell_m=cell_m)         if standoff_m > 0 else None
+    f_goal = flood(blocked, g_rc, cost=cost, height=height)
     near_row, far_row = s_rc[0], n - 1 - s_rc[0]
     ring = max(1, int(ring_m / cell_m))
     step = max(1, int(round(step_m / cell_m)))
@@ -976,7 +1008,7 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
         # both ends on the same ground, and the far end able to reach the base
         if comp[a_rc] != comp[b_rc] or not np.isfinite(f_goal[b_rc]):
             continue
-        f_cross = flood(blocked, b_rc, height=height)
+        f_cross = flood(blocked, b_rc, cost=cost, height=height)
         if not np.isfinite(f_cross[a_rc]):
             continue
         cells = walk_down(f_cross, a_rc) + walk_down(f_goal, b_rc)[1:]
@@ -995,3 +1027,33 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
                         x=g["wx0"] + col * cell_m,
                         snapped=max(a_snap, b_snap)))
     return dict(routes=out, opt=float(f_goal[s_rc]))
+
+
+def clearance(blocked, cell_m=CELL_M):
+    """Metres from every free cell to the nearest blocked one."""
+    from scipy.ndimage import distance_transform_edt
+    return distance_transform_edt(~blocked, sampling=cell_m).astype(np.float32)
+
+
+def standoff_cost(blocked, want_m=6.0, weight=4.0, cell_m=CELL_M):
+    """Make ground near a wall EXPENSIVE, so routes keep their distance.
+
+    "can we apply a stand off min dist to sides of path? does the maze algo
+    support it?" - yes, and this is the way to do it rather than eroding the
+    map further.
+
+    ERODING would be the other option: grow the obstacles by the standoff and
+    flood the smaller free space. That gives a hard guarantee and it throws
+    away every gap narrower than twice the standoff - on monastery a 6 m
+    standoff would wall off streets the tanks are meant to drive. A route that
+    does not exist is worse than one that hugs a wall for ten metres.
+
+    So the standoff is a COST, not a wall. A cell `want_m` or further from
+    anything costs 1. Closer than that it costs up to `weight` times more, in
+    proportion to how close. Dijkstra then buys the middle of a corridor
+    wherever the middle is affordable, and still squeezes through the gap when
+    the gap is the only way - it just pays for it.
+    """
+    d = clearance(blocked, cell_m)
+    short = np.clip((want_m - d) / max(1e-6, want_m), 0.0, 1.0)
+    return (1.0 + (weight - 1.0) * short).astype(np.float32)

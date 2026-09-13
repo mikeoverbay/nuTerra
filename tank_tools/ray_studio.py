@@ -922,7 +922,8 @@ def main():
                 # is the sweep, and it is the one that matches how hulls
                 # actually start: spread along the base line, each taking the X
                 # it stands on. [t] still gives the obstacle-based roads.
-                c = maze.sweep_roads(g, start, goal, step_m=road_step)
+                c = maze.sweep_roads(g, start, goal, step_m=road_step,
+                                     standoff_m=standoff_m)
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
                 # SIMPLIFIED FOR DRAWING ONLY. One point per metre is what the
                 # flood fill produces and what the route IS; it is not what a
@@ -967,6 +968,7 @@ def main():
     # monastery. Everything else on the old panel belonged to the ring search.
     road_budget = 25
     road_step = 40.0              # metres between one swept road and the next
+    standoff_m = 6.0              # how far a road tries to stay off a wall
     # The maze's own constants, read from it rather than restated here, so the
     # panel cannot drift from the thing it is describing.
     from tank_tools import maze as _mz
@@ -1184,6 +1186,8 @@ def main():
                         val = lo + (hi - lo) * max(0.0, min(1.0, frac))
                         if nm == "budget":
                             road_budget = int(round(val))
+                        elif nm == "standoff":
+                            standoff_m = round(val, 1)
                         break
                 if grabbed is not None:
                     active_slider = grabbed
@@ -1209,6 +1213,8 @@ def main():
                 val = lo + (hi - lo) * max(0.0, min(1.0, frac))
                 if active_slider == "budget":
                     road_budget = int(round(val))
+                elif active_slider == "standoff":
+                    standoff_m = round(val, 1)
             elif e.type == pygame.MOUSEMOTION and dragging:
                 dx, dy = e.pos[0] - drag_from[0], e.pos[1] - drag_from[1]
                 drag_from = e.pos
@@ -1678,6 +1684,8 @@ def main():
         # at 25% there are twelve. It is the only dial the method takes.
         y = slider(LX, y, LW, "budget", "Road budget", road_budget, 0, 100,
                    "+%d%%")
+        y = slider(LX, y, LW, "standoff", "Wall standoff", standoff_m, 0, 15,
+                   "%.0f m")
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
@@ -1700,6 +1708,8 @@ def main():
         ry = readout(RX, ry, "cell", "%.1f m" % maze_cell)
         ry = readout(RX, ry, "climb limit", "%.0f deg" % maze_climb)
         ry = readout(RX, ry, "road budget", "+%d%%" % road_budget,
+                     (150, 255, 200))
+        ry = readout(RX, ry, "wall standoff", "%.0f m" % standoff_m,
                      (150, 255, 200))
         ry += 10
 
