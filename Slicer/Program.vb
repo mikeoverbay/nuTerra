@@ -44,6 +44,8 @@ Module Program
         Dim doShell = False
         Dim shotAngle As String = Nothing
         Dim shotCut = False
+        Dim uiInShot = False
+        Dim findPattern As String = Nothing
         Dim bakeDir As String = Nothing
         Dim objPath As String = Nothing
         Dim bakePx As Integer = 2048
@@ -99,6 +101,10 @@ Module Program
                     If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), checkCount) Then i += 1 Else checkCount = 0
                 Case "--shot"
                     i += 1 : If i < args.Length Then shotPath = args(i)
+                Case "--ui"
+                    uiInShot = True
+                Case "--find"
+                    i += 1 : If i < args.Length Then findPattern = args(i)
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -300,8 +306,11 @@ Module Program
             Console.WriteLine()
             Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
             Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
+            Console.WriteLine("browser: click the box and type to search - * is a wildcard and there may")
+            Console.WriteLine("        be several (*eu*house*). Double-click a row to load THAT one model.")
+            Console.WriteLine("        / focuses the box, Enter loads, Tab hides the panel.")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern)
                 win.Run()
             End Using
         End If
@@ -422,6 +431,8 @@ Module Program
         Console.WriteLine("  --bake <dir>         bake the maps into UV2 space as PNG + MTL")
         Console.WriteLine("  --bake-size <px>     bake resolution, default 2048")
         Console.WriteLine("  --obj <file.obj>     load an exported OBJ back and look at it")
+        Console.WriteLine("  --find <pattern>     open on the first matching model; * wildcards, any number")
+        Console.WriteLine("  --ui                 keep the browser panel in a --shot")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")

@@ -70,6 +70,44 @@ Public Class ViewerWindow
     Private soloPart As Integer = -1
     Private wireframe As Boolean = False
 
+    ' ---- the model browser ----
+    Private ui As UiOverlay
+    Private browser As ModelBrowser
+
+    ''' <summary>
+    ''' When set, ONLY this `.model` is loaded instead of every part of the
+    ''' current asset.
+    '''
+    ''' An asset's lod0 is a kit holding all of its interchangeable variants at
+    ''' once - hd_bld_eu_049_thouse has 24 - so loading the whole asset stacks
+    ''' two dozen overlapping walls in the same cubic metre. That is what made
+    ''' the first OBJ export unreadable. Picking a row narrows to the one mesh;
+    ''' Left/Right clears it and goes back to the whole asset.
+    ''' </summary>
+    Private soloModel As BuildingPart = Nothing
+
+    ' Double-click is measured here rather than asked of the OS: OpenTK reports
+    ' button presses, not clicks, so the interval and the travel are ours to
+    ' judge. 400 ms and 6 px are the usual Windows defaults.
+    Private lastClickAt As DateTime = DateTime.MinValue
+    Private lastClickRow As Integer = -1
+    Private lastClickPos As Vector2 = Vector2.Zero
+    Private pressedOverPanel As Boolean = False
+
+    ''' <summary>--ui: build the panel even for a --shot, so the interface
+    ''' itself can be looked at in a still instead of only over someone's
+    ''' shoulder. Off by default, because a strip of UI down one side of every
+    ''' comparison shot is worse than useless.</summary>
+    Private panelInShot As Boolean = False
+
+    ''' <summary>--find: open with the search box already filled in, the first
+    ''' match selected and loaded. Saves arrowing through 1,189 rows to reach a
+    ''' known model, and it is how the browser gets exercised end to end without
+    ''' anyone having to click.</summary>
+    Private startQuery As String = Nothing
+    Private Const DOUBLE_CLICK_MS As Double = 400.0
+    Private Const DOUBLE_CLICK_PX As Single = 6.0F
+
     ' The cut is an inspection aid now, not the job - this is an exporter.
     ' S still turns it on to look inside a building.
     Private slicing As Boolean = False
@@ -218,7 +256,8 @@ Public Class ViewerWindow
                    Optional shot As String = Nothing, Optional doShell As Boolean = False,
                    Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False,
                    Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
-                   Optional objFile As String = Nothing)
+                   Optional objFile As String = Nothing, Optional uiInShot As Boolean = False,
+                   Optional findPattern As String = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -234,6 +273,8 @@ Public Class ViewerWindow
         shellOnLoad = doShell
         bakeDir = bakeTo
         objPath = objFile
+        panelInShot = uiInShot
+        startQuery = findPattern
         If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
             ' The angle decides what the picture can prove, so it is explicit
@@ -277,7 +318,37 @@ Public Class ViewerWindow
         whiteTex = DdsTexture.White()
         checkerTex = DdsTexture.Checker(512, 16)
         flatNrmTex = DdsTexture.FlatNormal()
-        If objPath IsNot Nothing Then
+
+        ' The browser needs a live GL context for its font atlas, so it is built
+        ' here and not in the constructor. A --shot run gets no panel at all:
+        ' the whole point of a shot is a picture of the MODEL, and a strip of
+        ' interface down one side would be in every comparison forever after.
+        If shotPath Is Nothing OrElse panelInShot Then
+            ui = New UiOverlay(New UiFont("Consolas", 13.0F))
+            browser = New ModelBrowser(assets)
+            Console.WriteLine("browser: {0:N0} lod0 models across {1:N0} assets",
+                              browser.Rows.Count, assets.Count)
+        End If
+
+        ' A --find picks the model, so it must run BEFORE the fallback load -
+        ' otherwise the whole asset is read out of the packages and thrown away
+        ' one line later.
+        Dim found = False
+        If browser IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(startQuery) Then
+            browser.Query = startQuery
+            browser.Apply()
+            If browser.Shown.Count > 0 Then
+                browser.Selected = 0
+                LoadRow(browser.Shown(0))
+                found = True
+            End If
+            Console.WriteLine("find {0}: {1:N0} match(es){2}", startQuery, browser.Shown.Count,
+                              If(found, "", "  - nothing loaded"))
+        End If
+
+        If found Then
+            ' already loaded
+        ElseIf objPath IsNot Nothing Then
             LoadObj(objPath)
         Else
             LoadCurrent()
@@ -309,6 +380,23 @@ Public Class ViewerWindow
         If ok = 0 Then Throw New Exception(what & " shader: " & GL.GetShaderInfoLog(s))
     End Sub
 
+    ''' <summary>
+    ''' The parts to load: every part of the current asset at the current LOD,
+    ''' or the single `.model` the browser picked.
+    '''
+    ''' One place, because three separate loops read this - the geometry load,
+    ''' the PBR build and the texture bake. When they disagreed about which
+    ''' parts were in play the render and the bake quietly described different
+    ''' buildings, and nothing in either output said so.
+    ''' </summary>
+    Private Function CurrentParts() As List(Of BuildingPart)
+        If soloModel IsNot Nothing Then Return New List(Of BuildingPart) From {soloModel}
+        Dim asset = assets(assetIndex)
+        Dim lods = asset.Lods
+        If lods.Count = 0 Then Return New List(Of BuildingPart)
+        Return asset.PartsAt(lods(Math.Max(0, Math.Min(lodIndex, lods.Count - 1))))
+    End Function
+
     ''' <summary>Read the current asset's current LOD out of the packages. Only
     ''' called when the asset or LOD changes - moving the plane does not touch
     ''' this, which is what lets the plane be dragged.</summary>
@@ -325,7 +413,7 @@ Public Class ViewerWindow
         Dim any = False
         Dim wanted = If(settings.Parts, "all").Trim().ToLowerInvariant()
 
-        For Each part In asset.PartsAt(lod)
+        For Each part In CurrentParts()
             If wanted <> "all" AndAlso Not part.Name.ToLowerInvariant().Contains(wanted) Then Continue For
             Dim raw = pkg.ReadPath(PrimitivesPathFor(part))
             If raw Is Nothing Then Continue For
@@ -385,7 +473,7 @@ Public Class ViewerWindow
         If lods.Count = 0 Then Return
         Dim lod = lods(Math.Max(0, Math.Min(lodIndex, lods.Count - 1)))
 
-        For Each part In asset.PartsAt(lod)
+        For Each part In CurrentParts()
             Dim stem = If(Not String.IsNullOrEmpty(part.Visual),
                           part.Visual.Replace("\"c, "/"c).ToLowerInvariant(),
                           part.Path.Substring(0, part.Path.Length - ".model".Length))
@@ -512,7 +600,7 @@ Public Class ViewerWindow
         Dim written = 0, noUv = 0, noMat = 0
         Dim meshIndex = 0
 
-        For Each part In asset.PartsAt(lod)
+        For Each part In CurrentParts()
             Dim stem = If(Not String.IsNullOrEmpty(part.Visual),
                           part.Visual.Replace("\"c, "/"c).ToLowerInvariant(),
                           part.Path.Substring(0, part.Path.Length - ".model".Length))
@@ -1025,8 +1113,17 @@ Public Class ViewerWindow
         MyBase.OnRenderFrame(e)
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
+        ' The 3D gets the window MINUS the panel, and the aspect is computed
+        ' from that same width. Drawing the model full-window and laying the
+        ' panel over it would centre the building behind the list, and every
+        ' framing decision - the `dist` a load picks, what a zoom is centred on
+        ' - would be measured against a width that is not the visible one.
+        Dim viewX = PanelWidth()
+        Dim viewW = Math.Max(1, ClientSize.X - viewX)
+        GL.Viewport(viewX, 0, viewW, Math.Max(1, ClientSize.Y))
+
         If (If(pbrOn, pbrParts.Count, parts.Count)) > 0 Then
-            Dim aspect = CSng(Math.Max(ClientSize.X, 1)) / Math.Max(ClientSize.Y, 1)
+            Dim aspect = CSng(viewW) / Math.Max(ClientSize.Y, 1)
             ' The Y term is NEGATED, and that is not a taste setting - it is the
             ' sign nuTerra has.
             '
@@ -1099,6 +1196,18 @@ Public Class ViewerWindow
 drawn:
         End If
 
+        ' The panel wants the WHOLE window back, because its coordinates are
+        ' window pixels - the same space the mouse arrives in. Leaving the inset
+        ' viewport here would squeeze the UI into the 3D area and put every
+        ' click a panel-width out.
+        If browser IsNot Nothing AndAlso browser.Visible Then
+            GL.Viewport(0, 0, Math.Max(1, ClientSize.X), Math.Max(1, ClientSize.Y))
+            Dim mp = MouseState.Position
+            ui.BeginFrame(ClientSize.X, ClientSize.Y)
+            browser.Draw(ui, PanelWidth(), ClientSize.Y, mp.X, mp.Y)
+            ui.EndFrame()
+        End If
+
         SwapBuffers()
 
         If shotPath IsNot Nothing Then
@@ -1162,20 +1271,34 @@ drawn:
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
         MyBase.OnUpdateFrame(e)
         Dim k = KeyboardState
+
+        ' EVERY key below is a bare letter or an arrow, so all of it has to stand
+        ' down while the search box has the keyboard - otherwise typing "house"
+        ' walks through the shell pipeline, the bottom fill, the cut and the
+        ' solid/wireframe toggle on its way to filtering the list. The mouse is
+        ' deliberately NOT gated: the camera stays live while you type.
+        If browser IsNot Nothing AndAlso browser.Focused Then
+            CameraMouseUpdate()
+            Return
+        End If
+
         If k.IsKeyDown(Keys.Escape) Then Close()
 
         If k.IsKeyPressed(Keys.Right) Then
             assetIndex = (assetIndex + 1) Mod assets.Count
-            lodIndex = 0 : soloPart = -1 : LoadCurrent()
+            lodIndex = 0 : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         ElseIf k.IsKeyPressed(Keys.Left) Then
             assetIndex = (assetIndex - 1 + assets.Count) Mod assets.Count
-            lodIndex = 0 : soloPart = -1 : LoadCurrent()
+            lodIndex = 0 : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         End If
 
+        ' A LOD change drops the single-model pick: that pick names a part at
+        ' lod0, and it does not exist at lod3. Falling back to the whole asset
+        ' is the honest answer rather than silently showing nothing.
         If k.IsKeyPressed(Keys.RightBracket) Then
-            lodIndex += 1 : soloPart = -1 : LoadCurrent()
+            lodIndex += 1 : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         ElseIf k.IsKeyPressed(Keys.LeftBracket) Then
-            lodIndex = Math.Max(0, lodIndex - 1) : soloPart = -1 : LoadCurrent()
+            lodIndex = Math.Max(0, lodIndex - 1) : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         End If
 
         If k.IsKeyPressed(Keys.Down) Then
@@ -1398,7 +1521,11 @@ drawn:
         Dim rightDown = m.IsButtonDown(MouseButton.Right)
         Dim ctrl = k.IsKeyDown(Keys.LeftControl) OrElse k.IsKeyDown(Keys.RightControl)
         Dim shiftHeld = k.IsKeyDown(Keys.LeftShift) OrElse k.IsKeyDown(Keys.RightShift)
-        Dim held = leftDown OrElse midDown
+        ' A drag that STARTED on the panel is the panel's, for as long as the
+        ' button is held - including after the pointer leaves the panel. Testing
+        ' where the cursor is right now instead would let a click on a row spin
+        ' the model the moment the drag crossed into the 3D view.
+        Dim held = (leftDown OrElse midDown) AndAlso Not pressedOverPanel
 
         ' Ignore the frame a button goes down: MouseState.Delta carries the
         ' travel since the last update, which can be a long way if the cursor
@@ -1430,7 +1557,15 @@ drawn:
 
         ' The wheel, this viewer's own addition - straight into the same pool
         ' so it coasts and decays like everything else.
-        If m.ScrollDelta.Y <> 0 Then zoomDelta -= m.ScrollDelta.Y * 0.25F
+        '
+        ' NOT while the pointer is over the browser. `OnMouseWheel` already
+        ' routes the wheel to the list there, but this poll of ScrollDelta is a
+        ' SECOND, INDEPENDENT reader of the same notch - an override and a poll
+        ' do not exclude each other - so without this test one notch scrolled
+        ' the list and zoomed the camera at the same time.
+        If m.ScrollDelta.Y <> 0 AndAlso Not PointerOverPanel() Then
+            zoomDelta -= m.ScrollDelta.Y * 0.25F
+        End If
 
         Dim f = 1.0F - CSng(Math.Pow(1.0F - Math.Min(ROT_DAMPING, 0.999F), dt * 60.0F))
 
@@ -1475,6 +1610,141 @@ drawn:
             Console.WriteLine("  part {0}/{1}  {2}  {3:N0} tris",
                               soloPart + 1, parts.Count, parts(soloPart).Name, parts(soloPart).Count \ 3)
         End If
+    End Sub
+
+    ''' <summary>Is the cursor over the browser panel right now? Asked by every
+    ''' input path the panel has to win.</summary>
+    Private Function PointerOverPanel() As Boolean
+        If browser Is Nothing OrElse Not browser.Visible Then Return False
+        Dim p = MouseState.Position
+        Return browser.HitsPanel(p.X, p.Y)
+    End Function
+
+    ''' <summary>Pixels the panel takes off the left of the 3D view, 0 when it
+    ''' is hidden or was never built (a --shot run). This is the ONE width -
+    ''' the draw and the hit tests both take it, so they cannot drift.</summary>
+    Private Function PanelWidth() As Integer
+        If browser Is Nothing OrElse Not browser.Visible Then Return 0
+        Return Math.Min(ModelBrowser.PANEL_W, Math.Max(0, ClientSize.X - 160))
+    End Function
+
+    ''' <summary>
+    ''' Load the single `.model` a row names.
+    '''
+    ''' The asset and LOD are set to that model's own, so the title, the PBR
+    ''' build and a bake all stay consistent with what is on screen - only the
+    ''' PART list is narrowed. Setting `soloModel` without moving `assetIndex`
+    ''' would leave the window captioned with whatever was loaded before.
+    ''' </summary>
+    Private Sub LoadRow(r As ModelRow)
+        If r Is Nothing Then Return
+        assetIndex = Math.Max(0, Math.Min(r.AssetIndex, assets.Count - 1))
+        Dim lods = assets(assetIndex).Lods
+        lodIndex = Math.Max(0, lods.IndexOf(r.Part.Lod))
+        soloModel = r.Part
+        soloPart = -1
+        Console.WriteLine("load {0}  ({1})", r.Part.Name, r.AssetName)
+        LoadCurrent()
+    End Sub
+
+    ''' <summary>Characters for the search box. Only reaches the box when it has
+    ''' focus, so the viewer's letter hotkeys are untouched otherwise.</summary>
+    Protected Overrides Sub OnTextInput(e As TextInputEventArgs)
+        MyBase.OnTextInput(e)
+        If browser Is Nothing OrElse Not browser.Focused Then Return
+        For Each c In e.AsString
+            browser.TypeChar(c)
+        Next
+    End Sub
+
+    Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
+        MyBase.OnMouseWheel(e)
+        If browser Is Nothing OrElse Not browser.Visible Then Return
+        ' Only when the pointer is actually over the panel - otherwise the wheel
+        ' belongs to the camera, which reads it in CameraMouseUpdate.
+        If Not PointerOverPanel() Then Return
+        browser.ScrollBy(-CInt(Math.Sign(e.OffsetY)) * 3)
+    End Sub
+
+    Protected Overrides Sub OnMouseDown(e As MouseButtonEventArgs)
+        MyBase.OnMouseDown(e)
+        If browser Is Nothing OrElse Not browser.Visible Then Return
+        Dim p = MouseState.Position
+        pressedOverPanel = browser.HitsPanel(p.X, p.Y)
+        If Not pressedOverPanel OrElse e.Button <> MouseButton.Left Then Return
+
+        If browser.HitsSearch(p.X, p.Y) Then
+            browser.Focused = True
+            Return
+        End If
+
+        Dim row = browser.RowAtPixel(p.X, p.Y)
+        If row < 0 Then
+            browser.Focused = False
+            Return
+        End If
+
+        ' A double click is the SAME row, twice, close together in both time and
+        ' space. Testing time alone fires on a fast pair of clicks on different
+        ' rows and loads whichever was second, which reads as the list picking
+        ' at random.
+        Dim now = DateTime.UtcNow
+        Dim near = (New Vector2(p.X, p.Y) - lastClickPos).Length <= DOUBLE_CLICK_PX
+        Dim quick = (now - lastClickAt).TotalMilliseconds <= DOUBLE_CLICK_MS
+        browser.Selected = row
+        browser.Focused = False
+        If quick AndAlso near AndAlso row = lastClickRow Then
+            LoadRow(browser.Shown(row))
+            lastClickAt = DateTime.MinValue          ' a triple click is not two loads
+            lastClickRow = -1
+        Else
+            lastClickAt = now
+            lastClickRow = row
+            lastClickPos = New Vector2(p.X, p.Y)
+        End If
+    End Sub
+
+    Protected Overrides Sub OnMouseUp(e As MouseButtonEventArgs)
+        MyBase.OnMouseUp(e)
+        pressedOverPanel = False
+    End Sub
+
+    ''' <summary>Editing keys, which do not arrive as text input.</summary>
+    Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
+        MyBase.OnKeyDown(e)
+        If browser Is Nothing Then Return
+
+        ' Tab toggles the panel whether or not anything has focus.
+        If e.Key = Keys.Tab Then
+            browser.Visible = Not browser.Visible
+            If Not browser.Visible Then browser.Focused = False
+            Return
+        End If
+
+        If Not browser.Visible Then Return
+
+        If browser.Focused Then
+            Select Case e.Key
+                Case Keys.Backspace : browser.Backspace()
+                Case Keys.Escape
+                    ' Escape leaves the box rather than closing the window. The
+                    ' window's Escape still works the moment focus is elsewhere.
+                    If browser.Query.Length > 0 Then browser.ClearQuery() Else browser.Focused = False
+                Case Keys.Enter, Keys.KeyPadEnter
+                    If browser.Shown.Count > 0 Then
+                        If browser.Selected < 0 Then browser.MoveSelection(1)
+                        LoadRow(browser.Shown(browser.Selected))
+                    End If
+                Case Keys.Down : browser.MoveSelection(1)
+                Case Keys.Up : browser.MoveSelection(-1)
+                Case Keys.PageDown : browser.MoveSelection(10)
+                Case Keys.PageUp : browser.MoveSelection(-10)
+            End Select
+            Return
+        End If
+
+        ' Not focused: F starts a search the way every list does.
+        If e.Key = Keys.Slash Then browser.Focused = True
     End Sub
 
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
