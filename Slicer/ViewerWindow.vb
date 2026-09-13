@@ -109,6 +109,7 @@ Public Class ViewerWindow
     Private fillDebug As Boolean = True
     Private fillOn As Boolean = True
     Private fillTris, fillRings, fillOpen, fillEdges As Integer
+    Private killZero, killSliver, killDupe As Integer
     ''' <summary>
     ''' The worst Y spread of any ONE mesh's fill, and the real check - stronger
     ''' than the picture, because a fill that climbed off its plane shows as a
@@ -170,7 +171,7 @@ Public Class ViewerWindow
 
     Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings,
                    Optional shot As String = Nothing, Optional doShell As Boolean = False,
-                   Optional shotAngle As String = Nothing)
+                   Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -188,7 +189,9 @@ Public Class ViewerWindow
             ' The angle decides what the picture can prove, so it is explicit
             ' rather than whatever the viewer happened to open at. A before and
             ' an after are only comparable if both used the same one.
-            slicing = False          ' a cut would hide half of whatever is being shown
+            ' A cut normally hides half of whatever is being shown, so shots
+            ' default to no cut - unless the cut IS the subject.
+            slicing = shotCut
             Select Case If(shotAngle, "bottom").Trim().ToLowerInvariant()
                 Case "iso"
                     ' Three-quarter from above - the ordinary way to look at a
@@ -326,6 +329,7 @@ Public Class ViewerWindow
         parts.Clear()
         totalVerts = 0 : totalTris = 0 : clippedTris = 0 : cutSegs = 0
         fillTris = 0 : fillRings = 0 : fillOpen = 0 : fillEdges = 0
+        killZero = 0 : killSliver = 0 : killDupe = 0
         fillWorstSpread = 0.0F : fillWorstName = Nothing
 
         Dim verts As New List(Of Single)
@@ -347,6 +351,19 @@ Public Class ViewerWindow
         For Each rp In rawParts
             Dim pos = rp.Pos
             Dim tri = rp.Idx
+
+            ' Kill degenerates BEFORE the cut, not after. A zero-length edge
+            ' has no side for the clipper to put it on, a sliver below the weld
+            ' tolerance is not a triangle by this app's own definition, and a
+            ' stacked duplicate face makes the plane cross the same edge twice
+            ' and emit two identical cut segments. All three produce garbage
+            ' loops, and none of them is recoverable once the cut has run.
+            If settings.DropDegenerate Then
+                Dim z = 0, sl = 0, du = 0
+                tri = MeshWeld.DropDegenerates(pos, tri, settings.WeldTolerance, z, sl, du)
+                killZero += z : killSliver += sl : killDupe += du
+                If tri.Length < 3 Then Continue For
+            End If
 
             If slicing Then
                 Dim res As SliceResult
@@ -514,7 +531,10 @@ Public Class ViewerWindow
             If(fillOn,
                String.Format("   FILL {0:N0} tris / {1} ring(s), {2} open, {3} edges",
                              fillTris, fillRings, fillOpen, fillEdges),
-               "   fill OFF"))
+               "   fill OFF") &
+            If(killZero + killSliver + killDupe > 0,
+               String.Format("   KILLED {0:N0} zero, {1:N0} sliver, {2:N0} dupe",
+                             killZero, killSliver, killDupe), ""))
     End Sub
 
     Private Shared Function PrimitivesPathFor(part As BuildingPart) As String
@@ -637,6 +657,9 @@ Public Class ViewerWindow
             If dir IsNot Nothing AndAlso Not IO.Directory.Exists(dir) Then IO.Directory.CreateDirectory(dir)
             PngWriter.WriteRgb(path, w, h, flipped)
             Console.WriteLine("shot: {0}  ({1}x{2})", IO.Path.GetFullPath(path), w, h)
+            Console.WriteLine("      {0:N0} tris drawn   degenerates killed: {1:N0} zero-edge, {2:N0} sliver, {3:N0} duplicate",
+                              totalTris, killZero, killSliver, killDupe)
+            If slicing Then Console.WriteLine("      cut: {0:N0} clipped, {1:N0} cut segments", clippedTris, cutSegs)
             Console.WriteLine("      fill {0:N0} tris / {1} ring(s), {2} open chain(s), {3} bottom edges",
                               fillTris, fillRings, fillOpen, fillEdges)
             If fillTris > 0 Then
