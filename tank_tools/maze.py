@@ -966,7 +966,7 @@ def simplify(pts, tol_m=0.35):
 
 
 def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
-                dedupe=0.85, standoff_m=6.0):
+                dedupe=0.85, standoff_m=6.0, base_ring_m=50.0):
     """A lane per X: BOTH ends on that X, then hooked to the base.
 
     "ffs. end and start." Right - a lane is a line of constant X, so the start
@@ -993,7 +993,12 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
     # road on 846.
     cost = standoff_cost(blocked, want_m=standoff_m, cell_m=cell_m)         if standoff_m > 0 else None
     f_goal = flood(blocked, g_rc, cost=cost, height=height)
+    # AND THE WAY OUT OF OUR OWN BASE. One more flood, from the base rather
+    # than to it, so every lane can be stitched back to where the tank
+    # actually starts.
+    f_home = flood(blocked, s_rc, cost=cost, height=height)
     near_row, far_row = s_rc[0], n - 1 - s_rc[0]
+    base_ring_cells = base_ring_m / cell_m
     ring = max(1, int(ring_m / cell_m))
     step = max(1, int(round(step_m / cell_m)))
     comp = components(blocked, height)
@@ -1043,6 +1048,28 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
             # road - and a lane quietly vanishing is what was complained about.
             cells = walk_down(f_goal, a_rc)
             b_rc = cells[-1]
+        # STITCH THE LANE TO THE BASE RING.
+        #
+        # "we didn't connect base rings to the start of each path. if its in
+        # the ring at start already, skip to next path. we need to stich these
+        # 2 together."
+        #
+        # A lane starts on the base LINE at its own X, which for the outer
+        # lanes is hundreds of metres from the base itself - so the route
+        # began somewhere no tank is standing. Every lane now runs from the
+        # base out to its own start first.
+        #
+        # Unless it is already inside the base ring, in which case there is
+        # nothing to stitch and the lane is left alone.
+        d_base = np.hypot(a_rc[0] - s_rc[0], a_rc[1] - s_rc[1])
+        stitched = False
+        if d_base > base_ring_cells:
+            if not np.isfinite(f_home[a_rc]):
+                continue                  # cannot even leave the base for it
+            lead = walk_down(f_home, a_rc)[::-1]     # base -> the lane's start
+            cells = lead[:-1] + cells
+            stitched = True
+
         if len(cells) < 20:
             continue
         cs = set(cells)
@@ -1053,6 +1080,7 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
             np.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
             for i in range(len(pts) - 1)))
         out.append(dict(pts=pts, cells=cs, length=length, crossed=crossed,
+                        stitched=stitched,
                         start=to_world(g, a_rc[0], a_rc[1], cell_m),
                         via=to_world(g, b_rc[0], b_rc[1], cell_m),
                         x=g["wx0"] + col * cell_m,
