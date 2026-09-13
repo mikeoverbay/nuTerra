@@ -45,6 +45,7 @@ Module Program
         Dim shotAngle As String = Nothing
         Dim shotCut = False
         Dim exportCount As Integer = -1
+        Dim openPath As String = Nothing
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -71,6 +72,8 @@ Module Program
                     shotCut = True
                 Case "--shot-angle"
                     i += 1 : If i < args.Length Then shotAngle = args(i)
+                Case "--open"
+                    i += 1 : If i < args.Length Then openPath = args(i)
                 Case "--export"
                     exportCount = 0
                     If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), exportCount) Then i += 1 Else exportCount = 0
@@ -170,8 +173,20 @@ Module Program
         Console.WriteLine("index in  {0:N0} ms", pkg.ScanMilliseconds)
         Console.WriteLine()
 
+        ' --open skips the BUILDING SCAN and wraps the one model the caller
+        ' named. The package index is still built - the file still has to be
+        ' read out of a pkg - but the 4,893-model classification pass is not
+        ' run, and neither is this app's opinion about what counts as a
+        ' building. That is the launched-from-nuTerra path: its picker
+        ' already knows the exact primitives path, so there is nothing to
+        ' search for, and the model it hands over may well be a rock.
         Dim sw = Diagnostics.Stopwatch.StartNew()
-        Dim library = BuildingLibrary.Scan(pkg)
+        Dim library As BuildingLibrary
+        If openPath IsNot Nothing Then
+            library = BuildingLibrary.ForSingleModel(openPath)
+        Else
+            library = BuildingLibrary.Scan(pkg)
+        End If
         sw.Stop()
 
         Console.WriteLine("BUILDINGS")
@@ -382,6 +397,7 @@ Module Program
         Console.WriteLine("  --view               open the 3D viewer")
         Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
         Console.WriteLine("  --check [n]          watertightness before and after the bottom fill")
+        Console.WriteLine("  --open <pkg path>    work on one model by its package path, no scan")
         Console.WriteLine("  --export [n]         write buildings as STL/OBJ (all, or the first n)")
         Console.WriteLine("  --out <dir>          where to write them")
         Console.WriteLine("  --shell              rebuild the set model into an exterior shell")

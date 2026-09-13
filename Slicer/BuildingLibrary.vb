@@ -148,6 +148,57 @@ Public Class BuildingLibrary
     Public ReadOnly HavokByAsset As New Dictionary(Of String, List(Of String))(StringComparer.OrdinalIgnoreCase)
     Public ReadOnly Failures As New List(Of String)
 
+    ''' <summary>
+    ''' A one-asset library around a single model path, so the app can be
+    ''' pointed at ANY model in the packages rather than only at what its own
+    ''' building scan found.
+    '''
+    ''' This is the hook for being launched from somewhere else. nuTerra's
+    ''' picker already resolves a click to a `.primitives` path, and it picks
+    ''' EVERYTHING - rocks, fences, environment props - not only what lives
+    ''' under content/buildings. Handing that path straight in means the export
+    ''' and the viewer work on anything the engine can pick, with no dependency
+    ''' on this app's own idea of what a building is.
+    '''
+    ''' Takes a `.model`, `.visual_processed` or `.primitives_processed` path -
+    ''' anything sharing the stem - because a caller should not have to know
+    ''' which of the three this app happens to read.
+    ''' </summary>
+    Public Shared Function ForSingleModel(modelPath As String) As BuildingLibrary
+        Dim one As New BuildingLibrary
+        If String.IsNullOrWhiteSpace(modelPath) Then Return one
+
+        Dim p = modelPath.Replace("\"c, "/"c).Trim().ToLowerInvariant()
+        For Each ext In {".primitives_processed", ".visual_processed", ".model"}
+            If p.EndsWith(ext, StringComparison.Ordinal) Then
+                p = p.Substring(0, p.Length - ext.Length)
+                Exit For
+            End If
+        Next
+
+        Dim segs = p.Split("/"c)
+        Dim leaf = segs(segs.Length - 1)
+
+        ' Name it after the asset FOLDER where the path has one - that is what a
+        ' person recognises - and fall back to the file stem otherwise.
+        Dim assetName = leaf
+        Dim lod = 0
+        For i = 0 To segs.Length - 1
+            If segs(i) = "normal" AndAlso i > 0 Then assetName = segs(i - 1)
+            If segs(i).StartsWith("lod", StringComparison.Ordinal) AndAlso segs(i).Length > 3 Then
+                Integer.TryParse(segs(i).Substring(3), lod)
+            End If
+        Next
+
+        Dim asset As New BuildingAsset With {.Name = assetName, .Root = "direct", .State = "-"}
+        asset.Parts.Add(New BuildingPart With {
+            .Name = leaf, .Path = p & ".model", .Visual = p, .Lod = lod, .Nodeless = True})
+        one.Assets.Add(assetName, asset)
+        one.ModelsFound = 1
+        one.ModelsParsed = 1
+        Return one
+    End Function
+
     Public Shared Function Scan(pkg As PkgIndex) As BuildingLibrary
         Dim library As New BuildingLibrary
 

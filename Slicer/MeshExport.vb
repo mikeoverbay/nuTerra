@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Globalization
 Imports OpenTK.Mathematics
 
@@ -250,8 +250,9 @@ Public NotInheritable Class MeshExport
         Console.WriteLine("  {0} written, {1} skipped, {2:N0} KB total, {3:N0} ms",
                           written, skipped, totalBytes \ 1024, sw.ElapsedMilliseconds)
         If written > 0 Then
-            Console.WriteLine("  NOT watertight - these are set models with open windows and doorways.")
-            Console.WriteLine("  Run the mesh through a repair pass, or your slicer's own, before printing.")
+            Console.WriteLine("  NOT watertight. These are set models - built for what the camera")
+            Console.WriteLine("  sees, with real holes where windows, doorways and back walls are not.")
+            Console.WriteLine("  Run a repair pass, or let your slicer do its own, before printing.")
         End If
     End Sub
 
