@@ -76,7 +76,7 @@ Public Class MapFlightBake
     ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
     ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 4
+    Public Const BAKE_VERSION As Integer = 5
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
@@ -1077,18 +1077,49 @@ Public Class MapFlightBake
                            OpenGL4.PixelFormat.DepthComponent, PixelType.Float,
                            d.Length * 4, d)
 
-        If solid_b Is Nothing Then ReDim solid_b(SIZE * SIZE - 1)
+        ' THE MODELS' OWN KINDS, read at the one moment they are alone in the
+        ' buffer. draw_models has run and draw_trees has NOT, so every byte
+        ' here belongs to a model - which is what lets the loop below ask
+        ' 'is the solid thing at this texel crushable' and get a truthful
+        ' answer. Ten lines later the trees overwrite it and the question
+        ' becomes unanswerable.
+        Dim mk(SIZE * SIZE - 1) As Byte
+        GL.GetTextureImage(kind_tex.texture_id, 0,
+                           OpenGL4.PixelFormat.Red, PixelType.UnsignedByte,
+                           mk.Length, mk)
 
+        If solid_b Is Nothing Then ReDim solid_b(SIZE * SIZE - 1)
         ' Every texel is assigned, not just the set ones: this array outlives a
         ' map load, and a rebake on a second map would otherwise inherit the
         ' first map's bits wherever the new one has nothing standing.
-        Dim n = 0
+        Dim n = 0, skipped = 0
         For r = 0 To SIZE - 1
             Dim src = (SIZE - 1 - r) * SIZE
             Dim dst_row = r * SIZE
             For c = 0 To SIZE - 1
                 Dim i = dst_row + c
-                If (eye_y - d(src + c) * far_d) - floor_m(i) > OBSTACLE_MIN_H Then
+                ' A MODEL THAT KEYS AS TREE DOES NOT MAKE ITS OWN TEXEL SOLID.
+                '
+                ' Measured by Tank AI work on the bake_version 4 bake: the
+                ' grapevine re-key put 100% of the vineyard's 13,044 texels
+                ' under kind TREE, and 4,903 of them - 37.6% - STILL blocked a
+                ' hull, because crushable is 'tree AND NOT solid' and the
+                ' trellis is a model, so it set the solid bit for itself.
+                ' Re-keying moved it under the tree rule; the tree rule then
+                ' asked the one question it answers wrongly.
+                '
+                ' This does NOT relax 'tree AND solid' generally, and must not:
+                ' that pairing is what keeps a tank out of a wall or a rock
+                ' standing under a canopy - 2,581 cells on monastery. Those
+                ' survive untouched, because the solid there is contributed by
+                ' the ROCK, which keys rock at this moment, and the canopy that
+                ' makes the texel read tree is a SpeedTree that has not been
+                ' drawn yet. Only a model that is ITSELF crushable is exempted,
+                ' and only from its OWN bit.
+                If (mk(src + c) And KIND_MASK) = KIND_TREE Then
+                    solid_b(i) = 0
+                    skipped += 1
+                ElseIf (eye_y - d(src + c) * far_d) - floor_m(i) > OBSTACLE_MIN_H Then
                     solid_b(i) = 1
                     n += 1
                 Else
@@ -1097,6 +1128,10 @@ Public Class MapFlightBake
             Next
         Next
         solid_cells = n
+        If skipped > 0 Then
+            LogThis("flight bake: {0} texel(s) left NOT solid because the model " &
+                    "standing there is itself crushable - a trellis, not a wall", skipped)
+        End If
     End Sub
 
     ''' <summary>
