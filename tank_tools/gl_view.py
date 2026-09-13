@@ -102,6 +102,7 @@ class GLView(object):
         self.line_vbo = GL.glGenBuffers(1)
         self._line_cap = 0
         self.textures = {}
+        self._fbos = {}
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
         GL.glDisable(GL.GL_DEPTH_TEST)
@@ -212,3 +213,52 @@ class GLView(object):
         w, h = surface.get_size()
         arr = np.frombuffer(raw, np.uint8).reshape(h, w, 4)
         return self.upload(name, arr)
+
+    # ------------------------------------------------------------------ fbo
+    def fbo(self, name, w, h):
+        """An offscreen colour buffer of this size, created or resized.
+
+        The map is drawn into one of these and then put on a single quad in
+        the centre panel. Two reasons it is worth the extra pass: the map can
+        be rendered at the PANEL's aspect instead of a square that leaves black
+        bars when the window is wide, and nothing drawn into it can spill into
+        the panels, because it is physically a different surface.
+        """
+        w, h = max(1, int(w)), max(1, int(h))
+        cur = self._fbos.get(name)
+        if cur and cur[1] == (w, h):
+            return cur[0]
+        if cur:
+            GL.glDeleteFramebuffers(1, [cur[0]])
+            GL.glDeleteTextures([self.textures.pop(name, 0)])
+        fb = GL.glGenFramebuffers(1)
+        tex = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, tex)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
+        GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8, w, h, 0,
+                        GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, None)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fb)
+        GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
+                                  GL.GL_TEXTURE_2D, tex, 0)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        self._fbos[name] = (fb, (w, h))
+        self.textures[name] = tex
+        return fb
+
+    def begin_fbo(self, name, w, h, clear=(0.04, 0.04, 0.05)):
+        """Draw into that buffer. Coordinates become 0..w, 0..h within it."""
+        fb = self.fbo(name, w, h)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, fb)
+        GL.glViewport(0, 0, int(w), int(h))
+        GL.glClearColor(clear[0], clear[1], clear[2], 1.0)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        self.win = (float(w), float(h))
+
+    def end_fbo(self, win_w, win_h):
+        """Back to the window, and back to window coordinates."""
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        GL.glViewport(0, 0, int(win_w), int(win_h))
+        self.win = (float(win_w), float(win_h))

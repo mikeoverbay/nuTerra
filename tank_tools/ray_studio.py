@@ -1044,14 +1044,16 @@ def main():
     buttons = []                 # (rect, label, key, is_on) rebuilt each frame
 
     def cell_at_mouse(mx, my, w):
-        return (view_cx + (mx - map_ox) / w * view_cells,
-                view_cz + (my - map_oy) / w * view_cells)
+        cw, ch = view_span(w[0], w[1]) if isinstance(w, tuple) else (view_cells, view_cells)
+        return (view_cx + (mx - map_ox) / (w[0] if isinstance(w, tuple) else w) * cw,
+                view_cz + (my - map_oy) / (w[1] if isinstance(w, tuple) else w) * ch)
 
     def m_to_px(m, w):
         # Metres to pixels THROUGH THE VIEW, so a ring drawn at 3.5 m is 3.5 m
         # wide on the map at any zoom. A radius in screen units would have lied
         # about the one number the ring exists to show.
-        return m / (g["wx1"] - g["wx0"]) * N / view_cells * w
+        pw = w[0] if isinstance(w, tuple) else w
+        return m / (g["wx1"] - g["wx0"]) * N / view_cells * pw
 
     def to_px(x, z, w):
         # World -> cell -> screen, THROUGH THE VIEW, so the overlay tracks the
@@ -1059,8 +1061,13 @@ def main():
         # would slide off the thing it is describing.
         cx = (x - g["wx0"]) / (g["wx1"] - g["wx0"]) * N
         cz = (g["wz1"] - z) / (g["wz1"] - g["wz0"]) * N
-        return (int(map_ox + (cx - view_cx) / view_cells * w),
-                int(map_oy + (cz - view_cz) / view_cells * w))
+        # INTO THE MAP BUFFER, not the window: the map is rendered to an FBO
+        # the size of the panel and then put on one quad, so 0,0 here is the
+        # panel's top-left corner rather than the screen's.
+        pw, ph = w if isinstance(w, tuple) else (w, w)
+        cw, ch = view_span(pw, ph)
+        return (int((cx - view_cx) / cw * pw),
+                int((cz - view_cz) / ch * ph))
 
     # THE FRAME'S GEOMETRY, GATHERED THEN DRAWN ONCE.
     #
@@ -1112,11 +1119,27 @@ def main():
         del DOTS[:]
 
     def map_rect():
-        """The square the map is drawn into: the middle column, fitted."""
-        sw, sh = screen.get_width(), screen.get_height()
-        avail_w = max(80, sw - LEFT_W - RIGHT_W)
-        mw = min(avail_w, sh)
-        return (LEFT_W + (avail_w - mw) // 2, (sh - mw) // 2, mw)
+        """The WHOLE middle column, not a square inside it.
+
+        "the area the map is draw in the center panel does no fill that panel
+        on zoom." It did not, because the map was a square of side min(width,
+        height) centred in a rectangle - so on a 1856 wide window there were
+        290 px of black either side of it, at every zoom.
+
+        The map now fills the panel, and the world rectangle it shows takes the
+        panel's aspect rather than being square (see view_span).
+        """
+        sw, sh = pygame.display.get_window_size()
+        return (LEFT_W, 0, max(80, sw - LEFT_W - RIGHT_W), sh)
+
+    def view_span(pw, ph):
+        """How much map is visible, in cells, across and down.
+
+        view_cells is the ACROSS extent; the down extent follows the panel's
+        shape. Keeping them equal is what made a square map inside a wide
+        panel.
+        """
+        return view_cells, view_cells * (ph / max(1.0, float(pw)))
 
     while running:
         # THE WORKER'S RESULT, collected on the frame that finds it.
@@ -1152,7 +1175,7 @@ def main():
             pygame.event.post(pygame.event.Event(pygame.KEYDOWN,
                                                  key=pygame.K_g, mod=0,
                                                  unicode="", scancode=0))
-        map_ox, map_oy, w_now = map_rect()
+        map_ox, map_oy, w_now, h_now = map_rect()
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
@@ -1396,7 +1419,14 @@ def main():
                 elif e.key == pygame.K_c:
                     view_follow = not view_follow
                 elif e.key == pygame.K_f:
-                    view_cx, view_cz, view_cells = 0.0, 0.0, float(N)
+                    # FIT THE WHOLE MAP, which on a wide panel means showing
+                    # MORE than N cells across. view_cells is the across
+                    # extent and the down extent follows the panel's shape, so
+                    # asking for exactly N across crops the top and bottom.
+                    _, _, _pw, _ph = map_rect()
+                    view_cells = float(N) * max(1.0, _pw / max(1.0, float(_ph)))
+                    view_cx = (N - view_cells) * 0.5
+                    view_cz = (N - view_cells * (_ph / max(1.0, float(_pw)))) * 0.5
                 elif e.key == pygame.K_TAB:
                     start, goal = goal, start
                     astar_paths, astar_msg = [], ""
@@ -1429,7 +1459,8 @@ def main():
         step_due = (now_ms - last_step_ms) >= step_delay_ms
         # STEP THE TREE. A few casts a frame: enough to make progress, few
         # enough that the shape of the search is something a person can follow.
-        map_ox, map_oy, w = map_rect()
+        map_ox, map_oy, pw, ph = map_rect()
+        w = (pw, ph)
         # THE WINDOW'S REAL SIZE, asked of pygame's window rather than of the
         # surface it handed back at set_mode time. They disagree the moment
         # anything outside SDL resizes the window.
@@ -1467,14 +1498,20 @@ def main():
         if ground_dirty or not gv.has("ground"):
             gv.upload("ground", base)
             ground_dirty = False
+        # EVERYTHING MAP-SIDE GOES INTO ONE OFFSCREEN BUFFER, then onto a
+        # single quad filling the panel. The buffer is the panel's shape, so
+        # the map fills it at every zoom instead of sitting as a square with
+        # black either side, and nothing drawn here can reach the panels.
+        gv.begin_fbo("mapbuf", pw, ph)
+        cw, ch = view_span(pw, ph)
         u0, v0 = view_cx / N, view_cz / N
-        u1, v1 = (view_cx + view_cells) / N, (view_cz + view_cells) / N
-        gv.blit("ground", (map_ox, map_oy, w, w), (u0, v0, u1, v1))
+        u1, v1 = (view_cx + cw) / N, (view_cz + ch) / N
+        gv.blit("ground", (0, 0, pw, ph), (u0, v0, u1, v1))
 
         # AND NOTHING DRAWN ON THE MAP MAY SPILL INTO THE PANELS. Zoomed in,
         # a ring or a route runs far outside the frame; without a clip it was
         # painting over the controls and the readouts.
-        screen.set_clip(pygame.Rect(map_ox, map_oy, w, w))
+        screen.set_clip(pygame.Rect(map_ox, map_oy, pw, ph))
 
         # THE BLOCK DATA, over the ground and under everything the search drew.
         #
@@ -1487,13 +1524,13 @@ def main():
         # is 2 million pixels of nothing new.
         # THE DEAD GROUND FIRST, under the blocks and everything else.
         if have_dead and show_dead and gv.has("dead"):
-            gv.blit("dead", (map_ox, map_oy, w, w), (u0, v0, u1, v1))
+            gv.blit("dead", (0, 0, pw, ph), (u0, v0, u1, v1))
 
         if squares is not None and show_blocks:
             if squares.dirty or not gv.has("blocks"):
                 gv.upload("blocks", squares.rgba())
                 squares.dirty = False
-            gv.blit("blocks", (map_ox, map_oy, w, w), (u0, v0, u1, v1))
+            gv.blit("blocks", (0, 0, pw, ph), (u0, v0, u1, v1))
 
         # THE EXPANDING RINGS. The heart of the algorithm and, until now, the
         # one part of it with no picture at all: "i want to see the expanding
@@ -1559,9 +1596,13 @@ def main():
         for pt, col, lab in ((start, (0, 200, 255), "START  team 1 base"),
                              (goal, (255, 140, 0), "FLAG  team 2 base")):
             px_, pz_ = to_px(pt[0], pt[1], w)
-            CIRC((px_, pz_), max(4, int(50.0 / (g["wx1"] - g["wx0"]) * w)), col, 2)
+            CIRC((px_, pz_), max(4, int(m_to_px(50.0, w))), col, 2)
             tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
-            screen.blit(tag, (px_ + 14, pz_ - 8))
+            # THE LABEL IS ON THE OVERLAY, WHICH IS IN WINDOW SPACE. to_px now
+            # answers in the map buffer's space, so the panel's own corner has
+            # to be added back for anything drawn to `screen` rather than into
+            # the buffer.
+            screen.blit(tag, (map_ox + px_ + 14, map_oy + pz_ - 8))
 
         # THE CROSSHAIR, full width and full height of the map, white, on the
         # point the search is working RIGHT NOW - or on where it finished. It
@@ -1573,8 +1614,8 @@ def main():
         cross = maze_pts[-1] if maze_pts else None
         if cross is not None:
             qx, qy = to_px(cross[0], cross[1], w)
-            L((map_ox, qy), (map_ox + w, qy), (255, 255, 255), 1)
-            L((qx, map_oy), (qx, map_oy + w), (255, 255, 255), 1)
+            L((0, qy), (pw, qy), (255, 255, 255), 1)
+            L((qx, 0), (qx, ph), (255, 255, 255), 1)
             CIRC((qx, qy), 7, (255, 255, 255), 1)
 
         screen.set_clip(None)
@@ -1755,7 +1796,17 @@ def main():
         # everything correctly and presented none of it: "blank screen". The
         # map is GL, the panels are a pygame surface, and without
         # surface_texture + blit the surface never reaches the screen.
+        # THE MAP BUFFER IS FINISHED HERE: flush its geometry into it, come
+        # back to the window, and draw it as one quad in the panel.
         flush()
+        gv.end_fbo(SW0, SH0)
+        # V-FLIPPED, because an FBO's origin is BOTTOM-left and every other
+        # texture here is fed top-row-first. Without the flip the buffer came
+        # out upside down - caught because the START and FLAG rings, drawn into
+        # the buffer, ended up on the opposite sides from their labels, which
+        # are drawn on the window overlay and were right.
+        gv.blit("mapbuf", (map_ox, map_oy, pw, ph), (0.0, 1.0, 1.0, 0.0))
+
         gv.surface_texture("ui", screen)
         gv.blit("ui", (0, 0, SW0, SH0))
         pygame.display.flip()
