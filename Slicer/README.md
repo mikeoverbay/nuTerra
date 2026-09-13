@@ -1,28 +1,69 @@
 # Slicer
 
-Standalone scanner for the buildings in the World of Tanks packages, so building
-work can be done without starting nuTerra and waiting for a map to load.
+Pulls buildings out of the World of Tanks packages and writes them as STL or
+OBJ, so they can be printed or opened in anything.
 
-It shares no code with nuTerra on purpose — the same rule `SrtViewer` follows.
-`PackedSection.vb` here is a reference implementation of the `.model` container
-and can be proven out in seconds before anything is ported into the engine.
+Standalone, the same rule `SrtViewer` follows: it shares no code with nuTerra,
+so it runs without starting the engine and its format readers stay honest
+reference implementations. VB + OpenTK, `net8.0-windows`, x64. **One
+dependency, OpenTK** - every mesh routine here is written in this folder.
 
-VB + OpenTK, `net8.0-windows`, x64.
+The name is historical. It began as a plane-slicer and the cut is still in
+there as an inspection aid (`S` in the viewer), but the job is export: produce
+a clean mesh and let a real slicer - OrcaSlicer, PrusaSlicer - do the slicing,
+the supports and the G-code. That is their work and they are good at it.
 
 ## Running
 
-    Slicer --view                            open the 3D viewer
-    Slicer --view --asset cathedral          open it on one building
-    Slicer                                   scan and summarise
-    Slicer --list                            every building, one line each
-    Slicer --list --filter cathedral
-    Slicer --asset hd_bld_eu_225_cathedral   every LOD and part
-    Slicer --csv buildings.csv               one row per part
-    Slicer --failures                        anything that would not parse
-    Slicer --skip-vehicles                   skip vehicles_/audioww- packages
+    Slicer --export                                  write every building as STL
+    Slicer --export --asset cathedral --out models    write one, somewhere
+    Slicer --export 20 --set out.format=obj          the first 20, as OBJ
+    Slicer --view                                    the 3D viewer
+    Slicer --check                                   watertightness sweep
+    Slicer --list                                    every building, one line each
+    Slicer --show-settings                           print the settings and exit
     Slicer --game "C:\Games\World_of_Tanks_NA"
 
 The game install is auto-detected from the usual four locations.
+
+## Export
+
+    out.dir      exported
+    out.format   stl          stl for a printer, obj to keep vertex sharing
+    out.upAxis   z            z for printing, y to keep the app's own axis
+    out.scale    1000         metres -> millimetres
+
+**Two conversions happen on the way out and both are silent when wrong**, because
+a wrong one still produces a valid file.
+
+**Up axis.** This app works Y-up, like the game and like OpenGL. Every printing
+tool works Z-up, because the build plate is the XY plane. Export Y-up and the
+building arrives lying on its side - still valid, still printable, just on its
+side. The rotation is about X: `(x, y, z)` becomes `(x, -z, y)`.
+
+**Units.** These models are in METRES - a house is 13 units tall. STL carries no
+units and every consumer assumes millimetres, so a 13 m house exported raw is a
+13 mm ornament. x1000 makes the file's numbers millimetres, so it lands
+life-sized and gets scaled down deliberately rather than shrunk by accident.
+
+What each file gets, in this order and for these reasons:
+
+1. every part of the LOD, merged - a building is a kit, and one STL per wall
+   panel is not what anybody wants;
+2. degenerates killed FIRST, so the bottom-fill walk is not tripped by
+   zero-length edges;
+3. each part's bottom closed at its OWN lowest point, before the merge, because
+   a kit's pieces sit at different heights;
+4. up-axis and scale applied last.
+
+STL is written BINARY - same geometry at about a sixth the size. It has no
+vertex sharing, so a welded mesh is un-welded on the way out; that is the
+format, not the writer. OBJ keeps the sharing and is written with
+`InvariantCulture`, because on a comma-decimal machine `1,5` in an OBJ is two
+numbers and the file loads as garbage.
+
+**These are not watertight** - see below. Run a repair pass, or let the slicer
+do its own, before printing.
 
 ### Building it
 
@@ -276,6 +317,134 @@ Same rule as the `.model` reader: two readers, same numbers.
 `bld_101_02_Vhouse02_a` at lod0 reads **9,233 vertices and 5,645 triangles** in
 the viewer and the identical figures from an independent Python decode. All
 4,865 building `.primitives_processed` files parse without error.
+
+## The material tags: `s_`, `n_`, `d_`
+
+Every material in a building visual carries an `identifier`, and it is prefixed.
+Measured over **29,662 materials in 5,092 building visuals**:
+
+| prefix | count | meaning |
+|---|---|---|
+| `s_` | 19,191 | static — never has a twin |
+| `n_` | 5,673 | **n**ormal, the intact state of a destructible |
+| `d_` | 4,727 | **d**estroyed, the same piece as rubble |
+
+`n_` and `d_` are a matched pair: **212 identifier stems carry both** forms
+(`n_wood0_1` ↔ `d_wood0_1`), and the `materialKind` beside them moves by a
+constant:
+
+```
+materialKind(d_) - materialKind(n_) = +14     in 211 of 212 stems
+```
+
+Intact band **73–85**, destroyed band **87–98**, static outside both at
+0 / 108 / 111 / 112. The number is set by the **trailing index, not the
+material family** — `n_wood0_2`, `n_metal1_2` and `n_stone2_2` are all kind 74 —
+so `materialKind` is a *state + slot* code, not a surface type. No
+`material_kinds.xml` ships anywhere in `res/`, so the structure is known and
+Wargaming's names for the numbers are not.
+
+`collisionFlags` sorts the same geometry a second way, and it is nearly
+single-purpose:
+
+| flags | count | who carries it |
+|---|---|---|
+| 144 | 584 | `s_wall_*` — **584 of 584**, nothing else |
+| 131 | 685 | `s_ramp_*` and `s_wall_*` — 674 of 685 |
+| 255 | 5,197 | catch-all on ordinary static geometry |
+| 0 | 22,864 | the default majority |
+
+### Some primitive groups are never drawn
+
+A `s_wall_0` material looks like this, complete:
+
+```xml
+<material>
+  <identifier>s_wall_0</identifier>
+  <collisionFlags>131</collisionFlags>
+  <materialKind>0</materialKind>
+</material>              <-- no <fx>
+```
+
+No shader, no properties, no textures. It is a `primitiveGroup` sitting in the
+render mesh's index buffer that the renderer skips entirely — an invisible
+blocker. The correlation holds both ways, which is what makes it a rule rather
+than an observation:
+
+* **1,512 of 1,544** `s_wall_*` / `s_ramp_*` materials have no `<fx>`
+* **1,512 of 1,545** materials with no `<fx>` are `s_wall_*` / `s_ramp_*`
+
+On `hd_bld_EU_049_THouse`, `UpperFloorsSmall_02` carries one: **4 triangles, 8
+verts, 1.97 × 2.09 × 1.79 m** — two quads across a doorway.
+
+**The exporter currently writes these as visible geometry.** A group with no
+`fx` should be skipped. Worth keeping the scale honest, though: on that
+building it is 4 triangles out of 20,657 at lod0 — **0.02%** — so this is a real
+category of bug and it is *not* what made the first OBJ a mess.
+
+## `.vt`: collision only, and none for buildings
+
+10,630 `.vt` files ship. They decode completely and they are worth nothing to
+this app.
+
+```
+u32     magic 0xB00BB00B
+i32     version              2 on every file
+6×f32   bbox min xyz, max xyz    exactly equals the vertex span
+u32     vertex count
+f32[]   count × 3
+u32     index count
+u8      index width flag     1 = uint16
+u16[]   index count, in threes — one triangle each
+u32     group count
+        group count × { u32 startVertex, u32 vertexCount }
+```
+
+The vertex count is **not** divisible by three (427, 10,051, 39,423) — verts are
+shared and it is the *index* list that comes in triples. The groups tile the
+vertex array exactly, with no gap and no overlap.
+
+**984 files parsed, 100% consistent, zero bytes left over on every one**, header
+bbox matching the computed vertex span, every index inside the vertex count. The
+95-byte `Gun_01.vt` is the entire format legible in one hex line: 3 verts, 1
+triangle, 1 group.
+
+### Why there is nothing here to read
+
+`.vt` is a position-only mirror of the render mesh:
+
+| check | result |
+|---|---|
+| `.vt` triangles vs the sibling render mesh | **identical, 120 of 120** |
+| `.vt` groups vs the visual's `primitiveGroup` count | **equal, 120 of 120** |
+| vertex positions vs the render mesh | 6,739 of 6,739 unique shared, raw coords, **no X flip** |
+
+Same verts, same order, same triangle count, same per-material partition — a
+`.primitives_processed` with the UVs, normals, tangents and bone data stripped
+off. The group index is the lookup back into the visual's `primitiveGroup` at the
+same slot, which is how a hit triangle reports its `identifier`,
+`collisionFlags` and `materialKind`. `Hull.vt` is not closed (10,296 boundary
+edges), so it is a ray-hit soup rather than a physics volume.
+
+It carries **no attribute this exporter needs that the geometry file does not
+already have**. Its only use is collision.
+
+And it does not apply here in any case:
+
+| area | files |
+|---|---|
+| vehicles | 10,557 |
+| MilitaryEnvironment | 42 |
+| other | 31 |
+| **Buildings** | **0** |
+
+Within vehicles, Hull, Turret, Gun and lamps get one and **Chassis never does —
+0 of 2,204**; Chassis is the skinned part, and a static copy of skinned
+positions would be meaningless. lod0 only.
+
+So for buildings the collision story stays where the section above left it: the
+visual's `collisionFlags`, the invisible `s_wall_` / `s_ramp_` groups, and the
+`.havok` binaries.
 
 ## The geometry is not solid
 

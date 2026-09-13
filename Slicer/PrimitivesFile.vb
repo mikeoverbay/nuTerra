@@ -1,4 +1,4 @@
-Imports System.Text
+﻿Imports System.Text
 Imports OpenTK.Mathematics
 
 ''' <summary>One primitive group inside a mesh - a contiguous run of triangles
@@ -20,6 +20,38 @@ Public Class PrimMesh
     Public Property Stride As Integer
     Public Property Positions As Vector3() = Array.Empty(Of Vector3)()
     Public Property UVs As Vector2() = Array.Empty(Of Vector2)()
+    ''' <summary>The normal the ARTIST authored, unpacked from the vertex, as
+    ''' opposed to the one derived from the winding. Empty when the format has
+    ''' none this reader understands.</summary>
+    Public Property Normals As Vector3() = Array.Empty(Of Vector3)()
+    ''' <summary>Tangent and binormal, for the normal-map frame. Empty on
+    ''' formats without a `tb` pair.</summary>
+    Public Property Tangents As Vector3() = Array.Empty(Of Vector3)()
+    Public Property Binormals As Vector3() = Array.Empty(Of Vector3)()
+
+    ''' <summary>
+    ''' The SECOND UV set - the per-object unwrap, as opposed to the tiling one
+    ''' in UVs. Empty when the mesh has no uv2 section; 83% of building lod0
+    ''' meshes have one.
+    '''
+    ''' This is the set that matters for export. A PBS_tiled material blends its
+    ''' tiles using a mask addressed in UV2, so a baked map is baked in UV2
+    ''' space, and the exported mesh has to carry UV2 as ITS uv set for that map
+    ''' to line up. UV1 is dropped on the way out.
+    ''' </summary>
+    Public Property UV2 As Vector2() = Array.Empty(Of Vector2)()
+
+    Public ReadOnly Property HasUV2 As Boolean
+        Get
+            Return UV2.Length > 0 AndAlso UV2.Length = Positions.Length
+        End Get
+    End Property
+
+    Public ReadOnly Property HasTangents As Boolean
+        Get
+            Return Tangents.Length > 0 AndAlso Tangents.Length = Positions.Length
+        End Get
+    End Property
     ''' <summary>Triangle corners, already wound for OpenGL.</summary>
     Public Property Indices As Integer() = Array.Empty(Of Integer)()
     Public ReadOnly Groups As New List(Of PrimGroup)
@@ -92,12 +124,88 @@ Public NotInheritable Class PrimitivesFile
         Return 4 - (n Mod 4)
     End Function
 
+    ''' <summary>
+    ''' Unpack an 8-8-8 direction from a u32, transcribed from nuTerra's
+    ''' `PrimitiveLoader.unpackNormal_8_8_8` together with the sign work its
+    ''' caller does.
+    '''
+    ''' TWO THINGS HERE ARE NOT GUESSABLE, and each one changes the answer:
+    '''
+    ''' * EACH BYTE IS XORed WITH 127 before being read as signed. That is the
+    '''   SC_UBYTE4_REVERSE_PADDED encoding, not a plain signed byte. Skip the
+    '''   xor and every normal comes out somewhere else - still unit length,
+    '''   still plausible, completely wrong, and nothing about the render says
+    '''   which.
+    ''' * THE WHOLE VECTOR IS NEGATED on the way out of the engine's helper, and
+    '''   then its CALLER negates X again for the DirectX-to-OpenGL flip. X is
+    '''   therefore negated twice and ends up positive while Y and Z stay
+    '''   negated. Both steps are folded in here so there is one place to be
+    '''   right rather than two to keep in step.
+    ''' </summary>
+    Private Shared Function UnpackNormal(packed As UInteger) As Vector3
+        Dim bx = CInt(packed And &HFFUI) Xor 127
+        Dim by = CInt((packed >> 8) And &HFFUI) Xor 127
+        Dim bz = CInt((packed >> 16) And &HFFUI) Xor 127
+        If bx > 127 Then bx -= 256
+        If by > 127 Then by -= 256
+        If bz > 127 Then bz -= 256
+
+        Dim v As New Vector3(CSng(bx), CSng(-by), CSng(-bz))
+        If v.LengthSquared > 0.0000001F Then
+            v.Normalize()
+        Else
+            v = Vector3.UnitY
+        End If
+        Return v
+    End Function
+
     Private Shared Function CStrAt(raw As Byte(), at As Integer, maxLen As Integer) As String
         Dim n = 0
         While n < maxLen AndAlso at + n < raw.Length AndAlso raw(at + n) <> 0
             n += 1
         End While
         Return Encoding.ASCII.GetString(raw, at, n)
+    End Function
+
+    ''' <summary>
+    ''' The second UV set.
+    '''
+    ''' THE PREAMBLE IS 136 BYTES, NOT 132, and this has bitten the project
+    ''' before - see the uv2 note in the Tank Exporter's format writeup. It
+    ''' mirrors the .vertices preamble:
+    '''
+    '''     +0    64 bytes   primary format name    "BPVSuv2"
+    '''     +68   64 bytes   secondary name         "set3/uv2pc"
+    '''     +132  u32        count
+    '''     +136             body, 8 bytes an entry
+    '''
+    ''' A 132-byte guess matches by integer-division coincidence and silently
+    ''' shifts the whole stream forward by one float, which produces UVs that
+    ''' are wrong everywhere and obviously wrong nowhere.
+    '''
+    ''' Verified rather than trusted: across 280 uv2 sections in the shipped
+    ''' buildings the primary string is "BPVSuv2" every time, the secondary is
+    ''' "set3/uv2pc" every time, and (sectionSize - 136) / count comes out
+    ''' EXACTLY 8.0 on all 280. At 132 it would not divide cleanly, which is
+    ''' what makes 136 provable rather than merely documented.
+    ''' </summary>
+    Private Shared Function ReadUv2(raw As Byte(), sec As SectionRef, expect As Integer) As Vector2()
+        If sec.Offset + 136 > raw.Length Then Return Array.Empty(Of Vector2)()
+        Dim n = BitConverter.ToInt32(raw, sec.Offset + 132)
+        If n <= 0 Then Return Array.Empty(Of Vector2)()
+        Dim body = sec.Offset + 136
+        If body + CLng(n) * 8 > raw.Length Then Return Array.Empty(Of Vector2)()
+
+        ' A uv2 that does not have one entry per vertex cannot be paired up, and
+        ' guessing at the correspondence would be worse than having none.
+        If expect > 0 AndAlso n <> expect Then Return Array.Empty(Of Vector2)()
+
+        Dim out(n - 1) As Vector2
+        For i = 0 To n - 1
+            out(i) = New Vector2(BitConverter.ToSingle(raw, body + i * 8),
+                                 BitConverter.ToSingle(raw, body + i * 8 + 4))
+        Next
+        Return out
     End Function
 
     ''' <summary>The section table, name to (offset, size).</summary>
@@ -150,7 +258,13 @@ Public NotInheritable Class PrimitivesFile
             If Not sections.ContainsKey(idxName) Then Continue For
 
             Dim mesh = ReadMesh(raw, kv.Value, sections(idxName), If(baseName = "", "mesh", baseName))
-            If mesh IsNot Nothing Then meshes.Add(mesh)
+            If mesh IsNot Nothing Then
+                Dim uv2Name = If(baseName = "", "uv2", baseName & ".uv2")
+                If sections.ContainsKey(uv2Name) Then
+                    mesh.UV2 = ReadUv2(raw, sections(uv2Name), mesh.Positions.Length)
+                End If
+                meshes.Add(mesh)
+            End If
         Next
 
         meshes.Sort(Function(a, b) String.CompareOrdinal(a.Name, b.Name))
@@ -173,9 +287,26 @@ Public NotInheritable Class PrimitivesFile
         Dim body = countAt + 4
         If nVerts <= 0 OrElse body + CLng(nVerts) * stride > raw.Length Then Return Nothing
 
+        ' Where the tangent pair sits, which is always after the bone data
+        ' the format happens to carry:
+        '     BPVTxyznuvtb        pos12 n4 uv8            -> t at 24
+        '     BPVTxyznuvitb       pos12 n4 uv8 i4         -> t at 28
+        '     BPVTxyznuviiiwwtb   pos12 n4 uv8 iii4 ww4   -> t at 32
+        Dim boneSkip = 0
+        If fmt.Contains("iiiww") Then
+            boneSkip = 8
+        ElseIf fmt.Contains("uvi") Then
+            boneSkip = 4
+        End If
+        Dim tanAt = 24 + boneSkip
+        Dim hasTB = fmt.EndsWith("tb", StringComparison.Ordinal) AndAlso (tanAt + 8) <= stride
+
         Dim mesh As New PrimMesh With {.Name = nm, .Format = fmt, .Stride = stride}
         Dim pos(nVerts - 1) As Vector3
         Dim uv(nVerts - 1) As Vector2
+        Dim nrm(nVerts - 1) As Vector3
+        Dim tan(nVerts - 1) As Vector3
+        Dim bin(nVerts - 1) As Vector3
         For i = 0 To nVerts - 1
             Dim at = body + i * stride
             ' Negate X: DirectX to OpenGL. The winding is flipped below to match -
@@ -188,9 +319,20 @@ Public NotInheritable Class PrimitivesFile
             ' all three shipped layouts - they only differ after it.
             uv(i) = New Vector2(BitConverter.ToSingle(raw, at + 16),
                                 BitConverter.ToSingle(raw, at + 20))
+            ' The packed normal sits between position and uv, at +12.
+            nrm(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + 12))
+            If hasTB Then
+                tan(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + tanAt))
+                bin(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + tanAt + 4))
+            End If
         Next
         mesh.Positions = pos
         mesh.UVs = uv
+        mesh.Normals = nrm
+        If hasTB Then
+            mesh.Tangents = tan
+            mesh.Binormals = bin
+        End If
 
         ' ---- indices
         Dim itype = CStrAt(raw, isec.Offset, 64)

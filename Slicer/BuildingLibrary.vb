@@ -1,4 +1,4 @@
-Imports System.Text.RegularExpressions
+﻿Imports System.Text.RegularExpressions
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -57,6 +57,51 @@ Public Class BuildingAsset
 
     Public Function PartsAt(lod As Integer) As List(Of BuildingPart)
         Return Parts.Where(Function(p) p.Lod = lod).ToList()
+    End Function
+
+    ''' <summary>
+    ''' One part per VARIANT SLOT - the set a map would actually place.
+    '''
+    ''' These assets are kits of INTERCHANGEABLE pieces, not assemblies of
+    ''' distinct ones, and nothing in the file says so. hd_bld_EU_049_THouse has
+    ''' 24 parts at lod0 while the whole asset measures 6.03 x 9.29 x 7.46 m -
+    ''' barely larger than its single biggest part at 5.73 x 6.90 x 7.11. Parts
+    ''' of one building would sum to something much bigger than any one of them;
+    ''' these do not, because they occupy the SAME SPACE:
+    '''
+    '''     lowerfloorsbig_01/_02/_03/_04   all 5.73 x 6.90 x 7.11
+    '''     upperfloorsbig_03/_10/_11/_12   all 5.39 x 8.01 x 6.91
+    '''     upperfloorssmall_01/_03/_05     all 4.67 x 8.90 x 5.18
+    '''
+    ''' The map chooses one of each slot. Exporting all of them stacks four
+    ''' walls in the same wall and produces z-fighting, doubled window frames
+    ''' and a model that is unusable - which is exactly what the round trip
+    ''' showed.
+    '''
+    ''' The slot is the name with its trailing _NN removed. That is a NAMING
+    ''' convention rather than anything declared, so it is a heuristic and is
+    ''' said to be one; `--variants all` keeps the old behaviour for anyone who
+    ''' wants every piece.
+    ''' </summary>
+    Public Function VariantsAt(lod As Integer) As List(Of BuildingPart)
+        Dim taken As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        Dim out As New List(Of BuildingPart)
+        For Each p In PartsAt(lod)
+            If taken.Add(VariantSlot(p.Name)) Then out.Add(p)
+        Next
+        Return out
+    End Function
+
+    ''' <summary>The name with a trailing _NN stripped. "foo_lowerfloorsbig_03"
+    ''' and "foo_lowerfloorsbig_04" are the same slot.</summary>
+    Public Shared Function VariantSlot(name As String) As String
+        If String.IsNullOrEmpty(name) Then Return ""
+        Dim i = name.Length - 1
+        While i >= 0 AndAlso Char.IsDigit(name(i))
+            i -= 1
+        End While
+        If i >= 0 AndAlso i < name.Length - 1 AndAlso name(i) = "_"c Then Return name.Substring(0, i)
+        Return name
     End Function
 
     ''' <summary>The asset's box at its finest LOD, the union of its parts.
@@ -147,6 +192,57 @@ Public Class BuildingLibrary
     Public Property OddShaped As Integer
     Public ReadOnly HavokByAsset As New Dictionary(Of String, List(Of String))(StringComparer.OrdinalIgnoreCase)
     Public ReadOnly Failures As New List(Of String)
+
+    ''' <summary>
+    ''' A one-asset library around a single model path, so the app can be
+    ''' pointed at ANY model in the packages rather than only at what its own
+    ''' building scan found.
+    '''
+    ''' This is the hook for being launched from somewhere else. nuTerra's
+    ''' picker already resolves a click to a `.primitives` path, and it picks
+    ''' EVERYTHING - rocks, fences, environment props - not only what lives
+    ''' under content/buildings. Handing that path straight in means the export
+    ''' and the viewer work on anything the engine can pick, with no dependency
+    ''' on this app's own idea of what a building is.
+    '''
+    ''' Takes a `.model`, `.visual_processed` or `.primitives_processed` path -
+    ''' anything sharing the stem - because a caller should not have to know
+    ''' which of the three this app happens to read.
+    ''' </summary>
+    Public Shared Function ForSingleModel(modelPath As String) As BuildingLibrary
+        Dim one As New BuildingLibrary
+        If String.IsNullOrWhiteSpace(modelPath) Then Return one
+
+        Dim p = modelPath.Replace("\"c, "/"c).Trim().ToLowerInvariant()
+        For Each ext In {".primitives_processed", ".visual_processed", ".model"}
+            If p.EndsWith(ext, StringComparison.Ordinal) Then
+                p = p.Substring(0, p.Length - ext.Length)
+                Exit For
+            End If
+        Next
+
+        Dim segs = p.Split("/"c)
+        Dim leaf = segs(segs.Length - 1)
+
+        ' Name it after the asset FOLDER where the path has one - that is what a
+        ' person recognises - and fall back to the file stem otherwise.
+        Dim assetName = leaf
+        Dim lod = 0
+        For i = 0 To segs.Length - 1
+            If segs(i) = "normal" AndAlso i > 0 Then assetName = segs(i - 1)
+            If segs(i).StartsWith("lod", StringComparison.Ordinal) AndAlso segs(i).Length > 3 Then
+                Integer.TryParse(segs(i).Substring(3), lod)
+            End If
+        Next
+
+        Dim asset As New BuildingAsset With {.Name = assetName, .Root = "direct", .State = "-"}
+        asset.Parts.Add(New BuildingPart With {
+            .Name = leaf, .Path = p & ".model", .Visual = p, .Lod = lod, .Nodeless = True})
+        one.Assets.Add(assetName, asset)
+        one.ModelsFound = 1
+        one.ModelsParsed = 1
+        Return one
+    End Function
 
     Public Shared Function Scan(pkg As PkgIndex) As BuildingLibrary
         Dim library As New BuildingLibrary

@@ -42,6 +42,14 @@ Module Program
         Dim shotPath As String = Nothing
         Dim checkCount As Integer = -1
         Dim doShell = False
+        Dim shotAngle As String = Nothing
+        Dim shotCut = False
+        Dim bakeDir As String = Nothing
+        Dim objPath As String = Nothing
+        Dim bakePx As Integer = 2048
+        Dim exportCount As Integer = -1
+        Dim openPath As String = Nothing
+        Dim matCount As Integer = -1
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -64,6 +72,26 @@ Module Program
                     showSettings = True
                 Case "--save-settings"
                     saveSettings = True
+                Case "--obj"
+                    i += 1 : If i < args.Length Then objPath = args(i)
+                Case "--bake"
+                    i += 1 : If i < args.Length Then bakeDir = args(i)
+                Case "--bake-size"
+                    i += 1 : If i < args.Length Then Integer.TryParse(args(i), bakePx)
+                Case "--shot-cut"
+                    shotCut = True
+                Case "--shot-angle"
+                    i += 1 : If i < args.Length Then shotAngle = args(i)
+                Case "--mat"
+                    matCount = 0
+                    If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), matCount) Then i += 1 Else matCount = 0
+                Case "--open"
+                    i += 1 : If i < args.Length Then openPath = args(i)
+                Case "--export"
+                    exportCount = 0
+                    If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), exportCount) Then i += 1 Else exportCount = 0
+                Case "--out"
+                    i += 1 : If i < args.Length Then setArgs.Add("out.dir=" & args(i))
                 Case "--shell"
                     doShell = True
                 Case "--check"
@@ -158,8 +186,20 @@ Module Program
         Console.WriteLine("index in  {0:N0} ms", pkg.ScanMilliseconds)
         Console.WriteLine()
 
+        ' --open skips the BUILDING SCAN and wraps the one model the caller
+        ' named. The package index is still built - the file still has to be
+        ' read out of a pkg - but the 4,893-model classification pass is not
+        ' run, and neither is this app's opinion about what counts as a
+        ' building. That is the launched-from-nuTerra path: its picker
+        ' already knows the exact primitives path, so there is nothing to
+        ' search for, and the model it hands over may well be a rock.
         Dim sw = Diagnostics.Stopwatch.StartNew()
-        Dim library = BuildingLibrary.Scan(pkg)
+        Dim library As BuildingLibrary
+        If openPath IsNot Nothing Then
+            library = BuildingLibrary.ForSingleModel(openPath)
+        Else
+            library = BuildingLibrary.Scan(pkg)
+        End If
         sw.Stop()
 
         Console.WriteLine("BUILDINGS")
@@ -217,7 +257,9 @@ Module Program
             Next
         End If
 
-        If assetArg IsNot Nothing Then
+        ' The per-part dump is for browsing, not for a job that is producing
+        ' files - it buried the export report under ninety lines of parts.
+        If assetArg IsNot Nothing AndAlso exportCount < 0 AndAlso checkCount < 0 Then
             DumpAsset(library, assetArg)
         ElseIf doList Then
             ListAssets(library, filter)
@@ -236,7 +278,13 @@ Module Program
 
         If checkCount >= 0 Then MeshCheck.RunSweep(pkg, library, settings, checkCount, filter)
 
-        If doView OrElse shotPath IsNot Nothing OrElse doShell Then
+        If matCount >= 0 Then VisualFile.Report(pkg, library, If(assetArg, filter), matCount)
+
+        If exportCount >= 0 Then
+            MeshExport.ExportAssets(pkg, library, settings, If(assetArg, filter), exportCount)
+        End If
+
+        If doView OrElse shotPath IsNot Nothing OrElse doShell OrElse bakeDir IsNot Nothing OrElse objPath IsNot Nothing Then
             ' --asset picks the building to open on; without one it starts at
             ' the first and the arrow keys walk the library.
             Dim startAt = 0
@@ -253,7 +301,7 @@ Module Program
             Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
             Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath)
                 win.Run()
             End Using
         End If
@@ -364,7 +412,16 @@ Module Program
         Console.WriteLine("  --view               open the 3D viewer")
         Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
         Console.WriteLine("  --check [n]          watertightness before and after the bottom fill")
+        Console.WriteLine("  --open <pkg path>    work on one model by its package path, no scan")
+        Console.WriteLine("  --mat [n]            dump materials, shaders and textures")
+        Console.WriteLine("  --export [n]         write buildings as STL/OBJ (all, or the first n)")
+        Console.WriteLine("  --out <dir>          where to write them")
         Console.WriteLine("  --shell              rebuild the set model into an exterior shell")
+        Console.WriteLine("  --shot-angle <a>     iso | front | bottom  (default bottom)")
+        Console.WriteLine("  --shot-cut           keep the cut on in the shot")
+        Console.WriteLine("  --bake <dir>         bake the maps into UV2 space as PNG + MTL")
+        Console.WriteLine("  --bake-size <px>     bake resolution, default 2048")
+        Console.WriteLine("  --obj <file.obj>     load an exported OBJ back and look at it")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")

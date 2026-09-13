@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.IO.Compression
 Imports System.Xml
 
@@ -49,7 +49,8 @@ Public Class PkgIndex
     ''' 57,958 GUI bitmaps.
     ''' </summary>
     Private Shared ReadOnly KEEP As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
-        ".model", ".visual_processed", ".primitives_processed", ".havok"}
+        ".model", ".visual_processed", ".primitives_processed", ".havok",
+        ".dds"}
 
     Public Shared Function TryOpen(gamePath As String, skipVehicles As Boolean) As PkgIndex
         If String.IsNullOrEmpty(gamePath) Then Return Nothing
