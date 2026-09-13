@@ -44,6 +44,55 @@ way.
 
 ---
 
+## 0b. PrimitiveLoader is missing two shipping vertex formats, and fails silent
+
+A census of every shipping `vertices` section on the NA install - 120,975 of
+them, from the PKG Explorer session - found exactly six formats, one stride
+each:
+
+    BPVTxyznuvtb        32
+    BPVTxyznuviiiwwtb   40
+    BPVTxyznuvitb       36     <-- nuTerra has no case for this
+    BPVTxyznuv          24
+    BPVTxyz             12     <-- nor this
+    BPVTxyznuviiiww     32
+
+`PrimitiveLoader.vb:448-495` handles **four** of those six and falls to
+`Case Else -> Debug.Assert(False)` on the other two. `stride` is initialised to
+0 at :445 and the Else branch does not set it, so in a RELEASE build - where
+`Debug.Assert` compiles out entirely - the loader carries on with **stride 0
+and no message at all**. That silence is the expensive part, not the missing
+arithmetic: `BPVTxyznuvitb` alone is 164 sections under `content/buildings`.
+
+**And three of the seven branches are dead.** `xyznuv`, `xyznuviiiwwtb` and
+`xyznuvtb` - the non-BPVT spellings - match nothing: the census found ZERO
+sections with a bare header, every one is `BPVT`. So the switch carries three
+cases that cannot fire while missing two that do. (`xyznuviiiwwtb` also claims
+`stride = 37`, an odd number for a vertex stride, which nothing has ever
+exercised.)
+
+**Next step, after the pending push:** add the two cases, and at the call site
+treat `stride = 0` as a hard error that names the format string, rather than an
+assert. Fixing these two does not fix the seventh; the fallthrough is what
+needs to stop being quiet.
+
+### The trap waiting in that fix: the lone `i` is NOT a skinned marker
+
+Winding is already handled correctly here and it is worth not breaking.
+`load_primitives_indices` applies an unconditional DirectX-to-OpenGL corner
+flip at :411, reading `y, x, z`. Skinned meshes ship with the OPPOSITE winding
+to rigid ones - measured by PKG Explorer at signed normal-vs-winding **-0.937
+for iii/ww meshes against +0.92 for rigid** - so :572 swaps them back, gated on
+`hasIdx`, which is set only for the three `iii`/`ww` families. That is the
+conditional the measurement says is required, and the comment at :566 says why.
+
+**`BPVTxyznuvitb` has a single `i`, and it is RIGID.** It is the havok proxy
+format. Setting `hasIdx = True` for it because the name contains an `i` would
+un-flip geometry that was never double-flipped and render all 164 sections
+inside out. Add it with `hasIdx = False`.
+
+---
+
 ## 1. Three new maps crash natively
 
 The 2026-09-01 game patch added three maps nuTerra has never seen:
