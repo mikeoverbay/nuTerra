@@ -71,10 +71,25 @@ cases that cannot fire while missing two that do. (`xyznuviiiwwtb` also claims
 `stride = 37`, an odd number for a vertex stride, which nothing has ever
 exercised.)
 
+### `BPVTxyz` does not garble - it OVERRUNS, and stays plausible
+
+The stride-12 format is the nastier of the two and the reason the fix is not
+just two more `Case` lines. It is POSITION ONLY. A reader with fixed attribute
+offsets does not produce obvious rubbish: the normal it reads from `+12` is the
+NEXT VERTEX'S POSITION, so the stream stays structured, in range, and plausible
+the whole way through the buffer. Nothing trips. Exporter Studio hit exactly
+this in their own reader and reported it was not a one-line fix.
+
+That is the same failure the directives file calls out under "measure, then
+claim" - correct arithmetic over the wrong set, producing a believable answer -
+and it is worth knowing that it happens in binary parsing too, not only in
+measurement. A garbled mesh announces itself. A mesh read one vertex out of
+phase looks like a mesh.
+
 **Next step, after the pending push:** add the two cases, and at the call site
-treat `stride = 0` as a hard error that names the format string, rather than an
-assert. Fixing these two does not fix the seventh; the fallthrough is what
-needs to stop being quiet.
+treat `stride = 0` as a hard error that NAMES the unrecognised format string,
+rather than an assert that compiles out. Two more `Case` entries fix today's
+corpus; only the logging fixes the next patch that ships a seventh format.
 
 ### The trap waiting in that fix: the lone `i` is NOT a skinned marker
 
