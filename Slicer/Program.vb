@@ -40,6 +40,7 @@ Module Program
         Dim doList = False, doFailures = False, skipVehicles = False, doView = False
         Dim settingsPath As String = Nothing
         Dim shotPath As String = Nothing
+        Dim checkCount As Integer = -1
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -62,6 +63,9 @@ Module Program
                     showSettings = True
                 Case "--save-settings"
                     saveSettings = True
+                Case "--check"
+                    checkCount = 0
+                    If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), checkCount) Then i += 1 Else checkCount = 0
                 Case "--shot"
                     i += 1 : If i < args.Length Then shotPath = args(i)
                 Case "--view"
@@ -227,6 +231,8 @@ Module Program
 
         If csvPath IsNot Nothing Then WriteCsv(library, csvPath)
 
+        If checkCount >= 0 Then MeshCheck.RunSweep(pkg, library, settings, checkCount, filter)
+
         If doView OrElse shotPath IsNot Nothing Then
             ' --asset picks the building to open on; without one it starts at
             ' the first and the arrow keys walk the library.
@@ -354,6 +360,7 @@ Module Program
         Console.WriteLine()
         Console.WriteLine("  --view               open the 3D viewer")
         Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
+        Console.WriteLine("  --check [n]          watertightness before and after the bottom fill")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")

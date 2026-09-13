@@ -473,6 +473,48 @@ chains rather than closed loops, and those are fanned anyway. And a mesh with no
 bottom boundary gets nothing, which is why the cathedral is only partly red from
 below.
 
+## Is it watertight?
+
+**No.** `--check [n]` answers it with a sweep, and the honest number is that the
+bottom fill barely moves it. Over 120 assets / 464 lod0 meshes:
+
+|  | before fill | after fill |
+|---|---|---|
+| watertight meshes | 12 (2.6%) | 20 (4.3%) |
+| manifold, no branching | 321 (69.2%) | 321 (69.2%) |
+| open boundary edges | 1,575,479 | 1,560,893 |
+
+**The fill closes 0.9% of the open edges.** It touched 345 meshes and made 8 of
+them watertight. So the bottom is genuinely a plane cut and closing it works —
+but the bottom is not where the holes are. These meshes are open everywhere:
+windows, doorways, interior faces, unjoined panels. Roughly 3,400 boundary edges
+per mesh remain after the bottom is closed.
+
+And **85,321 non-manifold edges survive**, which is the harder half. A hole can
+be filled; an edge carried by three or more triangles means the surface branches
+and encloses nothing definite. No amount of hole-filling fixes that.
+
+So anything downstream that needs a solid — a CSG library, a 3D print, a volume
+— cannot have one from this geometry by closing the bottom alone.
+
+### The sweep caught a bug in the fill
+
+The first version wrapped every chain all the way round, inventing an edge
+between the last vertex and the first. On an OPEN chain that edge is not a
+boundary edge and may already be carried by two triangles, so the fill pushed it
+to three: **manifold meshes fell from 321 to 314**. The picture looked fine
+throughout — the count is what found it. Open chains now stop one triangle short
+and leave the gap as a gap.
+
+That is the argument for `MeshCheck` existing as an API rather than a one-off
+script: `Analyse` gives the edge census for a mesh, `AnalysePair` gives it
+before and after the fill, and a regression in the filler shows up as a number
+on the next sweep.
+
+**Known limit: it is slow.** 101 s for 40 assets, ~250 ms per mesh, dominated by
+the string-keyed dictionary used to weld positions. Fine for a check that runs
+occasionally, too slow to put in a loop.
+
 ## Not done yet
 
 **Export.** The cut exists only on screen; `out.dir` and `out.format` are

@@ -147,7 +147,17 @@ Public NotInheritable Class BottomFill
             End While
 
             If ordered.Count < 3 Then Continue For
-            If adj(endPoint).Count = 1 Then r.OpenChains += 1
+
+            ' Is this actually a closed ring, or a chain with two loose ends?
+            ' It matters: fanning a chain all the way round invents an edge
+            ' between its last vertex and its first, and that edge is not a
+            ' boundary edge - it may already be carried by two triangles, in
+            ' which case the fill pushes it to three and turns a merely-open
+            ' mesh into a NON-MANIFOLD one. The first version wrapped
+            ' unconditionally and the watertightness sweep caught it: manifold
+            ' meshes fell from 321 to 314 across 464.
+            Dim isClosed = adj(ordered(ordered.Count - 1)).Contains(ordered(0))
+            If Not isClosed Then r.OpenChains += 1
             r.Rings += 1
 
             ' ---- fan from the centroid.
@@ -169,7 +179,11 @@ Public NotInheritable Class BottomFill
             For Each v In ordered
                 r.Positions.Add(wpos(v))
             Next
-            For i = 0 To ordered.Count - 1
+            ' A closed ring fans all the way round; an open chain stops one
+            ' short, so the gap between its ends is left as a gap rather than
+            ' being papered over with an edge that was never there.
+            Dim last = If(isClosed, ordered.Count - 1, ordered.Count - 2)
+            For i = 0 To last
                 Dim a = firstV + i
                 Dim b = firstV + ((i + 1) Mod ordered.Count)
                 r.Indices.Add(hub)
