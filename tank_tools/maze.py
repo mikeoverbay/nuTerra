@@ -29,6 +29,7 @@ beats it has found something wrong rather than something clever.
     python tank_tools/maze.py [map] [--to X,Z] [--out route.png]
 """
 
+import io
 import os
 import sys
 
@@ -57,6 +58,51 @@ CELL_M = 1.0
 # ridge the tank is standing on.
 MAX_CLIMB_DEG = 40.0
 MAX_CLIMB_TAN = float(np.tan(np.deg2rad(MAX_CLIMB_DEG)))
+
+
+_PLAY_BOX = {}
+
+
+def play_box(map_name):
+    """The battle area, in metres: (min x, min z, max x, max z).
+
+    NOT the space. 19_monastery's space is 1400 x 1400 - 14 chunks of 100 m,
+    x and y -7..6 in space.bin - but the arena only lets tanks into a
+    1000 x 1000 box. Over HALF the ground reachable from the base is outside
+    it: 501,586 m2 of 955,003, which the planner was routing across.
+
+    READ FROM THE BAKE'S META, which already has it as arena_x0/x1/z0/z1.
+
+    I decoded it out of scripts/arena_defs/<map>.xml first - and that was the
+    wrong source twice over. It is stored as TEXT inside a packed section
+    ("-500.0 -500.0" and "500.0 500.0", adjacent with no separator, so every
+    float scan and every naive regex gets it wrong), and more importantly
+    nuTerra ALREADY parses it in TerrainBuilder.set_arena_bb and writes it to
+    the meta - applying an X NEGATION on the way, because MAP_BB lives in a
+    negated-X frame relative to world X. Monastery is symmetric so the raw
+    decode agreed by luck; on an asymmetric map it would have been mirrored.
+
+    The house rule covers this: a reader takes the contract from the meta.
+    """
+    if map_name in _PLAY_BOX:
+        return _PLAY_BOX[map_name]
+    box = None
+    try:
+        m = rs.read_meta(os.path.join(rs.FLIGHT, map_name + "_meta.txt"))
+        if all(k in m for k in ("arena_x0", "arena_x1", "arena_z0", "arena_z1")):
+            box = (float(m["arena_x0"]), float(m["arena_z0"]),
+                   float(m["arena_x1"]), float(m["arena_z1"]))
+    except Exception as exc:
+        print('play_box(%s): %s: %s' % (map_name, type(exc).__name__, exc),
+              file=sys.stderr)
+    if box is None:
+        # NEVER SILENT. A bare fallback to the whole space is the bug this
+        # function exists to prevent, and one already cost a cycle here when an
+        # un-imported name was swallowed and reported as "no bounds found".
+        print('play_box(%s): no arena_* keys in the meta - routes may leave the'
+              ' playable area' % map_name, file=sys.stderr)
+    _PLAY_BOX[map_name] = box
+    return box
 
 
 def grid_1m(g, cell_m=CELL_M):
@@ -119,6 +165,18 @@ def grid_1m(g, cell_m=CELL_M):
         band = grad[r0:r1, :].max(axis=0)
         steep[r] = np.maximum.reduceat(band, edges[:n])
     blocked |= (steep > MAX_CLIMB_TAN)
+
+    # OUTSIDE THE BATTLE AREA IS AS GOOD AS A WALL. A tank cannot be there, so
+    # a route through it is not a route. Without this the sweep stepped X
+    # across the whole 1,400 m space and built lanes through 400 m of ground
+    # no hull may enter.
+    box = play_box(g.get("map_name", ""))
+    if box is not None:
+        bx0, bz0, bx1, bz1 = box
+        cc = g["wx0"] + (np.arange(n) + 0.5) * cell_m
+        rr = g["wz1"] - (np.arange(n) + 0.5) * cell_m
+        outside = ((cc < bx0) | (cc > bx1))[None, :] |                   ((rr < bz0) | (rr > bz1))[:, None]
+        blocked |= outside
     return blocked, n, height
 
 
@@ -997,14 +1055,35 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
     # than to it, so every lane can be stitched back to where the tank
     # actually starts.
     f_home = flood(blocked, s_rc, cost=cost, height=height)
+    box = play_box(g.get("map_name", ""))
     near_row, far_row = s_rc[0], n - 1 - s_rc[0]
+    if box is not None:
+        # AND THE CROSSING LINE INSIDE THE BORDER TOO. The mirror of the start
+        # row can land outside the box on an off-centre base, and a crossing
+        # ring out there has nothing free in it.
+        r_lo = int((g["wz1"] - box[3]) / cell_m + max(1.0, standoff_m))
+        r_hi = int((g["wz1"] - box[1]) / cell_m - max(1.0, standoff_m))
+        far_row = max(r_lo, min(r_hi, far_row))
     base_ring_cells = base_ring_m / cell_m
     ring = max(1, int(ring_m / cell_m))
     step = max(1, int(round(step_m / cell_m)))
     comp = components(blocked, height)
 
+    # SWEEP THE PLAY FIELD, BORDER TO BORDER, not the whole space.
+    #
+    # "so we need to start left to border stand off and step to other side."
+    # The battle box is 1000 x 1000 of a 1400 x 1400 space, so a sweep over
+    # the space spent 400 m of its range on ground no tank may enter. It now
+    # starts one standoff inside the left border and steps to one standoff
+    # short of the right, which is also where a hull can actually sit: the
+    # border is blocked ground now, so the standoff cost treats it as a wall.
+    if box is not None:
+        c_lo = int((box[0] - g["wx0"]) / cell_m + max(1.0, standoff_m))
+        c_hi = int((box[2] - g["wx0"]) / cell_m - max(1.0, standoff_m))
+    else:
+        c_lo, c_hi = 0, n
     out = []
-    for col in range(0, n, step):
+    for col in range(max(0, c_lo), min(n, c_hi), step):
         # FINISH THE COLUMNS THAT DO NOT CROSS, instead of dropping them.
         #
         # "we need to finish the rings that are not connected to the bases."
