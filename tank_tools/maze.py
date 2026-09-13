@@ -940,45 +940,46 @@ def simplify(pts, tol_m=0.35):
 
 def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
                 dedupe=0.85):
-    """A road per X: cross to that X on the far side, then hook to the base.
+    """A lane per X: BOTH ends on that X, then hooked to the base.
 
-    "why are we not starting on the left and moving to the right steps?" and
-    then "need to step end x seek ring".
+    "ffs. end and start." Right - a lane is a line of constant X, so the start
+    and the crossing share it. The previous version pinned every start at the
+    tank's own base and stepped only the far end, which is a fan out of one
+    point, not a sweep.
 
-    So the END steps, not just the start. Each road is a crossing at its own X
-    - the owner's lane - with a 20 m SEEK RING on the far end: if the exact
-    cell is solid, anywhere inside the ring counts as having got there. Then it
-    hooks to the base.
+    So for each X: start at (X, our line), cross to (X, the far line), each end
+    snapped into a 20 m SEEK RING if its exact cell is solid, then hook the far
+    end to the base.
 
-    TWO FLOODS FOR THE WHOLE SWEEP, which is why the end can step at all. The
-    field from the START gives the way out to ANY crossing point; the field
-    from the BASE gives the way home from ANY crossing point. So a road is two
-    downhill walks and N roads cost 2 floods, not 2N searches - about a second
-    for the whole map at 40 m.
-
-    Roads that converge are dropped: crossings 40 m apart often merge within a
-    hundred metres, and `dedupe` is the share of cells a road may have in
-    common with one already kept.
+    THIS COSTS A FLOOD PER LANE and that is unavoidable: with both ends moving
+    there is no fixed source to flood from once. One flood from each crossing
+    gives that lane's way back to its own start; one shared flood from the base
+    gives every lane its way home. Nine lanes in about six seconds, on the
+    worker thread, so the window stays live while it runs.
     """
     blocked, n, height = grid_1m(g, cell_m)
     s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
     g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
-    f_start = flood(blocked, s_rc, height=height)
     f_goal = flood(blocked, g_rc, height=height)
-    # THE FAR SIDE: the mirror of the start's line, so a lane crosses the map.
-    far_row = n - 1 - s_rc[0]
+    near_row, far_row = s_rc[0], n - 1 - s_rc[0]
     ring = max(1, int(ring_m / cell_m))
     step = max(1, int(round(step_m / cell_m)))
+    comp = components(blocked, height)
 
     out = []
     for col in range(0, n, step):
         try:
-            rc, snapped = nearest_free(blocked, (far_row, col), limit=ring)
+            a_rc, a_snap = nearest_free(blocked, (near_row, col), limit=ring)
+            b_rc, b_snap = nearest_free(blocked, (far_row, col), limit=ring)
         except ValueError:
             continue
-        if not (np.isfinite(f_start[rc]) and np.isfinite(f_goal[rc])):
+        # both ends on the same ground, and the far end able to reach the base
+        if comp[a_rc] != comp[b_rc] or not np.isfinite(f_goal[b_rc]):
             continue
-        cells = walk_down(f_start, rc)[::-1] + walk_down(f_goal, rc)[1:]
+        f_cross = flood(blocked, b_rc, height=height)
+        if not np.isfinite(f_cross[a_rc]):
+            continue
+        cells = walk_down(f_cross, a_rc) + walk_down(f_goal, b_rc)[1:]
         if len(cells) < 20:
             continue
         cs = set(cells)
@@ -989,6 +990,8 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
             np.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
             for i in range(len(pts) - 1)))
         out.append(dict(pts=pts, cells=cs, length=length,
-                        via=to_world(g, rc[0], rc[1], cell_m),
-                        x=g["wx0"] + col * cell_m, snapped=snapped))
+                        start=to_world(g, a_rc[0], a_rc[1], cell_m),
+                        via=to_world(g, b_rc[0], b_rc[1], cell_m),
+                        x=g["wx0"] + col * cell_m,
+                        snapped=max(a_snap, b_snap)))
     return dict(routes=out, opt=float(f_goal[s_rc]))
