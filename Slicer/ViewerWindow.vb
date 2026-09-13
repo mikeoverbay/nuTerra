@@ -523,11 +523,6 @@ Public Class ViewerWindow
             End If
 
             For Each m In meshes
-                If Not m.HasUV2 Then
-                    noUv += 1
-                    Console.WriteLine("  {0,-50} no uv2, cannot bake", m.Name)
-                    Continue For
-                End If
                 If mats.Count = 0 Then
                     noMat += 1
                     Continue For
@@ -537,23 +532,57 @@ Public Class ViewerWindow
                 ' takes the mesh's material and the report says so.
                 Dim mat = mats(Math.Min(meshIndex, mats.Count - 1))
                 meshIndex += 1
-                Dim maps = mat.ExtMaps()
-                Dim baseName = asset.Name & "_" & m.Name
+                ' NOT m.Name. A single-section .primitives_processed has one
+                ' global vertices/indices pair, and this reader calls that
+                ' "mesh" - so every mesh of every part shares the name and each
+                ' bake overwrote the last. The PART name is the unique one, and
+                ' a suffix disambiguates the rare multi-section file.
+                Dim meshTag = If(m.Name = "mesh", "", "_" & m.Name)
+                Dim baseName = part.Name & meshTag
                 Dim wroteAny = False
+                Dim maps = mat.ExtMaps()
 
-                For slot = 0 To 2
-                    Dim srcPath = maps(slot)
-                    If srcPath Is Nothing Then Continue For
-                    Dim src = LoadTex(srcPath, 0)
-                    If src = 0 Then Continue For
-                    Dim suffix = If(slot = 0, "AM", If(slot = 1, "NM", "GMM"))
-                    Dim res = TextureBake.Bake(m.UVs, m.UV2, m.Indices, src, size, slot = 1)
-                    If res Is Nothing Then Continue For
-                    Dim png = IO.Path.Combine(outDir, baseName & "_" & suffix & ".png")
-                    PngWriter.WriteRgb(png, res.Width, res.Height, res.Pixels)
-                    Console.WriteLine("  {0,-54} {1,6:P1} covered", IO.Path.GetFileName(png), res.Coverage)
-                    wroteAny = True
-                Next
+                If mat.IsTiled Then
+                    ' TILED: three tiles blended through a mask that lives in
+                    ' UV2, so this one genuinely has to be baked and cannot be
+                    ' done without a uv2.
+                    If Not m.HasUV2 Then
+                        noUv += 1
+                        Console.WriteLine("  {0,-50} tiled but no uv2, cannot bake", m.Name)
+                        Continue For
+                    End If
+                    Dim tm = mat.TiledMaps()
+                    Dim t0 = If(tm(0) IsNot Nothing, LoadTex(tm(0), whiteTex), whiteTex)
+                    Dim t1 = If(tm(1) IsNot Nothing, LoadTex(tm(1), t0), t0)
+                    Dim t2 = If(tm(2) IsNot Nothing, LoadTex(tm(2), t0), t0)
+                    Dim bl = If(tm(3) IsNot Nothing, LoadTex(tm(3), whiteTex), whiteTex)
+                    Dim dt = If(tm(4) IsNot Nothing, LoadTex(tm(4), 0), 0)
+                    Dim res = TextureBake.BakeTiled(m.UVs, m.UV2, m.Indices, t0, t1, t2, bl, dt, size)
+                    If res IsNot Nothing Then
+                        Dim png = IO.Path.Combine(outDir, baseName & "_AM.png")
+                        PngWriter.WriteRgb(png, res.Width, res.Height, res.Pixels)
+                        Console.WriteLine("  {0,-50} {1,6:P1} covered   tiled", IO.Path.GetFileName(png), res.Coverage)
+                        wroteAny = True
+                    End If
+                Else
+                    ' PBS_ext: its map is a per-object texture already addressed
+                    ' by UV1, so UV1 IS the unwrap and there is nothing to
+                    ' resample. Decode it straight out at its own resolution.
+                    ' Baking it into UV2 would be wrong even where a uv2 exists.
+                    For slot = 0 To 2
+                        Dim srcPath = maps(slot)
+                        If srcPath Is Nothing Then Continue For
+                        Dim src = LoadTex(srcPath, 0)
+                        If src = 0 Then Continue For
+                        Dim suffix = If(slot = 0, "AM", If(slot = 1, "NM", "GMM"))
+                        Dim res = TextureBake.Decode(src, size, slot = 1)
+                        If res Is Nothing Then Continue For
+                        Dim png = IO.Path.Combine(outDir, baseName & "_" & suffix & ".png")
+                        PngWriter.WriteRgb(png, res.Width, res.Height, res.Pixels)
+                        Console.WriteLine("  {0,-50} {1,6:P1} covered   ext", IO.Path.GetFileName(png), res.Coverage)
+                        wroteAny = True
+                    Next
+                End If
 
                 If wroteAny Then
                     written += 1

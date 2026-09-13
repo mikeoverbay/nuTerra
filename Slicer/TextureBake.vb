@@ -79,7 +79,77 @@ Public NotInheritable Class TextureBake
         "    o_col = vec4(c.rgb, 1.0);" & vbLf &
         "}" & vbLf
 
+    ''' <summary>
+    ''' The tiled composite, transcribed from the owner's Tank Exporter
+    ''' `textureBuilder_fragment.glsl` with the atlas lookups replaced by the
+    ''' separate tile textures a plain PBS_tiled material carries.
+    '''
+    ''' HIS BLEND MATHS IS KEPT VERBATIM, including the smoothstep argument
+    ''' order, which is not the conventional one:
+    '''
+    '''     BLEND.r = smoothstep(BLEND.r * colorAM_1.a, 0.00, 0.09);
+    '''
+    ''' edge0 is the blend value and x is the constant, which is backwards from
+    ''' how smoothstep is normally written and is deliberate - it inverts, and
+    ''' that inversion is what makes the tiles interlock rather than cross-fade.
+    ''' It is his shipped, working code; tidying it into the "correct" argument
+    ''' order would change the picture.
+    '''
+    ''' The tile's ALPHA IS ITS HEIGHT and modulates its own blend weight. That
+    ''' is the height-blend, and it is why the maps are named albedoHeightTile.
+    ''' </summary>
+    Private Const FRAG_TILED As String =
+        "#version 330 core" & vbLf &
+        "in vec2 v_uv1;" & vbLf &
+        "in vec2 v_uv2;" & vbLf &
+        "uniform sampler2D u_t0;" & vbLf &
+        "uniform sampler2D u_t1;" & vbLf &
+        "uniform sampler2D u_t2;" & vbLf &
+        "uniform sampler2D u_blend;" & vbLf &
+        "uniform sampler2D u_dirt;" & vbLf &
+        "uniform vec4 u_tint0;" & vbLf &
+        "uniform vec4 u_tint1;" & vbLf &
+        "uniform vec4 u_tint2;" & vbLf &
+        "uniform vec4 u_dirtColor;" & vbLf &
+        "uniform int  u_hasDirt;" & vbLf &
+        "out vec4 o_col;" & vbLf &
+        "vec4 correct(vec4 c, float exposure, float gamma) {" & vbLf &
+        "    vec3 m = vec3(1.0) - exp(-c.rgb * exposure);" & vbLf &
+        "    return vec4(pow(m, vec3(1.0 / gamma)), c.a);" & vbLf &
+        "}" & vbLf &
+        "void main() {" & vbLf &
+        "    vec4 BLEND = texture(u_blend, v_uv2);" & vbLf &
+        "    vec4 c0 = texture(u_t0, v_uv1) * u_tint0;" & vbLf &
+        "    vec4 c1 = texture(u_t1, v_uv1) * u_tint1;" & vbLf &
+        "    vec4 c2 = texture(u_t2, v_uv1) * u_tint2;" & vbLf &
+        "    vec4 DIRT = texture(u_dirt, v_uv2);" & vbLf &
+        "    DIRT.rgb *= u_dirtColor.rgb;" & vbLf &
+        "    BLEND.r = smoothstep(BLEND.r * c0.a, 0.00, 0.09);" & vbLf &
+        "    BLEND.g = smoothstep(BLEND.g * c1.a, 0.00, 0.25);" & vbLf &
+        "    BLEND.b = smoothstep(BLEND.b, 0.00, 0.6);" & vbLf &
+        "    BLEND = correct(BLEND, 4.0, 0.8);" & vbLf &
+        "    vec4 c = c2;" & vbLf &
+        "    c = mix(c, c0, BLEND.r);" & vbLf &
+        "    c = mix(c, c1, BLEND.g);" & vbLf &
+        "    if (u_hasDirt == 1) c = mix(c, DIRT, BLEND.b);" & vbLf &
+        "    c *= BLEND.a;" & vbLf &
+        "    o_col = vec4(c.rgb, 1.0);" & vbLf &
+        "}" & vbLf
+
+    Private Const VERT_TILED As String =
+        "#version 330 core" & vbLf &
+        "layout(location = 0) in vec2 a_uv1;" & vbLf &
+        "layout(location = 1) in vec2 a_uv2;" & vbLf &
+        "out vec2 v_uv1;" & vbLf &
+        "out vec2 v_uv2;" & vbLf &
+        "void main() {" & vbLf &
+        "    v_uv1 = a_uv1;" & vbLf &
+        "    v_uv2 = a_uv2;" & vbLf &
+        "    gl_Position = vec4(a_uv2 * 2.0 - 1.0, 0.0, 1.0);" & vbLf &
+        "}" & vbLf
+
     Private Shared program As Integer = 0
+    Private Shared programTiled As Integer = 0
 
     Private Shared Sub EnsureProgram()
         If program <> 0 Then Return
@@ -101,6 +171,73 @@ Public NotInheritable Class TextureBake
     End Sub
 
     ''' <summary>
+    ''' Bake a TILED material: three tiles height-blended through the mask, plus
+    ''' dirt, resampled into UV2 space. Pass 0 for any texture that is absent.
+    ''' </summary>
+    Public Shared Function BakeTiled(uv1 As Vector2(), uv2 As Vector2(), idx As Integer(),
+                                     t0 As Integer, t1 As Integer, t2 As Integer,
+                                     blend As Integer, dirt As Integer,
+                                     size As Integer) As BakeResult
+        If programTiled = 0 Then programTiled = Link(VERT_TILED, FRAG_TILED, "tiled")
+        Return Run(uv1, uv2, idx, size, programTiled,
+                   Sub()
+                       BindAt(0, "u_t0", t0, programTiled)
+                       BindAt(1, "u_t1", t1, programTiled)
+                       BindAt(2, "u_t2", t2, programTiled)
+                       BindAt(3, "u_blend", blend, programTiled)
+                       BindAt(4, "u_dirt", dirt, programTiled)
+                       GL.Uniform4(GL.GetUniformLocation(programTiled, "u_tint0"), 1.0F, 1.0F, 1.0F, 1.0F)
+                       GL.Uniform4(GL.GetUniformLocation(programTiled, "u_tint1"), 1.0F, 1.0F, 1.0F, 1.0F)
+                       GL.Uniform4(GL.GetUniformLocation(programTiled, "u_tint2"), 1.0F, 1.0F, 1.0F, 1.0F)
+                       GL.Uniform4(GL.GetUniformLocation(programTiled, "u_dirtColor"), 1.0F, 1.0F, 1.0F, 1.0F)
+                       GL.Uniform1(GL.GetUniformLocation(programTiled, "u_hasDirt"), If(dirt <> 0, 1, 0))
+                   End Sub)
+    End Function
+
+    Private Shared Sub BindAt(unit As Integer, name As String, tex As Integer, prog As Integer)
+        GL.Uniform1(GL.GetUniformLocation(prog, name), unit)
+        GL.ActiveTexture(TextureUnit.Texture0 + unit)
+        GL.BindTexture(TextureTarget.Texture2D, tex)
+    End Sub
+
+    Private Shared Function Link(vsrc As String, fsrc As String, label As String) As Integer
+        Dim vs = GL.CreateShader(ShaderType.VertexShader)
+        GL.ShaderSource(vs, vsrc) : GL.CompileShader(vs)
+        Dim ok As Integer
+        GL.GetShader(vs, ShaderParameter.CompileStatus, ok)
+        If ok = 0 Then Throw New Exception(label & " vertex: " & GL.GetShaderInfoLog(vs))
+        Dim fs = GL.CreateShader(ShaderType.FragmentShader)
+        GL.ShaderSource(fs, fsrc) : GL.CompileShader(fs)
+        GL.GetShader(fs, ShaderParameter.CompileStatus, ok)
+        If ok = 0 Then Throw New Exception(label & " fragment: " & GL.GetShaderInfoLog(fs))
+        Dim p = GL.CreateProgram()
+        GL.AttachShader(p, vs) : GL.AttachShader(p, fs) : GL.LinkProgram(p)
+        GL.GetProgram(p, GetProgramParameterName.LinkStatus, ok)
+        If ok = 0 Then Throw New Exception(label & " link: " & GL.GetProgramInfoLog(p))
+        GL.DeleteShader(vs) : GL.DeleteShader(fs)
+        Return p
+    End Function
+
+    ''' <summary>
+    ''' Straight decode: a source texture out to RGB pixels, no UV remap.
+    '''
+    ''' For a PBS_ext material this is the whole job. Its map is a per-object
+    ''' texture already addressed by UV1, so UV1 IS its unwrap and there is
+    ''' nothing to resample - the texture only has to come off the GPU as plain
+    ''' pixels a PNG can hold. Doing it on the GPU rather than writing a DXT
+    ''' decoder is the cheap way in: bind the compressed texture, draw a
+    ''' full-screen triangle, read it back.
+    ''' </summary>
+    Public Shared Function Decode(srcTex As Integer, size As Integer, swizzle As Boolean) As BakeResult
+        ' Two triangles covering the square, in UV2 space, sampling UV1 1:1 -
+        ' the same bake with an identity mapping.
+        Dim quadUv = New Vector2() {New Vector2(0, 0), New Vector2(1, 0),
+                                    New Vector2(1, 1), New Vector2(0, 1)}
+        Dim quadIdx = New Integer() {0, 1, 2, 0, 2, 3}
+        Return Bake(quadUv, quadUv, quadIdx, srcTex, size, swizzle)
+    End Function
+
+    ''' <summary>
     ''' Bake one source texture through one mesh's UV1 -> UV2 mapping.
     '''
     ''' `uv1`/`uv2` are per-vertex and must be the same length; `idx` indexes
@@ -110,6 +247,19 @@ Public NotInheritable Class TextureBake
                                 srcTex As Integer, size As Integer,
                                 swizzle As Boolean) As BakeResult
         EnsureProgram()
+        Return Run(uv1, uv2, idx, size, program,
+                   Sub()
+                       GL.Uniform1(GL.GetUniformLocation(program, "u_src"), 0)
+                       GL.Uniform1(GL.GetUniformLocation(program, "u_swizzle"), If(swizzle, 1, 0))
+                       GL.ActiveTexture(TextureUnit.Texture0)
+                       GL.BindTexture(TextureTarget.Texture2D, srcTex)
+                   End Sub)
+    End Function
+
+    ''' <summary>The shared rasterise-into-UV2 pass. `setup` binds whatever
+    ''' textures and uniforms the chosen program needs.</summary>
+    Private Shared Function Run(uv1 As Vector2(), uv2 As Vector2(), idx As Integer(),
+                                size As Integer, prog As Integer, setup As Action) As BakeResult
         If size < 64 Then size = 64
 
         Dim fbo = GL.GenFramebuffer()
@@ -162,11 +312,8 @@ Public NotInheritable Class TextureBake
         GL.ClearColor(1.0F, 0.0F, 1.0F, 1.0F)
         GL.Clear(ClearBufferMask.ColorBufferBit)
 
-        GL.UseProgram(program)
-        GL.Uniform1(GL.GetUniformLocation(program, "u_src"), 0)
-        GL.Uniform1(GL.GetUniformLocation(program, "u_swizzle"), If(swizzle, 1, 0))
-        GL.ActiveTexture(TextureUnit.Texture0)
-        GL.BindTexture(TextureTarget.Texture2D, srcTex)
+        GL.UseProgram(prog)
+        setup()
         GL.DrawElements(PrimitiveType.Triangles, idx.Length, DrawElementsType.UnsignedInt, 0)
 
         Dim buf(size * size * 4 - 1) As Byte

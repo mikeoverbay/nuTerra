@@ -1,4 +1,4 @@
-Imports OpenTK.Mathematics
+﻿Imports OpenTK.Mathematics
 
 ''' <summary>One material: which shader draws it and what it is drawn with.</summary>
 Public Class VisualMaterial
@@ -31,6 +31,29 @@ Public Class VisualMaterial
     ''' Nothing for any that is absent.</summary>
     Public Function ExtMaps() As String()
         Return New String() {Texture("diffuseMap"), Texture("normalMap"), Texture("metallicGlossMap")}
+    End Function
+
+    ''' <summary>True when this material is one of the tiled family, which is
+    ''' 80% of building materials and needs the blend baked rather than a map
+    ''' copied.</summary>
+    Public ReadOnly Property IsTiled As Boolean
+        Get
+            Return Texture("albedoHeightTile0") IsNot Nothing
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' The tiled family's maps: three albedo/height tiles, the blend mask and
+    ''' the dirt layer.
+    '''
+    ''' The three tile names are among the SIX-BIT PACKED ones for the
+    ''' normal/gloss variants - normalGlossSpecTile0/1/2 arrive as blobs - so a
+    ''' reader that only handles plain string property names finds the albedo
+    ''' tiles and silently misses the rest.
+    ''' </summary>
+    Public Function TiledMaps() As String()
+        Return New String() {Texture("albedoHeightTile0"), Texture("albedoHeightTile1"),
+                             Texture("albedoHeightTile2"), Texture("blendMask"), Texture("dirtMap")}
     End Function
 End Class
 
