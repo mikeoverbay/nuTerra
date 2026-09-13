@@ -1,13 +1,32 @@
 # The branching ray search — pseudocode
 
-The owner's design, 2026-09-12. Replaces the 121-independent-bearing sweep
-with ONE tree, walked depth first, with backtracking and a claim rule that
-makes it terminate.
+> # SUPERSEDED, 2026-09-12 evening. THE CODE THIS DESCRIBES IS DELETED.
+> 
+> The owner: "the old radar seeking code with expanding rings" — removed from
+> `ray_studio.py` in `e3245a29`, along with the bearing sweep and the fan.
+> `ring_tangents`, `chain`, `resolve`, `ring_branch`, `BranchTree`,
+> `ItemLedger` and the tangent helpers are all gone, 1,575 lines of a
+> 4,333-line file.
+>
+> **What replaced it: `tank_tools/maze.py`.** Flood fill from the goal, then
+> walk downhill. Exact, no parameters, nothing to tune. The comparison that
+> ended it, base to base on monastery:
+>
+>     branch search   877 m   1.12x direct   621 casts
+>     flood fill      846 m   1.08x direct   0.6 s      <- the exact optimum
+>
+> The branch search got within 3.7% of optimal and cost a day of tuning to do
+> it; the flood fill is optimal by construction and has no knobs. See §12 and
+> §14 of `docs/HANDOFF_2026-09-11_tank_ai.md`.
+>
+> **This file is kept as history, not as a spec.** It records a design the
+> owner and I built together and everything it taught — the forward-only arc,
+> the ring-per-attempt, why breadcrumbs strangled it. Do not implement from
+> it. Do not update it.
 
-> **LIVING DOCUMENT.** This is the spec the code is built from and it is
-> updated whenever the algorithm changes - the owner's instruction. If the
-> code and this file disagree, one of them is a bug. A changelog is kept at
-> the bottom so a reading of it can be dated.
+The owner's design, 2026-09-12. Replaced the 121-independent-bearing sweep
+with ONE tree, walked depth first, with backtracking and a claim rule that
+made it terminate.
 
 ## Status
 
