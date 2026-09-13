@@ -2669,3 +2669,21 @@ N_ANGLES = RAYS_PER_POINT
 TAG_OPEN, TAG_PASS, TAG_FAIL = "OPEN", "PASS", "FAIL"
 ORIGIN_ROOT, ORIGIN_TANGENT, ORIGIN_CONTINUE = "ROOT", "TANGENT", "CONTINUE"
 
+
+
+# THE ENTRY POINT LIVES AT THE END, and it has to.
+#
+# It has now been lost TWICE, the same way both times, and the second time is
+# the instructive one. Removing the old radar search deleted definitions by
+# span, and BranchTree was the LAST definition in the file - so its span ran to
+# end-of-file and took this block with it. The app then did nothing at all:
+# exit 0, no output, no window.
+#
+# It survived every test I ran because those tests import the module and call
+# main() on it, which loads every definition first. Run as a script, the way he
+# runs it, there was no main() call at all. A harness that imports is not a
+# test of a script.
+#
+# Anything appended to this file from here goes ABOVE this block.
+if __name__ == "__main__":
+    main()
