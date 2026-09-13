@@ -1109,6 +1109,52 @@ try_again:
         End If
     End Sub
 
+    ''' <summary>
+    ''' Write the current camera where ANY session can read it.
+    '''
+    ''' ProgramData, deliberately, and not %TEMP%. Snapshot writes to
+    ''' Path.GetTempPath, which is per USER and is redirected per session here -
+    ''' this build points TMP at its own clone so its bakes cannot overwrite the
+    ''' shared ones. The consequence bit today: the owner set up a view, pressed
+    ''' Snapshot, and the session he was talking to read a different file and
+    ''' used a camera from the day before. A shared instruction has to live
+    ''' somewhere no session can redirect.
+    '''
+    ''' Written as the `cam=` argument verbatim so it can be pasted onto a
+    ''' command line without editing - which is how every other session will
+    ''' consume it.
+    ''' </summary>
+    Private Sub write_cam_position()
+        Try
+            Dim dir = IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "nuTerra")
+            IO.Directory.CreateDirectory(dir)
+            Dim path = IO.Path.Combine(dir, "cam.txt")
+
+            Dim inv = Globalization.CultureInfo.InvariantCulture
+            Dim c = map_scene.camera
+            Dim line = String.Format(inv, "cam={0:0.####},{1:0.####},{2:0.####},{3:0.####},{4:0.####},{5:0.####}",
+                                     c.VIEW_RADIUS, c.CAM_X_ANGLE, c.CAM_Y_ANGLE,
+                                     c.LOOK_AT_X, c.LOOK_AT_Y, c.LOOK_AT_Z)
+
+            Dim sb As New Text.StringBuilder()
+            sb.AppendLine("# The camera to use. Written by the Set Cam Position button.")
+            sb.AppendLine("# Paste the cam= line onto the command line as it stands.")
+            sb.AppendLine(String.Format("# {0}  map {1}", Date.Now.ToString("s"), MAP_NAME_NO_PATH))
+            sb.AppendLine(line)
+            sb.AppendLine(String.Format(inv, "map={0}", MAP_NAME_NO_PATH))
+            sb.AppendLine(String.Format(inv, "sun={0:0.0},{1:0.0},{2:0.0}",
+                                        LIGHT_POS.X, LIGHT_POS.Y, LIGHT_POS.Z))
+            IO.File.WriteAllText(path, sb.ToString())
+
+            LogThis("camera written to {0}", path)
+            LogThis("  {0}", line)
+        Catch ex As Exception
+            LogThis("could not write the camera: {0}", ex.Message)
+        End Try
+    End Sub
+
     Private Sub write_log_snapshot()
         ' Tee the block into %TEMP%\nuTerra\snapshot.txt (latest snapshot
         ' wins) so it can be read from outside the console window.
@@ -1798,6 +1844,17 @@ try_again:
             ImGui.SameLine()
             If ImGui.Button("Snapshot") Then
                 write_log_snapshot()
+            End If
+            ImGui.SameLine()
+            If ImGui.Button("Set Cam Position") Then
+                write_cam_position()
+            End If
+            If ImGui.IsItemHovered() Then
+                ImGui.SetTooltip("Write where the camera is now to a file EVERY" & vbLf &
+                                 "session can read, so 'use my camera' is a" & vbLf &
+                                 "path rather than six numbers typed out." & vbLf &
+                                 "C:\ProgramData
+uTerra\cam.txt")
             End If
             ImGui.SameLine()
             ' The readouts used to live on this bar. They are a panel of their
