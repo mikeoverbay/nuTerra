@@ -1000,18 +1000,49 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
 
     out = []
     for col in range(0, n, step):
-        try:
-            a_rc, a_snap = nearest_free(blocked, (near_row, col), limit=ring)
-            b_rc, b_snap = nearest_free(blocked, (far_row, col), limit=ring)
-        except ValueError:
-            continue
-        # both ends on the same ground, and the far end able to reach the base
-        if comp[a_rc] != comp[b_rc] or not np.isfinite(f_goal[b_rc]):
-            continue
-        f_cross = flood(blocked, b_rc, cost=cost, height=height)
-        if not np.isfinite(f_cross[a_rc]):
-            continue
-        cells = walk_down(f_cross, a_rc) + walk_down(f_goal, b_rc)[1:]
+        # FINISH THE COLUMNS THAT DO NOT CROSS, instead of dropping them.
+        #
+        # "we need to finish the rings that are not connected to the bases."
+        # Measured at a 45 m step, 11 of 32 columns failed, for three reasons
+        # and only two of them fixable:
+        #
+        #   * nothing free inside the 20 m ring - widen and look again
+        #   * the crossing is unreachable from this start, but the start can
+        #     still reach the base - so take the road WITHOUT the crossing
+        #     rather than losing that hull's lane entirely
+        #   * both ends are across the river, in a component the base is not
+        #     in - there is no route, and no attaching invents one
+        a_rc = None
+        a_snap = b_snap = 0.0
+        for widen in (1, 2, 4):
+            try:
+                a_rc, a_snap = nearest_free(blocked, (near_row, col),
+                                            limit=ring * widen)
+                break
+            except ValueError:
+                a_rc = None
+        if a_rc is None or not np.isfinite(f_goal[a_rc]):
+            continue                      # this start cannot get home at all
+        b_rc = None
+        for widen in (1, 2, 4):
+            try:
+                b_rc, b_snap = nearest_free(blocked, (far_row, col),
+                                            limit=ring * widen)
+                break
+            except ValueError:
+                b_rc = None
+        crossed = (b_rc is not None and comp[a_rc] == comp[b_rc]
+                   and np.isfinite(f_goal[b_rc]))
+        if crossed:
+            f_cross = flood(blocked, b_rc, cost=cost, height=height)
+            crossed = bool(np.isfinite(f_cross[a_rc]))
+        if crossed:
+            cells = walk_down(f_cross, a_rc) + walk_down(f_goal, b_rc)[1:]
+        else:
+            # STRAIGHT HOME. No crossing on this X, but the hull still has a
+            # road - and a lane quietly vanishing is what was complained about.
+            cells = walk_down(f_goal, a_rc)
+            b_rc = cells[-1]
         if len(cells) < 20:
             continue
         cs = set(cells)
@@ -1021,7 +1052,7 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
         length = float(sum(
             np.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
             for i in range(len(pts) - 1)))
-        out.append(dict(pts=pts, cells=cs, length=length,
+        out.append(dict(pts=pts, cells=cs, length=length, crossed=crossed,
                         start=to_world(g, a_rc[0], a_rc[1], cell_m),
                         via=to_world(g, b_rc[0], b_rc[1], cell_m),
                         x=g["wx0"] + col * cell_m,
