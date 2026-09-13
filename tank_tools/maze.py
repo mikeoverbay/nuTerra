@@ -1024,7 +1024,8 @@ def simplify(pts, tol_m=0.35):
 
 
 def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
-                dedupe=0.85, standoff_m=6.0, base_ring_m=50.0):
+                dedupe=0.85, standoff_m=6.0, base_ring_m=50.0,
+                row_inset_m=10.0, on_route=None):
     """A lane per X: BOTH ends on that X, then hooked to the base.
 
     "ffs. end and start." Right - a lane is a line of constant X, so the start
@@ -1056,7 +1057,18 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
     # actually starts.
     f_home = flood(blocked, s_rc, cost=cost, height=height)
     box = play_box(g.get("map_name", ""))
+    # THE TWO LINES, PULLED IN TOWARDS THE MIDDLE.
+    #
+    # "move starting row points up towards center of map by 10m." The start
+    # line sits on the base's own row, which is hard against the bottom of the
+    # play field - a ring there has half its area outside the box and the
+    # ground behind it is nothing a tank uses. Ten metres in (adjustable) puts
+    # the row where a hull can actually sit.
+    inset = int(round(row_inset_m / cell_m))
     near_row, far_row = s_rc[0], n - 1 - s_rc[0]
+    mid = (near_row + far_row) // 2
+    near_row += inset if near_row < mid else -inset
+    far_row += inset if far_row < mid else -inset
     if box is not None:
         # AND THE CROSSING LINE INSIDE THE BORDER TOO. The mirror of the start
         # row can land outside the box on an off-centre base, and a crossing
@@ -1158,12 +1170,19 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
         length = float(sum(
             np.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
             for i in range(len(pts) - 1)))
-        out.append(dict(pts=pts, cells=cs, length=length, crossed=crossed,
-                        stitched=stitched,
-                        start=to_world(g, a_rc[0], a_rc[1], cell_m),
-                        via=to_world(g, b_rc[0], b_rc[1], cell_m),
-                        x=g["wx0"] + col * cell_m,
-                        snapped=max(a_snap, b_snap)))
+        rec = dict(pts=pts, cells=cs, length=length, crossed=crossed,
+                   stitched=stitched,
+                   start=to_world(g, a_rc[0], a_rc[1], cell_m),
+                   via=to_world(g, b_rc[0], b_rc[1], cell_m),
+                   x=g["wx0"] + col * cell_m,
+                   snapped=max(a_snap, b_snap))
+        out.append(rec)
+        # HAND IT OVER THE MOMENT IT EXISTS. The caller draws each road as it
+        # lands rather than waiting for all of them - "can you please draw the
+        # paths as they are build" - which for a sweep that takes seconds is
+        # the difference between a progress bar and a blank map.
+        if on_route is not None:
+            on_route(rec)
     # THE DEAD GROUND, for the map to paint black.
     #
     # "if we cant reach them, they are dead, paint them black in the window."

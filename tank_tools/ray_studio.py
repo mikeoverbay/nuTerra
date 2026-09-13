@@ -906,6 +906,7 @@ def main():
     # affordable ground encloses.
     maze_pts, maze_roads, maze_msg = [], [], ""
     maze_job = {}
+    maze_live = []                # roads the worker has finished so far
 
     def run_maze(key):
         """The flood fill, on a worker thread. Writes only into maze_job."""
@@ -922,8 +923,16 @@ def main():
                 # is the sweep, and it is the one that matches how hulls
                 # actually start: spread along the base line, each taking the X
                 # it stands on. [t] still gives the obstacle-based roads.
+                def _landed(rec):
+                    # SIMPLIFIED HERE, on the worker, so the frame loop only
+                    # ever copies a list - it never does geometry.
+                    rec["pts"] = maze.simplify(rec["pts"])
+                    maze_live.append(rec)
+
                 c = maze.sweep_roads(g, start, goal, step_m=road_step,
-                                     standoff_m=standoff_m)
+                                     standoff_m=standoff_m,
+                                     row_inset_m=row_inset,
+                                     on_route=_landed)
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
                 # SIMPLIFIED FOR DRAWING ONLY. One point per metre is what the
                 # flood fill produces and what the route IS; it is not what a
@@ -970,6 +979,7 @@ def main():
     road_budget = 25
     road_step = 40.0              # metres between one swept road and the next
     standoff_m = 6.0              # how far a road tries to stay off a wall
+    row_inset = 10.0              # start/cross lines pulled in from the border
     have_dead, show_dead = False, True   # ground the base cannot reach
     # The maze's own constants, read from it rather than restated here, so the
     # panel cannot drift from the thing it is describing.
@@ -1143,6 +1153,12 @@ def main():
         return view_cells, view_cells * (ph / max(1.0, float(pw)))
 
     while running:
+        # WHAT THE WORKER HAS FINISHED SO FAR, drawn while it is still going.
+        # A copy, not the list itself: the worker appends to it from its own
+        # thread and iterating a list being appended to is asking for trouble.
+        if maze_job.get("busy") and maze_live:
+            maze_roads = maze_live[:]
+
         # THE WORKER'S RESULT, collected on the frame that finds it.
         if "done" in maze_job:
             d = maze_job.pop("done")
@@ -1223,6 +1239,8 @@ def main():
                             road_budget = int(round(val))
                         elif nm == "standoff":
                             standoff_m = round(val, 1)
+                        elif nm == "inset":
+                            row_inset = round(val, 1)
                         break
                 if grabbed is not None:
                     active_slider = grabbed
@@ -1250,6 +1268,8 @@ def main():
                     road_budget = int(round(val))
                 elif active_slider == "standoff":
                     standoff_m = round(val, 1)
+                elif active_slider == "inset":
+                    row_inset = round(val, 1)
             elif e.type == pygame.MOUSEMOTION and dragging:
                 dx, dy = e.pos[0] - drag_from[0], e.pos[1] - drag_from[1]
                 drag_from = e.pos
@@ -1287,6 +1307,7 @@ def main():
                         maze_msg = "still working - one run at a time"
                     else:
                         maze_job.clear()
+                        del maze_live[:]
                         maze_job["busy"] = True
                         maze_job["key"] = e.key
                         maze_job["t0"] = time.time()
@@ -1783,6 +1804,7 @@ def main():
                    "+%d%%")
         y = slider(LX, y, LW, "standoff", "Wall standoff", standoff_m, 0, 15,
                    "%.0f m")
+        y = slider(LX, y, LW, "inset", "Row inset", row_inset, 0, 100, "%.0f m")
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
