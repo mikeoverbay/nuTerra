@@ -109,7 +109,11 @@ Public Class ViewerWindow
     ' camera takes `f` of what is pending while the remainder decays. That is
     ' what gives the coast-to-a-stop rather than stopping dead with the cursor.
     Private yaw As Single = 0.7F              ' nuTerra CAM_X_ANGLE
-    Private pitch As Single = 0.35F           ' nuTerra CAM_Y_ANGLE
+    ' NEGATIVE to start above the model. With the eye's Y term carrying
+    ' nuTerra's sign (see OnRenderFrame), a positive pitch puts the camera under
+    ' the building looking up - and the clamp range now means what nuTerra means
+    ' by it: -PI/2 is straight overhead, +1.3 is as far below as it will go.
+    Private pitch As Single = -0.35F          ' nuTerra CAM_Y_ANGLE
     Private dist As Single = 40.0F            ' nuTerra VIEW_RADIUS, but POSITIVE here
     Private target As Vector3 = Vector3.Zero  ' nuTerra LOOK_AT_*
     Private dragging As Boolean = False
@@ -398,9 +402,24 @@ Public Class ViewerWindow
 
         If parts.Count > 0 Then
             Dim aspect = CSng(Math.Max(ClientSize.X, 1)) / Math.Max(ClientSize.Y, 1)
+            ' The Y term is NEGATED, and that is not a taste setting - it is the
+            ' sign nuTerra has.
+            '
+            ' MapCamera.set_prespective_view builds the eye as
+            '     cam_y = sin(CAM_Y_ANGLE) * VIEW_RADIUS
+            ' and VIEW_RADIUS IS NEGATIVE there - it is clamped between
+            ' MAX_ZOOM_OUT and -0.1, never positive. `dist` here is positive, so
+            ' copying the pitch maths exactly (which this does, from
+            ' camera_mouse_update) still produced the opposite vertical, because
+            ' the radius it gets multiplied by has the other sign.
+            '
+            ' Only Y is flipped, not the whole radius. Negating all three would
+            ' give full parity with nuTerra including its yaw phase, but it would
+            ' also reverse left/right drag, which was not what was asked for and
+            ' reads as correct as it is.
             Dim eye = target + New Vector3(
                 CSng(Math.Cos(pitch) * Math.Sin(yaw)) * dist,
-                CSng(Math.Sin(pitch)) * dist,
+                CSng(Math.Sin(pitch)) * -dist,
                 CSng(Math.Cos(pitch) * Math.Cos(yaw)) * dist)
             Dim view = Matrix4.LookAt(eye, target, Vector3.UnitY)
             Dim proj = Matrix4.CreatePerspectiveFieldOfView(
