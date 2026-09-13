@@ -902,3 +902,37 @@ def junctions(routes, cell_m=CELL_M, merge_m=6.0, min_routes=2):
                         along={ri: hits[key][ri] for ri in want}))
     out.sort(key=lambda j: (-len(j["routes"]), -j["span_cells"]))
     return out
+
+
+def simplify(pts, tol_m=0.35):
+    """Drop points that lie on a straight run, for drawing.
+
+    A flood-fill route has one point per metre cell and is mostly long
+    straights, so a 900 m road is ~900 points of which perhaps 60 are corners.
+    Drawing all of them cost 13,000 line segments a frame, rebuilt into numpy
+    arrays every frame, and the viewer ran at 13 fps with the window not
+    responding - "all stuck".
+
+    Perpendicular-distance test against the running chord, which keeps every
+    corner and every curve that matters at map scale while removing the
+    collinear middle. Geometry only: the ROUTE is untouched, this is what gets
+    drawn.
+    """
+    if len(pts) < 3:
+        return list(pts)
+    out = [pts[0]]
+    ax, az = pts[0]
+    for i in range(1, len(pts) - 1):
+        bx, bz = pts[i + 1]
+        cx, cz = pts[i]
+        dx, dz = bx - ax, bz - az
+        n = np.hypot(dx, dz)
+        if n < 1e-9:
+            continue
+        # distance from the middle point to the chord through its neighbours
+        d = abs((cx - ax) * dz - (cz - az) * dx) / n
+        if d > tol_m:
+            out.append(pts[i])
+            ax, az = pts[i]
+    out.append(pts[-1])
+    return out

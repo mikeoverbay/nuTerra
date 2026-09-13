@@ -918,7 +918,12 @@ def main():
                 r = maze.solve(g, start, goal)
                 c = maze.class_routes(g, start, goal, budget=road_budget / 100.0)
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
-                out["pts"] = r["pts"]
+                # SIMPLIFIED FOR DRAWING ONLY. One point per metre is what the
+                # flood fill produces and what the route IS; it is not what a
+                # map needs. See maze.simplify.
+                out["pts"] = maze.simplify(r["pts"])
+                for q in c["routes"]:
+                    q["pts"] = maze.simplify(q["pts"])
                 out["roads"] = c["routes"]
                 out["msg"] = ("MAZE: optimum %.0f m = %.2fx the %.0f m direct "
                               "line | %d road(s) %.0f-%.0f m (%.2f-%.2fx) "
@@ -930,6 +935,8 @@ def main():
             else:
                 c = maze.class_routes(g, start, goal, budget=road_budget / 100.0)
                 ln = [q["length"] for q in c["routes"]] or [0.0]
+                for q in c["routes"]:
+                    q["pts"] = maze.simplify(q["pts"])
                 out["roads"] = c["routes"]
                 out["msg"] = ("%d tactical road(s): %.0f-%.0f m against a %.0f m "
                               "optimum, %.1f s"
