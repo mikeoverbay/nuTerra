@@ -2050,6 +2050,30 @@ try_again:
                                          "at the tanks themselves.")
                     End If
 
+                    ' SIM - Tank AI work's entry point, wired by them.
+                    '
+                    ' The handler is deliberately a stub HERE. The button and
+                    ' the menu are nuTerra UI and mine; what it starts is tank
+                    ' path-following and theirs. They asked for the control and
+                    ' an empty nuTerra/Tanks/Sim/ to fill, so this raises a flag
+                    ' and says so in the log rather than guessing at behaviour
+                    ' that belongs to another lane.
+                    '
+                    ' TANK_SIM_START is a one-shot: whoever consumes it clears
+                    ' it. A Boolean left true would re-fire every frame, which
+                    ' is the shape of bug that costs an evening to see.
+                    If ImGui.Button("SIM") Then
+                        TANK_SIM_START = True
+                        LogThis("tank sim: SIM pressed - awaiting the Tanks/Sim handler")
+                    End If
+                    If ImGui.IsItemHovered() Then
+                        ImGui.SetTooltip("Start the tank simulation - hulls follow" & vbLf &
+                                         "their catalogue paths." & vbLf &
+                                         "Not wired yet: this raises the flag and" & vbLf &
+                                         "logs. The behaviour lands in Tanks/Sim.")
+                    End If
+                    ImGui.Separator()
+
                     ' A FULL RESET: forget the saved bake and reload the map, which
                     ' rebuilds the flight bake, the nav grid, the routes and the
                     ' sun bake with it. Through the ordinary load path on

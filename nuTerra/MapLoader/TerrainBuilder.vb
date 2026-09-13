@@ -349,7 +349,7 @@ Module TerrainBuilder
         Next
         theMap.center_offset = (theMap.terrain_footprint_min + theMap.terrain_footprint_max) / 2.0F
 
-        Console.WriteLine("outland placement: footprint x {0:0}..{1:0} z {2:0}..{3:0}  centre ({4:0},{5:0})  cascade0 bb x {6:0}..{7:0} z {8:0}..{9:0}",
+        LogThis("outland placement: footprint x {0:0}..{1:0} z {2:0}..{3:0}  centre ({4:0},{5:0})  cascade0 bb x {6:0}..{7:0} z {8:0}..{9:0}",
                           theMap.terrain_footprint_min.X, theMap.terrain_footprint_max.X,
                           theMap.terrain_footprint_min.Y, theMap.terrain_footprint_max.Y,
                           theMap.center_offset.X, theMap.center_offset.Y,
