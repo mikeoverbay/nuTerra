@@ -164,6 +164,45 @@ NUL.** Without the terminator it also matches `BPVTxyznuv` and returns tens of
 thousands of false hits. The naive search is the one everybody reaches for
 first.
 
+### A `stride = 0` error does NOT cover `BPVTxyz`, and the reason matters
+
+The hard-error-on-zero above catches an UNKNOWN format. It does not catch this
+one if somebody ever "helpfully" adds the stride, because then the stride is
+**correct** - 12 - and the read still runs off the end.
+
+`BPVTxyz` is POSITION ONLY: three floats and nothing after them. A reader with
+fixed attribute offsets takes the normal from `+12` and the UV from `+16`
+regardless, so it walks into the next vertex and past the end of the buffer.
+Both PKG Explorer and Exporter Studio hit exactly this in their own readers, and
+both report that adding the stride ALONE would have introduced an overrun rather
+than fixed anything.
+
+So if these are ever surfaced here, the guard is not "is the stride non-zero" -
+it is "does this format actually HAVE the field I am about to read". The element
+count is already tracked per format (`renderSet.element_count`,
+`has_tangent`); position-only needs the same treatment rather than a stride
+entry.
+
+### PKG Explorer made the OPPOSITE decision, and both are right
+
+Worth knowing before someone reads the two repos side by side and assumes one is
+wrong. PKG Explorer names all six formats explicitly, with per-field offsets, and
+RAISES on an unrecognised header.
+
+The difference is the entry point, not the measurement - which was the same on
+both sides, twice, independently:
+
+* **nuTerra only ever draws what a visual names.** A collision hull is reached
+  through its own `.hkt.visual_processed` sibling, not from the render visual,
+  so these formats never arrive. An unreachable table entry is a trap for the
+  next person.
+* **PKG Explorer is a browser.** Every `.primitives_processed` in a package is a
+  row the user can double-click, havok proxies and SoundObstacles included.
+  There is no visual naming the path - the user IS the path - so every format
+  has to be handled, and silence is the thing it cannot afford.
+
+Same evidence, opposite conclusion, both correct for their own entry point.
+
 ### The trap waiting in that fix: the lone `i` is NOT a skinned marker
 
 Winding is already handled correctly here and it is worth not breaking.
