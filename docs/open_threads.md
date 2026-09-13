@@ -86,10 +86,45 @@ and it is worth knowing that it happens in binary parsing too, not only in
 measurement. A garbled mesh announces itself. A mesh read one vertex out of
 phase looks like a mesh.
 
-**Next step, after the pending push:** add the two cases, and at the call site
-treat `stride = 0` as a hard error that NAMES the unrecognised format string,
-rather than an assert that compiles out. Two more `Case` entries fix today's
-corpus; only the logging fixes the next patch that ships a seventh format.
+### NEITHER missing format is render geometry - expect NOTHING to appear
+
+This is the part to read before implementing, because the obvious expectation
+is wrong and will cost an evening.
+
+`BPVTxyznuvitb` is the **havok collision proxy** format. Every occurrence found
+scanning `bld_*.primitives_processed` across the packages sits in a
+`lod0/havok/` subfolder and is named `*.hkt.primitives_processed` - measured by
+the Shader IDE + engine session, and independently consistent with PKG
+Explorer's winding statistics, which put it on the rigid side at +0.92.
+
+`BPVTxyz` is **audio occlusion geometry**. Measured here 2026-09-13: scanning
+1,040 `.primitives_processed` across 14 map packages for the exact marker
+`BPVTxyz\0` - the NUL matters, or it also matches `BPVTxyznuv` - found 11
+sections and every one is
+
+    content/Audio/SoundObstacle/<map>/<map>_SoundObstacle_01.primitives_processed
+
+One per map, plus the `_comp7` variants. A sample rather than a census, but 11
+of 11 on a single path shape. Position-only is exactly what a sound occluder
+needs, the same way it is what a collision hull needs.
+
+**So adding both strides will make NOTHING APPEAR ON SCREEN.** No building is
+missing parts. nuTerra is failing to read collision hulls and audio occluders
+that it very likely never draws. Three consequences:
+
+* **Do not go hunting a second bug** when the geometry count does not change.
+  That is the fix working.
+* **This is a correctness and diagnostics fix, not a missing-content fix.** The
+  silent `stride = 0` is worth killing because of the CLASS - the next format
+  that ships may well be drawable - not because of these two instances.
+* **There may be no way to see it working except a log line**, which is the
+  argument for doing the logging half FIRST and the two `Case` entries second.
+  The log is the only instrument that will show either of them landing.
+
+**Next step, after the pending push:** name the unrecognised format in a log
+line and treat `stride = 0` as a hard error at the call site FIRST; add the two
+`Case` entries second. Two entries fix today's corpus; only the logging fixes
+the next patch that ships a seventh format.
 
 ### The trap waiting in that fix: the lone `i` is NOT a skinned marker
 
