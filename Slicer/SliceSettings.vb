@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Globalization
 Imports OpenTK.Mathematics
 
@@ -93,6 +93,27 @@ Public Class SliceSettings
     ''' geometry yet, so this does nothing until that reader exists.</summary>
     Public Property IncludeHavok As Boolean = False
 
+    ' ---- rebuilding a set model into a shell ------------------------------
+    ' These buildings are film sets: facades, no back walls, no closed volume.
+    ' Reconstructing a real surface over them is long and slow, so the shell
+    ' pass does the cheap version - look from outside, keep what can be seen,
+    ' weld it together, and throw away what the weld collapses.
+
+    ''' <summary>Directions the exterior scan looks from. 64 evenly spread is
+    ''' enough to see into a doorway without seeing the far wall through it.</summary>
+    Public Property ShellViews As Integer = 64
+    ''' <summary>Pixels per side per view. Each pixel is one ray, so 512 is a
+    ''' quarter of a million rays per direction.</summary>
+    Public Property ShellResolution As Integer = 512
+    ''' <summary>
+    ''' Weld range for the shell pass, in metres - "weld every vert in range".
+    ''' Much coarser than mesh.weldTolerance, which only removes exact
+    ''' duplicates: this one is meant to STITCH, pulling together panels the
+    ''' artist left millimetres apart. Too small and the seams stay open; too
+    ''' large and detail collapses into slivers.
+    ''' </summary>
+    Public Property ShellWeldRange As Single = 0.05F
+
     ' ---- output ----------------------------------------------------------
     Public Property OutDir As String = "slices"
     Public Property OutFormat As String = "obj"
@@ -157,6 +178,9 @@ Public Class SliceSettings
                     "cutting without welding turns every UV seam into a hole.")
         End If
         If Lod < 0 Then bad.Add("scope.lod cannot be negative")
+        If ShellViews < 6 Then bad.Add("shell.views must be at least 6 - fewer cannot see all sides")
+        If ShellResolution < 64 Then bad.Add("shell.resolution must be at least 64")
+        If ShellWeldRange <= 0.0F Then bad.Add("shell.weldRange must be greater than 0")
         If CapOpenSpans AndAlso Not Cap Then
             bad.Add("result.capOpenSpans is on but result.cap is off, so nothing will be capped")
         End If
@@ -200,6 +224,9 @@ Public Class SliceSettings
             Case "scope.lod" : Lod = ParseI(value, Lod)
             Case "scope.parts" : Parts = value
             Case "scope.includehavok" : IncludeHavok = ParseB(value, IncludeHavok)
+            Case "shell.views" : ShellViews = ParseI(value, ShellViews)
+            Case "shell.resolution" : ShellResolution = ParseI(value, ShellResolution)
+            Case "shell.weldrange" : ShellWeldRange = ParseF(value, ShellWeldRange)
             Case "out.dir" : OutDir = value
             Case "out.format" : OutFormat = value
             Case Else : Return False
@@ -242,6 +269,11 @@ Public Class SliceSettings
         w.AppendLine("scope.lod             = " & Lod)
         w.AppendLine("scope.parts           = " & Parts & "            # all, or a substring of the part name")
         w.AppendLine("scope.includeHavok    = " & LCase(IncludeHavok.ToString()) & "          # collision proxies; no reader for them yet")
+        w.AppendLine()
+        w.AppendLine("# --- shell rebuild (set models have no back walls) ----------------")
+        w.AppendLine("shell.views           = " & ShellViews & "             # directions the exterior scan looks from")
+        w.AppendLine("shell.resolution      = " & ShellResolution & "            # pixels per side per view, one ray each")
+        w.AppendLine("shell.weldRange       = " & Fmt(ShellWeldRange) & "           # metres; STITCHES, unlike mesh.weldTolerance")
         w.AppendLine()
         w.AppendLine("# --- output ------------------------------------------------------")
         w.AppendLine("out.dir               = " & OutDir)
