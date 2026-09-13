@@ -432,3 +432,106 @@ def spread_routes(g, start, goal, count=6, cell_m=CELL_M, penalty=6.0):
             for dc in range(-3, 4):
                 cost[np.clip(rr + dr, 0, n - 1), np.clip(cc + dc, 0, n - 1)] = penalty
     return out, blocked, n
+
+
+def components(blocked):
+    """A label per free cell: two cells with the same label can reach each
+    other. 8-connected with the same no-corner-cutting rule as the flood."""
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    n = blocked.shape[0]
+    free = ~blocked
+    idx = -np.ones((n, n), np.int64)
+    idx[free] = np.arange(free.sum())
+    rows, cols = [], []
+    for dr, dc in ((-1, 0), (0, -1), (-1, -1), (-1, 1)):
+        a = free[max(0, -dr):n - max(0, dr), max(0, -dc):n - max(0, dc)]
+        b = free[max(0, dr):n - max(0, -dr), max(0, dc):n - max(0, -dc)]
+        ok = a & b
+        if dr and dc:
+            o1 = free[max(0, -dr):n - max(0, dr), max(0, dc):n - max(0, -dc)]
+            o2 = free[max(0, dr):n - max(0, -dr), max(0, -dc):n - max(0, dc)]
+            ok = ok & o1 & o2
+        rows.append(idx[max(0, -dr):n - max(0, dr), max(0, -dc):n - max(0, dc)][ok])
+        cols.append(idx[max(0, dr):n - max(0, -dr), max(0, dc):n - max(0, -dc)][ok])
+    r, c = np.concatenate(rows), np.concatenate(cols)
+    gph = coo_matrix((np.ones(len(r), np.int8), (r, c)),
+                     shape=(int(free.sum()),) * 2).tocsr()
+    _, lab = connected_components(gph, directed=False)
+    out = -np.ones((n, n), np.int64)
+    out[free] = lab
+    return out
+
+
+def corner_sweep(g, goal, cell_m=CELL_M, ring_m=RING_M, step_m=5.0,
+                 margin_m=20.0):
+    """Straight lanes across the map at a fixed X, swept from the back corner.
+
+    "thats not starting in the back corner and working across."
+
+    Right - lane_routes moved the CROSSING target across the map but left the
+    start pinned at the tank's own base, so every lane was a fan out of one
+    point rather than a set of parallel roads. This is the scheme as described:
+
+      * a lane IS a line of constant X, from our back edge to the opposite one
+      * the sweep starts at the BACK CORNER - the extreme X - and works across
+        in 5 m steps
+      * leg one is the straight run down the lane, because "seek same location
+        on opposite side same X" is a drive, not a search. Blocked means the
+        lane fails, and a failed lane steps over rather than searching round
+      * the far end has a 20 m ring: land anywhere inside it and leg one is done
+      * leg two hooks that landing point to the base, from the one flood
+      * if leg two cannot get home the lane is thrown out and we step over
+
+    One flood total, from the base. Everything else is line tests.
+    """
+    blocked, n = grid_1m(g, cell_m)
+    g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
+    f_goal = flood(blocked, g_rc)
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    ring_cells = int(ring_m / cell_m)
+    m = int(margin_m / cell_m)
+    step = max(1, int(round(step_m / cell_m)))
+    near_row, far_row = n - 1 - m, m        # our back edge, and the far one
+    if g_rc[0] > n // 2:                    # base is south: swap the ends
+        near_row, far_row = m, n - 1 - m
+
+    # WHICH CELLS CAN REACH WHICH, once. Feasibility for every lane becomes a
+    # comparison of two labels instead of a search that fails slowly.
+    comp = components(blocked)
+
+    out = []
+    for col in range(m, n - m, step):
+        # LEG ONE IS SOUGHT, NOT DRIVEN STRAIGHT.
+        #
+        # The first version of this took "seek same location on opposite side
+        # same X" literally and tested the straight column. All 272 lanes
+        # failed, every one of them, and that is not a bug: monastery is 29%
+        # blocked and a 1,360 m line at constant X always meets something. The
+        # lane is a DESTINATION at that X, and getting there is the search.
+        try:
+            rc, snapped = nearest_free(blocked, (far_row, col), limit=ring_cells)
+        except ValueError:
+            out.append(dict(col=col, ok=False, why="nothing free in the ring"))
+            continue
+        if not np.isfinite(f_goal[rc]):
+            out.append(dict(col=col, ok=False, why="leg 2 cannot reach the base"))
+            continue
+        # Feasible first, by connected component - a lookup - and only then
+        # the flood that produces the actual route, so a sweep of 272 lanes
+        # pays for the handful that survive rather than for all of them.
+        s_rc, _ = nearest_free(blocked, (near_row, col), limit=ring_cells)
+        if comp[s_rc] != comp[rc]:
+            out.append(dict(col=col, ok=False, why="lane start cut off from the far side"))
+            continue
+        leg1 = walk_down(flood(blocked, rc), s_rc)
+        leg2 = walk_down(f_goal, rc)
+        pts = [to_world(g, r, c, cell_m) for r, c in leg1 + leg2]
+        length = float(sum(
+            np.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
+            for i in range(len(pts) - 1)))
+        out.append(dict(col=col, ok=True, pts=pts, length=length,
+                        start=to_world(g, s_rc[0], s_rc[1], cell_m),
+                        cross=to_world(g, rc[0], rc[1], cell_m)))
+    return out, blocked, n
