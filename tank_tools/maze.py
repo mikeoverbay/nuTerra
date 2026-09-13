@@ -796,3 +796,66 @@ def class_routes(g, start, goal, budget=0.25, cell_m=CELL_M, max_holes=6,
             continue
         keep.append(r)
     return dict(opt=opt, routes=keep, blocked=blocked, n=n)
+
+
+def junctions(routes, cell_m=CELL_M, merge_m=6.0, min_routes=2):
+    """Where the roads meet, so a tank can change its mind there.
+
+    "when we get the junction points, we will be able to chose a new route."
+
+    A set of routes is not a road network until you know where they touch. A
+    junction is a place two or more of them occupy the same ground: a tank
+    driving route A that reaches one can leave as a tank driving route B,
+    without ever being off a road.
+
+    TOUCHING, NOT IDENTICAL CELLS. Two routes that pass a metre apart are the
+    same junction to a 4.5 m tank, so cells are bucketed at `merge_m` before
+    they are compared. Exact cell identity would report two roads running side
+    by side down a street as never meeting, which is the opposite of the truth.
+
+    Returns one entry per junction: where it is, which routes meet, and how far
+    along each of them it falls - that last part is what makes it usable, since
+    "you may switch here" is only actionable with "and you would be 340 m into
+    the new route when you did".
+    """
+    b = max(1.0, merge_m / cell_m)
+    where = {}
+    for ri, r in enumerate(routes):
+        cells = r["cells"] if isinstance(r.get("cells"), (list, tuple)) else None
+        if cells is None:
+            cells = r.get("cells_list") or list(r.get("cells", []))
+        for i, (cr, cc) in enumerate(cells):
+            key = (int(cr // b), int(cc // b))
+            slot = where.setdefault(key, {})
+            if ri not in slot:
+                slot[ri] = i          # first time this route enters the bucket
+    hits = {k: v for k, v in where.items() if len(v) >= min_routes}
+
+    # ONE JUNCTION, NOT A CHAIN OF THEM. Where two roads run together for
+    # eighty metres every bucket along it qualifies, and reporting eighty
+    # junctions where a driver sees one is useless. Adjacent buckets carrying
+    # the same set of routes are one junction.
+    seen, out = set(), []
+    for key in sorted(hits):
+        if key in seen:
+            continue
+        want = frozenset(hits[key])
+        stack, group = [key], []
+        seen.add(key)
+        while stack:
+            k = stack.pop()
+            group.append(k)
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    nk = (k[0] + dr, k[1] + dc)
+                    if nk in hits and nk not in seen and frozenset(hits[nk]) == want:
+                        seen.add(nk)
+                        stack.append(nk)
+        rows = [k[0] for k in group]
+        cols = [k[1] for k in group]
+        out.append(dict(routes=sorted(want),
+                        at_cell=(int(np.mean(rows) * b), int(np.mean(cols) * b)),
+                        span_cells=len(group),
+                        along={ri: hits[key][ri] for ri in want}))
+    out.sort(key=lambda j: (-len(j["routes"]), -j["span_cells"]))
+    return out
