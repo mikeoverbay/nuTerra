@@ -385,12 +385,16 @@ Public Class ViewerWindow
 
             If pos.Length = 0 OrElse tri.Length < 3 Then Continue For
 
-            ' Inigo Quilez's area-weighted smoothing - see MeshNormals. It
-            ' only actually SMOOTHS where vertices are shared, so on a raw part
-            ' (45% duplicate vertices, split at every UV seam) it comes out
-            ' faceted, and on a welded shell it comes out smooth. That is the
-            ' right behaviour both times rather than two different code paths.
-            Dim nrm = MeshNormals.Compute(pos, tri)
+            ' Inigo Quilez's area-weighted smoothing - see MeshNormals.
+            '
+            ' ComputeShared, not Compute: the vertices have to be resolved
+            ' through the index to find which of them are actually the same
+            ' point before the math is done. 45% of these vertices are
+            ' duplicates split at UV seams, and accumulating straight into the
+            ' array gives each copy only the faces that named that copy - a
+            ' fraction of the faces that really meet there. The result is a
+            ' crease down every seam of a surface that ought to be smooth.
+            Dim nrm = MeshNormals.ComputeShared(pos, tri, settings.WeldTolerance)
 
             Dim baseVert = totalVerts
             For i = 0 To pos.Length - 1

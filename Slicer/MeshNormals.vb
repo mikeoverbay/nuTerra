@@ -45,6 +45,75 @@ Public NotInheritable Class MeshNormals
     ''' zero vector - a zero normal normalizes to NaN and turns every pixel that
     ''' touches it black.
     ''' </summary>
+    ''' <summary>
+    ''' The same method, but accumulated on SHARED points rather than on the
+    ''' raw vertex array - and this is the version that should normally be used.
+    '''
+    ''' 45% of the vertices in these meshes are duplicates sitting at exactly
+    ''' the same position, split apart so a UV seam or a hard edge can carry two
+    ''' sets of texture coordinates. Accumulating straight into the vertex array
+    ''' means each of those copies only ever sees the faces that referenced THAT
+    ''' copy - so a vertex on a seam gets a fraction of the faces that actually
+    ''' meet there, and its normal is wrong. It shows as a visible crease down
+    ''' every seam in a surface that should be smooth.
+    '''
+    ''' So the positions are resolved through the index to find which vertices
+    ''' are really one point, the cross products are accumulated there, and the
+    ''' finished normal is scattered back to every copy. The vertex layout is
+    ''' untouched - only the normals change.
+    '''
+    ''' `weld` of zero or less falls back to the plain per-vertex version.
+    ''' </summary>
+    Public Shared Function ComputeShared(pos As Vector3(), idx As Integer(), weld As Single) As Vector3()
+        If pos Is Nothing OrElse idx Is Nothing Then Return Compute(pos, idx)
+        If weld <= 0.0F Then Return Compute(pos, idx)
+
+        ' which vertices are the same point
+        Dim inv = 1.0F / weld
+        Dim cell As New Dictionary(Of (Integer, Integer, Integer), Integer)
+        Dim shared_(Math.Max(pos.Length - 1, 0)) As Integer
+        For i = 0 To pos.Length - 1
+            Dim p = pos(i)
+            Dim k = (CInt(Math.Round(p.X * inv)), CInt(Math.Round(p.Y * inv)), CInt(Math.Round(p.Z * inv)))
+            Dim id As Integer
+            If Not cell.TryGetValue(k, id) Then
+                id = cell.Count
+                cell.Add(k, id)
+            End If
+            shared_(i) = id
+        Next
+
+        Dim acc(Math.Max(cell.Count - 1, 0)) As Vector3
+        Dim t = 0
+        While t + 2 < idx.Length
+            Dim ia = idx(t), ib = idx(t + 1), ic = idx(t + 2)
+            If ia >= 0 AndAlso ib >= 0 AndAlso ic >= 0 AndAlso
+               ia < pos.Length AndAlso ib < pos.Length AndAlso ic < pos.Length Then
+                ' Still the raw cross - the area weighting is the whole point.
+                Dim no = Vector3.Cross(pos(ib) - pos(ia), pos(ic) - pos(ia))
+                acc(shared_(ia)) += no
+                acc(shared_(ib)) += no
+                acc(shared_(ic)) += no
+            End If
+            t += 3
+        End While
+
+        For i = 0 To acc.Length - 1
+            If acc(i).LengthSquared > 0.000000001F Then
+                acc(i).Normalize()
+            Else
+                acc(i) = Vector3.UnitY
+            End If
+        Next
+
+        ' scatter back to every copy of each point
+        Dim outN(Math.Max(pos.Length - 1, 0)) As Vector3
+        For i = 0 To pos.Length - 1
+            outN(i) = acc(shared_(i))
+        Next
+        Return outN
+    End Function
+
     Public Shared Function Compute(pos As Vector3(), idx As Integer()) As Vector3()
         Dim n(Math.Max(pos.Length - 1, 0)) As Vector3
         If pos Is Nothing OrElse idx Is Nothing Then Return n
