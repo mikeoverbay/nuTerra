@@ -211,7 +211,7 @@ Public Class MapTankShadow
         ' does not, the shadow is pinned to something stale and no amount of
         ' looking at the ground will say which.
         probe_tick += 1
-        If probe_tick Mod 60 = 0 AndAlso n > 0 Then
+        If TANK_SHADOW_DEBUG AndAlso probe_tick Mod 60 = 0 AndAlso n > 0 Then
             Dim t0 = picked(0).Item2
             LogThis("tank shadow: {0} caster(s); tank 0 at ({1:0.0}, {2:0.0}, {3:0.0}) centre ({4:0.0}, {5:0.0}, {6:0.0})",
                     n, t0.position.X, t0.position.Y, t0.position.Z,
@@ -220,8 +220,23 @@ Public Class MapTankShadow
 
         If n <> said_count Then
             said_count = n
-            LogThis("tank shadow: {0} caster(s) at {1}x{1}, range {2:0} m", n, SIZE, TANK_SHADOW_RANGE)
-            verify(0)
+            If TANK_SHADOW_DEBUG Then
+                LogThis("tank shadow: {0} caster(s) at {1}x{1}, range {2:0} m", n, SIZE, TANK_SHADOW_RANGE)
+
+                ' BEHIND THE SWITCH, AND IT HAS TO BE. verify() is a 512x512
+                ' float READBACK plus a 262,144 element CPU loop, and a readback
+                ' stalls the pipeline until the GPU catches up. It fires on every
+                ' change of caster count, and that count THRASHES as hulls cross
+                ' the range boundary - Tank AI work measured 21 of these in 400
+                ' log lines, against the owner reporting the UI freezing about
+                ' once a second.
+                '
+                ' It was a diagnostic for three bugs in this pass that are now
+                ' fixed, and it was left running. Silencing its LOG would have
+                ' hidden the stall rather than removed it: the readback is the
+                ' cost, not the line it prints.
+                verify(0)
+            End If
         End If
     End Sub
 
