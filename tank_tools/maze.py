@@ -535,3 +535,197 @@ def corner_sweep(g, goal, cell_m=CELL_M, ring_m=RING_M, step_m=5.0,
                         start=to_world(g, s_rc[0], s_rc[1], cell_m),
                         cross=to_world(g, rc[0], rc[1], cell_m)))
     return out, blocked, n
+
+
+def alternatives(g, start, goal, cell_m=CELL_M, budgets=(0.0, 0.05, 0.10, 0.25,
+                                                         0.50, 1.00),
+                 guard_m=60.0, min_cells=300):
+    """Every other way there was, and what each would have cost.
+
+    "can we know if there was another branch we could of taken?"
+
+    Yes, exactly, and from the two floods already in hand. For any cell,
+
+        through[cell] = dist(start -> cell) + dist(cell -> goal)
+
+    is the length of the best route that passes THROUGH that cell. So the whole
+    map is priced at once: `through` minus the optimum is how much a detour via
+    that cell costs, in metres, for every cell simultaneously.
+
+    A BRANCH IS A SEPARATE CHANNEL, not a fork in a line. Take every cell whose
+    route costs no more than the optimum plus a budget - that is the set of
+    ground you could drive and still arrive within budget - and cut off the ends
+    both routes must share, since there is exactly one way out of a base. What
+    is left falls into connected pieces, and each piece is a genuinely
+    different way round: you cannot slide from one to another without paying
+    more than the budget. Counting them answers "how many roads are there",
+    exactly, rather than by sampling lanes and hoping.
+
+    Reported per budget, so the answer is a curve rather than a number: two
+    roads within 10%, three within 50%, and so on.
+    """
+    from scipy.ndimage import label
+
+    blocked, n = grid_1m(g, cell_m)
+    s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
+    g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
+    f_s = flood(blocked, s_rc)
+    f_g = flood(blocked, g_rc)
+    through = f_s + f_g
+    opt = float(through[s_rc])
+
+    rr, cc = np.mgrid[0:n, 0:n]
+    guard = guard_m / cell_m
+    ends = ((np.hypot(rr - s_rc[0], cc - s_rc[1]) < guard) |
+            (np.hypot(rr - g_rc[0], cc - g_rc[1]) < guard))
+
+    rows = []
+    for b in budgets:
+        within = np.isfinite(through) & (through <= opt * (1.0 + b)) & ~ends
+        lab, k = label(within, structure=np.ones((3, 3), int))
+        sizes = np.bincount(lab.ravel())
+        real = [i for i in range(1, k + 1) if sizes[i] >= min_cells]
+        chans = []
+        for i in real:
+            m = lab == i
+            chans.append(dict(cells=int(sizes[i]),
+                              best=float(through[m].min()),
+                              # where it sits, so two channels can be told apart
+                              cx=float(g["wx0"] + (cc[m].mean() + 0.5) * cell_m),
+                              cz=float(g["wz1"] - (rr[m].mean() + 0.5) * cell_m)))
+        chans.sort(key=lambda c: c["best"])
+
+        # AND THE REAL ANSWER IS HOLES, NOT PIECES.
+        #
+        # Counting connected pieces of the within-budget ground says ONE, and
+        # it is wrong in the way that matters: the road west of the village and
+        # the road east of it are joined by the ground north and south, so they
+        # are one connected region while plainly being two different ways to
+        # go. Connectivity cannot see that. What separates them is that the
+        # village is INSIDE the region - a hole - and you cannot slide a route
+        # from one side of a hole to the other without crossing it.
+        #
+        # So the number of genuinely different ways round is one plus the
+        # number of obstacles the affordable ground encloses. Each hole is
+        # something you may pass on either side.
+        full = np.isfinite(through) & (through <= opt * (1.0 + b))
+        holes_lab, hk = label(~full, structure=np.array([[0, 1, 0],
+                                                         [1, 1, 1],
+                                                         [0, 1, 0]]))
+        border = set(np.unique(np.concatenate([
+            holes_lab[0, :], holes_lab[-1, :],
+            holes_lab[:, 0], holes_lab[:, -1]])))
+        holes = []
+        hsz = np.bincount(holes_lab.ravel())
+        for i in range(1, hk + 1):
+            if i in border or hsz[i] < min_cells:
+                continue
+            m = holes_lab == i
+            holes.append(dict(cells=int(hsz[i]),
+                              cx=float(g["wx0"] + (cc[m].mean() + 0.5) * cell_m),
+                              cz=float(g["wz1"] - (rr[m].mean() + 0.5) * cell_m)))
+        holes.sort(key=lambda h: -h["cells"])
+        rows.append(dict(budget=b, limit=opt * (1.0 + b), channels=chans,
+                         holes=holes, ways=1 + len(holes),
+                         ground=float(within.mean())))
+    return dict(opt=opt, rows=rows, through=through, blocked=blocked, n=n,
+                s_rc=s_rc, g_rc=g_rc)
+
+
+def regret_along(res, pts, cell_m=CELL_M, g=None):
+    """For each point on a route, how much the cheapest alternative costs.
+
+    The per-point form of the same question: standing here, what would the best
+    route that does NOT continue the way we went have cost? Reported as extra
+    metres over the optimum, so a run of zeros means the route was on the only
+    sensible road and a spike means there was a real choice at that spot.
+    """
+    through, n = res["through"], res["n"]
+    out = []
+    for (x, z) in pts:
+        c = int((x - g["wx0"]) / cell_m)
+        r = int((g["wz1"] - z) / cell_m)
+        if not (0 <= r < n and 0 <= c < n):
+            continue
+        out.append(float(through[r, c] - res["opt"]))
+    return out
+
+
+def class_routes(g, start, goal, budget=0.25, cell_m=CELL_M, max_holes=6,
+                 min_cells=400):
+    """One route per genuinely different way round - the tactical roads.
+
+    "we need to try and make those paths as they are important in the maps
+    play."
+
+    alternatives() says HOW MANY different ways there are and what each costs.
+    This makes them. For every obstacle the affordable ground encloses - every
+    thing you can pass on either side of - it emits the best route down each
+    side, so the village, the lake and the ridge each yield a pair.
+
+    THE ROUTES ARE FREE ONCE THE FLOODS ARE DONE. Any cell is a waypoint, and
+    a waypoint IS a whole route: walk downhill from it in the start field for
+    the way in, downhill in the goal field for the way out, and the cost is
+    through[cell], already known. So the work is only choosing WHICH cells -
+    one on each side of each hole - and the choosing is a masked argmin.
+
+    SIDES ARE TAKEN ACROSS THE LINE OF TRAVEL, not across the x axis. The two
+    ways round something are separated by the perpendicular to the start-goal
+    line, so this projects each candidate onto that perpendicular and takes the
+    cheapest cell with each sign. On a map where the bases are not north-south
+    the x axis would split the wrong way and quietly return the same road
+    twice.
+    """
+    from scipy.ndimage import label, binary_dilation
+
+    blocked, n = grid_1m(g, cell_m)
+    s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
+    g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
+    f_s, f_g = flood(blocked, s_rc), flood(blocked, g_rc)
+    through = f_s + f_g
+    opt = float(through[s_rc])
+    afford = np.isfinite(through) & (through <= opt * (1.0 + budget))
+
+    lab, k = label(~afford, structure=np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]))
+    border = set(np.unique(np.concatenate([lab[0, :], lab[-1, :],
+                                           lab[:, 0], lab[:, -1]])))
+    sizes = np.bincount(lab.ravel())
+    holes = sorted((i for i in range(1, k + 1)
+                    if i not in border and sizes[i] >= min_cells),
+                   key=lambda i: -sizes[i])[:max_holes]
+
+    # the perpendicular to the line of travel
+    vx, vz = g_rc[1] - s_rc[1], g_rc[0] - s_rc[0]
+    L = max(1e-6, np.hypot(vx, vz))
+    px, pz = -vz / L, vx / L
+
+    rr, cc = np.mgrid[0:n, 0:n]
+    out = []
+    for hi in holes:
+        m = lab == hi
+        skirt = binary_dilation(m, np.ones((7, 7), bool)) & afford
+        if not skirt.any():
+            continue
+        hr, hc = rr[m].mean(), cc[m].mean()
+        side = (cc - hc) * px + (rr - hr) * pz
+        for sgn, name in ((1.0, "one side"), (-1.0, "the other")):
+            sel = skirt & (side * sgn > 0)
+            if not sel.any():
+                continue
+            cost = np.where(sel, through, np.inf)
+            r0, c0 = np.unravel_index(int(np.argmin(cost)), cost.shape)
+            cells = walk_down(f_s, (r0, c0))[::-1] + walk_down(f_g, (r0, c0))[1:]
+            pts = [to_world(g, r, c, cell_m) for r, c in cells]
+            out.append(dict(hole=int(hi), hole_cells=int(sizes[hi]), side=name,
+                            via=to_world(g, r0, c0, cell_m),
+                            length=float(through[r0, c0]),
+                            extra=float(through[r0, c0] - opt),
+                            pts=pts, cells=set(cells)))
+    # drop pairs that came back as the same road
+    keep = []
+    for r in out:
+        if any(len(r["cells"] & p["cells"]) / max(1, len(r["cells"])) > 0.9
+               for p in keep):
+            continue
+        keep.append(r)
+    return dict(opt=opt, routes=keep, blocked=blocked, n=n)
