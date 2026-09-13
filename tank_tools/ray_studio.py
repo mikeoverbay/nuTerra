@@ -806,27 +806,31 @@ def main():
         from gl_view import GLView
     gv = GLView()
     screen = pygame.Surface(disp.get_size(), pygame.SRCALPHA)
+    # A BIG WINDOW THAT SDL KNOWS ABOUT, rather than one maximised behind its
+    # back.
+    #
+    # "panels don't size right. buttons selecting not where i pick with mouse.
+    # changing window size messes up panels." All three are one bug: the OS
+    # window and the GL drawable were different sizes. ShowWindow(SW_MAXIMIZE)
+    # resizes the window without telling SDL, and the set_mode() meant to
+    # re-sync it did not survive the resize events that followed - measured,
+    # the window reported 1920x1057 while the drawable was still 1400x900.
+    #
+    # The panel is laid out in DRAWABLE pixels and the mouse arrives in WINDOW
+    # pixels, so every click was offset by the difference and picked whatever
+    # sat under the wrong point. Same difference cropped the panel.
+    #
+    # So: ask SDL for the size directly. It creates the window, it knows how
+    # big it is, and window == drawable from the first frame.
     try:
         import ctypes
-        hwnd = pygame.display.get_wm_info()["window"]
-        ctypes.windll.user32.ShowWindow(hwnd, 3)      # SW_MAXIMIZE
-        # AND TELL PYGAME, or it goes on believing the window is the size it
-        # asked for.
-        #
-        # ShowWindow resizes the window behind SDL's back: pygame kept
-        # reporting 1400x900 while the client area was really 1920x1057, so
-        # the GL viewport and the UI surface were built at 1400x900 in the
-        # bottom-left corner of a bigger window while mouse events arrived in
-        # the REAL coordinate space. Everything was offset and scaled, and
-        # clicking a button picked whichever one happened to be under the
-        # wrong point - "left plane and mouse click position is messed up."
-        import ctypes.wintypes
-        cr = ctypes.wintypes.RECT()
-        ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(cr))
-        real = (cr.right - cr.left, cr.bottom - cr.top)
-        if real[0] > 200 and real[1] > 200:
-            disp = pygame.display.set_mode(real, pygame.OPENGL |
-                                           pygame.DOUBLEBUF | pygame.RESIZABLE)
+        u = ctypes.windll.user32
+        u.SetProcessDPIAware()
+        sw, sh = u.GetSystemMetrics(0), u.GetSystemMetrics(1)
+        want = (max(900, sw - 80), max(600, sh - 120))
+        disp = pygame.display.set_mode(want, pygame.OPENGL |
+                                       pygame.DOUBLEBUF | pygame.RESIZABLE)
+        screen = pygame.Surface(disp.get_size(), pygame.SRCALPHA)
     except Exception:
         pass                                          # a 1400x900 window is fine
     LEFT_W, RIGHT_W = 250, 330
@@ -949,6 +953,10 @@ def main():
     # dial the flood fill takes: 0 gives one route, 25 gives twelve on
     # monastery. Everything else on the old panel belonged to the ring search.
     road_budget = 25
+    # The maze's own constants, read from it rather than restated here, so the
+    # panel cannot drift from the thing it is describing.
+    from tank_tools import maze as _mz
+    maze_cell, maze_climb = _mz.CELL_M, _mz.MAX_CLIMB_DEG
     # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
     #
     # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
@@ -1394,7 +1402,17 @@ def main():
         # the title, the SEARCH header and the Run button, which is precisely
         # the part that has to be visible. get_surface() is the thing actually
         # being drawn into.
-        SW0, SH0 = pygame.display.get_surface().get_size()
+        # ONE COORDINATE SPACE: THE WINDOW'S.
+        #
+        # For an OPENGL display pygame's get_surface() reports a STALE size -
+        # measured, 1400x900 while the window and its framebuffer were 1840x960
+        # - so laying the panel out against it draws a small UI into a big
+        # framebuffer and leaves the rest blank. Mouse events arrive in window
+        # coordinates, the framebuffer is the window's size, so the window is
+        # the only space in which the panel, the viewport and the pointer all
+        # agree. That is the whole of "panels don't size right / buttons
+        # selecting not where i pick / resizing messes up panels".
+        SW0, SH0 = pygame.display.get_window_size()
         if screen.get_size() != (SW0, SH0):
             screen = pygame.Surface((SW0, SH0), pygame.SRCALPHA)
         gv.begin(SW0, SH0)
@@ -1646,13 +1664,6 @@ def main():
         y = button(LX, y, LW, "Fit map  [f]", pygame.K_f)
         y = button(LX, y, LW, "Swap ends  [tab]", pygame.K_TAB)
         y += 8
-        y = header(LX, y, "TUNING", LW)
-        y = pair(LX, y, LW, "- step", pygame.K_COMMA, "+ step", pygame.K_PERIOD)
-        y = pair(LX, y, LW, "- ring", pygame.K_LEFTBRACKET,
-                 "+ ring", pygame.K_RIGHTBRACKET)
-        y = pair(LX, y, LW, "- gap", pygame.K_MINUS, "+ gap", pygame.K_EQUALS)
-        y = button(LX, y, LW, "Landmark %.0f m2  [k]" % landmark_m2, pygame.K_k)
-        y += 12
         y = button(LX, y, LW, "QUIT  [q]", pygame.K_q, False, (255, 170, 170))
         screen.blit(font.render("wheel zooms, drag pans", True, (110, 115, 128)),
                     (LX, SH - 24))
@@ -1661,12 +1672,14 @@ def main():
         RX, RW = SW - RIGHT_W + 12, RIGHT_W - 24
         ry = 12
         ry = header(RX, ry, "STATE", RW)
+        # WHAT THE MAZE ACTUALLY DEPENDS ON. Ray step, seek ring, min gap and
+        # landmark size described the ring search; none of them reach the flood
+        # fill, so reporting them was reporting a method that is not here.
         ry = readout(RX, ry, "hull", "%.1f m" % hull)
-        ry = readout(RX, ry, "ray step", "%.0f m" % ray_cap)
-        ry = readout(RX, ry, "seek ring (attempt)", "%.1f m" % RING_SET[ring_slot],
-                     (255, 225, 120))
-        ry = readout(RX, ry, "min gap", "%.1f m" % min_gap)
-        ry = readout(RX, ry, "landmark", "%.0f m2" % landmark_m2)
+        ry = readout(RX, ry, "cell", "%.1f m" % maze_cell)
+        ry = readout(RX, ry, "climb limit", "%.0f deg" % maze_climb)
+        ry = readout(RX, ry, "road budget", "+%d%%" % road_budget,
+                     (150, 255, 200))
         ry += 10
 
         ry = header(RX, ry, "BLOCK LAYER", RW)
