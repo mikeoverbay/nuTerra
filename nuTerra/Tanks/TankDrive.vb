@@ -33,17 +33,25 @@ End Enum
 ''' for checking that a track band scrolls at the right rate, and the reason
 ''' every tank on the map moved as one object.
 '''
-''' SEEDED, SO A CAPTURE REPEATS. Every random choice comes from a generator
-''' seeded off the tank's own id, and every step is taken against ANIM_DELTA
-''' rather than the frame time. Two runs of the same build therefore put the
-''' same tank in the same place on the same frame, which is the only reason a
-''' still of thirty moving vehicles can be compared with another still.
+''' DETERMINISTIC, SO A CAPTURE REPEATS. Every step is taken against
+''' ANIM_DELTA rather than the frame time, so two runs of the same build put
+''' the same tank in the same place on the same frame - the only reason a still
+''' of thirty moving vehicles can be compared with another still.
+'''
+''' This used to say "every random choice comes from a generator seeded off the
+''' tank's own id". There are no random choices left here: the seeded generator
+''' went with the random goal picker on 2026-09-12 and the routes come from the
+''' catalogue, which is deterministic in its own right.
 ''' </summary>
 Public Class TankDrive
 
     ''' <summary>Where this tank is trying to get to, in world XZ.</summary>
     Public goal As Vector2
     Public hasGoal As Boolean
+
+    ''' <summary>Said once per hull, so a parked fleet explains itself in the
+    ''' log without repeating it sixty times a second.</summary>
+    Private noRouteLogged As Boolean
 
     ''' <summary>The route this hull was handed at load, as world waypoints,
     ''' or Nothing to wander. See PickGoal.</summary>
@@ -109,15 +117,12 @@ Public Class TankDrive
     ''' about which of four quite different causes to go and fix.</summary>
     Public stopReason As StopWhy
 
-    Public rng As Random
-
     ''' <summary>
     ''' Drive one tank for one step.
     ''' </summary>
     Public Sub Advance(inst As TankInstance, nav As TankNav,
                        others As List(Of TankInstance), dt As Single)
         If dt <= 0.0F Then Return
-        If rng Is Nothing Then rng = New Random(&H7A2B0000 Xor inst.id)
 
         Dim pos As New Vector2(inst.position.X, inst.position.Z)
 
@@ -258,12 +263,18 @@ Public Class TankDrive
             speed = 0.0F
             stuckS += dt
 
-            ' COMMIT TO THE NEW GOAL BEFORE ASKING FOR ANOTHER. Repicking on
-            ' every blocked frame was what deadlocked the first fleet: a fresh
-            ' random goal each frame means a fresh desired heading each frame,
-            ' so the turn is a jitter about the average and the tank never
-            ' completes the turn that would take it away from the wall. It
-            ' needs long enough to actually swing round.
+            ' COMMIT TO THE TURN BEFORE ASKING AGAIN. Repicking on every
+            ' blocked frame was what deadlocked the first fleet: back when the
+            ' goal was a random throw, a fresh goal each frame meant a fresh
+            ' desired heading each frame, so the turn was a jitter about the
+            ' average and the tank never completed the swing that would take it
+            ' away from the wall.
+            '
+            ' The throw is gone and PickGoal now re-aims at the SAME waypoint,
+            ' so the heading no longer jumps - but the delay still earns its
+            ' place: it is the time the hull needs to actually come round, and
+            ' asking again sooner just burns the frames it should be turning
+            ' in.
             blockedS += dt
             If blockedS > TankDriveTune.REPICK_S Then
                 blockedS = 0.0F
@@ -312,16 +323,18 @@ Public Class TankDrive
     End Sub
 
     ''' <summary>
-    ''' Somewhere open to head for.
+    ''' The next waypoint of this hull's route, or nothing at all.
     '''
-    ''' A RING, NOT A DISC. Sampling a uniform disc puts most of the candidates
-    ''' close to the tank, so it shuffles about instead of crossing ground. The
-    ''' minimum radius is what makes it travel.
+    ''' THE CATALOGUE IS THE ONLY SOURCE OF GOALS. Nothing is searched here and
+    ''' nothing is invented: the route was built at load, this hull was handed
+    ''' one of its corridors, and this walks along it.
     '''
-    ''' Gives up after a bounded number of tries rather than searching: a tank
-    ''' boxed in badly enough that two dozen throws all miss is a tank that
-    ''' should sit still this frame and be asked again next frame, not one that
-    ''' should spend the frame proving it is stuck.
+    ''' It used to fall back on throwing random goals into a 60-220 m ring when
+    ''' there was no route. That is gone - "remove all the random path seeking
+    ''' code ... we have ray studio now" - and a hull without a corridor now
+    ''' parks instead of wandering. Called on arrival, on a stall and when the
+    ''' way ahead shuts, so it must stay cheap and must not advance the
+    ''' waypoint except on arrival.
     ''' </summary>
     Private Sub PickGoal(inst As TankInstance, nav As TankNav, pos As Vector2)
         hasGoal = False
@@ -354,21 +367,25 @@ Public Class TankDrive
             Return
         End If
 
-        For attempt = 1 To TankDriveTune.GOAL_TRIES
-            Dim a = rng.NextDouble() * Math.PI * 2.0
-            Dim r = TankDriveTune.GOAL_MIN_M +
-                    rng.NextDouble() * (TankDriveTune.GOAL_MAX_M - TankDriveTune.GOAL_MIN_M)
-            Dim gx = pos.X + CSng(Math.Cos(a) * r)
-            Dim gz = pos.Y + CSng(Math.Sin(a) * r)
-            If nav.CanStand(gx, gz, TankDriveTune.HULL_R) Then
-                goal = New Vector2(gx, gz)
-                hasGoal = True
-                ' stuckS is NOT cleared here. A new goal is not progress, and
-                ' zeroing it on every pick is what made the first fleet report
-                ' zero stuck tanks while not one of them was moving.
-                Return
-            End If
-        Next
+        ' AND WITHOUT A ROUTE, IT STAYS PUT. The owner, 2026-09-12: "remove
+        ' all the random path seeking code ... we have ray studio now."
+        '
+        ' What used to be here threw up to 24 random goals into a 60-220 m ring
+        ' and drove at the first one that could be stood on. It was never
+        ' navigation - it was a hull wandering until it happened to be
+        ' somewhere - and it flattered every measurement of the real planner by
+        ' keeping the fleet in motion whether or not a route existed.
+        '
+        ' So a hull with no corridor now parks, visibly, and says so once. That
+        ' is the honest state: the catalogue is the only thing that moves a
+        ' tank, and a tank standing still means it was never given a route.
+        If Not noRouteLogged Then
+            noRouteLogged = True
+            LogThis("tank ai: team {0} {1} has no route - parked. " &
+                    "The random goal picker was removed; the catalogue is the " &
+                    "only source of goals now.",
+                    If(inst.team = TankTeam.Green, 1, 2), inst.label)
+        End If
     End Sub
 
     ''' <summary>
@@ -446,11 +463,6 @@ Public Module TankDriveTune
     ''' <summary>How close counts as arrived.</summary>
     Public ARRIVE_M As Single = 6.0F
 
-    ''' <summary>Goals are thrown into this ring around the tank.</summary>
-    Public GOAL_MIN_M As Single = 60.0F
-    Public GOAL_MAX_M As Single = 220.0F
-    Public GOAL_TRIES As Integer = 24
-
     ''' <summary>Seconds on one goal before giving up on it. A tank still
     ''' trying after this is circling something it cannot pass.</summary>
     Public GOAL_PATIENCE_S As Single = 45.0F
@@ -458,10 +470,11 @@ Public Module TankDriveTune
     ''' <summary>Seconds held at a standstill before choosing again.</summary>
     Public STUCK_S As Single = 1.5F
 
-    ''' <summary>Seconds of being blocked before trying a different goal. Long
-    ''' enough for the hull to have swung a useful part of the way round at
-    ''' TURN_RATE_RAD - about 40 degrees - so the tank commits to a direction
-    ''' instead of jittering between fresh random ones.</summary>
+    ''' <summary>Seconds of being blocked before asking for the goal again.
+    ''' Long enough for the hull to have swung a useful part of the way round at
+    ''' TURN_RATE_RAD - about 40 degrees - so the tank commits to a direction.
+    ''' It re-aims at the same waypoint now rather than at a fresh random
+    ''' throw, so this is a turning budget, not a jitter guard.</summary>
     Public REPICK_S As Single = 1.2F
 
     ''' <summary>Seconds wedged before the map is told about it. Deliberately
