@@ -440,8 +440,24 @@ render mesh's index buffer that the renderer skips entirely — an invisible
 blocker. The correlation holds both ways, which is what makes it a rule rather
 than an observation:
 
-* **1,512 of 1,544** `s_wall_*` / `s_ramp_*` materials have no `<fx>`
+* **1,512 of 1,512** materials whose identifier STARTS WITH `s_wall` or `s_ramp`
+  have no `<fx>`. Not 97%, not "nearly always" - none of them, ever.
 * **1,512 of 1,545** materials with no `<fx>` are `s_wall_*` / `s_ramp_*`
+
+### The 32 exceptions were my own bug
+
+That first number was reported as 1,512 of 1,544 before it was measured
+properly, with 32 apparent exceptions carrying a real shader. The 32 are all
+one identifier - **`s_nd_0_wall`** - and it is not a wall material at all. It is
+an ordinary `s_nd` material, `collisionFlags` 0, with a real `PBS_tiled` or
+`PBS_ext` shader, that happens to contain the letters `w-a-l-l`. A SUBSTRING
+test swept it in; a prefix test does not.
+
+That is the same mistake the flight bake's classifier makes when it keys
+`StreetLamp` as a **tree** because the name contains `t-r-e-e`. It is worth
+leaving written down here rather than quietly corrected, because the corrected
+rule is much stronger than the one it replaces: a material that blocks is a
+material with no shader, with no exceptions in the shipped library.
 
 On `hd_bld_EU_049_THouse`, `UpperFloorsSmall_02` carries one: **4 triangles, 8
 verts, 1.97 × 2.09 × 1.79 m** — two quads across a doorway.
