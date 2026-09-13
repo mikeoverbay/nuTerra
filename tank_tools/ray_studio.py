@@ -1506,7 +1506,30 @@ def main():
         cw, ch = view_span(pw, ph)
         u0, v0 = view_cx / N, view_cz / N
         u1, v1 = (view_cx + cw) / N, (view_cz + ch) / N
-        gv.blit("ground", (0, 0, pw, ph), (u0, v0, u1, v1))
+
+        # CLAMP THE EDGES, by shrinking the QUAD rather than the uv.
+        #
+        # Zoomed out far enough to see past the map, the uv runs outside 0..1.
+        # CLAMP_TO_EDGE then repeats the outermost row of texels outward, which
+        # is where the grey bands off the left and right of the map came from -
+        # a smear of the edge pixel, not terrain.
+        #
+        # So the uv is clipped to the map and the destination rect is clipped
+        # by the same fraction. Off-map stays the buffer's clear colour, which
+        # is what is actually out there.
+        def clipped(uu0, vv0, uu1, vv1):
+            du, dv = uu1 - uu0, vv1 - vv0
+            cu0, cv0 = max(0.0, uu0), max(0.0, vv0)
+            cu1, cv1 = min(1.0, uu1), min(1.0, vv1)
+            if cu1 <= cu0 or cv1 <= cv0:
+                return None, None
+            dst = (pw * (cu0 - uu0) / du, ph * (cv0 - vv0) / dv,
+                   pw * (cu1 - cu0) / du, ph * (cv1 - cv0) / dv)
+            return dst, (cu0, cv0, cu1, cv1)
+
+        map_dst, map_uv = clipped(u0, v0, u1, v1)
+        if map_dst is not None:
+            gv.blit("ground", map_dst, map_uv)
 
         # AND NOTHING DRAWN ON THE MAP MAY SPILL INTO THE PANELS. Zoomed in,
         # a ring or a route runs far outside the frame; without a clip it was
@@ -1524,13 +1547,15 @@ def main():
         # is 2 million pixels of nothing new.
         # THE DEAD GROUND FIRST, under the blocks and everything else.
         if have_dead and show_dead and gv.has("dead"):
-            gv.blit("dead", (0, 0, pw, ph), (u0, v0, u1, v1))
+            if map_dst is not None:
+                gv.blit("dead", map_dst, map_uv)
 
         if squares is not None and show_blocks:
             if squares.dirty or not gv.has("blocks"):
                 gv.upload("blocks", squares.rgba())
                 squares.dirty = False
-            gv.blit("blocks", (0, 0, pw, ph), (u0, v0, u1, v1))
+            if map_dst is not None:
+                gv.blit("blocks", map_dst, map_uv)
 
         # THE EXPANDING RINGS. The heart of the algorithm and, until now, the
         # one part of it with no picture at all: "i want to see the expanding
