@@ -1155,19 +1155,6 @@ Module modGlobalVars
     ' land in when what you want is a steady look at the vehicles - tracks,
     ' recoil, armour, lighting - which is most of the time. The checkbox in
     ' TANKS! turns it on without a rebuild.
-    ''' <summary>
-    ''' One-shot: the SIM button in the TANKS! menu was pressed.
-    '''
-    ''' Raised by the UI, CLEARED BY WHOEVER CONSUMES IT - it is a request,
-    ''' not a state. Left true it would re-fire every frame at 60 Hz.
-    '''
-    ''' The handler belongs to Tank AI work and lands in nuTerra/Tanks/Sim/.
-    ''' Declared here so the button compiles and the lane boundary stays
-    ''' where it is: nuTerra UI raises it, tank code answers it.
-    ''' Added 2026-09-13 by nuTerra work.
-    ''' </summary>
-    Public TANK_SIM_START As Boolean = False
-
     Public TANK_AI As Boolean = True
 
     ''' <summary>
