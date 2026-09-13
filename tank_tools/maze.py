@@ -464,7 +464,7 @@ def components(blocked):
 
 
 def corner_sweep(g, goal, cell_m=CELL_M, ring_m=RING_M, step_m=5.0,
-                 margin_m=20.0):
+                 margin_m=20.0, axis="ns"):
     """Straight lanes across the map at a fixed X, swept from the back corner.
 
     "thats not starting in the back corner and working across."
@@ -493,16 +493,84 @@ def corner_sweep(g, goal, cell_m=CELL_M, ring_m=RING_M, step_m=5.0,
     ring_cells = int(ring_m / cell_m)
     m = int(margin_m / cell_m)
     step = max(1, int(round(step_m / cell_m)))
-    near_row, far_row = n - 1 - m, m        # our back edge, and the far one
-    if g_rc[0] > n // 2:                    # base is south: swap the ends
-        near_row, far_row = m, n - 1 - m
+    # WHICH WAY THE LANES RUN.
+    #
+    #   ns   lanes at constant X, crossing north-south, swept west to east
+    #   we   lanes at constant Z, crossing west-east, swept north to south
+    #
+    # Same scheme either way - a lane is a line, both its ends on that line,
+    # and the sweep starts at the far corner and steps across. Done by working
+    # in (along, across) and only converting to (row, col) at the two places it
+    # matters, so there is one implementation rather than a transposed copy
+    # that drifts out of step with it.
+    ns = (axis == "ns")
+
+    def rc_of(across, along):
+        return (along, across) if ns else (across, along)
+
+    # WHICH END IS THE TARGET, and for a west-east sweep the honest answer is
+    # "whichever one can get home".
+    #
+    # North-south the base is at one end of the lane, so crossing to the
+    # opposite side has an obvious direction. West-east it is at NEITHER - the
+    # base sits in the middle horizontally - and the first version picked the
+    # west edge for all of them and reported 34 lanes of "leg 2 cannot reach
+    # the base". That was not a bug, it was correct: the west edge is cut off
+    # from our base, as the 5 m sweep measured earlier. The scheme simply had
+    # no orientation to pick from.
+    #
+    # So both ends are candidates, tried nearer-to-the-base first, and the lane
+    # takes whichever works. North-south is unchanged by this: the base end is
+    # excluded because a lane must CROSS, so only one candidate survives.
+    base_along = g_rc[0] if ns else g_rc[1]
+    prefer_high = base_along <= n // 2
 
     # WHICH CELLS CAN REACH WHICH, once. Feasibility for every lane becomes a
     # comparison of two labels instead of a search that fails slowly.
     comp = components(blocked)
 
+    home = comp[g_rc]
+
     out = []
     for col in range(m, n - m, step):
+        # THE LANE SPANS WHAT IS REACHABLE, not the map margins.
+        #
+        # Measured: the base's drivable component reaches about x = -400 to
+        # +700 depending on the row, and never the west edge - the river cuts
+        # the western third off entirely. So a west-east lane pinned to the map
+        # margins can never exist here, and the first version said so 34 times
+        # in a row while looking like a broken sweep. A lane crosses as far as
+        # the ground allows, and how far that is IS the answer for that row.
+        line = comp[col, :] if not ns else comp[:, col]
+        have = np.flatnonzero(line == home)
+        if len(have) < 2 or (have[-1] - have[0]) < 4 * ring_cells:
+            out.append(dict(col=col, ok=False,
+                            why="no usable span of our own ground on this line"))
+            continue
+        lo_end, hi_end = int(have[0]), int(have[-1])
+        ends = ([(hi_end, lo_end), (lo_end, hi_end)] if prefer_high
+                else [(lo_end, hi_end), (hi_end, lo_end)])
+
+        lane = None
+        why = "nothing free in the ring"
+        for near_along, far_along in ends:
+            lane, why = _one_lane(g, blocked, comp, f_goal, rc_of, col,
+                                  near_along, far_along, ring_cells, cell_m)
+            if lane is not None:
+                break
+        if lane is None:
+            out.append(dict(col=col, ok=False, why=why))
+            continue
+        out.append(lane)
+    return out, blocked, n
+
+
+def _one_lane(g, blocked, comp, f_goal, rc_of, col, near_along, far_along,
+              ring_cells, cell_m):
+    """One lane, one direction. Returns (lane, None) or (None, why it failed)."""
+    if True:
+        near_rc_raw = rc_of(col, near_along)
+        far_rc_raw = rc_of(col, far_along)
         # LEG ONE IS SOUGHT, NOT DRIVEN STRAIGHT.
         #
         # The first version of this took "seek same location on opposite side
@@ -511,30 +579,29 @@ def corner_sweep(g, goal, cell_m=CELL_M, ring_m=RING_M, step_m=5.0,
         # blocked and a 1,360 m line at constant X always meets something. The
         # lane is a DESTINATION at that X, and getting there is the search.
         try:
-            rc, snapped = nearest_free(blocked, (far_row, col), limit=ring_cells)
+            rc, snapped = nearest_free(blocked, far_rc_raw, limit=ring_cells)
         except ValueError:
-            out.append(dict(col=col, ok=False, why="nothing free in the ring"))
-            continue
+            return None, "nothing free in the ring"
         if not np.isfinite(f_goal[rc]):
-            out.append(dict(col=col, ok=False, why="leg 2 cannot reach the base"))
-            continue
+            return None, "leg 2 cannot reach the base"
         # Feasible first, by connected component - a lookup - and only then
         # the flood that produces the actual route, so a sweep of 272 lanes
         # pays for the handful that survive rather than for all of them.
-        s_rc, _ = nearest_free(blocked, (near_row, col), limit=ring_cells)
+        try:
+            s_rc, _ = nearest_free(blocked, near_rc_raw, limit=ring_cells)
+        except ValueError:
+            return None, "nothing free at the lane start"
         if comp[s_rc] != comp[rc]:
-            out.append(dict(col=col, ok=False, why="lane start cut off from the far side"))
-            continue
+            return None, "lane start cut off from the far side"
         leg1 = walk_down(flood(blocked, rc), s_rc)
         leg2 = walk_down(f_goal, rc)
         pts = [to_world(g, r, c, cell_m) for r, c in leg1 + leg2]
         length = float(sum(
             np.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
             for i in range(len(pts) - 1)))
-        out.append(dict(col=col, ok=True, pts=pts, length=length,
-                        start=to_world(g, s_rc[0], s_rc[1], cell_m),
-                        cross=to_world(g, rc[0], rc[1], cell_m)))
-    return out, blocked, n
+        return dict(col=col, ok=True, pts=pts, length=length,
+                    start=to_world(g, s_rc[0], s_rc[1], cell_m),
+                    cross=to_world(g, rc[0], rc[1], cell_m)), None
 
 
 def alternatives(g, start, goal, cell_m=CELL_M, budgets=(0.0, 0.05, 0.10, 0.25,
