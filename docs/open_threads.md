@@ -121,10 +121,48 @@ that it very likely never draws. Three consequences:
   argument for doing the logging half FIRST and the two `Case` entries second.
   The log is the only instrument that will show either of them landing.
 
-**Next step, after the pending push:** name the unrecognised format in a log
-line and treat `stride = 0` as a hard error at the call site FIRST; add the two
-`Case` entries second. Two entries fix today's corpus; only the logging fixes
-the next patch that ships a seventh format.
+### It is LATENT, not live - and the decision is to log, and NOT add the strides
+
+Neither format is ever handed to `PrimitiveLoader` in normal operation, so the
+`Case Else` has very likely never fired for either one on any map.
+
+Verified two ways here, 2026-09-13:
+
+* `grep -in "havok|\.hkt|soundobstacle"` across all of `nuTerra/` source -
+  **zero hits**. The loader never names either path.
+* The obvious hole in that - a `.visual_processed` that POINTS into a havok
+  folder - is closed. Havok geometry has its OWN parallel visual:
+
+        ..._Doors_Big_01_Scaled__n_metal4_1_2.hkt.visual_processed   contains "havok"
+        ..._Doors_Big_01_Scaled.visual_processed                     does not
+
+  They are SIBLING files, not nested references. The render visual does not
+  reach the collision hull, so walking visuals cannot arrive at one.
+
+**So the two `Case` entries are deliberately NOT being added.** They would buy
+nothing today - nothing loads these - and could actively mislead tomorrow. A
+stride inferred from a collision hull and an audio volume is a guess about a
+layout that nothing exercises. If a later patch ever ships `BPVTxyznuvitb` as
+real render geometry, whoever meets it finds a `Case` entry that already exists,
+assumes it is correct, and gets a plausible wrong answer instead of the log line
+that would have told them. **An entry that looks handled is worse than one that
+announces itself** - which is the same failure shape as the rest of this
+evening.
+
+What they are, so nobody has to re-derive it:
+
+    BPVTxyznuvitb   36   havok collision proxies, lod0/havok/*.hkt.primitives_processed
+    BPVTxyz         12   audio occluders, content/Audio/SoundObstacle/<map>/
+
+**Next step, after the pending push:** name the unrecognised format string in a
+log line and make `stride = 0` a hard error at the call site. That is the whole
+fix. It catches the seventh format on the day it ships, which is the only thing
+here with future value.
+
+**If you repeat the package measurement, search for `BPVTxyz` followed by a
+NUL.** Without the terminator it also matches `BPVTxyznuv` and returns tens of
+thousands of false hits. The naive search is the one everybody reaches for
+first.
 
 ### The trap waiting in that fix: the lone `i` is NOT a skinned marker
 
