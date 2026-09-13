@@ -1,28 +1,71 @@
 # Slicer
 
-Standalone scanner for the buildings in the World of Tanks packages, so building
-work can be done without starting nuTerra and waiting for a map to load.
+Pulls buildings out of the World of Tanks packages and writes them as STL or
+OBJ, so they can be printed or opened in anything.
 
-It shares no code with nuTerra on purpose — the same rule `SrtViewer` follows.
-`PackedSection.vb` here is a reference implementation of the `.model` container
-and can be proven out in seconds before anything is ported into the engine.
+Standalone, the same rule `SrtViewer` follows: it shares no code with nuTerra,
+so it runs without starting the engine and its format readers stay honest
+reference implementations. VB + OpenTK, `net8.0-windows`, x64. **One
+dependency, OpenTK** - every mesh routine here is written in this folder.
 
-VB + OpenTK, `net8.0-windows`, x64.
+The name is historical. It began as a plane-slicer and the cut is still in
+there as an inspection aid (`S` in the viewer), but the job is export: produce
+a clean mesh and let a real slicer - OrcaSlicer, PrusaSlicer - do the slicing,
+the supports and the G-code. That is their work and they are good at it.
 
 ## Running
 
-    Slicer --view                            open the 3D viewer
-    Slicer --view --asset cathedral          open it on one building
-    Slicer                                   scan and summarise
-    Slicer --list                            every building, one line each
-    Slicer --list --filter cathedral
-    Slicer --asset hd_bld_eu_225_cathedral   every LOD and part
-    Slicer --csv buildings.csv               one row per part
-    Slicer --failures                        anything that would not parse
-    Slicer --skip-vehicles                   skip vehicles_/audioww- packages
+    Slicer --export                                  write every building as STL
+    Slicer --export --asset cathedral --out models    write one, somewhere
+    Slicer --export 20 --set out.format=obj          the first 20, as OBJ
+    Slicer --view                                    the 3D viewer
+    Slicer --check                                   watertightness sweep
+    Slicer --list                                    every building, one line each
+    Slicer --show-settings                           print the settings and exit
     Slicer --game "C:\Games\World_of_Tanks_NA"
 
 The game install is auto-detected from the usual four locations.
+
+## Export
+
+    out.dir      exported
+    out.format   stl          stl for a printer, obj to keep vertex sharing
+    out.upAxis   z            z for printing, y to keep the app's own axis
+    out.scale    1000         metres -> millimetres
+
+**Two conversions happen on the way out and both are silent when wrong**, because
+a wrong one still produces a valid file.
+
+**Up axis.** This app works Y-up, like the game and like OpenGL. Every printing
+tool works Z-up, because the build plate is the XY plane. Export Y-up and the
+building arrives lying on its side - still valid, still printable, just on its
+side. The rotation is about X: `(x, y, z)` becomes `(x, -z, y)`.
+
+**Units.** These models are in METRES - a house is 13 units tall. STL carries no
+units and every consumer assumes millimetres, so a 13 m house exported raw is a
+13 mm ornament. x1000 makes the file's numbers millimetres, so it lands
+life-sized and gets scaled down deliberately rather than shrunk by accident.
+
+What each file gets, in this order and for these reasons:
+
+1. every part of the LOD, merged - a building is a kit, and one STL per wall
+   panel is not what anybody wants;
+2. degenerates killed FIRST, so the bottom-fill walk is not tripped by
+   zero-length edges;
+3. each part's bottom closed at its OWN lowest point, before the merge, because
+   a kit's pieces sit at different heights;
+4. up-axis and scale applied last.
+
+STL is written BINARY - same geometry at about a sixth the size. It has no
+vertex sharing, so a welded mesh is un-welded on the way out; that is the
+format, not the writer. OBJ keeps the sharing and is written with
+`InvariantCulture`, because on a comma-decimal machine `1,5` in an OBJ is two
+numbers and the file loads as garbage.
+
+**These are not watertight** - see below. Run a repair pass, or let the slicer
+do its own, before printing.
+
+### Building it
 
 ### Building it
 

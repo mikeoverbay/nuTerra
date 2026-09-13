@@ -70,8 +70,9 @@ Public Class ViewerWindow
     Private soloPart As Integer = -1
     Private wireframe As Boolean = False
 
-    ' slicing
-    Private slicing As Boolean = True
+    ' The cut is an inspection aid now, not the job - this is an exporter.
+    ' S still turns it on to look inside a building.
+    Private slicing As Boolean = False
     Private showCut As Boolean = True
     Private planeNudge As Single = 0.0F        ' metres, on top of settings.Offset
     Private axisOverride As String = Nothing
@@ -110,6 +111,9 @@ Public Class ViewerWindow
     Private fillOn As Boolean = True
     Private fillTris, fillRings, fillOpen, fillEdges As Integer
     Private killZero, killSliver, killDupe As Integer
+    Private supportsOn As Boolean = False
+    Private supPillars, supOverhang, supPlate, supModel As Integer
+    Private supTallest As Single
     ''' <summary>
     ''' The worst Y spread of any ONE mesh's fill, and the real check - stronger
     ''' than the picture, because a fill that climbed off its plane shows as a
@@ -330,6 +334,7 @@ Public Class ViewerWindow
         totalVerts = 0 : totalTris = 0 : clippedTris = 0 : cutSegs = 0
         fillTris = 0 : fillRings = 0 : fillOpen = 0 : fillEdges = 0
         killZero = 0 : killSliver = 0 : killDupe = 0
+        supPillars = 0 : supOverhang = 0 : supPlate = 0 : supModel = 0 : supTallest = 0.0F
         fillWorstSpread = 0.0F : fillWorstName = Nothing
 
         Dim verts As New List(Of Single)

@@ -114,9 +114,32 @@ Public Class SliceSettings
     ''' </summary>
     Public Property ShellWeldRange As Single = 0.05F
 
+    ' ---- printing supports -----------------------------------------------
+    Public Property SupportsOn As Boolean = False
+    Public Property SupportAngle As Single = 45.0F
+    Public Property SupportSpacing As Single = 0.5F
+    Public Property SupportRadius As Single = 0.06F
+
     ' ---- output ----------------------------------------------------------
-    Public Property OutDir As String = "slices"
-    Public Property OutFormat As String = "obj"
+    Public Property OutDir As String = "exported"
+    ''' <summary>stl or obj. STL for a printer; OBJ keeps vertex sharing, so it
+    ''' is smaller and survives a round trip with its topology intact.</summary>
+    Public Property OutFormat As String = "stl"
+    ''' <summary>
+    ''' z or y. Z by default because every 3D printing tool treats the build
+    ''' plate as the XY plane, while this app - like the game and like OpenGL -
+    ''' works Y-up. Export Y-up and the building arrives in the slicer lying on
+    ''' its side: still valid, still printable, just on its side.
+    ''' </summary>
+    Public Property OutUpAxis As String = "z"
+    ''' <summary>
+    ''' Multiplier applied on the way out. These models are in METRES, and STL
+    ''' carries no units at all while every consumer assumes millimetres - so a
+    ''' 13 m house exported raw arrives as a 13 mm ornament. 1000 makes the
+    ''' file's numbers millimetres, so it lands life-sized and is scaled DOWN
+    ''' deliberately rather than shrunk by accident.
+    ''' </summary>
+    Public Property OutScale As Single = 1000.0F
 
     ''' <summary>Keys read from a file that this build does not know about.
     ''' Kept so writing the file back does not silently drop a newer build's
@@ -181,6 +204,14 @@ Public Class SliceSettings
         If ShellViews < 6 Then bad.Add("shell.views must be at least 6 - fewer cannot see all sides")
         If ShellResolution < 64 Then bad.Add("shell.resolution must be at least 64")
         If ShellWeldRange <= 0.0F Then bad.Add("shell.weldRange must be greater than 0")
+        If SupportAngle < 1.0F OrElse SupportAngle > 89.0F Then bad.Add("support.angle must be between 1 and 89 degrees")
+        If SupportSpacing <= 0.0F Then bad.Add("support.spacing must be greater than 0")
+        If SupportRadius <= 0.0F Then bad.Add("support.radius must be greater than 0")
+        Dim fmt = If(OutFormat, "").Trim().ToLowerInvariant()
+        If fmt <> "stl" AndAlso fmt <> "obj" Then bad.Add("out.format must be stl or obj (got """ & OutFormat & """)")
+        Dim ua = If(OutUpAxis, "").Trim().ToLowerInvariant()
+        If ua <> "z" AndAlso ua <> "y" Then bad.Add("out.upAxis must be z or y (got """ & OutUpAxis & """)")
+        If OutScale = 0.0F Then bad.Add("out.scale cannot be zero")
         If CapOpenSpans AndAlso Not Cap Then
             bad.Add("result.capOpenSpans is on but result.cap is off, so nothing will be capped")
         End If
@@ -224,10 +255,16 @@ Public Class SliceSettings
             Case "scope.lod" : Lod = ParseI(value, Lod)
             Case "scope.parts" : Parts = value
             Case "scope.includehavok" : IncludeHavok = ParseB(value, IncludeHavok)
+            Case "support.on" : SupportsOn = ParseB(value, SupportsOn)
+            Case "support.angle" : SupportAngle = ParseF(value, SupportAngle)
+            Case "support.spacing" : SupportSpacing = ParseF(value, SupportSpacing)
+            Case "support.radius" : SupportRadius = ParseF(value, SupportRadius)
             Case "shell.views" : ShellViews = ParseI(value, ShellViews)
             Case "shell.resolution" : ShellResolution = ParseI(value, ShellResolution)
             Case "shell.weldrange" : ShellWeldRange = ParseF(value, ShellWeldRange)
             Case "out.dir" : OutDir = value
+            Case "out.upaxis" : OutUpAxis = value
+            Case "out.scale" : OutScale = ParseF(value, OutScale)
             Case "out.format" : OutFormat = value
             Case Else : Return False
         End Select
@@ -275,9 +312,17 @@ Public Class SliceSettings
         w.AppendLine("shell.resolution      = " & ShellResolution & "            # pixels per side per view, one ray each")
         w.AppendLine("shell.weldRange       = " & Fmt(ShellWeldRange) & "           # metres; STITCHES, unlike mesh.weldTolerance")
         w.AppendLine()
+        w.AppendLine("# --- printing supports -------------------------------------------")
+        w.AppendLine("support.on            = " & LCase(SupportsOn.ToString()) & "          # generate pillars under overhangs")
+        w.AppendLine("support.angle         = " & Fmt(SupportAngle) & "             # degrees off vertical before a face needs help")
+        w.AppendLine("support.spacing       = " & Fmt(SupportSpacing) & "            # metres between pillars")
+        w.AppendLine("support.radius        = " & Fmt(SupportRadius) & "           # metres, pillar half-width")
+        w.AppendLine()
         w.AppendLine("# --- output ------------------------------------------------------")
         w.AppendLine("out.dir               = " & OutDir)
         w.AppendLine("out.format            = " & OutFormat)
+        w.AppendLine("out.upAxis            = " & OutUpAxis & "              # z for printing, y to keep the app's own axis")
+        w.AppendLine("out.scale             = " & Fmt(OutScale) & "           # metres -> millimetres")
         If unknown.Count > 0 Then
             w.AppendLine()
             w.AppendLine("# Keys this build does not recognise, preserved verbatim:")
@@ -301,7 +346,7 @@ Public Class SliceSettings
         Console.WriteLine("  weld          {0} m   drop degenerate {1}", Fmt(WeldTolerance), LCase(DropDegenerate.ToString()))
         Console.WriteLine("  scope         lod{0}  parts {1}{2}", Lod, Parts,
                           If(IncludeHavok, "  + havok proxies", ""))
-        Console.WriteLine("  output        {0}  as {1}", OutDir, OutFormat)
+        Console.WriteLine("  output        {0}  as {1}, {2}-up, scale x{3}", OutDir, OutFormat, OutUpAxis, Fmt(OutScale))
         Dim bad = Validate()
         If bad.Count > 0 Then
             Console.WriteLine()

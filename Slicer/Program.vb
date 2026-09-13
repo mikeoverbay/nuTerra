@@ -44,6 +44,7 @@ Module Program
         Dim doShell = False
         Dim shotAngle As String = Nothing
         Dim shotCut = False
+        Dim exportCount As Integer = -1
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -70,6 +71,11 @@ Module Program
                     shotCut = True
                 Case "--shot-angle"
                     i += 1 : If i < args.Length Then shotAngle = args(i)
+                Case "--export"
+                    exportCount = 0
+                    If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), exportCount) Then i += 1 Else exportCount = 0
+                Case "--out"
+                    i += 1 : If i < args.Length Then setArgs.Add("out.dir=" & args(i))
                 Case "--shell"
                     doShell = True
                 Case "--check"
@@ -223,7 +229,9 @@ Module Program
             Next
         End If
 
-        If assetArg IsNot Nothing Then
+        ' The per-part dump is for browsing, not for a job that is producing
+        ' files - it buried the export report under ninety lines of parts.
+        If assetArg IsNot Nothing AndAlso exportCount < 0 AndAlso checkCount < 0 Then
             DumpAsset(library, assetArg)
         ElseIf doList Then
             ListAssets(library, filter)
@@ -241,6 +249,10 @@ Module Program
         If csvPath IsNot Nothing Then WriteCsv(library, csvPath)
 
         If checkCount >= 0 Then MeshCheck.RunSweep(pkg, library, settings, checkCount, filter)
+
+        If exportCount >= 0 Then
+            MeshExport.ExportAssets(pkg, library, settings, If(assetArg, filter), exportCount)
+        End If
 
         If doView OrElse shotPath IsNot Nothing OrElse doShell Then
             ' --asset picks the building to open on; without one it starts at
@@ -370,6 +382,8 @@ Module Program
         Console.WriteLine("  --view               open the 3D viewer")
         Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
         Console.WriteLine("  --check [n]          watertightness before and after the bottom fill")
+        Console.WriteLine("  --export [n]         write buildings as STL/OBJ (all, or the first n)")
+        Console.WriteLine("  --out <dir>          where to write them")
         Console.WriteLine("  --shell              rebuild the set model into an exterior shell")
         Console.WriteLine("  --shot-angle <a>     iso | front | bottom  (default bottom)")
         Console.WriteLine("  --shot-cut           keep the cut on in the shot")
