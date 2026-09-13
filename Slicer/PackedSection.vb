@@ -1,4 +1,4 @@
-Imports System.Text
+﻿Imports System.Text
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -73,6 +73,62 @@ Public Class PsNode
         Dim c = Child(childName)
         If c Is Nothing Then Return Nothing
         Return c.Text
+    End Function
+
+    ''' <summary>Alphabet for a 6-bit packed name: A-Z 0..25, a-z 26..51,
+    ''' 0-9 52..61. Solved from known pairs, not assumed - see PackedName.</summary>
+    Private Shared ReadOnly SIX_BIT As String =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_$"
+
+    ''' <summary>
+    ''' This element's own name, decoding the packed form when it is in one.
+    '''
+    ''' A material `property` in a .visual_processed carries its NAME as the
+    ''' element's own value, and that value arrives in two forms. Most are plain
+    ''' strings - diffuseMap, normalMap, alphaTestEnable. Some are a short BLOB
+    ''' instead, and those are NOT hashes: they are the same name at SIX BITS
+    ''' PER CHARACTER.
+    '''
+    ''' The giveaway was three properties whose blobs differed only in the final
+    ''' byte, by one each - which no hash does, but consecutive Tile0/1/2 names
+    ''' do. The lengths confirmed it: 12 bytes for a 16-character name, 15 for a
+    ''' 20-character one, both exactly ceil(chars * 6 / 8). The alphabet was then
+    ''' solved from two known pairs and came out as plain base64 ordering.
+    '''
+    '''     99eb5a96589c1a5a2cb0c6a9        metallicGlossMap
+    '''     9e8ae66a51a5a2cb12a5e7138a57b4  normalGlossSpecTile0  (b5/b6 = Tile1/2)
+    '''     728968ad37b1                    colorTex
+    '''     8256acb0c6a9                    glassMap
+    '''     6ad95ab0da2b99a946968b2c4a979c  atlasNormalGlossSpec
+    '''
+    ''' The LAST one is the proof rather than the pattern: `atlasNormalGlossSpec`
+    ''' is character-for-character the sampler nuTerra's own
+    ''' Model_shaders/model.frag declares for maps[1] on its atlas entries. The
+    ''' decode was checked against the engine's source, not just against itself
+    ''' looking plausible.
+    '''
+    ''' WHY some names are packed and others are not is not known. It is not
+    ''' length - alphaTestEnable is 15 characters and plain, colorTex is 8 and
+    ''' packed - and it is not the character set. Handling both costs nothing, so
+    ''' the reason does not have to be known in order to read the file.
+    ''' </summary>
+    Public Function PackedName() As String
+        If Not String.IsNullOrEmpty(Text) Then Return Text
+        If Blob Is Nothing OrElse Blob.Length = 0 Then Return ""
+        Dim chars = (Blob.Length * 8) \ 6
+        Dim sb As New StringBuilder(chars)
+        For i = 0 To chars - 1
+            Dim v = 0
+            For k = 0 To 5
+                Dim bit = i * 6 + k
+                Dim byteAt = bit >> 3
+                If byteAt >= Blob.Length Then Exit For
+                Dim mask = 1 << (7 - (bit And 7))
+                v = (v << 1) Or If((Blob(byteAt) And mask) <> 0, 1, 0)
+            Next
+            If v >= 0 AndAlso v < SIX_BIT.Length Then sb.Append(SIX_BIT(v))
+        Next
+        Return sb.ToString()
     End Function
 
     ''' <summary>
@@ -209,9 +265,18 @@ Public NotInheritable Class PackedSection
                 Dim nested = ReadElement()
                 node.Kind = PsKind.Element
                 node.Children.AddRange(nested.Children)
+                ' EVERY carrier, not just the ones a first pass happened to
+                ' need. Blob was missing here and it cost the whole
+                ' metallicGlossMap property: a material `property` element keeps
+                ' its NAME as its own value, that name is sometimes a 6-bit
+                ' packed blob, and dropping Blob on the way through left the
+                ' property nameless and therefore unreadable. It looked like a
+                ' texture that was not in the file.
                 node.Text = nested.Text
                 node.Floats = nested.Floats
                 node.Number = nested.Number
+                node.Blob = nested.Blob
+                node.Bool = nested.Bool
 
             Case PsKind.Str
                 node.Text = Encoding.Latin1.GetString(buf, pos, length)

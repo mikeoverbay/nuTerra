@@ -128,15 +128,6 @@ Public NotInheritable Class MeshExport
     End Sub
 
     ''' <summary>
-    ''' Wavefront OBJ. Keeps vertex sharing, which STL cannot, so the file is
-    ''' smaller than an STL of the same mesh and survives a round trip through
-    ''' Blender with its topology intact.
-    '''
-    ''' Written with InvariantCulture throughout: on a machine with a comma
-    ''' decimal separator, "1,5" in an OBJ is two numbers, and the file loads
-    ''' as garbage or not at all.
-    ''' </summary>
-    ''' <summary>
     ''' Export whole buildings, headless - no window, no GL.
     '''
     ''' What a file gets, in this order and for these reasons:
@@ -256,6 +247,15 @@ Public NotInheritable Class MeshExport
         End If
     End Sub
 
+    ''' <summary>
+    ''' Wavefront OBJ. Keeps vertex sharing, which STL cannot, so the file is
+    ''' smaller than an STL of the same mesh and survives a round trip through
+    ''' Blender with its topology intact.
+    '''
+    ''' Written with InvariantCulture throughout: on a machine with a comma
+    ''' decimal separator, "1,5" in an OBJ is two numbers, and the file loads
+    ''' as garbage or not at all.
+    ''' </summary>
     Private Shared Sub WriteObj(path As String, pos As Vector3(), idx As Integer(),
                                 zUp As Boolean, scale As Single)
         Dim inv = CultureInfo.InvariantCulture

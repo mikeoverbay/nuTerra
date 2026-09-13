@@ -46,6 +46,7 @@ Module Program
         Dim shotCut = False
         Dim exportCount As Integer = -1
         Dim openPath As String = Nothing
+        Dim matCount As Integer = -1
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -72,6 +73,9 @@ Module Program
                     shotCut = True
                 Case "--shot-angle"
                     i += 1 : If i < args.Length Then shotAngle = args(i)
+                Case "--mat"
+                    matCount = 0
+                    If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), matCount) Then i += 1 Else matCount = 0
                 Case "--open"
                     i += 1 : If i < args.Length Then openPath = args(i)
                 Case "--export"
@@ -265,6 +269,8 @@ Module Program
 
         If checkCount >= 0 Then MeshCheck.RunSweep(pkg, library, settings, checkCount, filter)
 
+        If matCount >= 0 Then VisualFile.Report(pkg, library, If(assetArg, filter), matCount)
+
         If exportCount >= 0 Then
             MeshExport.ExportAssets(pkg, library, settings, If(assetArg, filter), exportCount)
         End If
@@ -398,6 +404,7 @@ Module Program
         Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
         Console.WriteLine("  --check [n]          watertightness before and after the bottom fill")
         Console.WriteLine("  --open <pkg path>    work on one model by its package path, no scan")
+        Console.WriteLine("  --mat [n]            dump materials, shaders and textures")
         Console.WriteLine("  --export [n]         write buildings as STL/OBJ (all, or the first n)")
         Console.WriteLine("  --out <dir>          where to write them")
         Console.WriteLine("  --shell              rebuild the set model into an exterior shell")
