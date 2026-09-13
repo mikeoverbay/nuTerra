@@ -241,7 +241,7 @@ Module Program
             Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
             Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt)
+            Using win As New ViewerWindow(pkg, library, startAt, settings)
                 win.Run()
             End Using
         End If
