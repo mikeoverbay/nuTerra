@@ -50,7 +50,15 @@ Public Class PkgIndex
     ''' </summary>
     Private Shared ReadOnly KEEP As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
         ".model", ".visual_processed", ".primitives_processed", ".havok",
-        ".dds"}
+        ".dds", ".atlas_processed"}
+
+    ' Both additions to that set were made the same way: something reported
+    ' MISSING and the reason was that it had never been indexed. `.dds` was the
+    ' first, and its absence made every texture on every building read missing -
+    ' which looked like a material bug. `.atlas_processed` was the second, and it
+    ' made the four atlas assets report "no manifest" for a file sitting in the
+    ' package all along. An extension outside KEEP does not fail loudly; it
+    ' simply cannot be found, which is the harder thing to diagnose.
 
     Public Shared Function TryOpen(gamePath As String, skipVehicles As Boolean) As PkgIndex
         If String.IsNullOrEmpty(gamePath) Then Return Nothing

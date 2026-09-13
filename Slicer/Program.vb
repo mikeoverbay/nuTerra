@@ -46,6 +46,7 @@ Module Program
         Dim shotCut = False
         Dim uiInShot = False
         Dim findPattern As String = Nothing
+        Dim debugView = 0
         Dim bakeDir As String = Nothing
         Dim objPath As String = Nothing
         Dim bakePx As Integer = 2048
@@ -105,6 +106,8 @@ Module Program
                     uiInShot = True
                 Case "--find"
                     i += 1 : If i < args.Length Then findPattern = args(i)
+                Case "--debug"
+                    i += 1 : If i < args.Length Then Integer.TryParse(args(i), debugView)
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -310,7 +313,7 @@ Module Program
             Console.WriteLine("        be several (*eu*house*). Double-click a row to load THAT one model.")
             Console.WriteLine("        / focuses the box, Enter loads, Tab hides the panel.")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView)
                 win.Run()
             End Using
         End If

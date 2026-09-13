@@ -209,11 +209,42 @@ Public Class ViewerWindow
         Public PackDxt1 As Boolean
         Public EnableAO As Boolean
         Public Fx As String = ""
+
+        ' ---- PBS_tiled_atlas_global ----
+        ' IsAtlas decides which PROGRAM draws this part. The atlas path needs
+        ' sampler2DArray and the flat one needs sampler2D, and a single program
+        ' carrying both types on one texture unit is undefined GL.
+        Public IsAtlas As Boolean
+        Public AtlasAm As Integer
+        Public AtlasNgs As Integer
+        Public AtlasMao As Integer
+        Public AtlasBlend As Integer
+        Public AtlasDirt As Integer
+        Public AtlasGlobal As Integer
+        Public Idx As Vector4
+        Public Grid As Vector4
+        Public Tint0 As Vector4
+        Public Tint1 As Vector4
+        Public Tint2 As Vector4
+        Public UvScale As Vector4
+        Public DirtColor As Vector4
+        Public DirtParams As Vector4
     End Class
     Private ReadOnly pbrParts As New List(Of PbrPart)
     ''' <summary>Texture path to GL handle, so a map shared by twenty parts is
     ''' uploaded once. The building library leans on shared tile sets heavily.</summary>
     Private ReadOnly texCache As New Dictionary(Of String, Integer)(StringComparer.OrdinalIgnoreCase)
+
+    ''' <summary>Atlas path to its array texture. The dam's 56 materials name
+    ''' the same three manifests, so this is three uploads and not 168.</summary>
+    Private ReadOnly atlasCache As New Dictionary(Of String, Integer)(StringComparer.OrdinalIgnoreCase)
+    Private atlasProgram As Integer = 0
+    Private atlasParts As Integer = 0
+
+    ''' <summary>The vestigial tile inset. 0.0 is what the data wants; 0.0625
+    ''' reproduces nuTerra's current sampling exactly. See AtlasShader for why
+    ''' the two differ and which one is right.</summary>
+    Private atlasPad As Single = 0.0F
 
     Private boundsMin, boundsMax As Vector3
     Private totalVerts, totalTris, clippedTris, cutSegs As Integer
@@ -257,7 +288,7 @@ Public Class ViewerWindow
                    Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False,
                    Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
                    Optional objFile As String = Nothing, Optional uiInShot As Boolean = False,
-                   Optional findPattern As String = Nothing)
+                   Optional findPattern As String = Nothing, Optional debugView As Integer = 0)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -275,6 +306,7 @@ Public Class ViewerWindow
         objPath = objFile
         panelInShot = uiInShot
         startQuery = findPattern
+        pbrDebug = Math.Max(0, debugView)
         If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
             ' The angle decides what the picture can prove, so it is explicit
@@ -315,6 +347,7 @@ Public Class ViewerWindow
         cutVao = GL.GenVertexArray() : cutVbo = GL.GenBuffer()
         pbrVao = GL.GenVertexArray() : pbrVbo = GL.GenBuffer() : pbrEbo = GL.GenBuffer()
         pbrProgram = PbrShader.Build()
+        atlasProgram = AtlasShader.Build()
         whiteTex = DdsTexture.White()
         checkerTex = DdsTexture.Checker(512, 16)
         flatNrmTex = DdsTexture.FlatNormal()
@@ -465,6 +498,7 @@ Public Class ViewerWindow
     Private Sub BuildPbr()
         pbrParts.Clear()
         pbrTris = 0
+        atlasParts = 0
         Dim verts As New List(Of Single)
         Dim idx As New List(Of Integer)
 
@@ -500,7 +534,7 @@ Public Class ViewerWindow
             For Each m In meshes
                 If m.Positions.Length = 0 OrElse m.Indices.Length < 3 Then Continue For
 
-                Dim baseVert = verts.Count \ 14
+                Dim baseVert = verts.Count \ 16
                 For i = 0 To m.Positions.Length - 1
                     Dim pp = m.Positions(i)
                     Dim nn = If(m.Normals.Length > i, m.Normals(i), Vector3.UnitY)
@@ -512,6 +546,12 @@ Public Class ViewerWindow
                     verts.Add(uvv.X) : verts.Add(uvv.Y)
                     verts.Add(tt.X) : verts.Add(tt.Y) : verts.Add(tt.Z)
                     verts.Add(bb.X) : verts.Add(bb.Y) : verts.Add(bb.Z)
+                    ' UV2, the second set. The tiled and atlas families address
+                    ' their blend mask and their per-object global texture with
+                    ' it, so without it here those materials cannot be shaded at
+                    ' all - which is why they have been drawing flat white.
+                    Dim u2 = If(m.HasUV2 AndAlso m.UV2.Length > i, m.UV2(i), Vector2.Zero)
+                    verts.Add(u2.X) : verts.Add(u2.Y)
                 Next
 
                 Dim groups = m.Groups
@@ -543,6 +583,45 @@ Public Class ViewerWindow
                         pt.Fx = mat.Fx
                         pt.PackDxt1 = mat.Flag("g_useNormalPackDXT1", False)
                         pt.EnableAO = mat.Flag("g_enableAO", False)
+                        If mat.IsAtlas Then
+                            ' The three atlases are MANIFESTS listing member
+                            ' textures, not images - see AtlasFile. Each gets its
+                            ' own array at its own members' size: the MAO sheets
+                            ' are consistently half the resolution of their AM
+                            ' and GBMT siblings, so sizing all three from the
+                            ' first would halve or double two of them.
+                            Dim am = mat.AtlasMaps()
+                            Dim nA = 0, nB = 0, nC = 0
+                            pt.AtlasAm = LoadAtlas(am(0), nA)
+                            pt.AtlasNgs = LoadAtlas(am(1), nB)
+                            pt.AtlasMao = LoadAtlas(am(2), nC)
+                            ' All three or none. A part drawn by the atlas
+                            ' program with a missing array samples unit 0 as the
+                            ' wrong type and comes out black, which reads as a
+                            ' shading bug rather than a missing file.
+                            pt.IsAtlas = pt.AtlasAm <> 0 AndAlso pt.AtlasNgs <> 0 AndAlso pt.AtlasMao <> 0
+                            If pt.IsAtlas Then
+                                Dim one As New Vector4(1.0F, 1.0F, 1.0F, 1.0F)
+                                ' The blend sheet is declared .png in the material and ships
+                                ' as .dds, exactly like the atlas member paths. Without the
+                                ' correction it silently falls back to white, and a white
+                                ' blend makes every surface one tile - which looks like flat
+                                ' untextured grey rather than like a missing file.
+                                pt.AtlasBlend = If(am(3) IsNot Nothing, LoadTex(AsDds(am(3)), whiteTex), whiteTex)
+                                pt.AtlasDirt = If(am(4) IsNot Nothing, LoadTex(AsDds(am(4)), 0), 0)
+                                pt.AtlasGlobal = If(am(5) IsNot Nothing, LoadTex(AsDds(am(5)), 0), 0)
+                                pt.Idx = mat.Vec4("g_atlasIndexes", Vector4.Zero)
+                                pt.Grid = mat.Vec4("g_atlasSizes", one)
+                                pt.Tint0 = mat.Vec4("g_tile0Tint", one)
+                                pt.Tint1 = mat.Vec4("g_tile1Tint", one)
+                                pt.Tint2 = mat.Vec4("g_tile2Tint", one)
+                                pt.UvScale = mat.Vec4("g_tileUVScale", Vector4.Zero)
+                                pt.DirtColor = mat.Vec4("g_dirtColor", Vector4.Zero)
+                                pt.DirtParams = mat.Vec4("g_dirtParams", one)
+                                atlasParts += 1
+                            End If
+                        End If
+
                         Dim maps = mat.ExtMaps()
                         If maps(0) IsNot Nothing Then pt.Albedo = LoadTex(maps(0), whiteTex)
                         If maps(1) IsNot Nothing Then
@@ -564,12 +643,13 @@ Public Class ViewerWindow
         GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
         GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
-        Const ST As Integer = 14 * 4
+        Const ST As Integer = 16 * 4
         GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
         GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
         GL.EnableVertexAttribArray(2) : GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, ST, 24)
         GL.EnableVertexAttribArray(3) : GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, ST, 32)
         GL.EnableVertexAttribArray(4) : GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, ST, 44)
+        GL.EnableVertexAttribArray(5) : GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, ST, 56)
         GL.BindVertexArray(0)
 
         Dim withN = pbrParts.Where(Function(x) x.HasNormal).Count()
@@ -732,6 +812,7 @@ Public Class ViewerWindow
         For i = 0 To pbrParts.Count - 1
             If soloPart >= 0 AndAlso i <> soloPart Then Continue For
             Dim pt = pbrParts(i)
+            If pt.IsAtlas Then Continue For          ' drawn by DrawAtlas instead
             GL.ActiveTexture(TextureUnit.Texture0) : GL.BindTexture(TextureTarget.Texture2D, pt.Albedo)
             GL.ActiveTexture(TextureUnit.Texture1) : GL.BindTexture(TextureTarget.Texture2D, pt.NormalTex)
             GL.ActiveTexture(TextureUnit.Texture2) : GL.BindTexture(TextureTarget.Texture2D, pt.Gmm)
@@ -744,6 +825,118 @@ Public Class ViewerWindow
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindVertexArray(0)
     End Sub
+
+    ''' <summary>
+    ''' The atlas parts, in their own pass and their own program.
+    '''
+    ''' A second pass rather than a program switch inside the first: switching
+    ''' per part would re-upload every uniform of both programs at every
+    ''' boundary. Nothing here runs at all when a model carries no atlas
+    ''' material, which is 321 of the 325 assets.
+    ''' </summary>
+    Private Sub DrawAtlas(mvp As Matrix4, eye As Vector3)
+        If atlasParts = 0 Then Return
+
+        GL.UseProgram(atlasProgram)
+        GL.UniformMatrix4(GL.GetUniformLocation(atlasProgram, "u_mvp"), False, mvp)
+        GL.Uniform3(GL.GetUniformLocation(atlasProgram, "u_eye"), eye.X, eye.Y, eye.Z)
+        GL.Uniform3(GL.GetUniformLocation(atlasProgram, "u_lightDir"), 0.45F, 0.75F, 0.4F)
+        GL.Uniform3(GL.GetUniformLocation(atlasProgram, "u_lightColor"), 1.9F, 1.84F, 1.7F)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_debug"), pbrDebug)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_exposure"), pbrExposure)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_pad"), atlasPad)
+
+        ' Every sampler gets its OWN unit. They all default to unit 0, and two
+        ' samplers of DIFFERENT TYPES on one unit is undefined - it shows up as
+        ' a black surface rather than as an error.
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_am"), 0)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_ngs"), 1)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_mao"), 2)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_blend"), 3)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_dirt"), 4)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_global"), 5)
+
+        Dim uIdx = GL.GetUniformLocation(atlasProgram, "u_idx")
+        Dim uGrid = GL.GetUniformLocation(atlasProgram, "u_grid")
+        Dim uT0 = GL.GetUniformLocation(atlasProgram, "u_tint0")
+        Dim uT1 = GL.GetUniformLocation(atlasProgram, "u_tint1")
+        Dim uT2 = GL.GetUniformLocation(atlasProgram, "u_tint2")
+        Dim uSc = GL.GetUniformLocation(atlasProgram, "u_uvScale")
+        Dim uDc = GL.GetUniformLocation(atlasProgram, "u_dirtColor")
+        Dim uDp = GL.GetUniformLocation(atlasProgram, "u_dirtParams")
+        Dim uHd = GL.GetUniformLocation(atlasProgram, "u_hasDirt")
+        Dim uHg = GL.GetUniformLocation(atlasProgram, "u_hasGlobal")
+
+        GL.BindVertexArray(pbrVao)
+        GL.PolygonMode(MaterialFace.FrontAndBack, If(wireframe, PolygonMode.Line, PolygonMode.Fill))
+        For i = 0 To pbrParts.Count - 1
+            If soloPart >= 0 AndAlso i <> soloPart Then Continue For
+            Dim pt = pbrParts(i)
+            If Not pt.IsAtlas Then Continue For
+            GL.ActiveTexture(TextureUnit.Texture0) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasAm)
+            GL.ActiveTexture(TextureUnit.Texture1) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasNgs)
+            GL.ActiveTexture(TextureUnit.Texture2) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasMao)
+            GL.ActiveTexture(TextureUnit.Texture3) : GL.BindTexture(TextureTarget.Texture2D, pt.AtlasBlend)
+            GL.ActiveTexture(TextureUnit.Texture4) : GL.BindTexture(TextureTarget.Texture2D, If(pt.AtlasDirt = 0, whiteTex, pt.AtlasDirt))
+            GL.ActiveTexture(TextureUnit.Texture5) : GL.BindTexture(TextureTarget.Texture2D, If(pt.AtlasGlobal = 0, whiteTex, pt.AtlasGlobal))
+            GL.Uniform4(uIdx, pt.Idx.X, pt.Idx.Y, pt.Idx.Z, pt.Idx.W)
+            GL.Uniform4(uGrid, pt.Grid.X, pt.Grid.Y, pt.Grid.Z, pt.Grid.W)
+            GL.Uniform4(uT0, pt.Tint0.X, pt.Tint0.Y, pt.Tint0.Z, pt.Tint0.W)
+            GL.Uniform4(uT1, pt.Tint1.X, pt.Tint1.Y, pt.Tint1.Z, pt.Tint1.W)
+            GL.Uniform4(uT2, pt.Tint2.X, pt.Tint2.Y, pt.Tint2.Z, pt.Tint2.W)
+            GL.Uniform4(uSc, pt.UvScale.X, pt.UvScale.Y, pt.UvScale.Z, pt.UvScale.W)
+            GL.Uniform4(uDc, pt.DirtColor.X, pt.DirtColor.Y, pt.DirtColor.Z, pt.DirtColor.W)
+            GL.Uniform4(uDp, pt.DirtParams.X, pt.DirtParams.Y, pt.DirtParams.Z, pt.DirtParams.W)
+            GL.Uniform1(uHd, If(pt.AtlasDirt <> 0, 1, 0))
+            GL.Uniform1(uHg, If(pt.AtlasGlobal <> 0, 1, 0))
+            GL.DrawElements(PrimitiveType.Triangles, pt.Count, DrawElementsType.UnsignedInt, pt.First * 4)
+        Next
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindVertexArray(0)
+    End Sub
+
+    ''' <summary>Upload an atlas manifest as a texture array, cached by
+    ''' path.</summary>
+    ''' <summary>A texture path as it actually ships. Materials and atlas
+    ''' manifests both record the artist source as .png; the build converts
+    ''' it. 880 of 880 atlas members resolve once corrected and 0 before.</summary>
+    Private Shared Function AsDds(pth As String) As String
+        If pth Is Nothing Then Return Nothing
+        If pth.EndsWith(".png", StringComparison.OrdinalIgnoreCase) Then
+            Return pth.Substring(0, pth.Length - 4) & ".dds"
+        End If
+        Return pth
+    End Function
+
+    Private Function LoadAtlas(atlasPath As String, ByRef layers As Integer) As Integer
+        layers = 0
+        If String.IsNullOrEmpty(atlasPath) Then Return 0
+        Dim got = 0
+        If atlasCache.TryGetValue(atlasPath, got) Then Return got
+
+        ' The material names ".atlas"; what ships is ".atlas_processed", the
+        ' same _processed suffix the rest of this family carries.
+        Dim raw = pkg.ReadPath(atlasPath & "_processed")
+        If raw Is Nothing Then raw = pkg.ReadPath(atlasPath)
+        If raw Is Nothing Then
+            Console.WriteLine("    atlas: no manifest at {0}", atlasPath)
+            atlasCache(atlasPath) = 0
+            Return 0
+        End If
+
+        Dim af = AtlasFile.Load(raw, atlasPath)
+        If af Is Nothing Then
+            Console.WriteLine("    atlas: {0} is not a manifest", atlasPath)
+            atlasCache(atlasPath) = 0
+            Return 0
+        End If
+
+        Dim tex = af.Upload(pkg, layers, quiet:=False)
+        Console.WriteLine("    atlas {0}  {1}", IO.Path.GetFileName(atlasPath), af.Describe())
+        atlasCache(atlasPath) = tex
+        Return tex
+    End Function
 
     Private Sub ReportPbr()
         Console.WriteLine("  pbr {0}   view: {1}   {2} group(s), {3:N0} tris",
@@ -810,6 +1003,10 @@ Public Class ViewerWindow
                     verts.Add(uvv.X) : verts.Add(uvv.Y)
                     verts.Add(1.0F) : verts.Add(0.0F) : verts.Add(0.0F)
                     verts.Add(0.0F) : verts.Add(0.0F) : verts.Add(1.0F)
+                    ' uv2, to keep the 16-float stride the shared VAO expects.
+                    ' An exported OBJ has ONE uv set by design - uv2 was moved
+                    ' into it on the way out - so there is no second set to give.
+                    verts.Add(0.0F) : verts.Add(0.0F)
                     idx.Add(idx.Count)
                     lo = Vector3.ComponentMin(lo, pp)
                     hi = Vector3.ComponentMax(hi, pp)
@@ -834,12 +1031,13 @@ Public Class ViewerWindow
         GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
         GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
-        Const ST As Integer = 14 * 4
+        Const ST As Integer = 16 * 4
         GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
         GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
         GL.EnableVertexAttribArray(2) : GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, ST, 24)
         GL.EnableVertexAttribArray(3) : GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, ST, 32)
         GL.EnableVertexAttribArray(4) : GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, ST, 44)
+        GL.EnableVertexAttribArray(5) : GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, ST, 56)
         GL.BindVertexArray(0)
 
         pbrOn = True
@@ -1154,6 +1352,7 @@ Public Class ViewerWindow
             ' file at all and said nothing about why.
             If pbrOn Then
                 DrawPbr(mvp, eye)
+                DrawAtlas(mvp, eye)
                 GoTo drawn
             End If
 
