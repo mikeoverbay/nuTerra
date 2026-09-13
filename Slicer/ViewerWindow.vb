@@ -128,6 +128,8 @@ Public Class ViewerWindow
     ''' has to be one.</summary>
     Private shotPath As String = Nothing
     Private shotFrames As Integer = 0
+    ''' <summary>Set by --shell: run the rebuild once, before the shot.</summary>
+    Private shellOnLoad As Boolean = False
 
     Private boundsMin, boundsMax As Vector3
     Private totalVerts, totalTris, clippedTris, cutSegs As Integer
@@ -167,7 +169,7 @@ Public Class ViewerWindow
     Private Const PITCH_MAX As Single = 1.3F
 
     Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings,
-                   Optional shot As String = Nothing)
+                   Optional shot As String = Nothing, Optional doShell As Boolean = False)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -180,6 +182,7 @@ Public Class ViewerWindow
         assetIndex = Math.Max(0, Math.Min(startAsset, assets.Count - 1))
         lodIndex = Math.Max(0, cfg.Lod)
         shotPath = shot
+        shellOnLoad = doShell
         If shotPath IsNot Nothing Then
             ' Look UP at the underside - that is the face being checked. After
             ' the Y flip a positive pitch is below the model, and 1.15 is just
@@ -202,6 +205,7 @@ Public Class ViewerWindow
         vao = GL.GenVertexArray() : vbo = GL.GenBuffer() : ebo = GL.GenBuffer()
         cutVao = GL.GenVertexArray() : cutVbo = GL.GenBuffer()
         LoadCurrent()
+        If shellOnLoad Then RunShellPipeline()
     End Sub
 
     Private Function BuildShader() As Integer
@@ -694,9 +698,131 @@ Public Class ViewerWindow
         If k.IsKeyDown(Keys.Period) Then planeNudge += amount : dirty = True
         If k.IsKeyDown(Keys.Comma) Then planeNudge -= amount : dirty = True
 
+        If k.IsKeyPressed(Keys.E) Then RunShellPipeline()
+
         If dirty AndAlso rawParts.Count > 0 Then Rebuild()
 
         CameraMouseUpdate()
+    End Sub
+
+    ''' <summary>
+    ''' Rebuild the set model into a shell: look from outside, keep what can be
+    ''' seen, weld it, and throw away what the weld collapses.
+    '''
+    ''' The owner's recipe in his order - rays through to find the outside walls,
+    ''' weld every vertex in range, then a post pass removing everything that
+    ''' makes a zero-length line. The alternative he named, a ball-pivot walk
+    ''' that reconstructs a real surface, is correct and far too slow to sit
+    ''' behind a key.
+    '''
+    ''' ALL PARTS ARE MERGED BEFORE THE SCAN, and they have to be: a wall is
+    ''' only interior because ANOTHER part stands outside it. Scanning each part
+    ''' alone would find every part to be its own exterior and keep the lot.
+    ''' </summary>
+    Private Sub RunShellPipeline()
+        If rawParts.Count = 0 Then Return
+        Dim sw = Diagnostics.Stopwatch.StartNew()
+
+        ' ---- 1. close each part's bottom, THEN merge.
+        '
+        ' ORDER MATTERS AND THIS WAS WRONG FIRST TIME. The fill ran after the
+        ' scan, and the render showed why that fails: with the bottom still
+        ' open, rays arriving from below fly straight up into the building and
+        ' light up the interior, so the scan calls all of it exterior and keeps
+        ' it. Close the bottom first and those same rays stop at the fill, which
+        ' is what makes the inside genuinely unseen and therefore removable.
+        '
+        ' Filling before the merge is equally load-bearing: the fill works per
+        ' mesh off that mesh's own lowest point, and merging first collapses
+        ' eleven kit pieces at eleven heights into one mesh with a single
+        ' bottom. That is exactly what produced one 8-triangle ring where there
+        ' should have been eleven.
+        Dim allPos As New List(Of Vector3)
+        Dim allIdx As New List(Of Integer)
+        Dim preFillTris = 0
+        For Each rp In rawParts
+            Dim b = allPos.Count
+            allPos.AddRange(rp.Pos)
+            For Each i In rp.Idx
+                allIdx.Add(b + i)
+            Next
+
+            Dim partBottom = Single.MaxValue
+            For Each p In rp.Pos
+                If p.Y < partBottom Then partBottom = p.Y
+            Next
+            Dim pf = BottomFill.Build(rp.Pos, rp.Idx, partBottom, 0.02F, settings.WeldTolerance)
+            If pf.Indices.Count >= 3 Then
+                Dim fb = allPos.Count
+                allPos.AddRange(pf.Positions)
+                For Each i In pf.Indices
+                    allIdx.Add(fb + i)
+                Next
+                preFillTris += pf.Indices.Count \ 3
+            End If
+        Next
+        Dim pos = allPos.ToArray()
+        Dim idx = allIdx.ToArray()
+        Dim before = MeshCheck.Analyse(pos, idx, settings.WeldTolerance)
+
+        ' ---- 2. weld every vert in range
+        Dim w1 = MeshWeld.Weld(pos, idx, settings.ShellWeldRange)
+        Dim triCount = w1.Indices.Length \ 3
+        If triCount <= 0 Then
+            Console.WriteLine("shell: nothing survived the weld")
+            Return
+        End If
+
+        ' ---- 3. rays through, to find the outside walls.
+        ' Expanded to three vertices per triangle so the shader can read
+        ' gl_VertexID / 3 as the triangle number.
+        Dim flat(triCount * 9 - 1) As Single
+        For t = 0 To triCount - 1
+            For c = 0 To 2
+                Dim p = w1.Positions(w1.Indices(t * 3 + c))
+                flat(t * 9 + c * 3) = p.X
+                flat(t * 9 + c * 3 + 1) = p.Y
+                flat(t * 9 + c * 3 + 2) = p.Z
+            Next
+        Next
+        Dim visible = ShellExtract.Visible(flat, triCount, boundsMin, boundsMax,
+                                           settings.ShellViews, settings.ShellResolution)
+        ' Put the framebuffer and viewport back - the scan borrowed both.
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0)
+        GL.Viewport(0, 0, ClientSize.X, ClientSize.Y)
+
+        Dim seenCount = 0
+        For Each v In visible
+            If v Then seenCount += 1
+        Next
+
+        ' ---- 4. keep the outside, then weld again, so the raw edges left by
+        ' what was removed get stitched and the new degenerates go with them.
+        Dim kept = MeshWeld.KeepFlagged(w1.Positions, w1.Indices, visible)
+        Dim w2 = MeshWeld.Weld(w1.Positions, kept, settings.ShellWeldRange)
+        Dim after = MeshCheck.Analyse(w2.Positions, w2.Indices, settings.WeldTolerance)
+        sw.Stop()
+
+        Console.WriteLine()
+        Console.WriteLine("SHELL REBUILD  ({0:N0} ms, {1} views at {2}px)",
+                          sw.ElapsedMilliseconds, settings.ShellViews, settings.ShellResolution)
+        Console.WriteLine("  bottoms closed   {0:N0} tris added before the scan", preFillTris)
+        Console.WriteLine("  merged           {0:N0} tris, {1:N0} verts", before.Triangles, before.Vertices)
+        Console.WriteLine("  welded @{0:F3} m   {1:N0} tris  (-{2:N0} degenerate, -{3:N0} duplicate)",
+                          settings.ShellWeldRange, w1.TrisOut, w1.DroppedDegenerate, w1.DroppedDuplicate)
+        Console.WriteLine("  seen from out    {0:N0} of {1:N0} tris  ({2:F1}%)",
+                          seenCount, triCount, 100.0 * seenCount / Math.Max(triCount, 1))
+        Console.WriteLine("  final            {0:N0} tris, {1:N0} verts", w2.TrisOut, w2.VertsOut)
+        Console.WriteLine()
+        Console.WriteLine("  before   {0}", before.Describe())
+        Console.WriteLine("  after    {0}", after.Describe())
+        Console.WriteLine("  boundary {0:N0} -> {1:N0}    non-manifold {2:N0} -> {3:N0}",
+                          before.BoundaryEdges, after.BoundaryEdges,
+                          before.NonManifoldEdges, after.NonManifoldEdges)
+
+        rawParts.Clear()
+        rawParts.Add(New RawPart With {.Name = "shell", .Pos = w2.Positions, .Idx = w2.Indices})
+        Rebuild()
     End Sub
 
     ''' <summary>

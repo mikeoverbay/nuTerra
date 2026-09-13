@@ -515,6 +515,64 @@ on the next sweep.
 the string-keyed dictionary used to weld positions. Fine for a check that runs
 occasionally, too slow to put in a loop.
 
+## Rebuilding a set model into a shell
+
+The owner's framing: **these are set models, cheap, the way Hollywood does it.**
+Facades built for what the camera sees, no back walls, no closed volume. He
+named the expensive fix (a ball-pivot walk that reconstructs a real surface) and
+rejected it as long and slow, and gave the cheap one instead: rays through to
+find the outside walls, weld every vertex in range, then a post pass removing
+everything that makes a zero-length line.
+
+`--shell` runs it, or `E` in the viewer.
+
+**The ray cast is the rasteriser.** A GPU rasteriser IS a ray caster - one ray
+per pixel, with the depth test doing nearest-hit for free. Each triangle is
+drawn in a colour encoding its own index, from 64 directions on a Fibonacci
+sphere at 512px, and every index that appears in any frame is exterior. That is
+16 million rays in about half a second; a CPU walk would not finish one view in
+that time. Backface culling is off, because a set model's walls are single-sided
+and frequently wound inward - culling would discard the outside of every one of
+those.
+
+On `hd_bld_eu_049_thouse`, 548 ms:
+
+| | |
+|---|---|
+| bottoms closed before the scan | 82 tris |
+| merged | 20,739 tris |
+| welded at 0.05 m | 13,989 tris (−5,663 degenerate, −1,087 duplicate) |
+| **seen from outside** | **4,505 of 13,989 — 32.2%** |
+| final | 4,505 tris, 3,571 verts |
+| boundary edges | 5,831 → **2,685** |
+| non-manifold edges | 369 → **137** |
+
+**Two thirds of the geometry is never visible from outside.** That single number
+is the set-model character measured: 67.8% of this building exists only to be
+seen from inside, or not at all.
+
+### Order matters, and it was wrong first
+
+The fill ran *after* the scan to begin with. The render showed why that fails:
+with the bottom still open, rays arriving from below fly up into the building
+and light the interior, so the scan calls all of it exterior and keeps it.
+Closing the bottom first stops those rays at the fill, which is what makes the
+inside genuinely unseen and therefore removable.
+
+The fill must also happen **before the merge**, because it works per mesh off
+that mesh's own lowest point - merging eleven kit pieces at eleven heights into
+one mesh leaves one bottom plane and produced a single 8-triangle ring where
+eleven belonged. Fixing the order moved every number: visible 38.4% → 32.2%,
+boundary 3,223 → 2,685, non-manifold 156 → 137.
+
+### It is still not watertight
+
+2,685 boundary edges and 137 non-manifold edges remain. What is left is windows
+and doorways, which are genuinely open in the source, and the raw edges exposed
+where interior geometry was removed. The shell is a much better object than the
+raw asset - 74% fewer triangles, 54% fewer holes - but it is not a solid, and
+nothing here claims it is.
+
 ## Not done yet
 
 **Export.** The cut exists only on screen; `out.dir` and `out.format` are

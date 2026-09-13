@@ -41,6 +41,7 @@ Module Program
         Dim settingsPath As String = Nothing
         Dim shotPath As String = Nothing
         Dim checkCount As Integer = -1
+        Dim doShell = False
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -63,6 +64,8 @@ Module Program
                     showSettings = True
                 Case "--save-settings"
                     saveSettings = True
+                Case "--shell"
+                    doShell = True
                 Case "--check"
                     checkCount = 0
                     If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), checkCount) Then i += 1 Else checkCount = 0
@@ -233,7 +236,7 @@ Module Program
 
         If checkCount >= 0 Then MeshCheck.RunSweep(pkg, library, settings, checkCount, filter)
 
-        If doView OrElse shotPath IsNot Nothing Then
+        If doView OrElse shotPath IsNot Nothing OrElse doShell Then
             ' --asset picks the building to open on; without one it starts at
             ' the first and the arrow keys walk the library.
             Dim startAt = 0
@@ -250,7 +253,7 @@ Module Program
             Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
             Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell)
                 win.Run()
             End Using
         End If
@@ -361,6 +364,7 @@ Module Program
         Console.WriteLine("  --view               open the 3D viewer")
         Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
         Console.WriteLine("  --check [n]          watertightness before and after the bottom fill")
+        Console.WriteLine("  --shell              rebuild the set model into an exterior shell")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")
