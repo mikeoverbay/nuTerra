@@ -1,4 +1,4 @@
-Imports OpenTK.Graphics.OpenGL4
+﻿Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 Imports OpenTK.Windowing.Common
 Imports OpenTK.Windowing.Desktop
@@ -8,13 +8,19 @@ Imports OpenTK.Windowing.GraphicsLibraryFramework
 ''' The viewer. Orbit a building, step through the library, switch LOD, solo a
 ''' part - and cut it.
 '''
-'''     drag          orbit                     S      slicing on / off
-'''     wheel         zoom                      , .    move the plane
-'''     left / right  previous / next building  shift  move it 10x
-'''     [ / ]         coarser / finer LOD       X Y Z  cut axis
-'''     up / down     solo one part             K      keep below / above / both
-'''     W             wireframe                 C      cut outline on / off
-'''     R             reload                    Esc    quit
+''' Mouse navigation is nuTerra's, transcribed from Window.vb: left drag orbits
+''' with damping and coasts to a stop, middle or ctrl drag pans, shift drag
+''' raises and lowers, right drag zooms. The wheel zooms too, which nuTerra does
+''' not do - there the wheel belongs to ImGui and the camera never sees it.
+'''
+'''     left drag     orbit                     S      slicing on / off
+'''     mid / ctrl    pan                       , .    move the plane
+'''     shift drag    height                    X Y Z  cut axis
+'''     right drag    zoom                      K      keep below / above / both
+'''     wheel         zoom                      C      cut outline on / off
+'''     left / right  previous / next building  W      wireframe
+'''     [ / ]         coarser / finer LOD       R      reload
+'''     up / down     solo one part             Esc    quit
 '''
 ''' The shaders are embedded rather than shipped as files. SrtViewer keeps its
 ''' in a folder and copies them at build; there are two here and thirty lines
@@ -96,11 +102,35 @@ Public Class ViewerWindow
     Private boundsMin, boundsMax As Vector3
     Private totalVerts, totalTris, clippedTris, cutSegs As Integer
 
-    Private yaw As Single = 0.7F
-    Private pitch As Single = 0.35F
-    Private dist As Single = 40.0F
-    Private target As Vector3 = Vector3.Zero
+    ' ---- camera, transcribed from nuTerra -------------------------------
+    ' Window.vb camera_mouse_update, which itself follows three.js
+    ' OrbitControls (MIT, mrdoob/three.js). The mechanism is one pending-delta
+    ' pool per axis: input only ever ADDS to the pool, and each frame the
+    ' camera takes `f` of what is pending while the remainder decays. That is
+    ' what gives the coast-to-a-stop rather than stopping dead with the cursor.
+    Private yaw As Single = 0.7F              ' nuTerra CAM_X_ANGLE
+    Private pitch As Single = 0.35F           ' nuTerra CAM_Y_ANGLE
+    Private dist As Single = 40.0F            ' nuTerra VIEW_RADIUS, but POSITIVE here
+    Private target As Vector3 = Vector3.Zero  ' nuTerra LOOK_AT_*
     Private dragging As Boolean = False
+
+    Private rotDeltaX, rotDeltaY As Single
+    Private zoomDelta As Single
+    Private panDeltaX, panDeltaZ As Single
+    ''' <summary>Its own clock, NOT the render frame time. nuTerra makes the
+    ''' same distinction: this runs in the update loop, which is not throttled
+    ''' to the render, and the damping factor below is only correct if it is
+    ''' fed the time this loop actually took.</summary>
+    Private ReadOnly rotClock As New Diagnostics.Stopwatch
+
+    ''' <summary>nuTerra's ROT_DAMPING default, its "Rotation damping" slider.</summary>
+    Private Const ROT_DAMPING As Single = 0.1F
+    ''' <summary>nuTerra reads My.Settings.speed here. The Slicer has no
+    ''' settings store for it, so it takes the same neutral 1.0 that a fresh
+    ''' nuTerra profile starts at.</summary>
+    Private Const MOUSE_SPEED As Single = 1.0F
+    Private Const PITCH_MIN As Single = -1.5697963F   ' -PI/2 + 0.001, as nuTerra clamps
+    Private Const PITCH_MAX As Single = 1.3F
 
     Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings)
         MyBase.New(GameWindowSettings.Default,
@@ -470,18 +500,122 @@ Public Class ViewerWindow
 
         If dirty AndAlso rawParts.Count > 0 Then Rebuild()
 
+        CameraMouseUpdate()
+    End Sub
+
+    ''' <summary>
+    ''' nuTerra's mouse camera, transcribed from `Window.vb camera_mouse_update`.
+    '''
+    '''     left drag            orbit      - velocity chases the mouse and coasts
+    '''     middle / ctrl drag   pan        - in world axes, rotated by the yaw
+    '''     shift drag           height     - raises and lowers the look-at point
+    '''     right drag           zoom       - exponential, radius-scaled
+    '''
+    ''' Two things here are load-bearing and were not obvious from the feel:
+    '''
+    ''' * THE DAMPING FACTOR IS dt-CORRECTED. nuTerra's own comment says a fixed
+    '''   per-frame factor is what killed its first two attempts at this - at
+    '''   200+ fps the pool drains before the coast can be felt at all.
+    ''' * EVERY POOL GETS A REST SNAP. Exponential decay alone never reaches
+    '''   zero, so the camera crawls sub-pixel for seconds after release. In
+    '''   nuTerra that kept the virtual-texture feedback re-baking distant pages
+    '''   the whole time; here it would just never stop nudging the view.
+    '''
+    ''' The wheel is kept as well, which nuTerra does NOT do - there the wheel
+    ''' belongs to ImGui and the camera never sees it. This viewer has no UI to
+    ''' give it to, and a viewer that will not zoom on the wheel reads as broken.
+    ''' </summary>
+    Private Sub CameraMouseUpdate()
         Dim m = MouseState
-        If m.IsButtonDown(MouseButton.Left) Then
-            If dragging Then
-                yaw -= m.Delta.X * 0.008F
-                pitch = Math.Max(-1.5F, Math.Min(1.5F, pitch + m.Delta.Y * 0.008F))
-            End If
+        Dim k = KeyboardState
+
+        ' dt from this loop's own clock, clamped the way nuTerra clamps it.
+        Dim dt As Single = 0.016F
+        If rotClock.IsRunning Then
+            dt = Math.Clamp(CSng(rotClock.Elapsed.TotalSeconds), 0.000001F, 0.1F)
+        End If
+        rotClock.Restart()
+
+        ' 100 px of travel is about `speed` radians - nuTerra's scale.
+        Dim dx = m.Delta.X / 100.0F * MOUSE_SPEED
+        Dim dy = m.Delta.Y / 100.0F * MOUSE_SPEED
+
+        ' Distance changes speed. nuTerra uses 0.2 * VIEW_RADIUS, which is
+        ' negative there; dist is positive here, so the sign is taken out.
+        Dim ms = 0.2F * dist
+
+        Dim leftDown = m.IsButtonDown(MouseButton.Left)
+        Dim midDown = m.IsButtonDown(MouseButton.Middle)
+        Dim rightDown = m.IsButtonDown(MouseButton.Right)
+        Dim ctrl = k.IsKeyDown(Keys.LeftControl) OrElse k.IsKeyDown(Keys.RightControl)
+        Dim shiftHeld = k.IsKeyDown(Keys.LeftShift) OrElse k.IsKeyDown(Keys.RightShift)
+        Dim held = leftDown OrElse midDown
+
+        ' Ignore the frame a button goes down: MouseState.Delta carries the
+        ' travel since the last update, which can be a long way if the cursor
+        ' was moved elsewhere first, and that arrives as one jump.
+        If held AndAlso Not dragging Then
             dragging = True
-        Else
+            dx = 0 : dy = 0
+        ElseIf Not held Then
             dragging = False
         End If
-        If m.ScrollDelta.Y <> 0 Then
-            dist = Math.Max(0.2F, dist * CSng(Math.Pow(0.88, m.ScrollDelta.Y)))
+
+        If held Then
+            If shiftHeld Then
+                ' Height, applied directly - nuTerra does not pool this one.
+                target.Y -= dy * ms
+            ElseIf midDown OrElse ctrl Then
+                Dim ca = CSng(Math.Cos(yaw))
+                Dim sa = CSng(Math.Sin(yaw))
+                panDeltaX -= (dx * ms) * ca + (dy * ms) * sa
+                panDeltaZ -= (dx * ms) * -sa + (dy * ms) * ca
+            Else
+                rotDeltaX -= dx
+                rotDeltaY -= dy
+            End If
+        ElseIf rightDown Then
+            ' Right drag zooms, at nuTerra's 12 * 0.2 sensitivity.
+            zoomDelta += dy * 12.0F * 0.2F
+        End If
+
+        ' The wheel, this viewer's own addition - straight into the same pool
+        ' so it coasts and decays like everything else.
+        If m.ScrollDelta.Y <> 0 Then zoomDelta -= m.ScrollDelta.Y * 0.25F
+
+        Dim f = 1.0F - CSng(Math.Pow(1.0F - Math.Min(ROT_DAMPING, 0.999F), dt * 60.0F))
+
+        yaw += rotDeltaX * f
+        pitch = Math.Clamp(pitch + rotDeltaY * f, PITCH_MIN, PITCH_MAX)
+        If yaw > CSng(Math.PI * 2) Then yaw -= CSng(Math.PI * 2)
+        If yaw < 0 Then yaw += CSng(Math.PI * 2)
+        rotDeltaX *= (1.0F - f)
+        rotDeltaY *= (1.0F - f)
+        If Math.Abs(rotDeltaX) < 0.0005F Then rotDeltaX = 0
+        If Math.Abs(rotDeltaY) < 0.0005F Then rotDeltaY = 0
+
+        If zoomDelta <> 0 Then
+            Dim d = dist * CSng(Math.Exp(zoomDelta * f))
+            ' Hitting a clamp kills the pending delta so it cannot grind
+            ' against the limit - nuTerra does the same at both ends.
+            Dim far = Math.Max((boundsMax - boundsMin).Length * 20.0F, 1000.0F)
+            If d > far Then
+                d = far : zoomDelta = 0
+            ElseIf d < 0.1F Then
+                d = 0.1F : zoomDelta = 0
+            End If
+            dist = d
+            zoomDelta *= (1.0F - f)
+            If Math.Abs(zoomDelta) < 0.00001F Then zoomDelta = 0
+        End If
+
+        If panDeltaX <> 0 OrElse panDeltaZ <> 0 Then
+            target.X += panDeltaX * f
+            target.Z += panDeltaZ * f
+            panDeltaX *= (1.0F - f)
+            panDeltaZ *= (1.0F - f)
+            If Math.Abs(panDeltaX) < 0.0001F Then panDeltaX = 0
+            If Math.Abs(panDeltaZ) < 0.0001F Then panDeltaZ = 0
         End If
     End Sub
 

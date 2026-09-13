@@ -306,10 +306,13 @@ source — inventing surface the artist did not author. The second is off by
 default and should stay off unless you want a solid-looking result more than a
 truthful one.
 
-It is also why `geometry3Sharp` is the right library here and a boolean/CSG one
-is not: CGAL rejects an edge shared by more than two triangles outright, and
-1.65% of these edges are exactly that. `MeshPlaneCut` returns `CutSpans` for the
-open case rather than failing.
+It also bears on which library can cope, though with a caveat about what has
+actually been checked. That `MeshPlaneCut` treats the open-boundary case as
+first class is verified — `CutSpans` and `FoundOpenSpans` are fields in its
+source, quoted below. **The claim that CGAL rejects an edge shared by more than
+two triangles is second-hand**, taken from a search summary; CGAL has not been
+run here. Treat it as a reason to check before reaching for a CSG library, not
+as a measured fact.
 
 ## Settings
 
@@ -352,20 +355,76 @@ or support here. If printing is the goal, the measurement above is the first
 thing to deal with, because a 4.6%-watertight shell is not printable without a
 repair or solidify pass, and those settings are not in this table.
 
+## The cut
+
+`MeshSlicer.Clip` is Sutherland-Hodgman against a single plane, per triangle:
+classify the three corners, keep / drop / clip, fan the resulting 3- or 4-corner
+polygon back into triangles, and record the two intersection points as a segment
+of the cut outline. `--view` drives it live — `S` toggles, `,` and `.` move the
+plane, `X`/`Y`/`Z` pick the axis, `K` cycles below/above/both.
+
+Measured on `hd_bld_eu_225_cathedral` lod0: 156,342 triangles, cut on Y at
+38.46 m (the bounding-box midpoint, which is what `plane.origin = auto` means),
+**1,529 triangles clipped and 1,529 cut segments**. Those two numbers being
+equal is the self-check — every straddling triangle contributes exactly one
+segment, so an inequality means a degenerate case was silently dropped.
+
+Nothing here caps a hole. The cut is shown as it is, open where the mesh is
+open, which given 4.6% watertight is most of the time.
+
+### geometry3Sharp: what is verified and what is not
+
+geometry3Sharp remains the intended library for the **export** path, where a cut
+has to be capped, welded and written out and robustness matters more than
+latency. It is deliberately not used for the interactive cut above, because
+`MeshPlaneCut` operates on a `DMesh3` and cuts in place — driving it from a key
+the owner holds down would mean converting in and back out, twice over for both
+halves, every frame.
+
+**Verified** — read from `mesh_ops/MeshPlaneCut.cs` at master:
+
+    public class MeshPlaneCut
+    public DMesh3 Mesh;                    // a DMesh3, so using it costs a conversion
+    public Vector3d PlaneOrigin;
+    public Vector3d PlaneNormal;
+    public List<EdgeLoop> CutLoops;
+    public List<EdgeSpan> CutSpans;        // open boundaries are first class
+    public bool CutLoopsFailed = false;
+    public bool FoundOpenSpans = false;
+    public bool CollapseDegenerateEdgesOnCut = true;
+    public virtual bool Cut()
+    public bool FillHoles(int constantGroupID = -1)
+        /// A quick-and-dirty hole filling. If you want something better,
+        /// process the returned CutLoops yourself.        <- its own words
+
+**Not verified** — the package has not been added, run, or its `Cut()` body
+read:
+
+* That it deletes the **positive** side specifically. The field list does not
+  say which side goes; that detail came from a summary, not from the code.
+* Boost licence, NuGet availability, the `dotnet8` branch. Read off the project
+  page, not confirmed by installing it.
+
+Anything in this section marked not-verified should be checked before it is
+built on. It is recorded this way rather than left out because knowing which
+half of a claim is solid is more useful than a clean-looking paragraph.
+
 ## Not done yet
 
-The slicing itself. The geometry is now loaded, so a cutter has something to cut.
-[geometry3Sharp](https://github.com/gradientspace/geometry3Sharp) is the chosen
-library — pure C#, Boost licence, on NuGet, and its `MeshPlaneCut` returns the
-`CutLoops` / `CutSpans` a slicer needs. Note that it cuts **in place** and
-deletes the positive side, so keeping both halves means cutting two copies with
-opposite normals.
+**Export.** The cut exists only on screen; `out.dir` and `out.format` are
+parsed and unused. Writing a cut out is where capping, welding and
+geometry3Sharp actually come in.
 
-The open question before that is whether these meshes are manifold enough for a
-cutter. They are open shells — that is already visible in the need for two-sided
-lighting — so `CutSpans` (the open-boundary case) will matter more than
-`CutLoops`. Worth measuring before building on it.
+**Stack mode.** `slice.mode = stack` validates and is honoured by nothing — the
+viewer cuts with one plane. `slice.spacing` and `slice.count` are inert.
 
-Textures and materials are also not read. The `.visual_processed` beside each
-`.primitives_processed` names the material per primitive group; the viewer
-currently tints parts from a fixed palette instead.
+**Textures and materials.** The `.visual_processed` beside each
+`.primitives_processed` names the material per primitive group; the viewer tints
+parts from a fixed palette instead.
+
+**Havok proxies.** Counted and identified, never parsed. `scope.includeHavok`
+does nothing until a reader exists.
+
+**A startup double-load.** `LoadCurrent` runs twice when the viewer opens, so
+the first asset is parsed twice. Startup only, not a loop, nothing visible
+depends on it — but it is real and unexplained, not cosmetic.
