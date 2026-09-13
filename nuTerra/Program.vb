@@ -78,6 +78,12 @@ Module Program
                 If Integer.TryParse(a.Substring(3), on_off) Then
                     TANK_AI = (on_off <> 0)
                 End If
+            ElseIf a.Equals("film", StringComparison.OrdinalIgnoreCase) Then
+                ' Open the route resolver panel at startup. Mostly so the panel
+                ' can be looked at without hunting the button for it - including
+                ' by whoever is producing the frames, who needs to see their own
+                ' film land somewhere.
+                RouteFilm.show = True
             ElseIf a.Equals("kinddump", StringComparison.OrdinalIgnoreCase) Then
                 ' Every name the kind classifier saw, and what it answered.
                 KIND_DUMP = True
