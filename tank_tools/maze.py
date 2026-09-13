@@ -1064,8 +1064,21 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
     # play field - a ring there has half its area outside the box and the
     # ground behind it is nothing a tank uses. Ten metres in (adjustable) puts
     # the row where a hull can actually sit.
+    # THE TWO LINES ARE THE TWO BASES' OWN Z, not a mirror.
+    #
+    # "start 1 to 2 path rows on home base Z pos. start base 2 to base 1 path
+    # at their base Z."
+    #
+    # far_row was the MIRROR of the start row - n-1-s_rc[0] - which is only the
+    # enemy base's line when the bases are symmetric about the map centre. On
+    # monastery they nearly are (-388 and +397, nine metres apart) so it looked
+    # right; anywhere else the crossing line would have been drawn through open
+    # ground with no relation to where the other team lives.
+    #
+    # Both directions fall out of this for free: team 2's set is this same call
+    # with start and goal swapped, and its rows come out on team 2's base Z.
     inset = int(round(row_inset_m / cell_m))
-    near_row, far_row = s_rc[0], n - 1 - s_rc[0]
+    near_row, far_row = s_rc[0], g_rc[0]
     mid = (near_row + far_row) // 2
     near_row += inset if near_row < mid else -inset
     far_row += inset if far_row < mid else -inset

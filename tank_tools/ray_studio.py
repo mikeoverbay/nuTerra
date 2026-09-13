@@ -923,16 +923,32 @@ def main():
                 # is the sweep, and it is the one that matches how hulls
                 # actually start: spread along the base line, each taking the X
                 # it stands on. [t] still gives the obstacle-based roads.
-                def _landed(rec):
-                    # SIMPLIFIED HERE, on the worker, so the frame loop only
-                    # ever copies a list - it never does geometry.
-                    rec["pts"] = maze.simplify(rec["pts"])
-                    maze_live.append(rec)
+                # BOTH TEAMS, each from its OWN base line.
+                #
+                # "start 1 to 2 path rows on home base Z pos. start base 2 to
+                # base 1 path at their base Z." The second set is the same
+                # sweep with the ends swapped, and because the rows are now the
+                # bases' own Z it comes out on team 2's line without being told.
+                def _mk(team):
+                    def _landed(rec):
+                        # SIMPLIFIED ON THE WORKER, so the frame loop only ever
+                        # copies a list - it never does geometry.
+                        rec["pts"] = maze.simplify(rec["pts"])
+                        rec["team"] = team
+                        maze_live.append(rec)
+                    return _landed
 
                 c = maze.sweep_roads(g, start, goal, step_m=road_step,
                                      standoff_m=standoff_m,
                                      row_inset_m=row_inset,
-                                     on_route=_landed)
+                                     on_route=_mk(1))
+                c2 = maze.sweep_roads(g, goal, start, step_m=road_step,
+                                      standoff_m=standoff_m,
+                                      row_inset_m=row_inset,
+                                      on_route=_mk(2))
+                for q in c2["routes"]:
+                    q["team"] = 2
+                c["routes"] = c["routes"] + c2["routes"]
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
                 # SIMPLIFIED FOR DRAWING ONLY. One point per metre is what the
                 # flood fill produces and what the route IS; it is not what a
@@ -965,10 +981,14 @@ def main():
         finally:
             maze_job["busy"] = False
 
-    MAZE_COLS = [(255, 120, 120), (255, 190, 90), (255, 255, 120),
-                 (150, 255, 120), (120, 255, 220), (120, 190, 255),
-                 (170, 150, 255), (255, 140, 220), (200, 200, 200),
-                 (255, 160, 160), (200, 255, 180), (180, 220, 255)]
+    MAZE_COLS = [(255, 120, 120), (255, 190, 90), (255, 235, 120),
+                 (255, 160, 90), (255, 200, 160), (255, 140, 140),
+                 (255, 175, 60), (255, 220, 180), (240, 130, 100),
+                 (255, 205, 120), (250, 150, 170), (255, 180, 110)]
+    MAZE_COLS2 = [(120, 200, 255), (140, 255, 220), (150, 255, 150),
+                  (120, 170, 255), (180, 220, 255), (120, 240, 200),
+                  (170, 150, 255), (200, 255, 200), (100, 210, 230),
+                  (160, 190, 255), (140, 255, 180), (190, 210, 255)]
     # WHAT THE MAZE PRODUCED, and nothing else. The branch tree, the bearing
     # sweep and their state are gone - "the old radar seeking code with
     # expanding rings" - so a route on this map came from the flood fill.
@@ -1619,7 +1639,13 @@ def main():
         # colour, because the whole point of showing twelve is telling them
         # apart, and a dot at the waypoint that defines it.
         for i, road in enumerate(maze_roads):
-            col = MAZE_COLS[i % len(MAZE_COLS)]
+            # TEAM 1 WARM, TEAM 2 COOL, so which base a road serves is legible
+            # without counting. Within a team the hue still walks, so one road
+            # can be followed among fifteen.
+            if road.get("team") == 2:
+                col = MAZE_COLS2[i % len(MAZE_COLS2)]
+            else:
+                col = MAZE_COLS[i % len(MAZE_COLS)]
             pth = road["pts"]
             for k in range(len(pth) - 1):
                 L(to_px(pth[k][0], pth[k][1], w),
