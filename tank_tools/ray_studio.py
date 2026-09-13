@@ -932,6 +932,7 @@ def main():
                 for q in c["routes"]:
                     q["pts"] = maze.simplify(q["pts"])
                 out["roads"] = c["routes"]
+                out["dead"] = c.get("dead")
                 out["msg"] = ("MAZE: optimum %.0f m = %.2fx the %.0f m direct "
                               "line | %d road(s) %.0f-%.0f m (%.2f-%.2fx) "
                               "| %.1f s"
@@ -969,6 +970,7 @@ def main():
     road_budget = 25
     road_step = 40.0              # metres between one swept road and the next
     standoff_m = 6.0              # how far a road tries to stay off a wall
+    have_dead, show_dead = False, True   # ground the base cannot reach
     # The maze's own constants, read from it rather than restated here, so the
     # panel cannot drift from the thing it is describing.
     from tank_tools import maze as _mz
@@ -1124,6 +1126,15 @@ def main():
                 maze_pts = d["pts"]
             if "roads" in d:
                 maze_roads = d["roads"]
+            if d.get("dead") is not None:
+                # BLACK MEANS THE BASE CANNOT GET THERE. Built once per run and
+                # uploaded as a texture on the same 1 m grid the block layer
+                # uses, so the two line up exactly.
+                dm = d["dead"]
+                rgba = np.zeros((dm.shape[0], dm.shape[1], 4), np.uint8)
+                rgba[dm] = (0, 0, 0, 235)
+                gv.upload("dead", rgba)
+                have_dead = True
             maze_msg = d.get("msg", maze_msg)
 
         if auto_run:
@@ -1354,6 +1365,8 @@ def main():
                 elif e.key in (pygame.K_1, pygame.K_2, pygame.K_3,
                                pygame.K_4, pygame.K_5):
                     block_radius = e.key - pygame.K_0
+                elif e.key == pygame.K_d:
+                    show_dead = not show_dead
                 elif e.key == pygame.K_z:
                     # CLEAR THE MAP. "I have no clear button to remove the path
                     # before Run again." Wipes what was drawn without touching
@@ -1472,6 +1485,10 @@ def main():
         #
         # Rebuilt only when the grid changes. A 1400 square surface every frame
         # is 2 million pixels of nothing new.
+        # THE DEAD GROUND FIRST, under the blocks and everything else.
+        if have_dead and show_dead and gv.has("dead"):
+            gv.blit("dead", (map_ox, map_oy, w, w), (u0, v0, u1, v1))
+
         if squares is not None and show_blocks:
             if squares.dirty or not gv.has("blocks"):
                 gv.upload("blocks", squares.rgba())
@@ -1690,6 +1707,7 @@ def main():
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
         y = checkbox(LX, y, LW, "Block layer  [o]", pygame.K_o, show_blocks)
+        y = checkbox(LX, y, LW, "Dead ground  [d]", pygame.K_d, show_dead)
         y = button(LX, y, LW, "Landmarks  [m]", pygame.K_m, show_marks)
         y = button(LX, y, LW, "Fit map  [f]", pygame.K_f)
         y += 8

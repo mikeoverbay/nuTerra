@@ -1057,7 +1057,15 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
                         via=to_world(g, b_rc[0], b_rc[1], cell_m),
                         x=g["wx0"] + col * cell_m,
                         snapped=max(a_snap, b_snap)))
-    return dict(routes=out, opt=float(f_goal[s_rc]))
+    # THE DEAD GROUND, for the map to paint black.
+    #
+    # "if we cant reach them, they are dead, paint them black in the window."
+    # Anything the base cannot reach: the far bank, the pockets behind walls,
+    # and the walls themselves. On monastery that is just over half the map -
+    # the base component covers 48.7% - which is worth seeing rather than
+    # inferring from nine columns quietly producing nothing.
+    dead = comp != comp[g_rc]
+    return dict(routes=out, opt=float(f_goal[s_rc]), dead=dead)
 
 
 def clearance(blocked, cell_m=CELL_M):
