@@ -1498,6 +1498,12 @@ Public Class MapTanks
     ''' the start of it. Slot order within a team decides which route, so two a
     ''' side go in by different ways.</summary>
     Private Sub HandOutRoutes()
+        ' THE HULLS MAY COMPLAIN ABOUT HAVING NO ROUTE FROM HERE ON, and not
+        ' before. They tick while the map is still loading and this runs at the
+        ' END of the load, so without the gate every hull logs "no route -
+        ' parked" during startup and fifteen seconds of the log reads like
+        ' total failure of something that has not been asked to work yet.
+        TankDrive.RoutesHandedOut = True
         Dim slot1 = 0, slot2 = 0
         For Each inst In instances
             Dim green = (inst.team = TankTeam.Green)

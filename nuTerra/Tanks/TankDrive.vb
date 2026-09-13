@@ -53,6 +53,11 @@ Public Class TankDrive
     ''' log without repeating it sixty times a second.</summary>
     Private noRouteLogged As Boolean
 
+    ''' <summary>Set by TankRenderer.HandOutRoutes. Until it is true a hull
+    ''' without a route has not been offered one yet, and saying so is noise
+    ''' rather than news.</summary>
+    Public Shared RoutesHandedOut As Boolean
+
     ''' <summary>The route this hull was handed at load, as world waypoints,
     ''' or Nothing to wander. See PickGoal.</summary>
     Public path As List(Of Vector2)
@@ -379,7 +384,7 @@ Public Class TankDrive
         ' So a hull with no corridor now parks, visibly, and says so once. That
         ' is the honest state: the catalogue is the only thing that moves a
         ' tank, and a tank standing still means it was never given a route.
-        If Not noRouteLogged Then
+        If RoutesHandedOut AndAlso Not noRouteLogged Then
             noRouteLogged = True
             LogThis("tank ai: team {0} {1} has no route - parked. " &
                     "The random goal picker was removed; the catalogue is the " &
