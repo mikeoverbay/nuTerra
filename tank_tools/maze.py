@@ -936,3 +936,59 @@ def simplify(pts, tol_m=0.35):
             ax, az = pts[i]
     out.append(pts[-1])
     return out
+
+
+def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
+                dedupe=0.85):
+    """A road per X: cross to that X on the far side, then hook to the base.
+
+    "why are we not starting on the left and moving to the right steps?" and
+    then "need to step end x seek ring".
+
+    So the END steps, not just the start. Each road is a crossing at its own X
+    - the owner's lane - with a 20 m SEEK RING on the far end: if the exact
+    cell is solid, anywhere inside the ring counts as having got there. Then it
+    hooks to the base.
+
+    TWO FLOODS FOR THE WHOLE SWEEP, which is why the end can step at all. The
+    field from the START gives the way out to ANY crossing point; the field
+    from the BASE gives the way home from ANY crossing point. So a road is two
+    downhill walks and N roads cost 2 floods, not 2N searches - about a second
+    for the whole map at 40 m.
+
+    Roads that converge are dropped: crossings 40 m apart often merge within a
+    hundred metres, and `dedupe` is the share of cells a road may have in
+    common with one already kept.
+    """
+    blocked, n, height = grid_1m(g, cell_m)
+    s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
+    g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
+    f_start = flood(blocked, s_rc, height=height)
+    f_goal = flood(blocked, g_rc, height=height)
+    # THE FAR SIDE: the mirror of the start's line, so a lane crosses the map.
+    far_row = n - 1 - s_rc[0]
+    ring = max(1, int(ring_m / cell_m))
+    step = max(1, int(round(step_m / cell_m)))
+
+    out = []
+    for col in range(0, n, step):
+        try:
+            rc, snapped = nearest_free(blocked, (far_row, col), limit=ring)
+        except ValueError:
+            continue
+        if not (np.isfinite(f_start[rc]) and np.isfinite(f_goal[rc])):
+            continue
+        cells = walk_down(f_start, rc)[::-1] + walk_down(f_goal, rc)[1:]
+        if len(cells) < 20:
+            continue
+        cs = set(cells)
+        if any(len(cs & p["cells"]) / max(1, len(cs)) > dedupe for p in out):
+            continue
+        pts = [to_world(g, r, c, cell_m) for r, c in cells]
+        length = float(sum(
+            np.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
+            for i in range(len(pts) - 1)))
+        out.append(dict(pts=pts, cells=cs, length=length,
+                        via=to_world(g, rc[0], rc[1], cell_m),
+                        x=g["wx0"] + col * cell_m, snapped=snapped))
+    return dict(routes=out, opt=float(f_goal[s_rc]))

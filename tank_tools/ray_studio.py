@@ -916,7 +916,13 @@ def main():
             out = {}
             if key == pygame.K_g:
                 r = maze.solve(g, start, goal)
-                c = maze.class_routes(g, start, goal, budget=road_budget / 100.0)
+                # LEFT TO RIGHT, ONE ROAD PER X. "why are we not starting on
+                # the left and moving to the right steps?" - because Run used
+                # class_routes, which is obstacle-driven and never sweeps. This
+                # is the sweep, and it is the one that matches how hulls
+                # actually start: spread along the base line, each taking the X
+                # it stands on. [t] still gives the obstacle-based roads.
+                c = maze.sweep_roads(g, start, goal, step_m=road_step)
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
                 # SIMPLIFIED FOR DRAWING ONLY. One point per metre is what the
                 # flood fill produces and what the route IS; it is not what a
@@ -960,6 +966,7 @@ def main():
     # dial the flood fill takes: 0 gives one route, 25 gives twelve on
     # monastery. Everything else on the old panel belonged to the ring search.
     road_budget = 25
+    road_step = 40.0              # metres between one swept road and the next
     # The maze's own constants, read from it rather than restated here, so the
     # panel cannot drift from the thing it is describing.
     from tank_tools import maze as _mz
@@ -1341,6 +1348,12 @@ def main():
                 elif e.key in (pygame.K_1, pygame.K_2, pygame.K_3,
                                pygame.K_4, pygame.K_5):
                     block_radius = e.key - pygame.K_0
+                elif e.key == pygame.K_z:
+                    # CLEAR THE MAP. "I have no clear button to remove the path
+                    # before Run again." Wipes what was drawn without touching
+                    # the block data, which is what [x] is for.
+                    maze_pts, maze_roads = [], []
+                    maze_msg = "cleared"
                 elif e.key == pygame.K_x:
                     # A FULL RESET: reload the block data from disk.
                     #
@@ -1642,7 +1655,9 @@ def main():
         y = header(LX, y, "SEARCH", LW)
         y = button(LX, y, LW, "Run  [g]", pygame.K_g, bool(maze_pts),
                    (150, 255, 200))
-        y = button(LX, y, LW, "Tactical roads only  [t]", pygame.K_t,
+        y = button(LX, y, LW, "Clear  [z]", pygame.K_z,
+                   False, (255, 210, 150))
+        y = button(LX, y, LW, "Roads round obstacles  [t]", pygame.K_t,
                    bool(maze_roads), (150, 255, 200))
         y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a,
                    bool(astar_paths))
@@ -1669,7 +1684,6 @@ def main():
         y = checkbox(LX, y, LW, "Block layer  [o]", pygame.K_o, show_blocks)
         y = button(LX, y, LW, "Landmarks  [m]", pygame.K_m, show_marks)
         y = button(LX, y, LW, "Fit map  [f]", pygame.K_f)
-        y = button(LX, y, LW, "Swap ends  [tab]", pygame.K_TAB)
         y += 8
         y = button(LX, y, LW, "QUIT  [q]", pygame.K_q, False, (255, 170, 170))
         screen.blit(font.render("wheel zooms, drag pans", True, (110, 115, 128)),
