@@ -385,8 +385,8 @@ END_GUARD_M = 45.0
 # words: "we draw a ring at that hit point and hit the tangent on both sides. if
 # we could not after expanding the ring in .5m steps to max ring size in
 # settings... That path is dead."
-RING_STEP_M = 0.5
-RING_MIN_M = 0.5
+RING_STEP_M = 1.0
+RING_MIN_M = 1.0
 
 # A RING SIZE PER PATH ATTEMPT, not one setting for the whole search.
 #
@@ -446,7 +446,9 @@ MIN_GAP_DEFAULT_M = 4.0
 # why the ring size never made sense: a 5 m circle is absurd next to an 800 m
 # ray and exactly right next to a 4.5 m step. At this scale the whole spec fits
 # together - small step, hit, small ring, tangent, step on.
-RAY_CAP_DEFAULT_M = 3.0
+# DOUBLED 2026-09-12: "ray to short step to small and ring start to small,
+# double all." Ray cap 3.0 -> 6.0, with RING_STEP_M and RING_MIN_M 0.5 -> 1.0.
+RAY_CAP_DEFAULT_M = 6.0
 
 # STEEPEST GROUND WE CAN TAKE, up or down. "we cant drop by more that 45 degree
 # angle up or down. we have to stop and do a ring sweep." Forty-five degrees is
@@ -1295,6 +1297,7 @@ def main():
     tree, tree_msg, tree_follow = None, "", True
     found_routes = []             # every route this session has completed
     saved_route = None            # the json the last win was written to
+    tree_t0 = None                # when Run was pressed, for the wall clock
     # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
     #
     # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
@@ -1598,6 +1601,7 @@ def main():
                     nodes, paths, rays = [], [], 0
                     tree = BranchTree(g, start, goal, RING_SET[ring_slot],
                                       min_gap, squares=squares)
+                    tree_t0 = time.time()   # the run IS the measurement
                     tree.block_radius = block_radius
                     sq_surf = None
                     tree_msg = ("branch tree: hunting route %d, seek ring %.0f m"
@@ -1716,9 +1720,22 @@ def main():
                 length = sum(np.hypot(tree.win_chain[k + 1]["pos"][0] - tree.win_chain[k]["pos"][0],
                                       tree.win_chain[k + 1]["pos"][1] - tree.win_chain[k]["pos"][1])
                              for k in range(len(tree.win_chain) - 1))
-                tree_msg = ("*** PATH COMPLETE - INSIDE THE BASE RING *** %.0f m, %d pt, %d ring(s) - "
-                            "found after %d cast(s). [b] restarts.%s"
-                            % (length, len(tree.win_chain), rings_n, tree.casts,
+                # THE MEASUREMENT IS ON SCREEN, because the owner runs it:
+                # "dont measure here ... measure when I run it." Everything a
+                # headless harness used to print now comes back on the win -
+                # length against the direct line, the ring radii the tuning
+                # actually produced, the casts it cost and the seconds it took.
+                direct = np.hypot(goal[0] - start[0], goal[1] - start[1])
+                radii = sorted(r[2] for r in tree.win_rings) or [0.0]
+                med_r = radii[len(radii) // 2]
+                secs = (time.time() - tree_t0) if tree_t0 else 0.0
+                tree_msg = ("*** PATH COMPLETE *** %.0f m = %.2fx direct (%.0f m) | %d pt, "
+                            "%d ring(s) med %.1f m max %.1f m | %d cast(s) in %.1f s | "
+                            "ray %.1f step %.1f ring0 %.1f. [b] restarts.%s"
+                            % (length, length / max(direct, 1e-6), direct,
+                               len(tree.win_chain), rings_n, med_r, radii[-1],
+                               tree.casts, secs, tree.walk_m, RING_STEP_M,
+                               RING_MIN_M,
                                ("  saved: %s" % os.path.basename(saved_route))
                                if saved_route else ""))
             else:
