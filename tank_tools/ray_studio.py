@@ -44,6 +44,19 @@ WHAT THE COLOURS MEAN
 import io
 import os
 import sys
+
+# THE REPO ROOT ON THE PATH, or `from tank_tools import maze` cannot work.
+#
+# Run as a script - `python tank_tools/ray_studio.py` - sys.path[0] is
+# tank_tools/ ITSELF, so the tank_tools PACKAGE is not importable and the maze
+# worker dies with "No module named 'tank_tools'". Run as a module, or
+# imported from the repo root by a test harness, the root is already on the
+# path and it works. That difference is why every check I ran passed while the
+# owner got the failure on screen.
+#
+# maze.py and draw_path.py already do exactly this; ray_studio did not, because
+# until today it imported nothing from its own package.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 import struct
 import numpy as np
@@ -899,7 +912,7 @@ def main():
             out = {}
             if key == pygame.K_g:
                 r = maze.solve(g, start, goal)
-                c = maze.class_routes(g, start, goal, budget=0.25)
+                c = maze.class_routes(g, start, goal, budget=road_budget / 100.0)
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
                 out["pts"] = r["pts"]
                 out["roads"] = c["routes"]
@@ -911,7 +924,7 @@ def main():
                                  min(ln) / r["length"], max(ln) / r["length"],
                                  time.time() - t0))
             else:
-                c = maze.class_routes(g, start, goal, budget=0.25)
+                c = maze.class_routes(g, start, goal, budget=road_budget / 100.0)
                 ln = [q["length"] for q in c["routes"]] or [0.0]
                 out["roads"] = c["routes"]
                 out["msg"] = ("%d tactical road(s): %.0f-%.0f m against a %.0f m "
@@ -932,6 +945,10 @@ def main():
     # sweep and their state are gone - "the old radar seeking code with
     # expanding rings" - so a route on this map came from the flood fill.
     view_follow = True
+    # HOW MUCH LONGER THAN THE OPTIMUM A ROAD MAY BE, as a percentage. The only
+    # dial the flood fill takes: 0 gives one route, 25 gives twelve on
+    # monastery. Everything else on the old panel belonged to the ring search.
+    road_budget = 25
     # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
     #
     # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
@@ -1143,10 +1160,8 @@ def main():
                         grabbed = nm
                         frac = (e.pos[0] - sr.x) / max(1, sr.w)
                         val = lo + (hi - lo) * max(0.0, min(1.0, frac))
-                        if nm == "delay":
-                            step_delay_ms = int(round(val))
-                        else:
-                            steps_per_frame = max(1, int(round(val)))
+                        if nm == "budget":
+                            road_budget = int(round(val))
                         break
                 if grabbed is not None:
                     active_slider = grabbed
@@ -1170,10 +1185,8 @@ def main():
                 sr, lo, hi = slider_rects[active_slider]
                 frac = (e.pos[0] - sr.x) / max(1, sr.w)
                 val = lo + (hi - lo) * max(0.0, min(1.0, frac))
-                if active_slider == "delay":
-                    step_delay_ms = int(round(val))
-                else:
-                    steps_per_frame = max(1, int(round(val)))
+                if active_slider == "budget":
+                    road_budget = int(round(val))
             elif e.type == pygame.MOUSEMOTION and dragging:
                 dx, dy = e.pos[0] - drag_from[0], e.pos[1] - drag_from[1]
                 drag_from = e.pos
@@ -1230,7 +1243,7 @@ def main():
                             # looking like it was doing the old thing.
                             r = maze.solve(g, start, goal)
                             maze_pts = r["pts"]
-                            c = maze.class_routes(g, start, goal, budget=0.25)
+                            c = maze.class_routes(g, start, goal, budget=road_budget / 100.0)
                             maze_roads = c["routes"]
                             ln = [q["length"] for q in maze_roads] or [r["length"]]
                             maze_msg = ("MAZE: optimum %.0f m = %.2fx the %.0f m "
@@ -1604,60 +1617,27 @@ def main():
         y = header(LX, y, "SEARCH", LW)
         y = button(LX, y, LW, "Run  [g]", pygame.K_g, bool(maze_pts),
                    (150, 255, 200))
-        y = checkbox(LX, y, LW, "Lock view to current point", pygame.K_c,
-                     view_follow)
-        y = button(LX, y, LW, "RESET - reload blocks  [x]", pygame.K_x,
-                   False, (255, 190, 150))
         y = button(LX, y, LW, "Tactical roads only  [t]", pygame.K_t,
                    bool(maze_roads), (150, 255, 200))
+        y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a,
+                   bool(astar_paths))
         y += 4
-        y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a, bool(astar_paths))
-        y = button(LX, y, LW, "PAUSED  [space]" if paused else "Pause  [space]",
-                   pygame.K_SPACE, paused)
-        y += 4
-        y = slider(LX, y, LW, "steps", "Steps per frame", steps_per_frame, 1, 64)
-        y = slider(LX, y, LW, "delay", "Frame delay", step_delay_ms, 0, 50,
-                   "%d ms")
-        # THE BLOCK RADIUS, as five buttons rather than a cycling one: the
-        # whole set is visible and the chosen one is lit, so it reads as the
-        # dropdown the owner asked for instead of a number you have to click
-        # through to see.
-        screen.blit(font.render("Block radius (squares)", True, (200, 205, 215)),
-                    (LX, y))
-        y += 18
-        bw = (LW - 16) // 5
-        for k in range(1, 6):
-            rb = pygame.Rect(LX + (k - 1) * (bw + 4), y, bw, 22)
-            on = (block_radius == k)
-            hov = rb.collidepoint(pygame.mouse.get_pos())
-            pygame.draw.rect(screen, (62, 96, 66) if on else
-                             ((52, 56, 66) if hov else (38, 41, 49)), rb,
-                             border_radius=3)
-            pygame.draw.rect(screen, PANEL_LINE, rb, 1, border_radius=3)
-            screen.blit(font.render(str(k), True, (235, 240, 248)),
-                        (rb.x + bw // 2 - 4, rb.y + 3))
-            buttons.append((rb, str(k), pygame.K_0 + k, on))
-        y += 30
-        y += 4
-        y = header(LX, y, "SEEK RING PER PATH", LW)
-        screen.blit(font.render("metres, assigned to this attempt", True,
-                                (135, 140, 152)), (LX, y))
-        y += 18
-        rw = (LW - 20) // 6
-        for k, rv in enumerate(RING_SET):
-            rr_ = pygame.Rect(LX + k * (rw + 4), y, rw, 22)
-            on = (ring_slot == k)
-            hov = rr_.collidepoint(pygame.mouse.get_pos())
-            pygame.draw.rect(screen, (62, 96, 66) if on else
-                             ((52, 56, 66) if hov else (38, 41, 49)), rr_,
-                             border_radius=3)
-            pygame.draw.rect(screen, PANEL_LINE, rr_, 1, border_radius=3)
-            screen.blit(font.render("%g" % rv, True, (235, 240, 248)),
-                        (rr_.x + 4, rr_.y + 3))
-            buttons.append((rr_, "%g" % rv, pygame.K_F1 + k, on))
-        y += 28
-        y = checkbox(LX, y, LW, "Next ring on each path", pygame.K_F7, ring_auto)
-        y += 8
+        # THE ONE NUMBER THE MAZE ACTUALLY HAS.
+        #
+        # "the old method used a lot of UI controls we don't need now" - and
+        # that was most of this panel. Steps per frame and frame delay paced a
+        # search that drew itself ray by ray; the flood fill has no steps to
+        # pace. Block radius, the seek-ring row and "next ring on each path"
+        # were the ring search's. So were the step / ring / gap pairs and the
+        # landmark size, which fed the sweep's homotopy classing. Pause paused
+        # a per-frame search that no longer exists, and "lock view to current
+        # point" followed a cursor that is gone.
+        #
+        # What is left is the budget: how much longer than the optimum a road
+        # may be before it stops counting as a road. At 0% there is one route;
+        # at 25% there are twelve. It is the only dial the method takes.
+        y = slider(LX, y, LW, "budget", "Road budget", road_budget, 0, 100,
+                   "+%d%%")
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
