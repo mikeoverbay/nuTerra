@@ -1,4 +1,4 @@
-Imports System.Text.RegularExpressions
+﻿Imports System.Text.RegularExpressions
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -57,6 +57,51 @@ Public Class BuildingAsset
 
     Public Function PartsAt(lod As Integer) As List(Of BuildingPart)
         Return Parts.Where(Function(p) p.Lod = lod).ToList()
+    End Function
+
+    ''' <summary>
+    ''' One part per VARIANT SLOT - the set a map would actually place.
+    '''
+    ''' These assets are kits of INTERCHANGEABLE pieces, not assemblies of
+    ''' distinct ones, and nothing in the file says so. hd_bld_EU_049_THouse has
+    ''' 24 parts at lod0 while the whole asset measures 6.03 x 9.29 x 7.46 m -
+    ''' barely larger than its single biggest part at 5.73 x 6.90 x 7.11. Parts
+    ''' of one building would sum to something much bigger than any one of them;
+    ''' these do not, because they occupy the SAME SPACE:
+    '''
+    '''     lowerfloorsbig_01/_02/_03/_04   all 5.73 x 6.90 x 7.11
+    '''     upperfloorsbig_03/_10/_11/_12   all 5.39 x 8.01 x 6.91
+    '''     upperfloorssmall_01/_03/_05     all 4.67 x 8.90 x 5.18
+    '''
+    ''' The map chooses one of each slot. Exporting all of them stacks four
+    ''' walls in the same wall and produces z-fighting, doubled window frames
+    ''' and a model that is unusable - which is exactly what the round trip
+    ''' showed.
+    '''
+    ''' The slot is the name with its trailing _NN removed. That is a NAMING
+    ''' convention rather than anything declared, so it is a heuristic and is
+    ''' said to be one; `--variants all` keeps the old behaviour for anyone who
+    ''' wants every piece.
+    ''' </summary>
+    Public Function VariantsAt(lod As Integer) As List(Of BuildingPart)
+        Dim taken As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        Dim out As New List(Of BuildingPart)
+        For Each p In PartsAt(lod)
+            If taken.Add(VariantSlot(p.Name)) Then out.Add(p)
+        Next
+        Return out
+    End Function
+
+    ''' <summary>The name with a trailing _NN stripped. "foo_lowerfloorsbig_03"
+    ''' and "foo_lowerfloorsbig_04" are the same slot.</summary>
+    Public Shared Function VariantSlot(name As String) As String
+        If String.IsNullOrEmpty(name) Then Return ""
+        Dim i = name.Length - 1
+        While i >= 0 AndAlso Char.IsDigit(name(i))
+            i -= 1
+        End While
+        If i >= 0 AndAlso i < name.Length - 1 AndAlso name(i) = "_"c Then Return name.Substring(0, i)
+        Return name
     End Function
 
     ''' <summary>The asset's box at its finest LOD, the union of its parts.

@@ -92,6 +92,10 @@ Public Class SliceSettings
     ''' so they may one day be the better thing to cut - but nothing reads their
     ''' geometry yet, so this does nothing until that reader exists.</summary>
     Public Property IncludeHavok As Boolean = False
+    ''' <summary>first = one part per variant slot, which is what a map
+    ''' places. all = every piece, which stacks interchangeable walls on top
+    ''' of each other.</summary>
+    Public Property Variants As String = "first"
 
     ' ---- rebuilding a set model into a shell ------------------------------
     ' These buildings are film sets: facades, no back walls, no closed volume.
@@ -255,6 +259,7 @@ Public Class SliceSettings
             Case "scope.lod" : Lod = ParseI(value, Lod)
             Case "scope.parts" : Parts = value
             Case "scope.includehavok" : IncludeHavok = ParseB(value, IncludeHavok)
+            Case "scope.variants" : Variants = value
             Case "support.on" : SupportsOn = ParseB(value, SupportsOn)
             Case "support.angle" : SupportAngle = ParseF(value, SupportAngle)
             Case "support.spacing" : SupportSpacing = ParseF(value, SupportSpacing)

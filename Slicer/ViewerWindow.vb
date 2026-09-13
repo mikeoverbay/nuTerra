@@ -138,6 +138,10 @@ Public Class ViewerWindow
     ''' <summary>Set by --bake: bake the maps once on load, then quit.</summary>
     Private bakeDir As String = Nothing
     Private bakeSize As Integer = 2048
+    ''' <summary>Set by --obj: load an exported OBJ back and draw it, so the
+    ''' export can be looked at rather than trusted.</summary>
+    Private objPath As String = Nothing
+    Private checkerTex As Integer = 0
 
     ' ---- PBR -------------------------------------------------------------
     ' Its own buffer and its own draw list, deliberately separate from the
@@ -213,7 +217,8 @@ Public Class ViewerWindow
     Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings,
                    Optional shot As String = Nothing, Optional doShell As Boolean = False,
                    Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False,
-                   Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048)
+                   Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
+                   Optional objFile As String = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -228,6 +233,7 @@ Public Class ViewerWindow
         shotPath = shot
         shellOnLoad = doShell
         bakeDir = bakeTo
+        objPath = objFile
         If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
             ' The angle decides what the picture can prove, so it is explicit
@@ -269,8 +275,13 @@ Public Class ViewerWindow
         pbrVao = GL.GenVertexArray() : pbrVbo = GL.GenBuffer() : pbrEbo = GL.GenBuffer()
         pbrProgram = PbrShader.Build()
         whiteTex = DdsTexture.White()
+        checkerTex = DdsTexture.Checker(512, 16)
         flatNrmTex = DdsTexture.FlatNormal()
-        LoadCurrent()
+        If objPath IsNot Nothing Then
+            LoadObj(objPath)
+        Else
+            LoadCurrent()
+        End If
         If shellOnLoad Then RunShellPipeline()
         If bakeDir IsNot Nothing Then
             RunBake(bakeDir, bakeSize)
@@ -653,6 +664,100 @@ Public Class ViewerWindow
         Title = String.Format("Slicer - {0}  PBR {1}  [{2}]  {3:N0} tris",
                               assets(assetIndex).Name, If(pbrOn, "on", "off"),
                               PbrShader.DebugNames(pbrDebug), pbrTris)
+    End Sub
+
+    ''' <summary>
+    ''' Load an exported OBJ back and draw it, textured with a CHECKER rather
+    ''' than its own maps.
+    '''
+    ''' The checker is the point. Its own texture would only tell you the file
+    ''' loads; a checker tells you whether the UVs are RIGHT - squares that are
+    ''' square and evenly sized mean a sane unwrap, and anything stretched,
+    ''' mirrored or wrapped is unmistakable. That is the question a round trip
+    ''' exists to answer, and it is the one the counting checks could not.
+    '''
+    ''' OBJ lets a face index a position and a UV independently, so corners are
+    ''' expanded to one vertex each. That triples the vertex count and is
+    ''' unavoidable: an index buffer over positions alone cannot express a
+    ''' vertex carrying two different UVs on two faces, which is what a seam is.
+    ''' </summary>
+    Private Sub LoadObj(path As String)
+        Dim o = ObjFile.Load(path)
+        Console.WriteLine()
+        Console.WriteLine("OBJ  {0}", IO.Path.GetFullPath(path))
+        Console.WriteLine("  {0}", o.Describe())
+        If o.TriangleCount = 0 Then
+            Console.WriteLine("  nothing to draw")
+            Return
+        End If
+
+        pbrParts.Clear() : rawParts.Clear() : parts.Clear()
+        pbrTris = 0
+
+        Dim verts As New List(Of Single)
+        Dim idx As New List(Of Integer)
+        Dim lo As New Vector3(Single.MaxValue, Single.MaxValue, Single.MaxValue)
+        Dim hi As New Vector3(Single.MinValue, Single.MinValue, Single.MinValue)
+
+        For Each pt In o.Parts
+            Dim first = idx.Count
+            Dim t = pt.First
+            Dim stopAt = Math.Min(o.Tri.Count, pt.First + pt.Count)
+            While t + 2 < stopAt
+                ' Flat normal per triangle: the OBJ written here carries no vn,
+                ' and smoothing would hide exactly the creases a round-trip
+                ' check wants to show.
+                Dim p0 = o.Positions(o.Tri(t))
+                Dim p1 = o.Positions(o.Tri(t + 1))
+                Dim p2 = o.Positions(o.Tri(t + 2))
+                Dim nn = Vector3.Cross(p1 - p0, p2 - p0)
+                If nn.LengthSquared > 0.0000001F Then nn.Normalize() Else nn = Vector3.UnitY
+                For c = 0 To 2
+                    Dim vi = o.Tri(t + c)
+                    Dim ti = o.TriUv(t + c)
+                    Dim pp = o.Positions(vi)
+                    Dim uvv = If(ti >= 0 AndAlso ti < o.UVs.Count, o.UVs(ti), Vector2.Zero)
+                    verts.Add(pp.X) : verts.Add(pp.Y) : verts.Add(pp.Z)
+                    verts.Add(nn.X) : verts.Add(nn.Y) : verts.Add(nn.Z)
+                    verts.Add(uvv.X) : verts.Add(uvv.Y)
+                    verts.Add(1.0F) : verts.Add(0.0F) : verts.Add(0.0F)
+                    verts.Add(0.0F) : verts.Add(0.0F) : verts.Add(1.0F)
+                    idx.Add(idx.Count)
+                    lo = Vector3.ComponentMin(lo, pp)
+                    hi = Vector3.ComponentMax(hi, pp)
+                Next
+                t += 3
+            End While
+            Dim count = idx.Count - first
+            If count < 3 Then Continue For
+            pbrParts.Add(New PbrPart With {
+                .Name = pt.Name, .First = first, .Count = count,
+                .Albedo = checkerTex, .NormalTex = flatNrmTex, .Gmm = whiteTex,
+                .HasNormal = False, .EnableAO = False, .Fx = If(pt.Material, "")})
+            pbrTris += count \ 3
+        Next
+
+        boundsMin = lo : boundsMax = hi
+        target = (lo + hi) * 0.5F
+        dist = Math.Max((hi - lo).Length * If(shotPath IsNot Nothing, 1.35F, 0.9F), 2.0F)
+
+        GL.BindVertexArray(pbrVao)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, pbrVbo)
+        GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
+        GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
+        Const ST As Integer = 14 * 4
+        GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
+        GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
+        GL.EnableVertexAttribArray(2) : GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, ST, 24)
+        GL.EnableVertexAttribArray(3) : GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, ST, 32)
+        GL.EnableVertexAttribArray(4) : GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, ST, 44)
+        GL.BindVertexArray(0)
+
+        pbrOn = True
+        Console.WriteLine("  {0} part(s), {1:N0} tris, span {2:F0} - drawn with a checker",
+                          pbrParts.Count, pbrTris, (hi - lo).Length)
+        Title = String.Format("Slicer - OBJ {0}  {1:N0} tris", IO.Path.GetFileName(path), pbrTris)
     End Sub
 
     ''' <summary>Upload a texture once and remember it, because the building

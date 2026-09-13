@@ -191,7 +191,9 @@ Public NotInheritable Class MeshExport
             Dim anyUv = False
             Dim fillTris = 0, killed = 0
 
-            For Each part In asset.PartsAt(lod)
+            Dim useParts = If(If(cfg.Variants, "first").Trim().ToLowerInvariant() = "all",
+                              asset.PartsAt(lod), asset.VariantsAt(lod))
+            For Each part In useParts
                 Dim primPath As String
                 If Not String.IsNullOrEmpty(part.Visual) Then
                     primPath = part.Visual.Replace("\"c, "/"c).ToLowerInvariant() & ".primitives_processed"
@@ -288,7 +290,7 @@ Public NotInheritable Class MeshExport
             Console.WriteLine("  {0,-40} {1,7:N0} tris  {2,5:N0} fill  {3,5:N0} kill  {4,6:N0} KB  {5:F0}x{6:F0}x{7:F0} mm  {8}",
                               asset.Name, res.Triangles, fillTris, killed, res.Bytes \ 1024,
                               res.SizeMm.X, res.SizeMm.Y, res.SizeMm.Z,
-                              If(anyUv, "uv2", "no uv2"))
+                              If(anyUv, "uv2", "no uv2") & "  " & useParts.Count & "/" & asset.PartsAt(lod).Count & " parts")
         Next
         sw.Stop()
 

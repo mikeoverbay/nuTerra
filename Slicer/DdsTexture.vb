@@ -1,4 +1,4 @@
-Imports System.Text
+﻿Imports System.Text
 Imports OpenTK.Graphics.OpenGL4
 
 ''' <summary>
@@ -144,6 +144,45 @@ Public NotInheritable Class DdsTexture
                       PixelFormat.Rgba, PixelType.UnsignedByte, px)
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, CInt(TextureMinFilter.Nearest))
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, CInt(TextureMagFilter.Nearest))
+        GL.BindTexture(TextureTarget.Texture2D, 0)
+        Return tex
+    End Function
+
+    ''' <summary>
+    ''' A checker, for looking at UVs.
+    '''
+    ''' The single most useful texture for judging an unwrap: squares that are
+    ''' square and evenly sized mean the UVs are sane, and anything stretched,
+    ''' mirrored, rotated or wrapped shows up instantly and unambiguously. A
+    ''' photographic texture hides all of that.
+    ''' </summary>
+    Public Shared Function Checker(size As Integer, cells As Integer) As Integer
+        Dim tex = GL.GenTexture()
+        GL.BindTexture(TextureTarget.Texture2D, tex)
+        Dim px(size * size * 4 - 1) As Byte
+        Dim cell = Math.Max(1, size \ Math.Max(1, cells))
+        For y = 0 To size - 1
+            For x = 0 To size - 1
+                Dim on_ = (((x \ cell) + (y \ cell)) And 1) = 0
+                Dim i = (y * size + x) * 4
+                ' Not black and white: a mid grey against a strong orange keeps
+                ' the squares readable under any lighting and makes a mirrored
+                ' island obvious, which two greys would not.
+                If on_ Then
+                    px(i) = 210 : px(i + 1) = 210 : px(i + 2) = 205
+                Else
+                    px(i) = 200 : px(i + 1) = 90 : px(i + 2) = 35
+                End If
+                px(i + 3) = 255
+            Next
+        Next
+        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8, size, size, 0,
+                      PixelFormat.Rgba, PixelType.UnsignedByte, px)
+        GL.GenerateMipmap(GenerateMipmapTarget.Texture2D)
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, CInt(TextureMinFilter.LinearMipmapLinear))
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, CInt(TextureMagFilter.Linear))
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, CInt(TextureWrapMode.Repeat))
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, CInt(TextureWrapMode.Repeat))
         GL.BindTexture(TextureTarget.Texture2D, 0)
         Return tex
     End Function
