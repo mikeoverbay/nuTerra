@@ -12,6 +12,13 @@ so what follows is a contract rather than an implementation detail.
 Written 2026-09-12. The bake existed long before this document; it got one when
 it stopped being one session's private artefact.
 
+**`bake_version` 4, 2026-09-13** - `grapevine` keys as **tree**, not fence.
+Nothing about the FORMAT changed; the classifier did, so every cached bake is
+rebuilt once to pick up the new key byte. See "the grapevine trellis" below.
+*nuTerra work.*
+
+**`bake_version` 3, 2026-09-12** - `lamp` keys as **prop**, not tree.
+
 **`bake_version` 2, 2026-09-12** - the SOLID bit and the per-object **id layer**.
 Both change what the bake contains, so every version-1 bake on disk is rebuilt
 once on first run. New in this version: `solid_bit` in the key byte,
@@ -195,7 +202,8 @@ correct answers to fix one wrong one - a survey of all 212 monastery names found
 
 | name | matched | verdict |
 |---|---|---|
-| `WoodFence`, `StoneFence`, `ForgedFence`, `GrapevineFence`, `RabitzFence` | `fence` | correct |
+| `WoodFence`, `StoneFence`, `ForgedFence`, `RabitzFence` | `fence` | correct |
+| `GrapevineFence` | `fence` | **WRONG - see below.** Fixed in `bake_version` 4 |
 | `ItalyOutlandHousesCluster` | `house` | correct |
 | `VendorCart`, `WoodenCart` | `car` | correct - a cart IS a prop |
 | `Gravestones01`, `Gravestones03` | `stone` | wrong, harmless: solid either way |
@@ -205,6 +213,43 @@ correct answers to fix one wrong one - a survey of all 212 monastery names found
 `lamp` appears in exactly two names on this map and both are lamps; no name
 contains `light` or `lantern`, so neither was added on speculation. Add a keyword
 when a map produces a collision, not before.
+
+### The grapevine trellis, and why the survey above was not enough
+
+**`bake_version` 4, 2026-09-13. Added by nuTerra work.**
+
+mikeoverbay, looking at monastery: *"the entire olive garden area is mostly
+marked in black. Those should be crushable."*
+
+It is a vineyard, and it is two assets. The vines are SpeedTree -
+`vegetation/Broadleaves/GrapeVine_01.srt` - and were never the problem: the tree
+depth pass writes a **constant** `BAKE_KIND_TREE = 3`, so a SpeedTree never
+reaches the name classifier at all. The trellis is a model:
+
+    content/GatesAndFences/gaf_19_05_GrapevineFence/normal/lod0/...
+
+**The classifier matches the whole PATH, not the file name.** `GatesAndFences`
+alone contains both `fence` and `gate`, so every asset under that folder keys
+`KIND_FENCE` whatever it is called - the file name never gets a vote. And
+crushable is `kind = tree AND NOT solid`, so a fence-keyed texel can never be
+crushed. A vineyard is a GRID of these, so the whole field read as an obstacle.
+
+Fixed by testing `grapevine` before the fence test and returning `KIND_TREE`.
+Narrow on purpose, like the lamp line: `grapevine` matches exactly one model
+family across all 218 packages, so it cannot reach a real fence, and it does not
+touch bare `vine`, which still falls through to the tree test where it belongs.
+Verified from the app's own `kinddump` rather than asserted - `GrapevineFence`
+now reports `tree,3`, and `WoodFence`, `StoneFence`, the wires and the gate all
+still report `fence,2`.
+
+**THE LESSON IS ABOUT THE SURVEY, NOT THE KEYWORD.** The table above was
+produced by this session and lists `GrapevineFence` as `fence` - *correct*. It
+was correct about what the NAME says and wrong about what the name DECIDES. A
+grape trellis is not a barrier; its own havok proxy is called `__n_wood0`.
+Reviewing a classifier by reading the names it matched only checks that the
+string test fired, which was never in doubt. What it cannot check is whether the
+bin means the right thing for the vehicle rule that consumes it - and that is
+the only question anyone actually has.
 
 **`other` is a genuine bin** - 134 of monastery's 212 names. Mostly things a tank
 flattens (petunias, clay jugs, milk cans, baskets, sidewalks, canisters), but it

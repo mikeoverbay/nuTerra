@@ -76,7 +76,7 @@ Public Class MapFlightBake
     ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
     ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 3
+    Public Const BAKE_VERSION As Integer = 4
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
@@ -229,6 +229,34 @@ Public Class MapFlightBake
     ''' </summary>
     Private Shared Function classify(p As String) As Byte
 
+        ' BEFORE THE FENCE TEST, and it has to be, because the fence test
+        ' matches the FOLDER and not just the file. The owner, 2026-09-13:
+        ' "the entire olive garden area is mostly marked in black. Those should
+        ' be crushable."
+        '
+        ' The vineyard on monastery is two assets. The vines are SpeedTree -
+        ' vegetation/Broadleaves/GrapeVine_01.srt - and were always keyed tree
+        ' by the tree pass, which writes a constant. The TRELLIS is a model:
+        '
+        '     content/GatesAndFences/gaf_19_05_GrapevineFence/normal/lod0/...
+        '
+        ' and "GatesAndFences" alone matches both `fence` and `gate`, so every
+        ' asset under that folder keyed KIND_FENCE whatever its name. Crushable
+        ' is "kind = tree AND NOT solid", so a fence-keyed texel can never be
+        ' crushed - and a vineyard is a GRID of these, which turned the whole
+        ' field into an obstacle a tank would drive around.
+        '
+        ' I HAD THIS WRONG IN WRITING, below, listing GrapevineFence among names
+        ' that "are all fences - correct". Correct about the NAME and wrong about
+        ' the consequence: a wooden grape trellis is not a barrier. Its own havok
+        ' proxy is named __n_wood0.
+        '
+        ' Narrow on purpose, like the lamp line. `grapevine` matches exactly one
+        ' model family in all 218 packages - gaf_19_05_GrapevineFence - so this
+        ' cannot reach a real fence. It does not touch `vine` on its own, which
+        ' still falls through to the tree test below where it belongs.
+        If has(p, "grapevine") Then Return KIND_TREE
+
         If has(p, "fence", "zabor", "ograda", "rail", "hedge",
                "gate", "wire", "palisade") Then Return KIND_FENCE
         ' BEFORE the tree test, and this is the whole reason it exists:
@@ -239,8 +267,12 @@ Public Class MapFlightBake
         ' Narrow on purpose. The tempting fix is to require a word boundary
         ' around every keyword, and that is a REGRESSION: 23 of monastery's 212
         ' names match a keyword buried inside a longer word and most of them are
-        ' right anyway - WoodFence, StoneFence, ForgedFence, GrapevineFence and
-        ' RabitzFence are all fences; ItalyOutlandHousesCluster is a building;
+        ' right anyway - WoodFence, StoneFence, ForgedFence and RabitzFence are
+        ' all fences; ItalyOutlandHousesCluster is a building;
+        ' (GrapevineFence was in that list and should not have been - see the
+        ' grapevine line above. It is a trellis, and the owner wants it
+        ' crushable. The survey was right that the NAME says fence and wrong
+        ' that the name settles it.)
         ' VendorCart and WoodenCart reach prop through "car" and a cart IS a
         ' prop. A boundary rule breaks fifteen correct answers to fix one wrong
         ' one. So the fix is the one keyword that actually collides.
