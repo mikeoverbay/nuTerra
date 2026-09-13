@@ -607,8 +607,6 @@ Public Class TankRoutes
                                 rr = 8 : gg = 8 : bb = 10
                             ElseIf (f And TankNav.WATER) <> 0 Then
                                 rr = 16 : gg = 34 : bb = 70
-                            ElseIf (f And TankNav.TRUNK) <> 0 Then
-                                rr = 52 : gg = 34 : bb = 18
                             ElseIf (f And TankNav.STEEP) <> 0 Then
                                 rr = 70 : gg = 66 : bb = 26
                             Else
@@ -738,8 +736,6 @@ Public Class TankRoutes
                                     col = Drawing.Color.FromArgb(6, 6, 8)
                                 ElseIf (f And TankNav.WATER) <> 0 Then
                                     col = Drawing.Color.FromArgb(14, 30, 60)
-                                ElseIf (f And TankNav.TRUNK) <> 0 Then
-                                    col = Drawing.Color.FromArgb(44, 30, 16)
                                 ElseIf (f And TankNav.STEEP) <> 0 Then
                                     col = Drawing.Color.FromArgb(58, 54, 22)
                                 Else

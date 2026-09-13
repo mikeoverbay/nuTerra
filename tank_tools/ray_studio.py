@@ -57,6 +57,8 @@ import sys
 # maze.py and draw_path.py already do exactly this; ray_studio did not, because
 # until today it imported nothing from its own package.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import json
+import math
 import time
 import struct
 import numpy as np
@@ -173,7 +175,18 @@ def build_grid(map_name, hull_r_m):
                  ((kind == k_tree) & ~solid))
     testable = ~crushable
 
-    collide = (over & testable)         | (key & TRUNK_BIT).astype(bool)         | (key & OUTLAND_BIT).astype(bool)         | (kind == k_water)
+    # THE TRUNK DOES NOT BLOCK.
+    # A tree is crushable and a tank knocks the whole thing flat -
+    # trunk included - so re-blocking the trunk refused the very ground
+    # the crushable rule had just opened. 98.05% of trunk texels key
+    # tree; the
+    # 1.95% landing on building, rock or other carry the solid bit and stay
+    # blocked by the height test on their own. What still stops a tank in a
+    # wood is `tree AND solid` - rock or wall standing under the canopy.
+    #
+    # Measured on monastery: after the half-hull growth the planner saw
+    # 26.78% of the bake blocked with trunks in, 24.00% with them out.
+    collide = (over & testable)         | (key & OUTLAND_BIT).astype(bool)         | (kind == k_water)
 
     # GROW IT BY THE HULL, ONCE, AT FULL RESOLUTION.
     #
@@ -906,6 +919,7 @@ def main():
     # affordable ground encloses.
     maze_pts, maze_roads, maze_msg = [], [], ""
     maze_job = {}
+    maze_live = []                # roads the worker has finished so far
 
     def run_maze(key):
         """The flood fill, on a worker thread. Writes only into maze_job."""
@@ -922,8 +936,32 @@ def main():
                 # is the sweep, and it is the one that matches how hulls
                 # actually start: spread along the base line, each taking the X
                 # it stands on. [t] still gives the obstacle-based roads.
+                # BOTH TEAMS, each from its OWN base line.
+                #
+                # "start 1 to 2 path rows on home base Z pos. start base 2 to
+                # base 1 path at their base Z." The second set is the same
+                # sweep with the ends swapped, and because the rows are now the
+                # bases' own Z it comes out on team 2's line without being told.
+                def _mk(team):
+                    def _landed(rec):
+                        # SIMPLIFIED ON THE WORKER, so the frame loop only ever
+                        # copies a list - it never does geometry.
+                        rec["pts"] = maze.simplify(rec["pts"])
+                        rec["team"] = team
+                        maze_live.append(rec)
+                    return _landed
+
                 c = maze.sweep_roads(g, start, goal, step_m=road_step,
-                                     standoff_m=standoff_m)
+                                     standoff_m=standoff_m,
+                                     row_inset_m=row_inset,
+                                     on_route=_mk(1))
+                c2 = maze.sweep_roads(g, goal, start, step_m=road_step,
+                                      standoff_m=standoff_m,
+                                      row_inset_m=row_inset,
+                                      on_route=_mk(2))
+                for q in c2["routes"]:
+                    q["team"] = 2
+                c["routes"] = c["routes"] + c2["routes"]
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
                 # SIMPLIFIED FOR DRAWING ONLY. One point per metre is what the
                 # flood fill produces and what the route IS; it is not what a
@@ -956,10 +994,14 @@ def main():
         finally:
             maze_job["busy"] = False
 
-    MAZE_COLS = [(255, 120, 120), (255, 190, 90), (255, 255, 120),
-                 (150, 255, 120), (120, 255, 220), (120, 190, 255),
-                 (170, 150, 255), (255, 140, 220), (200, 200, 200),
-                 (255, 160, 160), (200, 255, 180), (180, 220, 255)]
+    MAZE_COLS = [(255, 120, 120), (255, 190, 90), (255, 235, 120),
+                 (255, 160, 90), (255, 200, 160), (255, 140, 140),
+                 (255, 175, 60), (255, 220, 180), (240, 130, 100),
+                 (255, 205, 120), (250, 150, 170), (255, 180, 110)]
+    MAZE_COLS2 = [(120, 200, 255), (140, 255, 220), (150, 255, 150),
+                  (120, 170, 255), (180, 220, 255), (120, 240, 200),
+                  (170, 150, 255), (200, 255, 200), (100, 210, 230),
+                  (160, 190, 255), (140, 255, 180), (190, 210, 255)]
     # WHAT THE MAZE PRODUCED, and nothing else. The branch tree, the bearing
     # sweep and their state are gone - "the old radar seeking code with
     # expanding rings" - so a route on this map came from the flood fill.
@@ -970,11 +1012,13 @@ def main():
     road_budget = 25
     road_step = 40.0              # metres between one swept road and the next
     standoff_m = 6.0              # how far a road tries to stay off a wall
+    row_inset = 10.0              # start/cross lines pulled in from the border
     have_dead, show_dead = False, True   # ground the base cannot reach
     # The maze's own constants, read from it rather than restated here, so the
     # panel cannot drift from the thing it is describing.
     from tank_tools import maze as _mz
     maze_cell, maze_climb = _mz.CELL_M, _mz.MAX_CLIMB_DEG
+    play_bb = _mz.play_box(map_name)   # the battle box, drawn in red
     # PACING, AND IT IS TWO SEPARATE THINGS that used to be one.
     #
     # steps_per_frame is HOW MUCH WORK a frame does. At 1 you see every single
@@ -1015,6 +1059,56 @@ def main():
         print("squares: NOT LOADED - %s" % ex)
     slider_rects = {}             # name -> (rect, lo, hi) from the last frame
     active_slider = None
+
+    # ---- THE PATH EDITOR ------------------------------------------------
+    # The graph is in path_edit and knows nothing about GL; everything here is
+    # the viewer's half - which tool is armed, what is selected, what is being
+    # dragged. Paths and enclosed areas are DERIVED, so there is nothing to
+    # keep in step: every edit calls rebuild() and the drawing follows.
+    from tank_tools import path_edit as pe_mod
+    edit = pe_mod.PathEdit(snap_m=0.5, snap_on=True)
+    tool = None                   # None, "point", "line", "zone"
+    sel = []                      # selected node ids, in ring order for a face
+    sel_edge = None               # (a, b) when a LINE is what was picked
+    TEAM_NAME = {1: "team 1", 2: "team 2", 3: "both teams", 0: "hand drawn"}
+    # THE OWNER'S BASE COLOURS: "2 is red and 1 is green." One table, read by
+    # the base rings and by the ring round every start and end, so a point and
+    # the base it belongs to are never two different greens.
+    TEAM_RING = {1: (80, 235, 110), 2: (255, 70, 70),
+                 3: (225, 190, 255), 0: (200, 205, 215)}
+    lit_face = None               # the enclosed area under the last zone click
+    line_from = None              # the open end of a line being run
+    edit_drag = None              # {"ids", "from", "base"} while dragging
+    edit_msg = ""                 # what the last edit did, shown under the map
+    edit_auto = True              # load a finished sweep into the editor,
+                                  # until the graph is edited by hand
+    roads_loaded = False          # the graph holds the sweep, so do not draw
+                                  # the sweep's own polylines over the top
+    show_raw = False              # ...unless asked, to compare the two
+    show_pickbuf = False          # draw the pick buffer instead of the map
+    show_snapgrid = False
+    snap_text = "0.5"             # what is in the box; only parsed on Enter
+    snap_editing = False
+    snap_rect = None              # where the box was last drawn
+    # Warm for a message, white for a plain vertex, PINK FOR A FORK - the
+    # owner's call, and it wants to be unmissable against the map's greens.
+    C_NODE, C_END, C_FORK = (205, 212, 222), (255, 255, 255), (255, 79, 176)
+    C_EDGE, C_SELECT, C_AREA = (120, 200, 255), (255, 255, 255), (255, 176, 60)
+    C_SHARED = (225, 190, 255)    # street both teams use - between warm and cool
+    C_HAND = (200, 205, 215)      # added by hand, belonging to neither
+    # HOW BIG THE TARGET IS, versus how big the dot LOOKS. These were one
+    # number and that was the mistake: making the target bigger made the dots
+    # bigger with it and the map turned to soup. The pick pass stamps at
+    # GRAB_PX, the screen draws at DOT_PX, and nothing forces them to agree -
+    # which is the whole reason the pick buffer is worth having.
+    GRAB_PX = 13.0                # grab radius, in screen pixels
+    DOT_PX = 7.0                  # how big a vert is drawn
+    # "some info i can pass on as a text message when the tank gets to the
+    # point such as reduce speed, look right/left, smoke on" - the owner's
+    # list, with the empty string first so a cycle can clear it.
+    MSGS = ["", "reduce speed", "look left", "look right", "smoke on",
+            "hold position"]
+    SPDS = ["", "75%", "50%", "25%"]
     astar_class = []              # which homotopy class each route belongs to
     landmark_m2 = LANDMARK_M2
     show_marks = True
@@ -1036,6 +1130,7 @@ def main():
     # view_cells is how much map is on screen, so shrinking it zooms in.
     view_cx, view_cz = 0.0, 0.0
     view_cells = float(N)
+    fit_pending = True            # frame the play box on the first frame
     dragging, drag_from = False, (0, 0)
     # Where the square map sits inside the middle column this frame. The
     # helpers below read these, so every overlay lands on the map wherever the
@@ -1047,6 +1142,147 @@ def main():
         cw, ch = view_span(w[0], w[1]) if isinstance(w, tuple) else (view_cells, view_cells)
         return (view_cx + (mx - map_ox) / (w[0] if isinstance(w, tuple) else w) * cw,
                 view_cz + (my - map_oy) / (w[1] if isinstance(w, tuple) else w) * ch)
+
+    def world_at_mouse(mx, my, w):
+        """Screen pixel -> world metres, the exact inverse of to_px.
+
+        to_px goes world -> cell -> view -> pixel; this undoes all three. It
+        has to be the inverse and not an approximation, or a point lands a
+        little away from where it was dropped and the error grows with zoom.
+        """
+        cx, cz = cell_at_mouse(mx, my, w)
+        return (g["wx0"] + cx / N * (g["wx1"] - g["wx0"]),
+                g["wz1"] - cz / N * (g["wz1"] - g["wz0"]))
+
+    def load_routes():
+        """Put the swept roads into the editor so they can be PICKED.
+
+        The editor started out only able to grow its own graph from
+        shift-clicks, which meant that with a full sweep on screen there was
+        nothing to select: "our path" is what Run produced, and none of it was
+        in the graph. This is the bridge.
+
+        VERTICES ARE DEDUPED ON THE 1 m CELL, which is the planner's own
+        resolution - two route points in the same cell are the same place as
+        far as anything that made them is concerned. That is what turns the
+        thirty roads fanning out of a base into one fork rather than thirty
+        lines lying on top of each other.
+
+        What it does NOT do is stitch roads that run along the same street
+        without sharing vertices; their points fall in different cells and
+        they stay separate lines. Simplify put the vertices where the corners
+        are, not on a shared lattice, so there is nothing here to match on.
+        """
+        nonlocal_loaded[0] = True
+        edit.clear()
+        cell, at = 1.0, {}
+
+        def vert(x, z):
+            k = (round(x / cell), round(z / cell))
+            i = at.get(k)
+            if i is None:
+                i = edit.add(x, z, snap=False)
+                at[k] = i
+            return i
+
+        lines = 0
+        for road in maze_roads:
+            # WHICH SIDE THIS ROAD SERVES, kept as a BITMASK - 1, 2, or 3 for
+            # ground both teams use. It has to be a mask and not a number
+            # because the dedupe above deliberately merges verts where the two
+            # sets share a street, and that shared vertex belongs to both.
+            #
+            # Without this the editor drew all 31 roads in the warm palette,
+            # straight over the cool ones underneath, and the two sets stopped
+            # being tellable apart the moment the graph loaded.
+            bit = 2 if road.get("team") == 2 else 1
+            prev = None
+            first = True
+            for q in road["pts"]:
+                i = vert(q[0], q[1])
+                edit.nodes[i]["team"] |= bit
+                if first:
+                    # WHERE THE TANKS ARE SENT. A road's first point is at the
+                    # base it leaves from, and the dedupe puts every road of a
+                    # side on the same one - so a side ends up with one start,
+                    # not fifteen, which is what a spawn point should be.
+                    edit.nodes[i]["start"] = True
+                    first = False
+                if prev is not None and prev != i:
+                    before = edit.degree(prev)
+                    edit.link(prev, i)
+                    lines += 1 if edit.degree(prev) > before else 0
+                prev = i
+        edit.rebuild()
+        return len(edit.nodes), lines
+
+    # load_routes runs before roads_loaded is bound in the frame loop's
+    # scope, so the flag it sets lives in a one-slot list it can reach.
+    nonlocal_loaded = [False]
+
+    def save_paths():
+        """Write the graph where the SIM can read it.
+
+        INTO THE FLIGHT FOLDER, beside the bake, as <map>_paths.json. That is
+        where nuTerra already looks for everything else about this map, and it
+        means the sim reads whatever was saved LAST rather than whatever
+        happened to be baked - which is the point, because the graph is edited
+        by hand between runs.
+
+        The file is PathEdit.to_dict verbatim: every point with its id, x, z,
+        team, start flag and message fields. TankSim reads the start flags and
+        ignores the rest; the rest is there for whatever drives a tank along a
+        path after that.
+        """
+        path = os.path.join(FLIGHT, "%s_paths.json" % map_name)
+        d = edit.to_dict()
+        with io.open(path, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(d, fh, indent=1)
+        return path, len(d["nodes"]), len(edit.starts())
+
+    def fit_play():
+        """Frame the BATTLE BOX, not the whole bake.
+
+        The bake is 1400 m across and the play field is 1000 of them, so the
+        opening view spent a fifth of the window on scenery no tank may enter
+        - and the two bases, which are what everything here is about, sat near
+        the top and bottom edges. This centres the red rectangle instead.
+
+        view_cells is the ACROSS extent and the down extent follows the
+        panel's shape, so fitting BOTH means asking for whichever of the two
+        needs more room. Asking for the width alone crops the top and bottom
+        on a tall panel, which is the same trap [f] documents.
+        """
+        nonlocal view_cells, view_cx, view_cz
+        if play_bb is None:
+            return False
+        _, _, _pw, _ph = map_rect()
+        bx0, bz0, bx1, bz1 = play_bb
+        span_x, span_z = g["wx1"] - g["wx0"], g["wz1"] - g["wz0"]
+        cx0 = (bx0 - g["wx0"]) / span_x * N
+        cx1 = (bx1 - g["wx0"]) / span_x * N
+        cz0 = (g["wz1"] - bz1) / span_z * N
+        cz1 = (g["wz1"] - bz0) / span_z * N
+        # A little air round the red line, so it is not flush with the panel.
+        wide = abs(cx1 - cx0) * 1.04
+        tall = abs(cz1 - cz0) * 1.04
+        shape = _ph / max(1.0, float(_pw))
+        view_cells = max(wide, tall / max(1e-6, shape))
+        view_cx = (cx0 + cx1) * 0.5 - view_cells * 0.5
+        view_cz = (cz0 + cz1) * 0.5 - view_cells * shape * 0.5
+        return True
+
+    def px_to_m(px, w=None):
+        """Pixels back to metres, the inverse of m_to_px.
+
+        The grab radius is a screen distance - a target the pointer has to
+        land in - but every query in path_edit is in metres, so it has to be
+        converted at the current zoom rather than fixed. A fixed metre
+        tolerance would be an enormous target zoomed out and an unhittable
+        one zoomed in.
+        """
+        pw = (w[0] if isinstance(w, tuple) else w) if w else w_now
+        return px * (g["wx1"] - g["wx0"]) / N * view_cells / max(1.0, float(pw))
 
     def m_to_px(m, w):
         # Metres to pixels THROUGH THE VIEW, so a ring drawn at 3.5 m is 3.5 m
@@ -1142,6 +1378,12 @@ def main():
         return view_cells, view_cells * (ph / max(1.0, float(pw)))
 
     while running:
+        # WHAT THE WORKER HAS FINISHED SO FAR, drawn while it is still going.
+        # A copy, not the list itself: the worker appends to it from its own
+        # thread and iterating a list being appended to is asking for trouble.
+        if maze_job.get("busy") and maze_live:
+            maze_roads = maze_live[:]
+
         # THE WORKER'S RESULT, collected on the frame that finds it.
         if "done" in maze_job:
             d = maze_job.pop("done")
@@ -1149,6 +1391,17 @@ def main():
                 maze_pts = d["pts"]
             if "roads" in d:
                 maze_roads = d["roads"]
+                # STRAIGHT INTO THE EDITOR, so the path that just appeared can
+                # be picked without a second step. Skipped once the graph has
+                # been touched by hand - reloading would throw that away - and
+                # [l] reloads on purpose whenever it is wanted.
+                if edit_auto and maze_roads:
+                    nv, nl = load_routes()
+                    sel, sel_edge, lit_face, line_from = [], None, None, None
+                    fit_play()
+                    edit_msg = ("loaded %d road(s): %d verts, %d lines, "
+                                "%d fork(s)" % (len(maze_roads), nv, nl,
+                                                len(edit.forks())))
             if d.get("dead") is not None:
                 # BLACK MEANS THE BASE CANNOT GET THERE. Built once per run and
                 # uploaded as a texture on the same 1 m grid the block layer
@@ -1176,6 +1429,15 @@ def main():
                                                  key=pygame.K_g, mod=0,
                                                  unicode="", scancode=0))
         map_ox, map_oy, w_now, h_now = map_rect()
+        if nonlocal_loaded[0]:
+            nonlocal_loaded[0] = False
+            roads_loaded = True
+        if fit_pending:
+            # NOT AT STARTUP - the panel has no size until a frame has been
+            # laid out, and fitting to a zero-width window puts the view
+            # somewhere unrecoverable.
+            fit_pending = False
+            fit_play()
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
@@ -1212,6 +1474,11 @@ def main():
                 # drift away from what the keys do.
                 # A SLIDER IS GRABBED, not clicked once: the value follows
                 # the pointer until the button comes up.
+                if snap_rect is not None and snap_rect.collidepoint(e.pos):
+                    snap_editing = True
+                    continue
+                snap_editing = False
+
                 grabbed = None
                 for nm, (sr, lo, hi) in slider_rects.items():
                     if sr.collidepoint(e.pos):
@@ -1222,6 +1489,8 @@ def main():
                             road_budget = int(round(val))
                         elif nm == "standoff":
                             standoff_m = round(val, 1)
+                        elif nm == "inset":
+                            row_inset = round(val, 1)
                         break
                 if grabbed is not None:
                     active_slider = grabbed
@@ -1236,11 +1505,180 @@ def main():
                     pygame.event.post(pygame.event.Event(pygame.KEYDOWN,
                                                          key=hit, mod=0,
                                                          unicode="", scancode=0))
+                elif (e.button == 1 and e.pos[0] >= LEFT_W and
+                      e.pos[0] < screen.get_width() - RIGHT_W and
+                      (edit.nodes or tool is not None)):
+                    # PICKING IS THE LEFT BUTTON'S JOB, ALWAYS.
+                    #
+                    # This used to require a tool to be armed, and the tool
+                    # starts Off - so on a fresh window every click on the
+                    # path fell straight through to the pan handler and the
+                    # editor never saw it. That is not what was asked for:
+                    # "I want to pick points and lines in our path... I only
+                    # want to add if i have shift down." The radios say what
+                    # SHIFT ADDS. They have no business gating a pick.
+                    #
+                    # A click that lands on nothing pickable still pans, so
+                    # the map has not lost its drag.
+                    wx, wz = world_at_mouse(e.pos[0], e.pos[1], (w_now, h_now))
+                    sx, sz = edit.snap(wx, wz)
+                    who = gv.pick("pickbuf", e.pos[0] - map_ox, e.pos[1] - map_oy)
+                    kind, who_id = who[0], (who[1] << 8) | who[2]
+
+                    # A PLAIN CLICK PICKS. SHIFT ADDS.
+                    #
+                    # "I want to pick points and lines in our path. not add
+                    # them. I only want to add if i have shift down." The left
+                    # button is a selection tool by default and building is
+                    # the deliberate act - the right way round for a path that
+                    # already exists, where most clicks are to look at
+                    # something or move it rather than to grow it.
+                    # get_mods(), NOT e.mod: a MOUSEBUTTONDOWN carries no
+                    # modifier field at all - only KEYDOWN does - and reading
+                    # one off it raises. The headless test missed this because
+                    # it POSTED its own events with mod= set, so it was
+                    # checking a field it had invented rather than the one
+                    # pygame delivers.
+                    adding = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
+
+                    if tool == "zone":
+                        # "select the verts that enclose the area" - the
+                        # smallest ring containing the click, so a region
+                        # inside another region picks the inner one.
+                        f = edit.face_at(wx, wz)
+                        lit_face = f
+                        sel = list(f.ring) if f else []
+                        sel_edge = None
+                        edit_msg = ("area %d m2 - the %d verts enclosing it"
+                                    % (abs(f.area), len(f))) if f else                             "no enclosed area there"
+
+                    elif not adding:
+                        # ---- PICKING -------------------------------------
+                        if kind == 1 and who_id in edit.nodes:
+                            if who_id not in sel:
+                                sel, sel_edge = [who_id], None
+                            edit_drag = {
+                                "ids": list(sel), "from": (wx, wz),
+                                "moved": False,
+                                "base": [(i, edit.nodes[i]["x"],
+                                          edit.nodes[i]["z"]) for i in sel]}
+                            edit_msg = "vert %d, %s" % (who_id,
+                                                        edit.kind(who_id))
+                        elif kind == 2:
+                            # THE BUFFER SAYS "AN EDGE, ONE END OF WHICH IS
+                            # THIS NODE" - the colour carries one id, not a
+                            # pair. near_edge then names the exact pair, and
+                            # it can be trusted here because the buffer has
+                            # already established the pointer is on a line.
+                            ed = edit.near_edge(wx, wz, px_to_m(GRAB_PX))
+                            if ed is not None:
+                                a, b = ed[0], ed[1]
+                                sel_edge = (a, b)
+                                sel = [a, b]
+                                edit_drag = {
+                                    "ids": list(sel), "from": (wx, wz),
+                                    "moved": False,
+                                    "base": [(i, edit.nodes[i]["x"],
+                                              edit.nodes[i]["z"])
+                                             for i in sel]}
+                                edit_msg = "line %d-%d, %.1f m" % (
+                                    a, b,
+                                    math.hypot(edit.nodes[a]["x"] -
+                                               edit.nodes[b]["x"],
+                                               edit.nodes[a]["z"] -
+                                               edit.nodes[b]["z"]))
+                        else:
+                            sel, sel_edge, lit_face = [], None, None
+                            line_from = None
+                            edit_msg = ""
+                            # NOTHING UNDER THE POINTER: this is a pan, the
+                            # same as it always was. Clearing the selection
+                            # and grabbing the map are the same gesture.
+                            dragging, drag_from = True, e.pos
+
+                    # ---- ADDING, shift held ------------------------------
+                    elif tool is None:
+                        edit_msg = "pick a tool first - Point [6] or Line [7]"
+                    elif kind == 1 and who_id in edit.nodes:
+                        # Shift on an existing vert runs a line to it rather
+                        # than dropping a second point on top of it.
+                        sel, sel_edge = [who_id], None
+                        if line_from is None:
+                            line_from = who_id
+                            edit_msg = ("from vert %d - shift-click the next"
+                                        % who_id)
+                        else:
+                            edit.link(line_from, who_id)
+                            line_from = who_id if tool == "line" else None
+                            edit.rebuild()
+                            edit_msg = "joined"
+                    elif kind == 2:
+                        # ON A LINE: break it and put the new point in the
+                        # gap, or the point sits on top of the run without
+                        # being part of it.
+                        ed = edit.near_edge(wx, wz, px_to_m(GRAB_PX))
+                        if ed is not None:
+                            i = edit.add(*edit.snap(ed[2], ed[3]))
+                            edit.split_edge(ed[0], ed[1], i)
+                            sel, sel_edge = [i], None
+                            edit.rebuild()
+                            edit_msg = "split the line at %d" % i
+                    else:
+                        i = edit.add(sx, sz)
+                        if line_from is not None:
+                            edit.link(line_from, i)
+                        line_from = i if tool == "line" else None
+                        sel, sel_edge = [i], None
+                        edit_auto = False
+                        edit.rebuild()
+                        edit_msg = "point %d" % i
                 elif e.pos[0] >= LEFT_W and e.pos[0] < screen.get_width() - RIGHT_W:
                     dragging, drag_from = True, e.pos
             elif e.type == pygame.MOUSEBUTTONUP and e.button in (1, 2, 3):
                 dragging = False
                 active_slider = None
+                if edit_drag is not None:
+                    # A DRAGGED END THAT LANDS ON SOMETHING JOINS IT. On a
+                    # vertex the two merge and the survivor's degree climbs to
+                    # three, which IS the fork - nothing sets a flag. On a
+                    # line the edge is split first, so the join still lands on
+                    # a real vertex.
+                    #
+                    # ONLY IF THE POINTER ACTUALLY MOVED. Press-and-release on
+                    # the same pixel is a CLICK, and a click is a pick. This
+                    # ran unconditionally at first, so every click on a vert
+                    # merged it into whatever neighbour was inside the grab
+                    # radius - on loaded roads, where verts sit a metre or two
+                    # apart, that was almost every click. It read as "pick
+                    # isn't working" because the pick was fine and the graph
+                    # was being eaten underneath it.
+                    ids = edit_drag["ids"]
+                    moved = edit_drag.get("moved", False)
+                    if moved:
+                        edit_auto = False
+                    edit_drag = None
+                    if not moved:
+                        pass
+                    elif len(ids) == 1:
+                        me = ids[0]
+                        wx, wz = world_at_mouse(e.pos[0], e.pos[1], (w_now, h_now))
+                        onto = edit.near_node(wx, wz, px_to_m(GRAB_PX),
+                                              skip=me)
+                        if onto is not None:
+                            edit.merge(me, onto)
+                            sel = [onto]
+                            edit_msg = ("fork at %d" % onto
+                                        if edit.degree(onto) >= 3 else "merged")
+                        else:
+                            ed = edit.near_edge(wx, wz, px_to_m(GRAB_PX),
+                                                skip=me)
+                            if ed is not None:
+                                mid = edit.add(*edit.snap(ed[2], ed[3]))
+                                edit.split_edge(ed[0], ed[1], mid)
+                                edit.merge(me, mid)
+                                sel = [mid]
+                                edit_msg = "fork at %d - the line was split" % mid
+                    edit.rebuild()
             elif e.type == pygame.MOUSEMOTION and active_slider is not None:
                 sr, lo, hi = slider_rects[active_slider]
                 frac = (e.pos[0] - sr.x) / max(1, sr.w)
@@ -1249,14 +1687,136 @@ def main():
                     road_budget = int(round(val))
                 elif active_slider == "standoff":
                     standoff_m = round(val, 1)
+                elif active_slider == "inset":
+                    row_inset = round(val, 1)
+            elif e.type == pygame.MOUSEMOTION and edit_drag is not None:
+                wx, wz = world_at_mouse(e.pos[0], e.pos[1], (w_now, h_now))
+                dx = wx - edit_drag["from"][0]
+                dz = wz - edit_drag["from"][1]
+                # A pixel of slop, so a hand that twitches on the button is
+                # still a click and not a one-metre nudge of the vertex.
+                if math.hypot(dx, dz) > px_to_m(2.0):
+                    edit_drag["moved"] = True
+                if not edit_drag["moved"]:
+                    continue
+                for i, bx, bz in edit_drag["base"]:
+                    nx, nz = edit.snap(bx + dx, bz + dz)
+                    edit.nodes[i]["x"], edit.nodes[i]["z"] = nx, nz
+                # The areas follow the verts as they move, so the outline
+                # tracks the drag instead of snapping to it on release.
+                edit.find_faces()
             elif e.type == pygame.MOUSEMOTION and dragging:
                 dx, dy = e.pos[0] - drag_from[0], e.pos[1] - drag_from[1]
                 drag_from = e.pos
                 view_cx -= dx / w_now * view_cells
                 view_cz -= dy / w_now * view_cells
             elif e.type == pygame.KEYDOWN:
+                # THE SNAP BOX EATS THE KEYBOARD WHILE IT HAS THE CARET, or
+                # typing "0.25" into it would arm the point tool twice and
+                # toggle the snap grid on the way past.
+                if snap_editing:
+                    if e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        try:
+                            v = float(snap_text)
+                        except ValueError:
+                            v = 0.0
+                        if v > 0.0:
+                            edit.snap_m = v
+                            edit_msg = "snap %g m" % v
+                        else:
+                            snap_text = "%g" % edit.snap_m
+                            edit_msg = "snap size must be a number above zero"
+                        snap_editing = False
+                    elif e.key == pygame.K_ESCAPE:
+                        snap_text = "%g" % edit.snap_m
+                        snap_editing = False
+                    elif e.key == pygame.K_BACKSPACE:
+                        snap_text = snap_text[:-1]
+                    elif e.unicode and e.unicode in "0123456789.":
+                        snap_text = (snap_text + e.unicode)[:8]
+                    continue
+
                 if e.key in (pygame.K_ESCAPE, pygame.K_q):
                     running = False
+                elif e.key in (pygame.K_9, pygame.K_6, pygame.K_7, pygame.K_8):
+                    # 6/7/8/9 and not 1/2/3/0: the low digits already set the
+                    # block-paint radius and this tool is not worth taking
+                    # them away from it.
+                    tool = {pygame.K_9: None, pygame.K_6: "point",
+                            pygame.K_7: "line", pygame.K_8: "zone"}[e.key]
+                    line_from, lit_face, sel_edge = None, None, None
+                    edit_msg = ("pan" if tool is None else
+                                "point - click to drop, drag onto another to fork"
+                                if tool == "point" else
+                                "line - click vert to vert" if tool == "line" else
+                                "zone - click inside an area to select its verts")
+                elif e.key == pygame.K_l:
+                    if not maze_roads:
+                        edit_msg = "no roads yet - press [g] to sweep first"
+                    else:
+                        nv, nl = load_routes()
+                        sel, sel_edge, lit_face, line_from = [], None, None, None
+                        fit_play()
+                        edit_msg = ("loaded %d road(s): %d verts, %d lines, "
+                                    "%d fork(s)" % (len(maze_roads), nv, nl,
+                                                    len(edit.forks())))
+                elif e.key == pygame.K_s:
+                    edit.snap_on = not edit.snap_on
+                    edit_msg = "snap %s" % ("on" if edit.snap_on else "off")
+                elif e.key == pygame.K_y:
+                    show_snapgrid = not show_snapgrid
+                elif e.key == pygame.K_p:
+                    show_pickbuf = not show_pickbuf
+                elif e.key in (pygame.K_DELETE, pygame.K_BACKSPACE):
+                    if sel_edge is not None:
+                        # A PICKED LINE DELETES AS A LINE. Its two verts are
+                        # in `sel` so the highlight can show both ends, but
+                        # removing them would take the rest of the run with
+                        # them - what was asked for is the segment.
+                        a, b = sel_edge
+                        edit_auto = False
+                        edit.unlink(a, b)
+                        edit_msg = "deleted line %d-%d" % (a, b)
+                        sel, sel_edge, lit_face, line_from = [], None, None, None
+                        edit.rebuild()
+                    elif sel:
+                        through = len(sel) == 1 and edit.degree(sel[0]) == 2
+                        edit_auto = False
+                        for i in list(sel):
+                            edit.remove(i)
+                        edit_msg = ("deleted a through point - the run is now"
+                                    " two" if through else "deleted %d vert%s"
+                                    % (len(sel), "s" if len(sel) > 1 else ""))
+                        sel, sel_edge, lit_face, line_from = [], None, None, None
+                        edit.rebuild()
+                elif e.key == pygame.K_w and sel:
+                    on = not any(edit.nodes[i].get("start")
+                                 for i in sel if i in edit.nodes)
+                    for i in sel:
+                        if i in edit.nodes:
+                            edit.nodes[i]["start"] = on
+                    edit_auto = False
+                    edit_msg = ("%d start point(s) set" % len(sel) if on
+                                else "start cleared")
+                elif e.key == pygame.K_n and sel:
+                    # CYCLES, because a dropdown needs a modal and this panel
+                    # is drawn fresh every frame. The list is the one the
+                    # owner named: "reduce speed, look right/left, smoke on".
+                    cur = edit.nodes[sel[0]]["msg"] if sel[0] in edit.nodes else ""
+                    nxt = MSGS[(MSGS.index(cur) + 1) % len(MSGS)]                         if cur in MSGS else MSGS[1]
+                    for i in sel:
+                        if i in edit.nodes:
+                            edit.nodes[i]["msg"] = nxt
+                    edit_msg = ("message '%s' on %d vert%s" %
+                                (nxt or "none", len(sel),
+                                 "s" if len(sel) > 1 else ""))
+                elif e.key == pygame.K_u and sel:
+                    cur = edit.nodes[sel[0]]["spd"] if sel[0] in edit.nodes else ""
+                    nxt = SPDS[(SPDS.index(cur) + 1) % len(SPDS)]                         if cur in SPDS else SPDS[1]
+                    for i in sel:
+                        if i in edit.nodes:
+                            edit.nodes[i]["spd"] = nxt
+                    edit_msg = "speed cap '%s'" % (nxt or "full")
                 elif e.key == pygame.K_SPACE:
                     paused = not paused
                 elif e.key in (pygame.K_g, pygame.K_t):
@@ -1286,6 +1846,7 @@ def main():
                         maze_msg = "still working - one run at a time"
                     else:
                         maze_job.clear()
+                        del maze_live[:]
                         maze_job["busy"] = True
                         maze_job["key"] = e.key
                         maze_job["t0"] = time.time()
@@ -1381,7 +1942,12 @@ def main():
                 elif e.key == pygame.K_o:
                     show_blocks = not show_blocks
                 elif e.key in (pygame.K_F1, pygame.K_F2, pygame.K_F3,
-                               pygame.K_F4, pygame.K_F5, pygame.K_F6):
+                               pygame.K_F4, pygame.K_F6):
+                    # F5 IS NOT IN HERE. It saves the graph, and this branch
+                    # sits earlier in the chain - with F5 in the tuple the save
+                    # was unreachable and pressing it silently picked a ring
+                    # slot instead. ring_slot is a leftover of the removed
+                    # radar search and nothing reads it any more.
                     ring_slot = e.key - pygame.K_F1
                 elif e.key == pygame.K_F7:
                     ring_auto = not ring_auto
@@ -1418,6 +1984,53 @@ def main():
                     ground_dirty = True
                 elif e.key == pygame.K_c:
                     view_follow = not view_follow
+                elif e.key == pygame.K_F5:
+                    if not edit.nodes:
+                        edit_msg = "nothing to save"
+                    elif not edit.starts():
+                        # A SAVE WITH NO STARTS IS A SIM THAT DRIVES NOWHERE,
+                        # and it would look like the sim being broken rather
+                        # than the file being empty. Refuse and say which.
+                        edit_msg = ("no start points - press [w] on one first, "
+                                    "or the SIM has nowhere to send anyone")
+                    else:
+                        try:
+                            where, nv, ns = save_paths()
+                            edit_msg = ("saved %d verts, %d start(s) -> %s"
+                                        % (nv, ns, os.path.basename(where)))
+                        except Exception as ex:
+                            edit_msg = "save failed: %s" % ex
+                elif e.key == pygame.K_b:
+                    # BREAK. Not a delete - every branch keeps its reach and
+                    # gains its own end point, carrying the original's data.
+                    if sel_edge is not None:
+                        a, b = sel_edge
+                        made = edit.break_edge(a, b)
+                        edit_msg = ("broke line %d-%d into two ends, %d and %d"
+                                    % (a, b, made[0], made[1])) if made else                             "that line is already gone"
+                    elif sel:
+                        made, cut = [], 0
+                        for i in list(sel):
+                            if i in edit.nodes and edit.degree(i):
+                                cut += 1
+                                made += edit.break_at(i)
+                        edit_msg = ("broke %d point(s) into %d end(s)"
+                                    % (cut, len(made))) if cut else                             "nothing joined to break there"
+                    else:
+                        made = []
+                        edit_msg = "pick a point or a line first"
+                    if made:
+                        edit_auto = False
+                        sel, sel_edge, lit_face, line_from = made, None, None, None
+                        edit.rebuild()
+                elif e.key == pygame.K_r:
+                    show_raw = not show_raw
+                    edit_msg = ("raw sweep shown under the editor - it is NOT "
+                                "pickable" if show_raw else
+                                "raw sweep hidden - what you see is the graph")
+                elif e.key == pygame.K_h:
+                    if not fit_play():
+                        edit_msg = "no play box in the bake meta"
                 elif e.key == pygame.K_f:
                     # FIT THE WHOLE MAP, which on a wide panel means showing
                     # MORE than N cells across. view_cells is the across
@@ -1596,15 +2209,37 @@ def main():
         # THE FLOOD FILL'S ROADS, under everything else. Each gets its own
         # colour, because the whole point of showing twelve is telling them
         # apart, and a dot at the waypoint that defines it.
-        for i, road in enumerate(maze_roads):
-            col = MAZE_COLS[i % len(MAZE_COLS)]
+        # THE RAW SWEEP IS HIDDEN ONCE THE EDITOR HOLDS IT.
+        #
+        # Both were being drawn: the sweep's own polylines AND the editor's
+        # graph over the top. Two pictures of the same roads, and only one of
+        # them pickable - so a line was plainly visible, plainly a path, and
+        # could not be selected however carefully it was clicked. Worse, the
+        # two pictures are not identical: the 1 m dedupe puts the graph's
+        # vertices in different places, so the raw polyline bends at points
+        # that have no vertex marker on them at all.
+        #
+        # What is on the map is now what is in the graph. [r] puts the raw
+        # sweep back underneath for comparison, and says so.
+        for i, road in enumerate(maze_roads if (show_raw or not roads_loaded)
+                                 else ()):
+            # TEAM 1 WARM, TEAM 2 COOL, so which base a road serves is legible
+            # without counting. Within a team the hue still walks, so one road
+            # can be followed among fifteen.
+            if road.get("team") == 2:
+                col = MAZE_COLS2[i % len(MAZE_COLS2)]
+            else:
+                col = MAZE_COLS[i % len(MAZE_COLS)]
             pth = road["pts"]
             for k in range(len(pth) - 1):
                 L(to_px(pth[k][0], pth[k][1], w),
                   to_px(pth[k + 1][0], pth[k + 1][1], w), col, 2)
             D(to_px(road["via"][0], road["via"][1], w), col, 7.0)
-        # AND THE OPTIMUM OVER THEM, white, because it is the ruler.
-        for k in range(len(maze_pts) - 1):
+        # AND THE OPTIMUM OVER THEM, white, because it is the ruler. It is a
+        # measurement, not a road, and it is not in the graph - so it goes
+        # with the raw sweep rather than sitting on the map unpickable.
+        for k in range(len(maze_pts) - 1 if (show_raw or not roads_loaded)
+                       else 0):
             L(to_px(maze_pts[k][0], maze_pts[k][1], w),
               to_px(maze_pts[k + 1][0], maze_pts[k + 1][1], w),
               (255, 255, 255), 3)
@@ -1618,8 +2253,21 @@ def main():
             for (qx, qz) in pth:
                 D(to_px(qx, qz, w), col, (3) * 2.0)
 
-        for pt, col, lab in ((start, (0, 200, 255), "START  team 1 base"),
-                             (goal, (255, 140, 0), "FLAG  team 2 base")):
+        # THE PLAY FIELD BOUNDARY, in red.
+        #
+        # The space is 1400 x 1400 and the battle box is 1000 x 1000, so more
+        # than half the ground on screen is somewhere no tank may go. Worth a
+        # line rather than being left to the black layer to imply.
+        if play_bb is not None:
+            bx0, bz0, bx1, bz1 = play_bb
+            corners = [(bx0, bz0), (bx1, bz0), (bx1, bz1), (bx0, bz1), (bx0, bz0)]
+            for k in range(4):
+                L(to_px(corners[k][0], corners[k][1], w),
+                  to_px(corners[k + 1][0], corners[k + 1][1], w),
+                  (255, 60, 60), 2)
+
+        for pt, col, lab in ((start, TEAM_RING[1], "START  team 1 base"),
+                             (goal, TEAM_RING[2], "FLAG  team 2 base")):
             px_, pz_ = to_px(pt[0], pt[1], w)
             CIRC((px_, pz_), max(4, int(m_to_px(50.0, w))), col, 2)
             tag = font.render(f"{lab}  ({pt[0]:.0f}, {pt[1]:.0f})", True, col)
@@ -1642,6 +2290,104 @@ def main():
             L((0, qy), (pw, qy), (255, 255, 255), 1)
             L((qx, 0), (qx, ph), (255, 255, 255), 1)
             CIRC((qx, qy), 7, (255, 255, 255), 1)
+
+        # ------------------------------------------------------------------
+        # THE EDIT GRAPH, over the top of whatever the sweep produced.
+        # ------------------------------------------------------------------
+        # THE SNAP GRID, only where it means something. At whole-map zoom a
+        # half-metre grid is far finer than a pixel, so drawing it would paint
+        # the map solid grey and cost thousands of lines saying nothing. Three
+        # pixels apart is the floor.
+        if show_snapgrid and edit.snap_on and edit.snap_m > 0:
+            step_px = m_to_px(edit.snap_m, w)
+            if step_px > 3.0:
+                wx0, wz0 = world_at_mouse(map_ox, map_oy, w)
+                wx1, wz1 = world_at_mouse(map_ox + pw, map_oy + ph, w)
+                gx = math.floor(min(wx0, wx1) / edit.snap_m) * edit.snap_m
+                while gx <= max(wx0, wx1):
+                    qx = to_px(gx, wz0, w)[0]
+                    L((qx, 0), (qx, ph), (140, 150, 170), 1, 40)
+                    gx += edit.snap_m
+                gz = math.floor(min(wz0, wz1) / edit.snap_m) * edit.snap_m
+                while gz <= max(wz0, wz1):
+                    qy = to_px(wx0, gz, w)[1]
+                    L((0, qy), (pw, qy), (140, 150, 170), 1, 40)
+                    gz += edit.snap_m
+
+        # THE ENCLOSED AREAS. Outlined rather than filled, because everything
+        # on this map is drawn as lines and points in one batch and a filled
+        # polygon would need its own pass for something the outline already
+        # says. The one under the last zone click is drawn brighter and wider.
+        for f in edit.faces:
+            lit = (f is lit_face)
+            ring = f.ring
+            for k in range(len(ring)):
+                a = edit.nodes[ring[k]]
+                b = edit.nodes[ring[(k + 1) % len(ring)]]
+                L(to_px(a["x"], a["z"], w), to_px(b["x"], b["z"], w),
+                  C_AREA, 4.0 if lit else 2.0, 210 if lit else 90)
+
+        # THE RUNS, COLOURED BY WHICH BASE THEY SERVE. Warm is team 1, cool
+        # is team 2, and the ground both sets use is drawn in between - so the
+        # two fifteens still read apart after the graph has merged the streets
+        # they share. Colouring by path index instead, which is what this did
+        # first, painted every road warm and lost team 2 entirely.
+        for i, run in enumerate(edit.paths):
+            for k in range(len(run) - 1):
+                ia, ib = run[k], run[k + 1]
+                a, b = edit.nodes[ia], edit.nodes[ib]
+                t = edit.edge_team(ia, ib)
+                if t == 3:
+                    col = C_SHARED
+                elif t == 2:
+                    col = MAZE_COLS2[i % len(MAZE_COLS2)]
+                elif t == 1:
+                    col = MAZE_COLS[i % len(MAZE_COLS)]
+                else:
+                    col = C_HAND          # drawn by hand, neither side's
+                L(to_px(a["x"], a["z"], w), to_px(b["x"], b["z"], w), col, 2.5)
+
+        # THE LINE BEING RUN, from the open end to the pointer.
+        if line_from is not None and line_from in edit.nodes and tool == "line":
+            mxy = pygame.mouse.get_pos()
+            fx, fz = world_at_mouse(mxy[0], mxy[1], w)
+            fx, fz = edit.snap(fx, fz)
+            a = edit.nodes[line_from]
+            L(to_px(a["x"], a["z"], w), to_px(fx, fz, w), C_EDGE, 1.5, 150)
+
+        # THE PICKED LINE, over its own run so it reads as chosen.
+        if sel_edge is not None and sel_edge[0] in edit.nodes                 and sel_edge[1] in edit.nodes:
+            a, b = edit.nodes[sel_edge[0]], edit.nodes[sel_edge[1]]
+            L(to_px(a["x"], a["z"], w), to_px(b["x"], b["z"], w),
+              C_SELECT, 5.0, 200)
+
+        # THE VERTS. A fork is pink and bigger; an end is white; a through
+        # point is grey. Selected verts get a ring round them.
+        #
+        # AND WHERE A RUN BEGINS OR ENDS GETS A RING IN ITS SIDE'S COLOUR -
+        # green for team 1, red for team 2, the same two the base rings use.
+        # A START is drawn thicker and wider than a plain end, because it is
+        # the one the tanks are actually sent to when SIM runs; an end is just
+        # where the road stops.
+        for i, n in edit.nodes.items():
+            d = edit.degree(i)
+            qx, qy = to_px(n["x"], n["z"], w)
+            col = C_FORK if d >= 3 else (C_END if d == 1 else C_NODE)
+            if n.get("start"):
+                ring = TEAM_RING.get(n.get("team", 0), C_HAND)
+                CIRC((qx, qy), DOT_PX + 7, ring, 2.5)
+                CIRC((qx, qy), DOT_PX + 10, ring, 1.0, alpha=130)
+            elif d == 1:
+                CIRC((qx, qy), DOT_PX + 4,
+                     TEAM_RING.get(n.get("team", 0), C_HAND), 1.5)
+            if i in sel:
+                CIRC((qx, qy), DOT_PX + 4, C_SELECT, 2.0)
+            D((qx, qy), col, (DOT_PX + 2) if d >= 3 else DOT_PX)
+            if n["msg"] or n["spd"]:
+                lab = (n["msg"] or "") + (
+                    ((" / " if n["msg"] else "") + n["spd"]) if n["spd"] else "")
+                t = font.render(lab, True, C_AREA)
+                screen.blit(t, (map_ox + qx + 12, map_oy + qy - 20))
 
         screen.set_clip(None)
 
@@ -1722,6 +2468,46 @@ def main():
             buttons.append((r, label, key, on))
             return y + 26
 
+        def radio(x, y, wpx, items, current):
+            """One of a set, laid out down the panel.
+
+            A radio and a button differ only in what the caller does with the
+            answer, so this posts the same key event every other control does
+            and there is still one implementation of each action.
+            """
+            for label, key, val in items:
+                on = (val == current)
+                r = pygame.Rect(x, y, wpx, 22)
+                hov = r.collidepoint(pygame.mouse.get_pos())
+                pygame.draw.rect(screen, (45, 74, 99) if on else
+                                 ((52, 56, 66) if hov else (38, 41, 49)), r,
+                                 border_radius=3)
+                pygame.draw.rect(screen, (120, 200, 255) if on else PANEL_LINE,
+                                 r, 1, border_radius=3)
+                dot = pygame.Rect(x + 6, y + 7, 8, 8)
+                pygame.draw.ellipse(screen, (20, 22, 28), dot)
+                if on:
+                    pygame.draw.ellipse(screen, (150, 220, 255),
+                                        dot.inflate(-3, -3))
+                pygame.draw.ellipse(screen, PANEL_LINE, dot, 1)
+                screen.blit(font.render(label, True,
+                                        (223, 240, 255) if on else (225, 228, 235)),
+                            (x + 22, y + 3))
+                buttons.append((r, label, key, on))
+                y += 24
+            return y
+
+        def textbox(x, y, wpx, label, text, editing):
+            screen.blit(font.render(label, True, (200, 205, 215)), (x, y))
+            r = pygame.Rect(x + wpx - 78, y - 2, 78, 20)
+            pygame.draw.rect(screen, (14, 17, 22), r, border_radius=3)
+            pygame.draw.rect(screen, (120, 200, 255) if editing else PANEL_LINE,
+                             r, 1, border_radius=3)
+            t = font.render(text + ("_" if editing else ""), True,
+                            (235, 245, 255) if editing else (220, 225, 235))
+            screen.blit(t, (r.right - 6 - t.get_width(), r.y + 2))
+            return r, y + 24
+
         def readout(x, y, label, value, col=(220, 225, 235)):
             screen.blit(font.render(label, True, (135, 140, 152)), (x, y))
             t = font.render(str(value), True, col)
@@ -1769,6 +2555,7 @@ def main():
                    "+%d%%")
         y = slider(LX, y, LW, "standoff", "Wall standoff", standoff_m, 0, 15,
                    "%.0f m")
+        y = slider(LX, y, LW, "inset", "Row inset", row_inset, 0, 100, "%.0f m")
         y = header(LX, y, "VIEW", LW)
         y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
                    pygame.K_v)
@@ -1795,6 +2582,13 @@ def main():
                      (150, 255, 200))
         ry = readout(RX, ry, "wall standoff", "%.0f m" % standoff_m,
                      (150, 255, 200))
+        if play_bb is not None:
+            ry = button(RX, ry, RW, "Frame the play field  [h]", pygame.K_h,
+                        False, (255, 120, 120))
+            ry = readout(RX, ry, "play field",
+                         "%.0f x %.0f m" % (play_bb[2] - play_bb[0],
+                                            play_bb[3] - play_bb[1]),
+                         (255, 120, 120))
         ry += 10
 
         ry = header(RX, ry, "BLOCK LAYER", RW)
@@ -1808,6 +2602,121 @@ def main():
             ry = readout(RX, ry, "layer", "shown" if show_blocks else "hidden")
         ry += 10
 
+        # ---- THE PATH TOOL, under the block layer with a gap -------------
+        ry = header(RX, ry, "PATH TOOL", RW)
+        ry = radio(RX, ry, RW, [("Point  [6]", pygame.K_6, "point"),
+                                ("Line  [7]", pygame.K_7, "line"),
+                                ("Zone - pick area  [8]", pygame.K_8, "zone")],
+                   tool)
+        ry = button(RX, ry, RW, "Off - pan the map  [9]", pygame.K_9,
+                    tool is None)
+        screen.blit(font.render("click picks   shift+click adds", True,
+                                (135, 140, 152)), (RX, ry + 2))
+        ry += 20
+        ry = button(RX, ry, RW, "Load the swept roads  [l]", pygame.K_l,
+                    False, (150, 255, 200) if maze_roads else (135, 140, 152))
+        ry = button(RX, ry, RW, "Save paths for SIM  [F5]", pygame.K_F5,
+                    False, TEAM_RING[1] if edit.starts() else (135, 140, 152))
+        if roads_loaded:
+            ry = button(RX, ry, RW, "Raw sweep underneath  [r]", pygame.K_r,
+                        show_raw)
+            if show_raw:
+                screen.blit(font.render("raw lines are NOT pickable", True,
+                                        (255, 176, 60)), (RX, ry + 2))
+                ry += 18
+        if edit.nodes and not edit_auto:
+            screen.blit(font.render("edited by hand - a sweep will not reload",
+                                    True, (255, 176, 60)), (RX, ry + 2))
+            ry += 18
+        ry += 4
+        ry = button(RX, ry, RW, "Snap  %s  [s]" %
+                    ("on" if edit.snap_on else "off"), pygame.K_s, edit.snap_on)
+        snap_rect, ry = textbox(RX, ry, RW, "snap size m", snap_text, snap_editing)
+        ry = button(RX, ry, RW, "Snap grid  [y]", pygame.K_y, show_snapgrid)
+        ry = button(RX, ry, RW, "Pick buffer  [p]", pygame.K_p, show_pickbuf)
+        ry += 4
+        ry = readout(RX, ry, "verts", "%d" % len(edit.nodes))
+        ry = readout(RX, ry, "paths", "%d" % len(edit.paths))
+        ry = readout(RX, ry, "forks", "%d" % len(edit.forks()),
+                     (255, 79, 176) if edit.forks() else (220, 225, 235))
+        ry = readout(RX, ry, "enclosed areas", "%d" % len(edit.faces),
+                     (255, 176, 60) if edit.faces else (220, 225, 235))
+        if edit.nodes:
+            tms = [n.get("team", 0) for n in edit.nodes.values()]
+            n1 = sum(1 for v in tms if v & 1)
+            n2 = sum(1 for v in tms if v & 2)
+            nb = sum(1 for v in tms if v == 3)
+            ry = readout(RX, ry, "team 1 / team 2", "%d / %d" % (n1, n2))
+            ry = readout(RX, ry, "shared verts", "%d" % nb, C_SHARED)
+        st_ = edit.starts()
+        ry = readout(RX, ry, "starts", "%d" % len(st_),
+                     TEAM_RING[1] if st_ else (220, 225, 235))
+        ry = readout(RX, ry, "ends", "%d" % len(edit.ends()))
+        ry = readout(RX, ry, "rebuilds", "%d" % edit.builds)
+        ry += 10
+
+        ry = header(RX, ry, "SELECTION", RW)
+        if not sel:
+            ry = readout(RX, ry, "nothing picked", "")
+        elif sel_edge is not None and sel_edge[0] in edit.nodes                 and sel_edge[1] in edit.nodes:
+            a, b = sel_edge
+            na, nb = edit.nodes[a], edit.nodes[b]
+            ry = readout(RX, ry, "line", "%d - %d" % (a, b))
+            ry = readout(RX, ry, "length", "%.1f m" % math.hypot(
+                na["x"] - nb["x"], na["z"] - nb["z"]))
+            tm = edit.edge_team(a, b)
+            ry = readout(RX, ry, "serves", TEAM_NAME.get(tm, "hand drawn"),
+                         C_SHARED if tm == 3 else
+                         (MAZE_COLS2[0] if tm == 2 else
+                          (MAZE_COLS[0] if tm == 1 else C_HAND)))
+            ry = readout(RX, ry, "ends", "%s / %s" % (edit.kind(a),
+                                                      edit.kind(b)))
+        elif len(sel) == 1 and sel[0] in edit.nodes:
+            n = edit.nodes[sel[0]]
+            ry = readout(RX, ry, "vert", "#%d" % sel[0])
+            ry = readout(RX, ry, "at", "%.1f, %.1f m" % (n["x"], n["z"]))
+            ry = readout(RX, ry, "kind", edit.kind(sel[0]),
+                         (255, 79, 176) if edit.degree(sel[0]) >= 3
+                         else (220, 225, 235))
+            if edit.nodes[sel[0]].get("start"):
+                ry = readout(RX, ry, "START", "tanks launch here",
+                             TEAM_RING.get(edit.team_of(sel[0]), C_HAND))
+            tm = edit.team_of(sel[0])
+            ry = readout(RX, ry, "serves", TEAM_NAME.get(tm, "hand drawn"),
+                         C_SHARED if tm == 3 else
+                         (MAZE_COLS2[0] if tm == 2 else
+                          (MAZE_COLS[0] if tm == 1 else C_HAND)))
+            ry = readout(RX, ry, "message", n["msg"] or "none",
+                         (255, 176, 60) if n["msg"] else (135, 140, 152))
+            ry = readout(RX, ry, "speed cap", n["spd"] or "full",
+                         (255, 176, 60) if n["spd"] else (135, 140, 152))
+        else:
+            ry = readout(RX, ry, "verts", "%d selected" % len(sel))
+            if lit_face is not None:
+                ry = readout(RX, ry, "area", "%d m2" % abs(lit_face.area),
+                             (255, 176, 60))
+        if sel:
+            ry += 2
+            ry = button(RX, ry, RW, "Start point  [w] toggles", pygame.K_w,
+                        any(edit.nodes[i].get("start")
+                            for i in sel if i in edit.nodes))
+            ry = button(RX, ry, RW, "Message  [n] cycles", pygame.K_n)
+            ry = button(RX, ry, RW, "Speed cap  [u] cycles", pygame.K_u)
+            ry = button(RX, ry, RW,
+                        ("Break this line  [b]" if sel_edge is not None else
+                         "Break at %d point%s  [b]" %
+                         (len(sel), "s" if len(sel) > 1 else "")),
+                        pygame.K_b, False, (255, 176, 60))
+            ry = button(RX, ry, RW,
+                        ("Delete line  [del]" if sel_edge is not None else
+                         "Delete  %d vert%s  [del]" %
+                         (len(sel), "s" if len(sel) > 1 else "")),
+                        pygame.K_DELETE, False, (255, 120, 120))
+        ry += 10
+
+        if edit_msg:
+            screen.blit(font.render("edit: " + edit_msg[:70], True,
+                                    (255, 176, 60)), (LEFT_W + 10, SH - 40))
         if maze_msg:
             screen.blit(font.render(maze_msg[:96], True, (150, 255, 200)),
                         (LEFT_W + 10, SH - 22))
@@ -1825,12 +2734,67 @@ def main():
         # back to the window, and draw it as one quad in the panel.
         flush()
         gv.end_fbo(SW0, SH0)
+
+        # THE PICK BUFFER, its own pass into its own surface.
+        #
+        # Every node and every edge again, but flat-coloured by identity: red
+        # says WHAT (1 node, 2 edge) and green/blue carry the id, so one pixel
+        # read answers "what is under the cursor" and "which one" together.
+        # It costs one more pass over the edit graph - tens of items, not the
+        # map - and it replaces every distance-to-segment hit test.
+        #
+        # NODES ARE STAMPED FATTER HERE THAN THEY DRAW. That is the whole
+        # trick behind "big enough to select": the grab target is set in this
+        # pass and the dot stays small on screen.
+        if edit.nodes:
+            gv.begin_fbo("pickbuf", pw, ph, clear=(0.0, 0.0, 0.0))
+            # EVERYTHING FAT - BUT A VERT MAY NOT EAT ITS OWN NEIGHBOURS.
+            #
+            # "there are some path lines I can't select. are they dead?" They
+            # were not dead: every drawn segment had an edge behind it. The
+            # verts were simply covering them. Loaded roads have verts about a
+            # metre apart, which at whole-map zoom is under a pixel, so a
+            # 26-pixel disc on each one paved the entire road and the line
+            # between them never reached the buffer at all. Making the target
+            # fatter had made it worse.
+            #
+            # So the vert target is capped at a fraction of the distance to
+            # its nearest neighbour ON SCREEN. Zoomed in there is room and it
+            # is the full fat disc; zoomed out it shrinks and leaves the line
+            # showing between. Either way the thing under the pointer is the
+            # thing that gets picked.
+            lw = min(GRAB_PX * 2.0, gv.max_line_w)
+            px_of = {}
+            for i, n in edit.nodes.items():
+                px_of[i] = to_px(n["x"], n["z"], (pw, ph))
+            room = {}
+            for a in edit.edges:
+                pa = px_of[a]
+                for b in edit.edges[a]:
+                    d = math.hypot(pa[0] - px_of[b][0], pa[1] - px_of[b][1])
+                    if d < room.get(a, 1e9):
+                        room[a] = d
+            for a in edit.edges:
+                for b in edit.edges[a]:
+                    if a > b:
+                        continue
+                    L(px_of[a], px_of[b], (2, (a >> 8) & 255, a & 255), lw)
+            for i, n in edit.nodes.items():
+                # 0.35 of the gap, so two neighbours use 0.7 of it between
+                # them and 30% of every segment stays line. Never below 3 px,
+                # or a dense run would have no vert target at all.
+                r = min(GRAB_PX, max(3.0, 0.35 * room.get(i, GRAB_PX * 2)))
+                D(px_of[i], (1, (i >> 8) & 255, i & 255), r * 2.0)
+            flush()
+            gv.end_fbo(SW0, SH0)
+
         # V-FLIPPED, because an FBO's origin is BOTTOM-left and every other
         # texture here is fed top-row-first. Without the flip the buffer came
         # out upside down - caught because the START and FLAG rings, drawn into
         # the buffer, ended up on the opposite sides from their labels, which
         # are drawn on the window overlay and were right.
-        gv.blit("mapbuf", (map_ox, map_oy, pw, ph), (0.0, 1.0, 1.0, 0.0))
+        gv.blit("pickbuf" if (show_pickbuf and edit.nodes) else "mapbuf",
+                (map_ox, map_oy, pw, ph), (0.0, 1.0, 1.0, 0.0))
 
         gv.surface_texture("ui", screen)
         gv.blit("ui", (0, 0, SW0, SH0))

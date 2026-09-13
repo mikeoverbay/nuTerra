@@ -91,6 +91,12 @@ Public Class MapTankRays
     ''' the hull itself already shows.
     ''' </summary>
     Public Sub Draw()
+        TankProbe.StartPass("tank rays")
+        DrawInner()
+        TankProbe.StopPass("tank rays")
+    End Sub
+
+    Private Sub DrawInner()
         If map_scene Is Nothing OrElse map_scene.tanks Is Nothing Then Return
         If Not map_scene.tanks.HasTanks Then Return
         If Not map_scene.TERRAIN_LOADED Then Return
@@ -105,6 +111,26 @@ Public Class MapTankRays
             If t Is Nothing OrElse Not t.drive.hasGoal Then Continue For
             want += segments_for(t) * 2 + 4          ' the ray, then the cross
         Next
+        ' THE AVOIDANCE RAYS ARE STRAIGHT AND SHORT, so two vertices each and
+        ' no following the ground - over three metres the terrain under a hull
+        ' does not bend enough to bury a line, and cutting them into segments
+        ' would quadruple the buffer for a picture nobody could tell apart.
+        Dim rayHulls = 0
+        If TankSim.SIM_SHOW_RAYS Then
+            For Each t In live
+                If t Is Nothing Then Continue For
+                rayHulls += 1
+            Next
+            want += rayHulls * TankSim.RAY_COUNT * 2
+        End If
+        ' The sim runs: one segment a leg, so two vertices a leg.
+        If TankSim.SIM_SHOW_PATHS AndAlso TankSim.SIM_RUN Then
+            For Each t In live
+                If t Is Nothing Then Continue For
+                Dim rr = TankSim.RunOf(t)
+                If rr IsNot Nothing AndAlso rr.Count > 1 Then want += (rr.Count - 1) * 2
+            Next
+        End If
         If want = 0 Then Return
 
         If verts Is Nothing OrElse verts.Length < want * FLOATS_PER_VERT Then
@@ -155,6 +181,64 @@ Public Class MapTankRays
             n = put(n, x1, gy, z1 - CROSS_M, c)
             n = put(n, x1, gy, z1 + CROSS_M, c)
         Next
+
+        ' ---- the run each hull is on -------------------------------------
+        ' RAY STUDIO'S PATH, not the route catalogue. Drawn from the hull's
+        ' own assignment so what is on screen is what the tank is actually
+        ' steering down, leg by leg.
+        '
+        ' BRIGHT AHEAD, DIM BEHIND. A path drawn at one weight says where the
+        ' road goes; this says how far along it the tank has got, which is the
+        ' question being asked while a sim runs. Twenty per cent alpha for the
+        ' part already driven is enough to see the shape without competing
+        ' with the part that still matters.
+        If TankSim.SIM_SHOW_PATHS AndAlso TankSim.SIM_RUN Then
+            For Each t In live
+                If t Is Nothing Then Continue For
+                Dim rr = TankSim.RunOf(t)
+                If rr Is Nothing OrElse rr.Count < 2 Then Continue For
+                Dim at_ = TankSim.RunAt(t)
+                Dim warm = (t.team = TankTeam.Green)
+                For k = 0 To rr.Count - 2
+                    Dim done = (k < at_)
+                    Dim cc As Vector4
+                    If warm Then
+                        cc = New Vector4(0.28F, 1.0F, 0.38F, If(done, 0.18F, 0.9F))
+                    Else
+                        cc = New Vector4(1.0F, 0.34F, 0.3F, If(done, 0.18F, 0.9F))
+                    End If
+                    Dim ax = rr(k).X, az = rr(k).Y
+                    Dim bx = rr(k + 1).X, bz = rr(k + 1).Y
+                    n = put(n, ax, ground(ax, az) + 0.25F, az, cc)
+                    n = put(n, bx, ground(bx, bz) + 0.25F, bz, cc)
+                Next
+            Next
+        End If
+
+        ' ---- the avoidance rays ------------------------------------------
+        ' Drawn for every hull, driving or not: a tank that has stopped is
+        ' exactly the one whose neighbours matter, and drawing only the moving
+        ' ones would hide the jam being diagnosed.
+        If TankSim.SIM_SHOW_RAYS Then
+            ' A RAY THAT HAS FOUND SOMETHING IS RED. The whole point of drawing
+            ' them is to see what the avoidance is reacting to, and eight pale
+            ' blue lines that never change say nothing about that.
+            Dim clearC As New Vector4(0.55F, 0.85F, 1.0F, 0.5F)
+            Dim hitC As New Vector4(1.0F, 0.25F, 0.2F, 1.0F)
+            For Each t In live
+                If t Is Nothing Then Continue For
+                Dim ry = ground(t.position.X, t.position.Z) + 0.35F
+                Dim hits = TankSim.RayHits(t, live)
+                Dim hullR = TankSim.HullRays(t)
+                For i = 0 To hullR.Count - 1
+                    Dim o = hullR(i).Item1, d = hullR(i).Item2
+                    Dim cc = If(i < hits.Length AndAlso hits(i), hitC, clearC)
+                    n = put(n, o.X, ry, o.Y, cc)
+                    n = put(n, o.X + d.X * TankSim.SIM_RAY_M, ry,
+                            o.Y + d.Y * TankSim.SIM_RAY_M, cc)
+                Next
+            Next
+        End If
 
         Dim vcount = n \ FLOATS_PER_VERT
         If vcount = 0 Then Return
