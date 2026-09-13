@@ -1100,6 +1100,14 @@ def resolve(g, start, goal, max_ring_m=RING_MAX_DEFAULT_M,
 def main():
     import pygame
 
+    # THE TUNING IS ON THE COMMAND LINE. "args buddy pass args."
+    #
+    # Every number worth turning is an argument, so a run is described by the
+    # line that launched it and nothing has to be edited to try a value. Two of
+    # them are module globals the ring code reads directly, so they are
+    # rebound here rather than threaded through six call sites.
+    global RING_STEP_M, RING_MIN_M
+
     map_name = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") \
         else "19_monastery"
     hull = 4.5
@@ -1111,6 +1119,8 @@ def main():
     # second - too fast to watch, which defeats the point of a live view. The
     # delay is per ray, so the hunt runs at a pace a person can follow.
     delay = 220
+    auto_run = False
+    escape_m = 0.0
     for i, a in enumerate(sys.argv):
         if a == "--hull" and i + 1 < len(sys.argv):
             hull = float(sys.argv[i + 1])
@@ -1118,8 +1128,32 @@ def main():
             speed = int(sys.argv[i + 1])
         if a == "--delay" and i + 1 < len(sys.argv):
             delay = int(sys.argv[i + 1])
+        if a == "--ray" and i + 1 < len(sys.argv):
+            ray_cap = float(sys.argv[i + 1])          # how far one cast walks
+        if a == "--ring-step" and i + 1 < len(sys.argv):
+            RING_STEP_M = float(sys.argv[i + 1])      # how fast a ring grows
+        if a == "--ring-start" and i + 1 < len(sys.argv):
+            RING_MIN_M = float(sys.argv[i + 1])       # the smallest ring
+        if a == "--ring-max" and i + 1 < len(sys.argv):
+            ring_max = float(sys.argv[i + 1])
+        if a == "--gap" and i + 1 < len(sys.argv):
+            min_gap = float(sys.argv[i + 1])          # narrowest gap accepted
+        if a == "--escape" and i + 1 < len(sys.argv):
+            escape_m = float(sys.argv[i + 1])         # 0 = take the tangent
+        if a == "--run":
+            # START THE SEARCH ON ITS OWN, and leave the window up with the
+            # answer on it: "or you start and run it and leave it open."
+            #
+            # Done by posting [b] into pygame's OWN queue on the first frame,
+            # never by driving the desktop. Synthetic keystrokes aimed at a
+            # window on this machine have landed in the owner's browser before,
+            # and a misfire like that reads exactly like an app bug.
+            auto_run = True
 
     print(f"ray studio: {map_name}, hull {hull:.1f} m")
+    print("  ray %.1f  ring-start %.1f  ring-step %.1f  ring-max %.1f  "
+          "gap %.1f  escape %.1f"
+          % (ray_cap, RING_MIN_M, RING_STEP_M, ring_max, min_gap, escape_m))
     g = build_grid(map_name, hull)
     W = g["W"]
     print(f"  collision map {W}x{W} at {g['texel_m']:.3f} m per texel, "
@@ -1442,6 +1476,10 @@ def main():
         return (LEFT_W + (avail_w - mw) // 2, (sh - mw) // 2, mw)
 
     while running:
+        if auto_run:
+            auto_run = False
+            pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b,
+                                                 mod=0, unicode="", scancode=0))
         map_ox, map_oy, w_now = map_rect()
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -1600,7 +1638,8 @@ def main():
                     gen, done = None, True
                     nodes, paths, rays = [], [], 0
                     tree = BranchTree(g, start, goal, RING_SET[ring_slot],
-                                      min_gap, squares=squares)
+                                      min_gap, walk_m=ray_cap, squares=squares)
+                    tree.tangent_escape_m = escape_m
                     tree_t0 = time.time()   # the run IS the measurement
                     tree.block_radius = block_radius
                     sq_surf = None
