@@ -2597,29 +2597,6 @@ try_again:
                     End If
                     ImGui.Separator()
 
-                    ImGui.Checkbox("Shadow the tanks", TANK_SHADOW)
-                    If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("A tank shades itself and the resolve" & vbLf &
-                                         "passes it through unlit, so nothing" & vbLf &
-                                         "shadowed it - one parked in a building's" & vbLf &
-                                         "shadow was lit as if in open sun." & vbLf &
-                                         "Costs one fetch: the factor was already" & vbLf &
-                                         "computed at those pixels and discarded." & vbLf &
-                                         "RECEIVING only - a tank still casts" & vbLf &
-                                         "nothing, because the sun map is baked" & vbLf &
-                                         "once at load and cannot hold anything" & vbLf &
-                                         "that moves.")
-                    End If
-                    ImGui.SliderFloat("In-shadow floor", TANK_SHADOW_FLOOR, 0.0, 1.0)
-                    If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("How much of the tank's own colour" & vbLf &
-                                         "survives in full shadow. 1 is no" & vbLf &
-                                         "shadow at all; 0 paints it black," & vbLf &
-                                         "because that colour already carries" & vbLf &
-                                         "the tank's own ambient.")
-                    End If
-                    ImGui.Separator()
-
                     ImGui.Checkbox("Tint by shadow tile", SUN_TILE_TINT)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("Colour the shadow by which of the four" & vbLf &

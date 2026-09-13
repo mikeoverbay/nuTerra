@@ -1028,6 +1028,32 @@ Module modRender
         Return dummy_lamp_shadow()
     End Function
 
+    Private DUMMY_TANK_SHADOW_TEX As GLTexture
+
+    ''' <summary>
+    ''' A 1x1 depth array for the tank shadow sampler when no tank is casting.
+    '''
+    ''' A sampler2DArrayShadow with NOTHING BOUND is undefined behaviour, and the
+    ''' driver says so: "uses a sampler that has depth comparisons disabled, with
+    ''' a texture object with a non-depth format, by a shader that samples it
+    ''' with a shadow sampler". It is undefined even when the shader's own
+    ''' tank_count guard means the sample is never reached - the state is
+    ''' validated at draw time, not at branch time - and on this driver the
+    ''' result poisoned the whole pass. dummy_lamp_shadow exists for exactly
+    ''' this reason and I should have copied it the first time.
+    ''' </summary>
+    Private Function dummy_tank_shadow() As GLTexture
+        If DUMMY_TANK_SHADOW_TEX Is Nothing Then
+            DUMMY_TANK_SHADOW_TEX = GLTexture.Create(TextureTarget.Texture2DArray, "DummyTankShadow")
+            DUMMY_TANK_SHADOW_TEX.Parameter(TextureParameterName.TextureMinFilter, TextureMinFilter.Nearest)
+            DUMMY_TANK_SHADOW_TEX.Parameter(TextureParameterName.TextureMagFilter, TextureMagFilter.Nearest)
+            DUMMY_TANK_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareMode, CInt(TextureCompareMode.CompareRefToTexture))
+            DUMMY_TANK_SHADOW_TEX.Parameter(TextureParameterName.TextureCompareFunc, CInt(All.Lequal))
+            DUMMY_TANK_SHADOW_TEX.Storage3D(1, DirectCast(InternalFormat.DepthComponent16, SizedInternalFormat), 1, 1, 1)
+        End If
+        Return DUMMY_TANK_SHADOW_TEX
+    End Function
+
     Private Function dummy_lamp_shadow() As GLTexture
         If DUMMY_LAMP_SHADOW_TEX Is Nothing Then
             DUMMY_LAMP_SHADOW_TEX = GLTexture.Create(TextureTarget.TextureCubeMapArray, "DummyLampShadow")
@@ -1098,7 +1124,6 @@ Module modRender
             GL.Uniform1(deferredShader("sun_tile_tint"), If(SUN_TILE_TINT, 1, 0))
             ' Only on this branch: the unlit path reads sun_shadow_pre, which
             ' exists only when the tiles resolved this frame (has_sun_shadow 3).
-            GL.Uniform1(deferredShader("tank_shadow"), If(TANK_SHADOW, 1, 0))
             GL.Uniform1(deferredShader("tank_debug"), If(TANK_SHADOW_DEBUG, 1, 0))
             GL.Uniform1(deferredShader("tank_shadow_floor"), TANK_SHADOW_FLOOR)
             GL.Uniform1(deferredShader("shadow_penumbra_lo"), SHADOW_PENUMBRA_LO)
@@ -1249,6 +1274,7 @@ Module modRender
     Private sun_shadow_pre_w As Integer
     Private sun_shadow_pre_h As Integer
     Private sun_tile_mask_last As Integer = -1
+    Private said_tank_uniforms As Boolean
 
     Private Sub ensure_sun_shadow_pre()
         If sun_shadow_pre IsNot Nothing AndAlso sun_shadow_pre_w = MainFBO.width AndAlso sun_shadow_pre_h = MainFBO.height Then Return
@@ -1353,6 +1379,16 @@ Module modRender
                 sph(i * 4 + 0) = ts.sphere(i).X : sph(i * 4 + 1) = ts.sphere(i).Y
                 sph(i * 4 + 2) = ts.sphere(i).Z : sph(i * 4 + 3) = ts.sphere(i).W
             Next
+            ' SAY THE LOCATIONS ONCE. -1 means the name never reached the
+            ' shader and every GL.Uniform on it is a silent no-op - which looks
+            ' exactly like a geometry bug from the ground and has already cost
+            ' one round tonight.
+            If Not said_tank_uniforms Then
+                said_tank_uniforms = True
+                LogThis("tank shadow: uniform locations - tank_count {0}, tank_vp {1}, tank_sphere {2}, tank_eye {3}, maps unit 5",
+                        sunShadowTilesShader("tank_count"), sunShadowTilesShader("tank_vp"),
+                        sunShadowTilesShader("tank_sphere"), sunShadowTilesShader("tank_eye"))
+            End If
             GL.UniformMatrix4(sunShadowTilesShader("tank_vp"), ts.count, False, vps)
             GL.Uniform4(sunShadowTilesShader("tank_sphere"), ts.count, sph)
             Dim eye = map_scene.camera.CAM_POSITION
@@ -1361,6 +1397,9 @@ Module modRender
             GL.Uniform1(sunShadowTilesShader("tank_fade_far"), TANK_SHADOW_RANGE)
             GL.Uniform1(sunShadowTilesShader("tank_debug"), If(TANK_SHADOW_DEBUG, 1, 0))
         Else
+            ' BIND ANYWAY. The guard below stops the shader READING it; it does
+            ' not stop the driver validating the sampler at draw time.
+            dummy_tank_shadow().BindUnit(5)
             GL.Uniform1(sunShadowTilesShader("tank_count"), 0)
         End If
 
