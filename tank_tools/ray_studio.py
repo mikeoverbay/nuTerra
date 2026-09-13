@@ -1504,10 +1504,9 @@ def main():
             # [g] the exact optimum, then [t] the tactical roads. The branch
             # tree is still there on [b] for a side-by-side, but it is no
             # longer what the window shows you when it opens.
-            for k in (pygame.K_g, pygame.K_t):
-                pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=k,
-                                                     mod=0, unicode="",
-                                                     scancode=0))
+            pygame.event.post(pygame.event.Event(pygame.KEYDOWN,
+                                                 key=pygame.K_g, mod=0,
+                                                 unicode="", scancode=0))
         map_ox, map_oy, w_now = map_rect()
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -1616,13 +1615,25 @@ def main():
                         from tank_tools import maze
                         direct = np.hypot(goal[0] - start[0], goal[1] - start[1])
                         if e.key == pygame.K_g:
+                            # THE WHOLE ANSWER ON ONE PRESS. Run used to mean
+                            # the branch tree; it means this now, and a run
+                            # that produced only the optimum and left the roads
+                            # behind a second key was the reason the app kept
+                            # looking like it was doing the old thing.
                             r = maze.solve(g, start, goal)
                             maze_pts = r["pts"]
-                            maze_msg = ("flood fill: OPTIMUM %.0f m = %.2fx the "
-                                        "%.0f m direct line, %d cells, %.1f s"
+                            c = maze.class_routes(g, start, goal, budget=0.25)
+                            maze_roads = c["routes"]
+                            ln = [q["length"] for q in maze_roads] or [r["length"]]
+                            maze_msg = ("MAZE: optimum %.0f m = %.2fx the %.0f m "
+                                        "direct line | %d road(s) %.0f-%.0f m "
+                                        "(%.2f-%.2fx) | %.1f s"
                                         % (r["length"], r["length"] / direct,
-                                           direct, len(r["pts"]),
-                                           r["grid_s"] + r["flood_s"]))
+                                           direct, len(maze_roads),
+                                           min(ln), max(ln),
+                                           min(ln) / r["length"],
+                                           max(ln) / r["length"],
+                                           time.time() - t_m))
                         else:
                             r = maze.class_routes(g, start, goal, budget=0.25)
                             maze_roads = r["routes"]
@@ -2249,16 +2260,13 @@ def main():
         screen.blit(font.render(map_name, True, (135, 140, 152)), (LX, y))
         y += 24
         y = header(LX, y, "SEARCH", LW)
-        y = button(LX, y, LW, "Run  [b]", pygame.K_b, tree is not None)
+        y = button(LX, y, LW, "Run  [g]", pygame.K_g, bool(maze_pts),
+                   (150, 255, 200))
         y = checkbox(LX, y, LW, "Lock view to current point", pygame.K_c,
                      tree_follow)
         y = button(LX, y, LW, "RESET - reload blocks  [x]", pygame.K_x,
                    False, (255, 190, 150))
-        # THE MAZE METHOD FIRST, because it is the one that works: exact, no
-        # parameters, and 846 m against the branch tree's 877 on this map.
-        y = button(LX, y, LW, "MAZE: the optimum  [g]", pygame.K_g,
-                   bool(maze_pts), (150, 255, 200))
-        y = button(LX, y, LW, "MAZE: tactical roads  [t]", pygame.K_t,
+        y = button(LX, y, LW, "Tactical roads only  [t]", pygame.K_t,
                    bool(maze_roads), (150, 255, 200))
         y += 4
         y = button(LX, y, LW, "Bearing sweep  [r]", pygame.K_r)
