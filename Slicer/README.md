@@ -374,6 +374,37 @@ exactly. It came out a whole number on all 5,352 vertex sections under
 already knows — which is what makes 36 trustworthy for the one it does not. 36
 is also what the name predicts: `BPVTxyznuvtb` plus one 4-byte `i` bone index.
 
+Since re-censused over the **whole install** rather than just the buildings -
+**121,000 vertex sections** - after the PKG Explorer session flagged a format
+this reader did not have. The same arithmetic returns exactly one stride per
+format, unanimously:
+
+| format | stride | sections | where |
+|---|---|---|---|
+| `BPVTxyznuvtb` | 32 | 64,836 | |
+| `BPVTxyznuviiiwwtb` | 40 | 53,300 | skinned |
+| `BPVTxyznuvitb` | 36 | 2,128 | havok collision proxies |
+| `BPVTxyznuv` | 24 | 608 | |
+| **`BPVTxyz`** | **12** | **67** | audio occluders, position only |
+| `BPVTxyznuviiiww` | 32 | 36 | `env_birds` |
+
+**No non-BPVT format ships.** Not one section in 121,000 uses a bare
+`xyznuv`-style header, so the 136-byte body offset is right for 100% of real
+data and the three non-BPVT rows in the stride table are dead fallbacks.
+
+Adding `BPVTxyz` needed a second fix to be safe rather than merely wrong later.
+The vertex loop read the packed normal at `+12` and the uv at `+16..+23` at
+FIXED offsets, unconditionally - fine when every shipped format had both. At
+stride 12 that takes 12 bytes out of the NEXT vertex and runs off the end of the
+buffer on the last one, and the bounds check only guarantees
+`nVerts * stride`, so it would not have caught it. Both reads are now gated on
+the stride being large enough to hold the field.
+
+Section sizes, measured the same pass: only ever **0 or 2 mod 4** - 245,050 and
+36,842 of 281,892 sections, never odd. So a reader that pads with a wrong
+`+= size Mod 4` still lands correctly on every shipped file, and would keep
+doing so right up until it did not.
+
 `PrimitiveLoader.load_primitives_vertices` has no case for `BPVTxyznuvitb`. It
 falls through to `Case Else`, which is `Debug.Assert(False)` — compiled out in
 Release, leaving `stride = 0`. Those 164 sections cannot be read by the engine
