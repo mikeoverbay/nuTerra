@@ -621,6 +621,19 @@ Public Class MapFlightBake
         ' question "is something SOLID standing here" has an answer. A texel
         ' that later keys as tree because a canopy closed over it still carries
         ' the bit this reads. See SOLID_BIT.
+        '
+        ' DO NOT MOVE THIS CALL. Since bake_version 5 the ordering is not a
+        ' convenience, it is load bearing for CORRECTNESS, and moving it breaks
+        ' the bake silently rather than loudly.
+        '
+        ' read_solid also reads kind_tex, and it is only meaningful here: every
+        ' byte in that texture right now belongs to a MODEL, because draw_trees
+        ' has not run. That is what lets it ask "is the solid thing standing at
+        ' this texel ITSELF crushable" and exempt a grape trellis from its own
+        ' solid bit while a rock under a canopy keeps one. Draw the trees first
+        ' and every canopy texel reads as kind TREE, so the exemption would fire
+        ' on foliage standing over walls and walk tanks through them - with no
+        ' error, no crash, and a bake that still looks entirely reasonable.
         read_solid()
 
         draw_trees(vp)

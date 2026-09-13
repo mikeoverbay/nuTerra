@@ -12,6 +12,11 @@ so what follows is a contract rather than an implementation detail.
 Written 2026-09-12. The bake existed long before this document; it got one when
 it stopped being one session's private artefact.
 
+**`bake_version` 5, 2026-09-13** - a model that keys **tree** no longer sets its
+own **solid** bit. The version-4 re-key alone left 37.6% of the vineyard still
+blocking, because crushable is `tree AND NOT solid` and the trellis is a model.
+Measured before and after; canopy-over-rock survives at 99.4%. *nuTerra work.*
+
 **`bake_version` 4, 2026-09-13** - `grapevine` keys as **tree**, not fence.
 Nothing about the FORMAT changed; the classifier did, so every cached bake is
 rebuilt once to pick up the new key byte. See "the grapevine trellis" below.
