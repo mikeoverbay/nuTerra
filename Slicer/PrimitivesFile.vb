@@ -29,6 +29,24 @@ Public Class PrimMesh
     Public Property Tangents As Vector3() = Array.Empty(Of Vector3)()
     Public Property Binormals As Vector3() = Array.Empty(Of Vector3)()
 
+    ''' <summary>
+    ''' The SECOND UV set - the per-object unwrap, as opposed to the tiling one
+    ''' in UVs. Empty when the mesh has no uv2 section; 83% of building lod0
+    ''' meshes have one.
+    '''
+    ''' This is the set that matters for export. A PBS_tiled material blends its
+    ''' tiles using a mask addressed in UV2, so a baked map is baked in UV2
+    ''' space, and the exported mesh has to carry UV2 as ITS uv set for that map
+    ''' to line up. UV1 is dropped on the way out.
+    ''' </summary>
+    Public Property UV2 As Vector2() = Array.Empty(Of Vector2)()
+
+    Public ReadOnly Property HasUV2 As Boolean
+        Get
+            Return UV2.Length > 0 AndAlso UV2.Length = Positions.Length
+        End Get
+    End Property
+
     Public ReadOnly Property HasTangents As Boolean
         Get
             Return Tangents.Length > 0 AndAlso Tangents.Length = Positions.Length
@@ -149,6 +167,47 @@ Public NotInheritable Class PrimitivesFile
         Return Encoding.ASCII.GetString(raw, at, n)
     End Function
 
+    ''' <summary>
+    ''' The second UV set.
+    '''
+    ''' THE PREAMBLE IS 136 BYTES, NOT 132, and this has bitten the project
+    ''' before - see the uv2 note in the Tank Exporter's format writeup. It
+    ''' mirrors the .vertices preamble:
+    '''
+    '''     +0    64 bytes   primary format name    "BPVSuv2"
+    '''     +68   64 bytes   secondary name         "set3/uv2pc"
+    '''     +132  u32        count
+    '''     +136             body, 8 bytes an entry
+    '''
+    ''' A 132-byte guess matches by integer-division coincidence and silently
+    ''' shifts the whole stream forward by one float, which produces UVs that
+    ''' are wrong everywhere and obviously wrong nowhere.
+    '''
+    ''' Verified rather than trusted: across 280 uv2 sections in the shipped
+    ''' buildings the primary string is "BPVSuv2" every time, the secondary is
+    ''' "set3/uv2pc" every time, and (sectionSize - 136) / count comes out
+    ''' EXACTLY 8.0 on all 280. At 132 it would not divide cleanly, which is
+    ''' what makes 136 provable rather than merely documented.
+    ''' </summary>
+    Private Shared Function ReadUv2(raw As Byte(), sec As SectionRef, expect As Integer) As Vector2()
+        If sec.Offset + 136 > raw.Length Then Return Array.Empty(Of Vector2)()
+        Dim n = BitConverter.ToInt32(raw, sec.Offset + 132)
+        If n <= 0 Then Return Array.Empty(Of Vector2)()
+        Dim body = sec.Offset + 136
+        If body + CLng(n) * 8 > raw.Length Then Return Array.Empty(Of Vector2)()
+
+        ' A uv2 that does not have one entry per vertex cannot be paired up, and
+        ' guessing at the correspondence would be worse than having none.
+        If expect > 0 AndAlso n <> expect Then Return Array.Empty(Of Vector2)()
+
+        Dim out(n - 1) As Vector2
+        For i = 0 To n - 1
+            out(i) = New Vector2(BitConverter.ToSingle(raw, body + i * 8),
+                                 BitConverter.ToSingle(raw, body + i * 8 + 4))
+        Next
+        Return out
+    End Function
+
     ''' <summary>The section table, name to (offset, size).</summary>
     Public Shared Function ReadSections(raw As Byte()) As Dictionary(Of String, SectionRef)
         Dim out As New Dictionary(Of String, SectionRef)(StringComparer.Ordinal)
@@ -199,7 +258,13 @@ Public NotInheritable Class PrimitivesFile
             If Not sections.ContainsKey(idxName) Then Continue For
 
             Dim mesh = ReadMesh(raw, kv.Value, sections(idxName), If(baseName = "", "mesh", baseName))
-            If mesh IsNot Nothing Then meshes.Add(mesh)
+            If mesh IsNot Nothing Then
+                Dim uv2Name = If(baseName = "", "uv2", baseName & ".uv2")
+                If sections.ContainsKey(uv2Name) Then
+                    mesh.UV2 = ReadUv2(raw, sections(uv2Name), mesh.Positions.Length)
+                End If
+                meshes.Add(mesh)
+            End If
         Next
 
         meshes.Sort(Function(a, b) String.CompareOrdinal(a.Name, b.Name))

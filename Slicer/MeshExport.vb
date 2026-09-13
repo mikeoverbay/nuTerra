@@ -44,7 +44,8 @@ Public NotInheritable Class MeshExport
 
     Public Shared Function Write(path As String, formatName As String,
                                  pos As Vector3(), idx As Integer(),
-                                 zUp As Boolean, scale As Single) As ExportResult
+                                 zUp As Boolean, scale As Single,
+                                 Optional uv As Vector2() = Nothing) As ExportResult
         Dim kind = If(formatName, "stl").Trim().ToLowerInvariant()
         Dim dir = IO.Path.GetDirectoryName(IO.Path.GetFullPath(path))
         If dir IsNot Nothing AndAlso Not Directory.Exists(dir) Then Directory.CreateDirectory(dir)
@@ -63,7 +64,7 @@ Public NotInheritable Class MeshExport
         If pos.Length > 0 Then r.SizeMm = hi - lo
 
         If kind = "obj" Then
-            WriteObj(path, pos, idx, zUp, scale)
+            WriteObj(path, pos, idx, zUp, scale, uv)
         Else
             WriteStlBinary(path, pos, idx, zUp, scale)
             r.Format = "stl"
@@ -171,6 +172,12 @@ Public NotInheritable Class MeshExport
 
             Dim allPos As New List(Of Vector3)
             Dim allIdx As New List(Of Integer)
+            Dim allUv As New List(Of Vector2)
+            ' A mesh with no uv2 still has to contribute the right NUMBER of
+            ' entries or every uv after it is attached to the wrong vertex. Zero
+            ' is honest for those - it says "no unwrap here" rather than
+            ' silently shifting the whole set.
+            Dim anyUv = False
             Dim fillTris = 0, killed = 0
 
             For Each part In asset.PartsAt(lod)
@@ -201,6 +208,14 @@ Public NotInheritable Class MeshExport
 
                     Dim b = allPos.Count
                     allPos.AddRange(m.Positions)
+                    If m.HasUV2 Then
+                        allUv.AddRange(m.UV2)
+                        anyUv = True
+                    Else
+                        For k = 1 To m.Positions.Length
+                            allUv.Add(Vector2.Zero)
+                        Next
+                    End If
                     For Each i In tri
                         allIdx.Add(b + i)
                     Next
@@ -213,6 +228,10 @@ Public NotInheritable Class MeshExport
                     If bf.Indices.Count >= 3 Then
                         Dim fb = allPos.Count
                         allPos.AddRange(bf.Positions)
+                        ' Fill triangles are invented, so they have no unwrap.
+                        For k = 1 To bf.Positions.Count
+                            allUv.Add(Vector2.Zero)
+                        Next
                         For Each i In bf.Indices
                             allIdx.Add(fb + i)
                         Next
@@ -228,12 +247,14 @@ Public NotInheritable Class MeshExport
             End If
 
             Dim outPath = IO.Path.Combine(cfg.OutDir, asset.Name & ext)
-            Dim res = Write(outPath, cfg.OutFormat, allPos.ToArray(), allIdx.ToArray(), zUp, cfg.OutScale)
+            Dim res = Write(outPath, cfg.OutFormat, allPos.ToArray(), allIdx.ToArray(), zUp, cfg.OutScale,
+                            If(anyUv, allUv.ToArray(), Nothing))
             written += 1
             totalBytes += res.Bytes
-            Console.WriteLine("  {0,-44} {1,7:N0} tris  {2,6:N0} fill  {3,6:N0} killed  {4,7:N0} KB   {5:F0}x{6:F0}x{7:F0} mm",
+            Console.WriteLine("  {0,-40} {1,7:N0} tris  {2,5:N0} fill  {3,5:N0} kill  {4,6:N0} KB  {5:F0}x{6:F0}x{7:F0} mm  {8}",
                               asset.Name, res.Triangles, fillTris, killed, res.Bytes \ 1024,
-                              res.SizeMm.X, res.SizeMm.Y, res.SizeMm.Z)
+                              res.SizeMm.X, res.SizeMm.Y, res.SizeMm.Z,
+                              If(anyUv, "uv2", "no uv2"))
         Next
         sw.Stop()
 
@@ -257,7 +278,7 @@ Public NotInheritable Class MeshExport
     ''' as garbage or not at all.
     ''' </summary>
     Private Shared Sub WriteObj(path As String, pos As Vector3(), idx As Integer(),
-                                zUp As Boolean, scale As Single)
+                                zUp As Boolean, scale As Single, uv As Vector2())
         Dim inv = CultureInfo.InvariantCulture
         Using w As New StreamWriter(path, False, New Text.UTF8Encoding(False))
             w.WriteLine("# Slicer - nuTerra building export")
@@ -272,6 +293,25 @@ Public NotInheritable Class MeshExport
                             q.Y.ToString("0.######", inv),
                             q.Z.ToString("0.######", inv))
             Next
+            ' THE UV SET WRITTEN IS UV2, not UV1.
+            '
+            ' UV1 is the TILING set - it repeats a material tile many times over
+            ' a wall and means nothing without the tiled shader that addresses
+            ' it. UV2 is the per-object unwrap, the space a blend mask is
+            ' authored in and therefore the space a baked map is baked in. So
+            ' the exported mesh carries UV2 and UV1 is dropped: that is what
+            ' lets the model render correctly in an application that has never
+            ' heard of World of Tanks.
+            Dim hasUv = uv IsNot Nothing AndAlso uv.Length = pos.Length
+            If hasUv Then
+                For Each t2 In uv
+                    ' OBJ's V axis runs the other way from the game's.
+                    w.WriteLine("vt {0} {1}",
+                                t2.X.ToString("0.######", inv),
+                                (1.0F - t2.Y).ToString("0.######", inv))
+                Next
+            End If
+
             Dim t = 0
             While t + 2 < idx.Length
                 Dim a = idx(t), b = idx(t + 1), c = idx(t + 2)
@@ -280,7 +320,11 @@ Public NotInheritable Class MeshExport
                     ' OBJ indices are 1-based. Off by one here writes a file that
                     ' opens, looks almost right, and has one corner of every face
                     ' attached to the wrong vertex.
-                    w.WriteLine("f {0} {1} {2}", a + 1, b + 1, c + 1)
+                    If hasUv Then
+                        w.WriteLine("f {0}/{0} {1}/{1} {2}/{2}", a + 1, b + 1, c + 1)
+                    Else
+                        w.WriteLine("f {0} {1} {2}", a + 1, b + 1, c + 1)
+                    End If
                 End If
                 t += 3
             End While
