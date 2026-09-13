@@ -414,8 +414,6 @@ uniform int sun_tile_tint;
 // factor alone in R. Nothing subtle survives a first look at a new shadow pass -
 // this answers "is it landing, where, and what shape" in one frame.
 uniform int   tank_debug;
-uniform int   tank_shadow;
-uniform float tank_shadow_floor;
 
 // Moment Shadow Map variant of the same bake - four power moments instead of a
 // comparison sampler. Plain sampler2D, mipmapped and pre-blurred.
@@ -1909,15 +1907,21 @@ void main (void)
         }
     // if flag != 0
     } else {
-        vec4 unlit = texelFetch(gColor, ivec2(gl_FragCoord), 0) * props.BRIGHTNESS;
-
-        // Shadowed but NOT shaded - see tank_shadow above.
-        if (tank_shadow != 0 && has_sun_shadow == 3) {
-            float lit = texelFetch(sun_shadow_pre, ivec2(gl_FragCoord), 0).r;
-            float f   = mix(tank_shadow_floor, 1.0, lit);
-            unlit.rgb *= mix(1.0, f, props.shadow_strength);
-        }
-        outColor = unlit;
+        // PASSTHROUGH, AND IT MUST STAY ONE.
+        //
+        // A shadow term lived here for part of 2026-09-12 so that tanks - which
+        // shade themselves and write GFLAG_UNLIT - would darken in a building's
+        // shadow. It was reverted, and the reason is worth keeping: this branch
+        // is not "the tanks". It is EVERY pixel whose gGMF flag is zero, and
+        // FF_billboard.frag writes gColor and nothing else, so the SUN BILLBOARD
+        // arrives here carrying whatever flag was already in the buffer. The
+        // shadow term multiplied the sun down and the sun stopped being drawn.
+        //
+        // Anything wanting to shade only tanks needs a flag the tank writes and
+        // the billboard does not - GFLAG_UNLIT is not that flag, it is the
+        // absence of one. Do not put a term here that assumes what these pixels
+        // are.
+        outColor = texelFetch(gColor, ivec2(gl_FragCoord), 0) * props.BRIGHTNESS;
     }
 
     // ---- tank shadows, painted ----------------------------------------

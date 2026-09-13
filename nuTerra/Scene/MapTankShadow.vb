@@ -68,6 +68,7 @@ Public Class MapTankShadow
 
     Public ready As Boolean
     Private said_count As Integer = -1
+    Private probe_tick As Integer
 
     Public Sub New(scene As MapScene)
         map_scene = scene
@@ -205,6 +206,18 @@ Public Class MapTankShadow
 
         ' Once, and then only when the number changes - enough to answer "is it
         ' casting at all" from the log without a line a frame.
+        ' TRACKING PROBE. Every 60th frame, say where caster 0's tank IS and
+        ' where its shadow box was centred. If the tank moves and the centre
+        ' does not, the shadow is pinned to something stale and no amount of
+        ' looking at the ground will say which.
+        probe_tick += 1
+        If probe_tick Mod 60 = 0 AndAlso n > 0 Then
+            Dim t0 = picked(0).Item2
+            LogThis("tank shadow: {0} caster(s); tank 0 at ({1:0.0}, {2:0.0}, {3:0.0}) centre ({4:0.0}, {5:0.0}, {6:0.0})",
+                    n, t0.position.X, t0.position.Y, t0.position.Z,
+                    sphere(0).X, sphere(0).Y, sphere(0).Z)
+        End If
+
         If n <> said_count Then
             said_count = n
             LogThis("tank shadow: {0} caster(s) at {1}x{1}, range {2:0} m", n, SIZE, TANK_SHADOW_RANGE)
