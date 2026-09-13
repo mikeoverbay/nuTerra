@@ -1,4 +1,4 @@
-Imports System.Text
+﻿Imports System.Text
 Imports OpenTK.Mathematics
 
 ''' <summary>One primitive group inside a mesh - a contiguous run of triangles
@@ -20,6 +20,20 @@ Public Class PrimMesh
     Public Property Stride As Integer
     Public Property Positions As Vector3() = Array.Empty(Of Vector3)()
     Public Property UVs As Vector2() = Array.Empty(Of Vector2)()
+    ''' <summary>The normal the ARTIST authored, unpacked from the vertex, as
+    ''' opposed to the one derived from the winding. Empty when the format has
+    ''' none this reader understands.</summary>
+    Public Property Normals As Vector3() = Array.Empty(Of Vector3)()
+    ''' <summary>Tangent and binormal, for the normal-map frame. Empty on
+    ''' formats without a `tb` pair.</summary>
+    Public Property Tangents As Vector3() = Array.Empty(Of Vector3)()
+    Public Property Binormals As Vector3() = Array.Empty(Of Vector3)()
+
+    Public ReadOnly Property HasTangents As Boolean
+        Get
+            Return Tangents.Length > 0 AndAlso Tangents.Length = Positions.Length
+        End Get
+    End Property
     ''' <summary>Triangle corners, already wound for OpenGL.</summary>
     Public Property Indices As Integer() = Array.Empty(Of Integer)()
     Public ReadOnly Groups As New List(Of PrimGroup)
@@ -90,6 +104,41 @@ Public NotInheritable Class PrimitivesFile
     Private Shared Function Pad4(n As Integer) As Integer
         If n Mod 4 = 0 Then Return 0
         Return 4 - (n Mod 4)
+    End Function
+
+    ''' <summary>
+    ''' Unpack an 8-8-8 direction from a u32, transcribed from nuTerra's
+    ''' `PrimitiveLoader.unpackNormal_8_8_8` together with the sign work its
+    ''' caller does.
+    '''
+    ''' TWO THINGS HERE ARE NOT GUESSABLE, and each one changes the answer:
+    '''
+    ''' * EACH BYTE IS XORed WITH 127 before being read as signed. That is the
+    '''   SC_UBYTE4_REVERSE_PADDED encoding, not a plain signed byte. Skip the
+    '''   xor and every normal comes out somewhere else - still unit length,
+    '''   still plausible, completely wrong, and nothing about the render says
+    '''   which.
+    ''' * THE WHOLE VECTOR IS NEGATED on the way out of the engine's helper, and
+    '''   then its CALLER negates X again for the DirectX-to-OpenGL flip. X is
+    '''   therefore negated twice and ends up positive while Y and Z stay
+    '''   negated. Both steps are folded in here so there is one place to be
+    '''   right rather than two to keep in step.
+    ''' </summary>
+    Private Shared Function UnpackNormal(packed As UInteger) As Vector3
+        Dim bx = CInt(packed And &HFFUI) Xor 127
+        Dim by = CInt((packed >> 8) And &HFFUI) Xor 127
+        Dim bz = CInt((packed >> 16) And &HFFUI) Xor 127
+        If bx > 127 Then bx -= 256
+        If by > 127 Then by -= 256
+        If bz > 127 Then bz -= 256
+
+        Dim v As New Vector3(CSng(bx), CSng(-by), CSng(-bz))
+        If v.LengthSquared > 0.0000001F Then
+            v.Normalize()
+        Else
+            v = Vector3.UnitY
+        End If
+        Return v
     End Function
 
     Private Shared Function CStrAt(raw As Byte(), at As Integer, maxLen As Integer) As String
@@ -173,9 +222,26 @@ Public NotInheritable Class PrimitivesFile
         Dim body = countAt + 4
         If nVerts <= 0 OrElse body + CLng(nVerts) * stride > raw.Length Then Return Nothing
 
+        ' Where the tangent pair sits, which is always after the bone data
+        ' the format happens to carry:
+        '     BPVTxyznuvtb        pos12 n4 uv8            -> t at 24
+        '     BPVTxyznuvitb       pos12 n4 uv8 i4         -> t at 28
+        '     BPVTxyznuviiiwwtb   pos12 n4 uv8 iii4 ww4   -> t at 32
+        Dim boneSkip = 0
+        If fmt.Contains("iiiww") Then
+            boneSkip = 8
+        ElseIf fmt.Contains("uvi") Then
+            boneSkip = 4
+        End If
+        Dim tanAt = 24 + boneSkip
+        Dim hasTB = fmt.EndsWith("tb", StringComparison.Ordinal) AndAlso (tanAt + 8) <= stride
+
         Dim mesh As New PrimMesh With {.Name = nm, .Format = fmt, .Stride = stride}
         Dim pos(nVerts - 1) As Vector3
         Dim uv(nVerts - 1) As Vector2
+        Dim nrm(nVerts - 1) As Vector3
+        Dim tan(nVerts - 1) As Vector3
+        Dim bin(nVerts - 1) As Vector3
         For i = 0 To nVerts - 1
             Dim at = body + i * stride
             ' Negate X: DirectX to OpenGL. The winding is flipped below to match -
@@ -188,9 +254,20 @@ Public NotInheritable Class PrimitivesFile
             ' all three shipped layouts - they only differ after it.
             uv(i) = New Vector2(BitConverter.ToSingle(raw, at + 16),
                                 BitConverter.ToSingle(raw, at + 20))
+            ' The packed normal sits between position and uv, at +12.
+            nrm(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + 12))
+            If hasTB Then
+                tan(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + tanAt))
+                bin(i) = UnpackNormal(BitConverter.ToUInt32(raw, at + tanAt + 4))
+            End If
         Next
         mesh.Positions = pos
         mesh.UVs = uv
+        mesh.Normals = nrm
+        If hasTB Then
+            mesh.Tangents = tan
+            mesh.Binormals = bin
+        End If
 
         ' ---- indices
         Dim itype = CStrAt(raw, isec.Offset, 64)

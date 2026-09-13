@@ -136,6 +136,40 @@ Public Class ViewerWindow
     ''' <summary>Set by --shell: run the rebuild once, before the shot.</summary>
     Private shellOnLoad As Boolean = False
 
+    ' ---- PBR -------------------------------------------------------------
+    ' Its own buffer and its own draw list, deliberately separate from the
+    ' sliced path. The clipper interpolates POSITIONS and knows nothing about
+    ' UVs or tangents, and a bottom-fill triangle has neither, so feeding the
+    ' cut geometry to a textured shader would put garbage texture coordinates
+    ' on every cut face. PBR therefore draws the mesh AS AUTHORED.
+    Private pbrProgram As Integer = 0
+    Private pbrVao As Integer = 0
+    Private pbrVbo As Integer = 0
+    Private pbrEbo As Integer = 0
+    Private pbrOn As Boolean = True
+    Private pbrDebug As Integer = 0
+    Private pbrExposure As Single = 1.6F
+    Private whiteTex As Integer = 0
+    Private flatNrmTex As Integer = 0
+    Private pbrTris As Integer = 0
+
+    Private Class PbrPart
+        Public Name As String
+        Public First As Integer
+        Public Count As Integer
+        Public Albedo As Integer
+        Public NormalTex As Integer
+        Public Gmm As Integer
+        Public HasNormal As Boolean
+        Public PackDxt1 As Boolean
+        Public EnableAO As Boolean
+        Public Fx As String = ""
+    End Class
+    Private ReadOnly pbrParts As New List(Of PbrPart)
+    ''' <summary>Texture path to GL handle, so a map shared by twenty parts is
+    ''' uploaded once. The building library leans on shared tile sets heavily.</summary>
+    Private ReadOnly texCache As New Dictionary(Of String, Integer)(StringComparer.OrdinalIgnoreCase)
+
     Private boundsMin, boundsMax As Vector3
     Private totalVerts, totalTris, clippedTris, cutSegs As Integer
 
@@ -226,6 +260,10 @@ Public Class ViewerWindow
         uFlat = GL.GetUniformLocation(shader, "u_flat")
         vao = GL.GenVertexArray() : vbo = GL.GenBuffer() : ebo = GL.GenBuffer()
         cutVao = GL.GenVertexArray() : cutVbo = GL.GenBuffer()
+        pbrVao = GL.GenVertexArray() : pbrVbo = GL.GenBuffer() : pbrEbo = GL.GenBuffer()
+        pbrProgram = PbrShader.Build()
+        whiteTex = DdsTexture.White()
+        flatNrmTex = DdsTexture.FlatNormal()
         LoadCurrent()
         If shellOnLoad Then RunShellPipeline()
     End Sub
@@ -300,9 +338,199 @@ Public Class ViewerWindow
         dist = Math.Max((hi - lo).Length * If(shotPath IsNot Nothing, 1.35F, 0.9F), 2.0F)
         planeNudge = 0.0F
         Rebuild()
+        BuildPbr()
         Console.WriteLine("{0}  lod{1}  {2} mesh(es)  {3:N0} tris  span {4:F1} m",
                           asset.Name, lod, rawParts.Count, totalTris, (hi - lo).Length)
     End Sub
+
+    ''' <summary>
+    ''' Build the textured buffer: geometry as authored, plus the material each
+    ''' primitive group is drawn with.
+    '''
+    ''' ONE MATERIAL PER PRIMITIVE GROUP, not per mesh. A group is a contiguous
+    ''' run of the index buffer, and a single mesh routinely carries several -
+    ''' the roof of hd_bld_EU_049_THouse is three groups across two different
+    ''' shaders. Drawing a whole mesh with its first material would texture two
+    ''' thirds of it wrongly, and plausibly.
+    ''' </summary>
+    Private Sub BuildPbr()
+        pbrParts.Clear()
+        pbrTris = 0
+        Dim verts As New List(Of Single)
+        Dim idx As New List(Of Integer)
+
+        Dim asset = assets(assetIndex)
+        Dim lods = asset.Lods
+        If lods.Count = 0 Then Return
+        Dim lod = lods(Math.Max(0, Math.Min(lodIndex, lods.Count - 1)))
+
+        For Each part In asset.PartsAt(lod)
+            Dim stem = If(Not String.IsNullOrEmpty(part.Visual),
+                          part.Visual.Replace("\"c, "/"c).ToLowerInvariant(),
+                          part.Path.Substring(0, part.Path.Length - ".model".Length))
+
+            Dim rawPrim = pkg.ReadPath(stem & ".primitives_processed")
+            If rawPrim Is Nothing Then Continue For
+            Dim meshes As List(Of PrimMesh)
+            Try
+                meshes = PrimitivesFile.Parse(rawPrim)
+            Catch
+                Continue For
+            End Try
+
+            Dim mats As New List(Of VisualMaterial)
+            Dim rawVis = pkg.ReadPath(stem & ".visual_processed")
+            If rawVis IsNot Nothing Then
+                Try
+                    mats = VisualFile.Parse(rawVis).Materials
+                Catch
+                End Try
+            End If
+
+            Dim matAt = 0
+            For Each m In meshes
+                If m.Positions.Length = 0 OrElse m.Indices.Length < 3 Then Continue For
+
+                Dim baseVert = verts.Count \ 14
+                For i = 0 To m.Positions.Length - 1
+                    Dim pp = m.Positions(i)
+                    Dim nn = If(m.Normals.Length > i, m.Normals(i), Vector3.UnitY)
+                    Dim uvv = If(m.UVs.Length > i, m.UVs(i), Vector2.Zero)
+                    Dim tt = If(m.HasTangents, m.Tangents(i), Vector3.UnitX)
+                    Dim bb = If(m.Binormals.Length > i, m.Binormals(i), Vector3.UnitZ)
+                    verts.Add(pp.X) : verts.Add(pp.Y) : verts.Add(pp.Z)
+                    verts.Add(nn.X) : verts.Add(nn.Y) : verts.Add(nn.Z)
+                    verts.Add(uvv.X) : verts.Add(uvv.Y)
+                    verts.Add(tt.X) : verts.Add(tt.Y) : verts.Add(tt.Z)
+                    verts.Add(bb.X) : verts.Add(bb.Y) : verts.Add(bb.Z)
+                Next
+
+                Dim groups = m.Groups
+                If groups.Count = 0 Then
+                    groups = New List(Of PrimGroup) From {
+                        New PrimGroup With {.StartIndex = 0, .PrimitiveCount = m.Indices.Length \ 3}}
+                End If
+
+                For Each g In groups
+                    Dim first = idx.Count
+                    Dim from = Math.Max(0, g.StartIndex)
+                    Dim upto = Math.Min(m.Indices.Length, from + g.PrimitiveCount * 3)
+                    For i = from To upto - 1
+                        Dim vi = m.Indices(i)
+                        If vi < 0 OrElse vi >= m.Positions.Length Then vi = 0
+                        idx.Add(baseVert + vi)
+                    Next
+                    Dim count = idx.Count - first
+                    If count < 3 Then Continue For
+
+                    Dim mat As VisualMaterial = Nothing
+                    If matAt < mats.Count Then mat = mats(matAt)
+                    matAt += 1
+
+                    Dim pt As New PbrPart With {
+                        .Name = m.Name, .First = first, .Count = count,
+                        .Albedo = whiteTex, .NormalTex = flatNrmTex, .Gmm = whiteTex}
+                    If mat IsNot Nothing Then
+                        pt.Fx = mat.Fx
+                        pt.PackDxt1 = mat.Flag("g_useNormalPackDXT1", False)
+                        pt.EnableAO = mat.Flag("g_enableAO", False)
+                        Dim maps = mat.ExtMaps()
+                        If maps(0) IsNot Nothing Then pt.Albedo = LoadTex(maps(0), whiteTex)
+                        If maps(1) IsNot Nothing Then
+                            pt.NormalTex = LoadTex(maps(1), flatNrmTex)
+                            pt.HasNormal = pt.NormalTex <> flatNrmTex
+                        End If
+                        If maps(2) IsNot Nothing Then pt.Gmm = LoadTex(maps(2), whiteTex)
+                    End If
+                    pbrParts.Add(pt)
+                    pbrTris += count \ 3
+                Next
+            Next
+        Next
+
+        If idx.Count = 0 Then Return
+
+        GL.BindVertexArray(pbrVao)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, pbrVbo)
+        GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
+        GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
+        Const ST As Integer = 14 * 4
+        GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
+        GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
+        GL.EnableVertexAttribArray(2) : GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, ST, 24)
+        GL.EnableVertexAttribArray(3) : GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, ST, 32)
+        GL.EnableVertexAttribArray(4) : GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, ST, 44)
+        GL.BindVertexArray(0)
+
+        Dim withN = pbrParts.Where(Function(x) x.HasNormal).Count()
+        Console.WriteLine("  pbr: {0} group(s), {1:N0} tris, {2} with a normal map, {3} texture(s) resident",
+                          pbrParts.Count, pbrTris, withN, texCache.Count)
+    End Sub
+
+    ''' <summary>Draw the textured mesh, one call per primitive group so each
+    ''' gets its own material.</summary>
+    Private Sub DrawPbr(mvp As Matrix4, eye As Vector3)
+        GL.UseProgram(pbrProgram)
+        GL.UniformMatrix4(GL.GetUniformLocation(pbrProgram, "u_mvp"), False, mvp)
+        GL.Uniform3(GL.GetUniformLocation(pbrProgram, "u_eye"), eye.X, eye.Y, eye.Z)
+        ' A fixed key light. There is no map to take a sun from, so it is a
+        ' stated choice rather than anything the game would agree with.
+        GL.Uniform3(GL.GetUniformLocation(pbrProgram, "u_lightDir"), 0.45F, 0.75F, 0.4F)
+        GL.Uniform3(GL.GetUniformLocation(pbrProgram, "u_lightColor"), 1.9F, 1.84F, 1.7F)
+        GL.Uniform4(GL.GetUniformLocation(pbrProgram, "u_tint"), 1.0F, 1.0F, 1.0F, 1.0F)
+        GL.Uniform1(GL.GetUniformLocation(pbrProgram, "u_debug"), pbrDebug)
+        GL.Uniform1(GL.GetUniformLocation(pbrProgram, "u_exposure"), pbrExposure)
+        GL.Uniform1(GL.GetUniformLocation(pbrProgram, "u_albedo"), 0)
+        GL.Uniform1(GL.GetUniformLocation(pbrProgram, "u_normal"), 1)
+        GL.Uniform1(GL.GetUniformLocation(pbrProgram, "u_gmm"), 2)
+
+        Dim uHasN = GL.GetUniformLocation(pbrProgram, "u_hasNormal")
+        Dim uPack = GL.GetUniformLocation(pbrProgram, "u_packDXT1")
+        Dim uAO = GL.GetUniformLocation(pbrProgram, "u_enableAO")
+
+        GL.BindVertexArray(pbrVao)
+        GL.PolygonMode(MaterialFace.FrontAndBack, If(wireframe, PolygonMode.Line, PolygonMode.Fill))
+        For i = 0 To pbrParts.Count - 1
+            If soloPart >= 0 AndAlso i <> soloPart Then Continue For
+            Dim pt = pbrParts(i)
+            GL.ActiveTexture(TextureUnit.Texture0) : GL.BindTexture(TextureTarget.Texture2D, pt.Albedo)
+            GL.ActiveTexture(TextureUnit.Texture1) : GL.BindTexture(TextureTarget.Texture2D, pt.NormalTex)
+            GL.ActiveTexture(TextureUnit.Texture2) : GL.BindTexture(TextureTarget.Texture2D, pt.Gmm)
+            GL.Uniform1(uHasN, If(pt.HasNormal, 1, 0))
+            GL.Uniform1(uPack, If(pt.PackDxt1, 1, 0))
+            GL.Uniform1(uAO, If(pt.EnableAO, 1, 0))
+            GL.DrawElements(PrimitiveType.Triangles, pt.Count, DrawElementsType.UnsignedInt, pt.First * 4)
+        Next
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindVertexArray(0)
+    End Sub
+
+    Private Sub ReportPbr()
+        Console.WriteLine("  pbr {0}   view: {1}   {2} group(s), {3:N0} tris",
+                          If(pbrOn, "ON", "off"), PbrShader.DebugNames(pbrDebug),
+                          pbrParts.Count, pbrTris)
+        Title = String.Format("Slicer - {0}  PBR {1}  [{2}]  {3:N0} tris",
+                              assets(assetIndex).Name, If(pbrOn, "on", "off"),
+                              PbrShader.DebugNames(pbrDebug), pbrTris)
+    End Sub
+
+    ''' <summary>Upload a texture once and remember it, because the building
+    ''' library shares tile sets heavily - one map can serve twenty parts.
+    ''' Returns the fallback when the file is absent or is a DDS variant this
+    ''' reader does not handle.</summary>
+    Private Function LoadTex(path As String, fallback As Integer) As Integer
+        Dim h As Integer
+        If texCache.TryGetValue(path, h) Then Return h
+        Dim bytes = pkg.ReadPath(path)
+        Dim got As DdsTexture.Info
+        Dim tex = 0
+        If bytes IsNot Nothing Then tex = DdsTexture.Upload(bytes, got)
+        If tex = 0 Then tex = fallback
+        texCache(path) = tex
+        Return tex
+    End Function
 
     Private Function EffectiveAxis() As String
         Return If(axisOverride, settings.Axis)
@@ -553,7 +781,7 @@ Public Class ViewerWindow
         MyBase.OnRenderFrame(e)
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
-        If parts.Count > 0 Then
+        If (If(pbrOn, pbrParts.Count, parts.Count)) > 0 Then
             Dim aspect = CSng(Math.Max(ClientSize.X, 1)) / Math.Max(ClientSize.Y, 1)
             ' The Y term is NEGATED, and that is not a taste setting - it is the
             ' sign nuTerra has.
@@ -579,6 +807,14 @@ Public Class ViewerWindow
                 MathHelper.DegreesToRadians(45.0F), aspect,
                 Math.Max(dist * 0.001F, 0.02F), dist * 10.0F + 500.0F)
             Dim mvp = view * proj
+
+            ' NOT an early return. Returning here skipped the whole tail of
+            ' this method, including the --shot capture - so a PBR shot wrote no
+            ' file at all and said nothing about why.
+            If pbrOn Then
+                DrawPbr(mvp, eye)
+                GoTo drawn
+            End If
 
             GL.UseProgram(shader)
             GL.UniformMatrix4(uMvp, False, mvp)
@@ -616,6 +852,7 @@ Public Class ViewerWindow
                 GL.Enable(EnableCap.DepthTest)
             End If
             GL.BindVertexArray(0)
+drawn:
         End If
 
         SwapBuffers()
@@ -709,6 +946,11 @@ Public Class ViewerWindow
 
         If k.IsKeyPressed(Keys.W) Then wireframe = Not wireframe
         If k.IsKeyPressed(Keys.B) Then fillDebug = Not fillDebug
+        If k.IsKeyPressed(Keys.P) Then pbrOn = Not pbrOn : ReportPbr()
+        If k.IsKeyPressed(Keys.D) Then
+            pbrDebug = (pbrDebug + 1) Mod PbrShader.DebugNames.Length
+            ReportPbr()
+        End If
         If k.IsKeyPressed(Keys.R) Then LoadCurrent()
 
         ' ---- the cut and the fill ----
