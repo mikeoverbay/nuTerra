@@ -169,7 +169,8 @@ Public Class ViewerWindow
     Private Const PITCH_MAX As Single = 1.3F
 
     Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings,
-                   Optional shot As String = Nothing, Optional doShell As Boolean = False)
+                   Optional shot As String = Nothing, Optional doShell As Boolean = False,
+                   Optional shotAngle As String = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -184,13 +185,27 @@ Public Class ViewerWindow
         shotPath = shot
         shellOnLoad = doShell
         If shotPath IsNot Nothing Then
-            ' Look UP at the underside - that is the face being checked. After
-            ' the Y flip a positive pitch is below the model, and 1.15 is just
-            ' inside the 1.3 clamp, so the camera sits low and looks up at the
-            ' bottom rather than edge-on to it.
-            pitch = 1.15F
-            yaw = 0.9F
-            slicing = False          ' a cut would hide the bottom behind the half it keeps
+            ' The angle decides what the picture can prove, so it is explicit
+            ' rather than whatever the viewer happened to open at. A before and
+            ' an after are only comparable if both used the same one.
+            slicing = False          ' a cut would hide half of whatever is being shown
+            Select Case If(shotAngle, "bottom").Trim().ToLowerInvariant()
+                Case "iso"
+                    ' Three-quarter from above - the ordinary way to look at a
+                    ' building, and the only angle that shows walls and roof at
+                    ' once.
+                    pitch = -0.45F
+                    yaw = 0.8F
+                Case "front"
+                    pitch = -0.08F
+                    yaw = 0.0F
+                Case Else
+                    ' Looking UP at the underside: after the Y flip a positive
+                    ' pitch is below the model, and 1.15 is just inside the 1.3
+                    ' clamp, so the camera sits low rather than edge-on.
+                    pitch = 1.15F
+                    yaw = 0.9F
+            End Select
         End If
     End Sub
 
@@ -370,24 +385,17 @@ Public Class ViewerWindow
 
             If pos.Length = 0 OrElse tri.Length < 3 Then Continue For
 
-            Dim nrm(pos.Length - 1) As Vector3
-            Dim t = 0
-            While t + 2 < tri.Length
-                Dim i0 = tri(t), i1 = tri(t + 1), i2 = tri(t + 2)
-                If i0 >= 0 AndAlso i0 < pos.Length AndAlso i1 >= 0 AndAlso i1 < pos.Length AndAlso
-                   i2 >= 0 AndAlso i2 < pos.Length Then
-                    Dim fn = Vector3.Cross(pos(i1) - pos(i0), pos(i2) - pos(i0))
-                    nrm(i0) += fn : nrm(i1) += fn : nrm(i2) += fn
-                End If
-                t += 3
-            End While
+            ' Inigo Quilez's area-weighted smoothing - see MeshNormals. It
+            ' only actually SMOOTHS where vertices are shared, so on a raw part
+            ' (45% duplicate vertices, split at every UV seam) it comes out
+            ' faceted, and on a welded shell it comes out smooth. That is the
+            ' right behaviour both times rather than two different code paths.
+            Dim nrm = MeshNormals.Compute(pos, tri)
 
             Dim baseVert = totalVerts
             For i = 0 To pos.Length - 1
-                Dim nv = nrm(i)
-                If nv.LengthSquared > 0.000000001F Then nv.Normalize() Else nv = Vector3.UnitY
                 verts.Add(pos(i).X) : verts.Add(pos(i).Y) : verts.Add(pos(i).Z)
-                verts.Add(nv.X) : verts.Add(nv.Y) : verts.Add(nv.Z)
+                verts.Add(nrm(i).X) : verts.Add(nrm(i).Y) : verts.Add(nrm(i).Z)
             Next
             Dim first = idx.Count
             For i = 0 To tri.Length - 1
@@ -813,6 +821,7 @@ Public Class ViewerWindow
         Console.WriteLine("  seen from out    {0:N0} of {1:N0} tris  ({2:F1}%)",
                           seenCount, triCount, 100.0 * seenCount / Math.Max(triCount, 1))
         Console.WriteLine("  final            {0:N0} tris, {1:N0} verts", w2.TrisOut, w2.VertsOut)
+        Console.WriteLine("  normals          recomputed on the welded shell (IQ, area-weighted)")
         Console.WriteLine()
         Console.WriteLine("  before   {0}", before.Describe())
         Console.WriteLine("  after    {0}", after.Describe())
