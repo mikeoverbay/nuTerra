@@ -38,6 +38,9 @@ Module Program
         Dim assetArg As String = Nothing
         Dim csvPath As String = Nothing
         Dim doList = False, doFailures = False, skipVehicles = False, doView = False
+        Dim settingsPath As String = Nothing
+        Dim showSettings = False, saveSettings = False
+        Dim setArgs As New List(Of String)
 
         Dim i = 0
         While i < args.Length
@@ -50,6 +53,14 @@ Module Program
                     i += 1 : If i < args.Length Then assetArg = args(i).ToLowerInvariant()
                 Case "--csv"
                     i += 1 : If i < args.Length Then csvPath = args(i)
+                Case "--settings"
+                    i += 1 : If i < args.Length Then settingsPath = args(i)
+                Case "--set"
+                    i += 1 : If i < args.Length Then setArgs.Add(args(i))
+                Case "--show-settings"
+                    showSettings = True
+                Case "--save-settings"
+                    saveSettings = True
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -66,6 +77,54 @@ Module Program
             End Select
             i += 1
         End While
+
+        ' ---- settings -----------------------------------------------------
+        ' Loaded before anything else so --show-settings costs nothing: the
+        ' settings do not depend on the game install or on a scan.
+        If settingsPath Is Nothing Then
+            settingsPath = IO.Path.Combine(AppContext.BaseDirectory, SliceSettings.DefaultFileName)
+        End If
+        Dim settings = SliceSettings.Load(settingsPath)
+
+        For Each kv In setArgs
+            Dim eq = kv.IndexOf("="c)
+            If eq < 0 Then
+                Console.WriteLine("--set wants key=value, got ""{0}""", kv)
+                Environment.ExitCode = 2
+                Return
+            End If
+            If Not settings.Apply(kv.Substring(0, eq), kv.Substring(eq + 1)) Then
+                Console.WriteLine("--set: unknown key ""{0}"". --show-settings lists them all.", kv.Substring(0, eq))
+                Environment.ExitCode = 2
+                Return
+            End If
+        Next
+
+        If saveSettings Then
+            settings.Save(settingsPath)
+            Console.WriteLine("wrote {0}", IO.Path.GetFullPath(settingsPath))
+        End If
+
+        If showSettings Then
+            Console.WriteLine("settings  {0}{1}", IO.Path.GetFullPath(settingsPath),
+                              If(File.Exists(settingsPath), "", "   (not on disk - showing defaults)"))
+            Console.WriteLine()
+            settings.Describe()
+            Return
+        End If
+
+        ' A broken setting should stop the run before it reads 218 packages.
+        Dim problems = settings.Validate()
+        If problems.Count > 0 Then
+            Console.WriteLine("settings  {0}", IO.Path.GetFullPath(settingsPath))
+            Console.WriteLine()
+            Console.WriteLine("UNUSABLE SETTINGS ({0}):", problems.Count)
+            For Each prob In problems
+                Console.WriteLine("  - {0}", prob)
+            Next
+            Environment.ExitCode = 2
+            Return
+        End If
 
         Dim gamePath = GuessGamePath(gameArg)
         If gamePath Is Nothing Then
@@ -291,6 +350,10 @@ Module Program
         Console.WriteLine("Building Slicer - finds the buildings in the World of Tanks packages")
         Console.WriteLine()
         Console.WriteLine("  --view               open the 3D viewer")
+        Console.WriteLine("  --show-settings      print the slice settings and exit")
+        Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
+        Console.WriteLine("  --set key=value      override one setting for this run")
+        Console.WriteLine("  --settings <file>    use a settings file other than the default")
         Console.WriteLine("  --list               one line per building")
         Console.WriteLine("  --filter <text>      only buildings whose name contains <text>")
         Console.WriteLine("  --asset <name>       every LOD and part of one building")

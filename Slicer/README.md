@@ -277,6 +277,81 @@ Same rule as the `.model` reader: two readers, same numbers.
 the viewer and the identical figures from an independent Python decode. All
 4,865 building `.primitives_processed` files parse without error.
 
+## The geometry is not solid
+
+Measured before choosing any slicing default, over 261 lod0 meshes:
+
+| | |
+|---|---|
+| watertight meshes (no boundary, no non-manifold edge) | **12 of 261 — 4.6%** |
+| edges, welded: manifold / boundary / non-manifold | 83.14% / 15.21% / 1.65% |
+| edges, raw indices: manifold / boundary / non-manifold | 48.81% / 51.17% / 0.02% |
+| vertices | 2,940,023 raw -> 1,611,718 welded (**45.2% duplicates**) |
+
+Two things follow, and between them they fix the two settings that are not a
+matter of taste.
+
+**Welding is mandatory.** 45.2% of the vertices sit on top of another vertex at
+the same position, split apart for UV seams and hard normals. Judge the topology
+on raw indices and it reads 51% boundary edges — every seam looks like a hole,
+and a cut loop comes back shredded into fragments. Weld first and the same
+meshes read 15%. So `mesh.weldTolerance` is validated as greater than zero and
+the app refuses to run with it at 0.
+
+**These are shells, not solids.** Only 4.6% are watertight, so a cut through a
+typical building meets an *open span*, not a closed loop. That is why capping is
+split into two settings: `result.cap` fills a closed loop, which is honest
+geometry, while `result.capOpenSpans` closes a span that was never closed in the
+source — inventing surface the artist did not author. The second is off by
+default and should stay off unless you want a solid-looking result more than a
+truthful one.
+
+It is also why `geometry3Sharp` is the right library here and a boolean/CSG one
+is not: CGAL rejects an edge shared by more than two triangles outright, and
+1.65% of these edges are exactly that. `MeshPlaneCut` returns `CutSpans` for the
+open case rather than failing.
+
+## Settings
+
+    Slicer --show-settings              print them (no game install needed)
+    Slicer --save-settings              write a commented slicer.settings
+    Slicer --set slice.mode=stack       override one for this run
+    Slicer --settings other.txt         use a different file
+
+Plain `key = value` text with `#` comments, living beside the exe, editable in
+Notepad without the app running. Unknown keys are preserved on a round trip
+rather than dropped, so a newer build's settings survive an older one reading
+and rewriting the file.
+
+| key | default | |
+|---|---|---|
+| `plane.axis` | `y` | `x`/`y`/`z`/`custom`. Y first because a horizontal cut gives floors |
+| `plane.normal` | `0,1,0` | only read when axis is `custom` |
+| `plane.offset` | `0` | metres along the normal |
+| `plane.origin` | `auto` | `auto` = bounding-box centre, or `x,y,z` |
+| `slice.mode` | `single` | `single` or `stack` |
+| `slice.spacing` | `2.0` | metres between planes; roughly a storey |
+| `slice.count` | `0` | 0 = as many as fit the bounds |
+| `result.keep` | `below` | `below`/`above`/`both`. `both` costs two cuts — `MeshPlaneCut` deletes the positive side in place |
+| `result.cap` | `true` | fill closed cut loops |
+| `result.capOpenSpans` | `false` | **invents geometry** — see above |
+| `mesh.weldTolerance` | `0.00001` | metres. **Must be > 0** — see above |
+| `mesh.dropDegenerate` | `true` | drop zero-area triangles before cutting |
+| `scope.lod` | `0` | |
+| `scope.parts` | `all` | or a substring of the part name |
+| `scope.includeHavok` | `false` | no reader for proxy geometry yet, so inert |
+| `out.dir` / `out.format` | `slices` / `obj` | |
+
+Settings are validated before the packages are read, so a bad value costs a
+second rather than a full scan.
+
+**The assumption these encode**, stated plainly because it is not settled: these
+are the settings for **sectioning a mesh with planes** — the geometry3Sharp
+path. They are not 3D-print settings; there is no layer height, nozzle, infill
+or support here. If printing is the goal, the measurement above is the first
+thing to deal with, because a 4.6%-watertight shell is not printable without a
+repair or solidify pass, and those settings are not in this table.
+
 ## Not done yet
 
 The slicing itself. The geometry is now loaded, so a cutter has something to cut.
