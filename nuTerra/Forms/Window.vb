@@ -1853,8 +1853,7 @@ try_again:
                 ImGui.SetTooltip("Write where the camera is now to a file EVERY" & vbLf &
                                  "session can read, so 'use my camera' is a" & vbLf &
                                  "path rather than six numbers typed out." & vbLf &
-                                 "C:\ProgramData
-uTerra\cam.txt")
+                                 "C:" & ChrW(92) & "ProgramData" & ChrW(92) & "nuTerra" & ChrW(92) & "cam.txt")
             End If
             ImGui.SameLine()
             ' The readouts used to live on this bar. They are a panel of their
