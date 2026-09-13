@@ -1340,6 +1340,42 @@ def main():
     # optimum, [t] the tactical roads - one down each side of everything the
     # affordable ground encloses.
     maze_pts, maze_roads, maze_msg = [], [], ""
+    maze_job = {}
+
+    def run_maze(key):
+        """The flood fill, on a worker thread. Writes only into maze_job."""
+        try:
+            from tank_tools import maze
+            t0 = time.time()
+            direct = np.hypot(goal[0] - start[0], goal[1] - start[1])
+            out = {}
+            if key == pygame.K_g:
+                r = maze.solve(g, start, goal)
+                c = maze.class_routes(g, start, goal, budget=0.25)
+                ln = [q["length"] for q in c["routes"]] or [r["length"]]
+                out["pts"] = r["pts"]
+                out["roads"] = c["routes"]
+                out["msg"] = ("MAZE: optimum %.0f m = %.2fx the %.0f m direct "
+                              "line | %d road(s) %.0f-%.0f m (%.2f-%.2fx) "
+                              "| %.1f s"
+                              % (r["length"], r["length"] / direct, direct,
+                                 len(c["routes"]), min(ln), max(ln),
+                                 min(ln) / r["length"], max(ln) / r["length"],
+                                 time.time() - t0))
+            else:
+                c = maze.class_routes(g, start, goal, budget=0.25)
+                ln = [q["length"] for q in c["routes"]] or [0.0]
+                out["roads"] = c["routes"]
+                out["msg"] = ("%d tactical road(s): %.0f-%.0f m against a %.0f m "
+                              "optimum, %.1f s"
+                              % (len(c["routes"]), min(ln), max(ln), c["opt"],
+                                 time.time() - t0))
+            maze_job["done"] = out
+        except Exception as exc:
+            maze_job["done"] = {"msg": "maze failed: %s" % exc}
+        finally:
+            maze_job["busy"] = False
+
     MAZE_COLS = [(255, 120, 120), (255, 190, 90), (255, 255, 120),
                  (150, 255, 120), (120, 255, 220), (120, 190, 255),
                  (170, 150, 255), (255, 140, 220), (200, 200, 200),
@@ -1492,6 +1528,15 @@ def main():
         return (LEFT_W + (avail_w - mw) // 2, (sh - mw) // 2, mw)
 
     while running:
+        # THE WORKER'S RESULT, collected on the frame that finds it.
+        if "done" in maze_job:
+            d = maze_job.pop("done")
+            if "pts" in d:
+                maze_pts = d["pts"]
+            if "roads" in d:
+                maze_roads = d["roads"]
+            maze_msg = d.get("msg", maze_msg)
+
         if auto_run:
             auto_run = False
             # THE MAZE METHOD IS WHAT THIS OPENS WITH NOW.
@@ -1607,9 +1652,28 @@ def main():
                     # seconds, so they are computed on the key rather than kept
                     # warm. Drawn straight onto the same map as the branch tree
                     # so the comparison is by eye.
-                    screen.blit(font.render("flooding...", True, (255, 255, 0)),
-                                (8, 8))
-                    pygame.display.flip()
+                    # OFF THE UI THREAD, because on it the window stops
+                    # answering Windows and the whole app reads as hung. The
+                    # work is only about three seconds - 0.9 for the optimum,
+                    # 2.0 for the roads - but three seconds of a frozen title
+                    # bar is indistinguishable from a crash, and the owner had
+                    # to kill a console to get out of it.
+                    #
+                    # The thread writes into maze_job and the frame loop picks
+                    # the result up, so the map keeps drawing and panning while
+                    # it runs.
+                    import threading
+                    if maze_job.get("busy"):
+                        maze_msg = "still working - one run at a time"
+                    else:
+                        maze_job.clear()
+                        maze_job["busy"] = True
+                        maze_job["key"] = e.key
+                        maze_job["t0"] = time.time()
+                        threading.Thread(target=run_maze, args=(e.key,),
+                                         daemon=True).start()
+                        maze_msg = "MAZE: working..."
+                elif False:
                     t_m = time.time()
                     try:
                         from tank_tools import maze
