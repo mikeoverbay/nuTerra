@@ -135,6 +135,9 @@ Public Class ViewerWindow
     Private shotFrames As Integer = 0
     ''' <summary>Set by --shell: run the rebuild once, before the shot.</summary>
     Private shellOnLoad As Boolean = False
+    ''' <summary>Set by --bake: bake the maps once on load, then quit.</summary>
+    Private bakeDir As String = Nothing
+    Private bakeSize As Integer = 2048
 
     ' ---- PBR -------------------------------------------------------------
     ' Its own buffer and its own draw list, deliberately separate from the
@@ -209,7 +212,8 @@ Public Class ViewerWindow
 
     Public Sub New(index As PkgIndex, bl As BuildingLibrary, startAsset As Integer, cfg As SliceSettings,
                    Optional shot As String = Nothing, Optional doShell As Boolean = False,
-                   Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False)
+                   Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False,
+                   Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -223,6 +227,8 @@ Public Class ViewerWindow
         lodIndex = Math.Max(0, cfg.Lod)
         shotPath = shot
         shellOnLoad = doShell
+        bakeDir = bakeTo
+        If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
             ' The angle decides what the picture can prove, so it is explicit
             ' rather than whatever the viewer happened to open at. A before and
@@ -266,6 +272,10 @@ Public Class ViewerWindow
         flatNrmTex = DdsTexture.FlatNormal()
         LoadCurrent()
         If shellOnLoad Then RunShellPipeline()
+        If bakeDir IsNot Nothing Then
+            RunBake(bakeDir, bakeSize)
+            If shotPath Is Nothing Then Close()
+        End If
     End Sub
 
     Private Function BuildShader() As Integer
@@ -466,6 +476,106 @@ Public Class ViewerWindow
         Dim withN = pbrParts.Where(Function(x) x.HasNormal).Count()
         Console.WriteLine("  pbr: {0} group(s), {1:N0} tris, {2} with a normal map, {3} texture(s) resident",
                           pbrParts.Count, pbrTris, withN, texCache.Count)
+    End Sub
+
+    ''' <summary>
+    ''' Bake every material of the current asset into flat maps in UV2 space and
+    ''' write them beside an MTL.
+    '''
+    ''' Runs inside the window because it needs a GL context to rasterise into.
+    ''' The rest of the export path is headless; this is the one step that
+    ''' cannot be.
+    ''' </summary>
+    Private Sub RunBake(outDir As String, size As Integer)
+        If Not IO.Directory.Exists(outDir) Then IO.Directory.CreateDirectory(outDir)
+        Dim asset = assets(assetIndex)
+        Dim lods = asset.Lods
+        If lods.Count = 0 Then Return
+        Dim lod = lods(Math.Max(0, Math.Min(lodIndex, lods.Count - 1)))
+
+        Console.WriteLine()
+        Console.WriteLine("BAKE  {0} -> {1}  at {2}px", asset.Name, IO.Path.GetFullPath(outDir), size)
+        Console.WriteLine()
+
+        Dim mtl As New Text.StringBuilder
+        Dim written = 0, noUv = 0, noMat = 0
+        Dim meshIndex = 0
+
+        For Each part In asset.PartsAt(lod)
+            Dim stem = If(Not String.IsNullOrEmpty(part.Visual),
+                          part.Visual.Replace("\"c, "/"c).ToLowerInvariant(),
+                          part.Path.Substring(0, part.Path.Length - ".model".Length))
+            Dim rawPrim = pkg.ReadPath(stem & ".primitives_processed")
+            If rawPrim Is Nothing Then Continue For
+            Dim meshes As List(Of PrimMesh)
+            Try
+                meshes = PrimitivesFile.Parse(rawPrim)
+            Catch
+                Continue For
+            End Try
+            Dim mats As New List(Of VisualMaterial)
+            Dim rawVis = pkg.ReadPath(stem & ".visual_processed")
+            If rawVis IsNot Nothing Then
+                Try
+                    mats = VisualFile.Parse(rawVis).Materials
+                Catch
+                End Try
+            End If
+
+            For Each m In meshes
+                If Not m.HasUV2 Then
+                    noUv += 1
+                    Console.WriteLine("  {0,-50} no uv2, cannot bake", m.Name)
+                    Continue For
+                End If
+                If mats.Count = 0 Then
+                    noMat += 1
+                    Continue For
+                End If
+                ' One material per MESH here, not per primitive group. A group
+                ' split would want its own bake and its own OBJ group; this
+                ' takes the mesh's material and the report says so.
+                Dim mat = mats(Math.Min(meshIndex, mats.Count - 1))
+                meshIndex += 1
+                Dim maps = mat.ExtMaps()
+                Dim baseName = asset.Name & "_" & m.Name
+                Dim wroteAny = False
+
+                For slot = 0 To 2
+                    Dim srcPath = maps(slot)
+                    If srcPath Is Nothing Then Continue For
+                    Dim src = LoadTex(srcPath, 0)
+                    If src = 0 Then Continue For
+                    Dim suffix = If(slot = 0, "AM", If(slot = 1, "NM", "GMM"))
+                    Dim res = TextureBake.Bake(m.UVs, m.UV2, m.Indices, src, size, slot = 1)
+                    If res Is Nothing Then Continue For
+                    Dim png = IO.Path.Combine(outDir, baseName & "_" & suffix & ".png")
+                    PngWriter.WriteRgb(png, res.Width, res.Height, res.Pixels)
+                    Console.WriteLine("  {0,-54} {1,6:P1} covered", IO.Path.GetFileName(png), res.Coverage)
+                    wroteAny = True
+                Next
+
+                If wroteAny Then
+                    written += 1
+                    mtl.AppendLine("newmtl " & baseName)
+                    mtl.AppendLine("Ka 1.000 1.000 1.000")
+                    mtl.AppendLine("Kd 1.000 1.000 1.000")
+                    mtl.AppendLine("map_Kd " & baseName & "_AM.png")
+                    If maps(1) IsNot Nothing Then mtl.AppendLine("map_Bump " & baseName & "_NM.png")
+                    If maps(2) IsNot Nothing Then mtl.AppendLine("map_Ks " & baseName & "_GMM.png")
+                    mtl.AppendLine()
+                End If
+            Next
+        Next
+
+        If mtl.Length > 0 Then
+            Dim mtlPath = IO.Path.Combine(outDir, asset.Name & ".mtl")
+            IO.File.WriteAllText(mtlPath, mtl.ToString())
+            Console.WriteLine()
+            Console.WriteLine("  wrote {0}", mtlPath)
+        End If
+        Console.WriteLine("  {0} material(s) baked, {1} without uv2, {2} without a material",
+                          written, noUv, noMat)
     End Sub
 
     ''' <summary>Draw the textured mesh, one call per primitive group so each

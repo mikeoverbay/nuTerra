@@ -44,6 +44,8 @@ Module Program
         Dim doShell = False
         Dim shotAngle As String = Nothing
         Dim shotCut = False
+        Dim bakeDir As String = Nothing
+        Dim bakePx As Integer = 2048
         Dim exportCount As Integer = -1
         Dim openPath As String = Nothing
         Dim matCount As Integer = -1
@@ -69,6 +71,10 @@ Module Program
                     showSettings = True
                 Case "--save-settings"
                     saveSettings = True
+                Case "--bake"
+                    i += 1 : If i < args.Length Then bakeDir = args(i)
+                Case "--bake-size"
+                    i += 1 : If i < args.Length Then Integer.TryParse(args(i), bakePx)
                 Case "--shot-cut"
                     shotCut = True
                 Case "--shot-angle"
@@ -275,7 +281,7 @@ Module Program
             MeshExport.ExportAssets(pkg, library, settings, If(assetArg, filter), exportCount)
         End If
 
-        If doView OrElse shotPath IsNot Nothing OrElse doShell Then
+        If doView OrElse shotPath IsNot Nothing OrElse doShell OrElse bakeDir IsNot Nothing Then
             ' --asset picks the building to open on; without one it starts at
             ' the first and the arrow keys walk the library.
             Dim startAt = 0
@@ -292,7 +298,7 @@ Module Program
             Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
             Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx)
                 win.Run()
             End Using
         End If
@@ -410,6 +416,8 @@ Module Program
         Console.WriteLine("  --shell              rebuild the set model into an exterior shell")
         Console.WriteLine("  --shot-angle <a>     iso | front | bottom  (default bottom)")
         Console.WriteLine("  --shot-cut           keep the cut on in the shot")
+        Console.WriteLine("  --bake <dir>         bake the maps into UV2 space as PNG + MTL")
+        Console.WriteLine("  --bake-size <px>     bake resolution, default 2048")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")
