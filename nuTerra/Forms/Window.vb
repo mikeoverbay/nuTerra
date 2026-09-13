@@ -1781,15 +1781,12 @@ try_again:
             If ImGui.Button("Shader IDE") Then
                 ShaderIDE.Open = Not ShaderIDE.Open
             End If
-            ImGui.SameLine()
-            If ImGui.Button("Route resolver") Then
-                RouteFilm.show = Not RouteFilm.show
-            End If
-            If ImGui.IsItemHovered() Then
-                ImGui.SetTooltip("A flat top-down view of the route search" & vbLf &
-                                 "itself - the grid, the frontier, the" & vbLf &
-                                 "branches it gave up on. No world, no tanks.")
-            End If
+            ' AND ITS TOOLTIP BELONGS TO IT. This line used to sit two items
+            ' later, after the Route resolver button, and IsItemHovered refers
+            ' to the LAST ITEM SUBMITTED - so it bound to Route resolver and
+            ' overwrote that button's own tooltip, leaving Shader IDE with none
+            ' and Route resolver describing the wrong thing. Found by nuTerra
+            ' work while removing the button above it.
             If ImGui.IsItemHovered() Then ImGui.SetTooltip("Edit and recompile any shader in place - Tools\ShaderIDE.vb")
             If ImGui.Button("Path Studio") Then
                 start_path_studio()
@@ -1831,12 +1828,6 @@ try_again:
         draw_vt_debug_key()
         draw_model_info()
         ShaderIDE.Draw()
-
-        ' Gates itself on RouteFilm.show, exactly as ShaderIDE.Draw does. It was
-        ' briefly nested inside the Textures viewer's If, so it only drew while
-        ' that unrelated window happened to be open - which looks identical to a
-        ' panel that does not work.
-        RouteFilm.Draw()
 
         If SHOW_SETTINGS_WINDOW Then
             If Not prev_SHOW_SETTINGS_WINDOW AndAlso menubar_size.LengthSquared > 0 Then
