@@ -760,7 +760,15 @@ Public Module TankNavLimits
     ''' a height only means a slope while the cell size stays put - and the
     ''' cell size follows the map's span, so it does not.
     ''' </summary>
-    Public Const MAX_SLOPE As Single = 0.7F
+    ''' <summary>Forty degrees off the horizontal, as a gradient. The owner,
+    ''' 2026-09-12: "we can not climb more than tank specs and we have no driver
+    ''' on the fly, lets use a constant angle. 40 off bottom plane."
+    '''
+    ''' It was 0.7 - 35 degrees - while ray_studio's marcher used 1.0 and the
+    ''' square grid tested nothing, so three parts of the same project disagreed
+    ''' about what a tank can climb. One number now, matched by
+    ''' ray_studio.MAX_SLOPE_TAN and maze.MAX_CLIMB_TAN.</summary>
+    Public Const MAX_SLOPE As Single = 0.8391F
 
     ''' <summary>How far inside the arena's edge a tank must stay. About a
     ''' hull length, so one cannot come to rest straddling the boundary with

@@ -53,7 +53,7 @@ FLIGHT = os.path.join(os.environ.get("TEMP", "."), "nuTerra", "flight")
 # TankNav's own numbers, so this tool and the app agree about the ground.
 CELL_TEXELS = 8
 MAX_OBSTACLE_M = 1.0
-MAX_SLOPE = 0.7
+MAX_SLOPE = 0.8391              # tan(40 deg), mirrors TankNavLimits.MAX_SLOPE
 KIND_MASK, OUTLAND_BIT, TRUNK_BIT = 7, 16, 128
 
 # SOLID_BIT, bake_version 2. Terrain-borne geometry over obstacle_min_h stands
@@ -450,12 +450,19 @@ MIN_GAP_DEFAULT_M = 4.0
 # double all." Ray cap 3.0 -> 6.0, with RING_STEP_M and RING_MIN_M 0.5 -> 1.0.
 RAY_CAP_DEFAULT_M = 6.0
 
-# STEEPEST GROUND WE CAN TAKE, up or down. "we cant drop by more that 45 degree
-# angle up or down. we have to stop and do a ring sweep." Forty-five degrees is
-# a gradient of one, which is why the number is 1.0 and not a trigonometric
-# call - and writing it this way means nobody has to wonder which way round the
-# tangent went.
-MAX_SLOPE_TAN = 1.0
+# STEEPEST GROUND WE CAN TAKE, up or down, AND IT IS NOW ONE NUMBER PROJECT-WIDE.
+#
+# "there is an altitude rule on terrain. we can not climb more than tank specs
+# and we have no driver on the fly, lets use a constant angle. 40 off bottom
+# plane."
+#
+# It had been three answers and two absences: TankNav 0.7 (35 deg), this
+# marcher 1.0 (45 deg, from his earlier "we cant drop by more that 45 degree
+# angle"), and no test at all in the 1 m square grid or in maze.py - so every
+# flood-fill route was free to climb a cliff. Forty degrees everywhere now:
+# TankNavLimits.MAX_SLOPE, maze.MAX_CLIMB_TAN and this constant are the same
+# gradient, and a change to one is a change to all three.
+MAX_SLOPE_TAN = 0.8391          # tan(40 degrees)
 
 # THREE TANGENTS THE SAME WAY MEANS WE ARE NOT GETTING ROUND IT. "of we get 3
 # points in a row that are of nearly the same angle, we are no getting around

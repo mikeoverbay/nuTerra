@@ -40,6 +40,24 @@ from tank_tools import ray_studio as rs
 
 CELL_M = 1.0
 
+# THE CLIMB LIMIT, AND IT IS ONE NUMBER NOW.
+#
+# The owner: "there is an altitude rule on terrain. we can not climb more than
+# tank specs and we have no driver on the fly, lets use a constant angle. 40
+# off bottom plane."
+#
+# Before this the project had three different answers and two absences:
+# TankNav used 0.7 (35 degrees), ray_studio's marcher used 1.0 (45), and the
+# 1 m square grid and this file tested nothing at all. So every flood-fill
+# route drawn today was free to climb a cliff, which is exactly what he caught.
+#
+# Forty degrees off the horizontal, as a gradient, applied to the EDGES of the
+# grid rather than to cells. An edge is what a tank actually drives; blocking a
+# whole cell because one neighbour is steep would wall off the top of every
+# ridge the tank is standing on.
+MAX_CLIMB_DEG = 40.0
+MAX_CLIMB_TAN = float(np.tan(np.deg2rad(MAX_CLIMB_DEG)))
+
 
 def grid_1m(g, cell_m=CELL_M):
     """collide_hull, downsampled to one-metre cells. True means blocked.
@@ -59,7 +77,9 @@ def grid_1m(g, cell_m=CELL_M):
     # Max-pool by taking the block maximum over the texels each cell covers.
     edges = np.clip((np.arange(n + 1) * cell_m / span * W).astype(int), 0, W)
     hull = g["collide_hull"]
+    floor = g["floor"].astype(np.float32) / g["hscale"]
     blocked = np.zeros((n, n), bool)
+    height = np.zeros((n, n), np.float32)
     for r in range(n):
         r0, r1 = edges[r], max(edges[r] + 1, edges[r + 1])
         band = hull[r0:r1, :]
@@ -68,7 +88,14 @@ def grid_1m(g, cell_m=CELL_M):
         rowmax = band.any(axis=0)
         # column pooling, vectorised with reduceat
         blocked[r] = np.maximum.reduceat(rowmax, edges[:n])
-    return blocked, n
+        # AND THE GROUND HEIGHT, same pooling, so the climb test has something
+        # to test. Mean rather than max: a cell's height is where a tank in it
+        # sits, and taking the max would invent a step at every rock.
+        fb = floor[r0:r1, :].mean(axis=0)
+        sums = np.add.reduceat(fb, edges[:n])
+        counts = np.diff(np.append(edges[:n], W)).astype(np.float32)
+        height[r] = sums / np.maximum(counts, 1.0)
+    return blocked, n, height
 
 
 def to_cell(g, x, z, n, cell_m=CELL_M):
@@ -109,7 +136,7 @@ def nearest_free(blocked, rc, limit=40):
     raise ValueError("no free cell within %d of %s" % (limit, rc))
 
 
-def flood(blocked, goal_rc, cost=None):
+def flood(blocked, goal_rc, cost=None, height=None):
     """Exact distance from every free cell to the goal, octile metric.
 
     scipy's Dijkstra over an 8-connected grid graph. Diagonals cost sqrt(2) and
@@ -139,6 +166,13 @@ def flood(blocked, goal_rc, cost=None):
             o1 = free[max(0, -dr):n - max(0, dr), max(0, dc):n - max(0, -dc)]
             o2 = free[max(0, dr):n - max(0, -dr), max(0, -dc):n - max(0, dc)]
             ok = ok & o1 & o2
+        if height is not None:
+            # TOO STEEP TO DRIVE IS AS GOOD AS A WALL. Checked on the EDGE,
+            # against the run it actually covers, so a diagonal is allowed
+            # sqrt(2) times the rise an orthogonal step is.
+            ha = height[max(0, -dr):n - max(0, dr), max(0, -dc):n - max(0, dc)]
+            hb = height[max(0, dr):n - max(0, -dr), max(0, dc):n - max(0, -dc)]
+            ok = ok & (np.abs(hb - ha) <= MAX_CLIMB_TAN * w)
         ia = idx[max(0, -dr):n - max(0, dr), max(0, -dc):n - max(0, dc)][ok]
         ib = idx[max(0, dr):n - max(0, -dr), max(0, dc):n - max(0, -dc)][ok]
         rows.append(ia)
@@ -192,11 +226,11 @@ def solve(g, start, goal, cell_m=CELL_M):
     """The shortest drivable route, and what it cost to find."""
     import time
     t0 = time.time()
-    blocked, n = grid_1m(g, cell_m)
+    blocked, n, height = grid_1m(g, cell_m)
     t1 = time.time()
     gr, gsnap = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
     sr, ssnap = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
-    field = flood(blocked, gr)
+    field = flood(blocked, gr, height=height)
     t2 = time.time()
     cells = walk_down(field, sr)
     pts = [to_world(g, r, c, cell_m) for r, c in cells]
@@ -292,11 +326,11 @@ RING_M = 20.0
 def lane_routes(g, start, goal, count=None, cell_m=CELL_M, ring_m=RING_M,
                 step_m=5.0):
     """One crossing lane per tank, each at its own X, hooked to the base."""
-    blocked, n = grid_1m(g, cell_m)
+    blocked, n, height = grid_1m(g, cell_m)
     s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
     g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
-    f_start = flood(blocked, s_rc)      # cost from the start to anywhere
-    f_goal = flood(blocked, g_rc)       # cost from anywhere to the base
+    f_start = flood(blocked, s_rc, height=height)   # start to anywhere
+    f_goal = flood(blocked, g_rc, height=height)    # anywhere to the base
 
     # THE CROSSING LINE: the mirror of the start's row, so a lane runs the full
     # depth of the map.
@@ -400,14 +434,14 @@ def spread_routes(g, start, goal, count=6, cell_m=CELL_M, penalty=6.0):
 
     Costs one flood per route, so about half a second each.
     """
-    blocked, n = grid_1m(g, cell_m)
+    blocked, n, height = grid_1m(g, cell_m)
     s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
     g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
     cost = np.ones((n, n), np.float32)
     guard = 45.0 / cell_m
     out = []
     for k in range(count):
-        field = flood(blocked, g_rc, None if k == 0 else cost)
+        field = flood(blocked, g_rc, None if k == 0 else cost, height=height)
         if not np.isfinite(field[s_rc]):
             out.append(dict(ok=False, why="no route left once the used ground is charged for"))
             break
@@ -434,7 +468,7 @@ def spread_routes(g, start, goal, count=6, cell_m=CELL_M, penalty=6.0):
     return out, blocked, n
 
 
-def components(blocked):
+def components(blocked, height=None):
     """A label per free cell: two cells with the same label can reach each
     other. 8-connected with the same no-corner-cutting rule as the flood."""
     from scipy.sparse import coo_matrix
@@ -452,6 +486,14 @@ def components(blocked):
             o1 = free[max(0, -dr):n - max(0, dr), max(0, dc):n - max(0, -dc)]
             o2 = free[max(0, dr):n - max(0, -dr), max(0, -dc):n - max(0, dc)]
             ok = ok & o1 & o2
+        if height is not None:
+            # THE SAME CLIMB RULE AS THE FLOOD, or "can it reach" and "here is
+            # the route" answer differently and a lane passes its feasibility
+            # test then fails to produce a path.
+            run = np.hypot(dr, dc)
+            ha = height[max(0, -dr):n - max(0, dr), max(0, -dc):n - max(0, dc)]
+            hb = height[max(0, dr):n - max(0, -dr), max(0, dc):n - max(0, -dc)]
+            ok = ok & (np.abs(hb - ha) <= MAX_CLIMB_TAN * run)
         rows.append(idx[max(0, -dr):n - max(0, dr), max(0, -dc):n - max(0, dc)][ok])
         cols.append(idx[max(0, dr):n - max(0, -dr), max(0, dc):n - max(0, -dc)][ok])
     r, c = np.concatenate(rows), np.concatenate(cols)
@@ -485,9 +527,9 @@ def corner_sweep(g, goal, cell_m=CELL_M, ring_m=RING_M, step_m=5.0,
 
     One flood total, from the base. Everything else is line tests.
     """
-    blocked, n = grid_1m(g, cell_m)
+    blocked, n, height = grid_1m(g, cell_m)
     g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
-    f_goal = flood(blocked, g_rc)
+    f_goal = flood(blocked, g_rc, height=height)
     from scipy.sparse import coo_matrix
     from scipy.sparse.csgraph import connected_components
     ring_cells = int(ring_m / cell_m)
@@ -527,7 +569,7 @@ def corner_sweep(g, goal, cell_m=CELL_M, ring_m=RING_M, step_m=5.0,
 
     # WHICH CELLS CAN REACH WHICH, once. Feasibility for every lane becomes a
     # comparison of two labels instead of a search that fails slowly.
-    comp = components(blocked)
+    comp = components(blocked, height)
 
     home = comp[g_rc]
 
@@ -593,7 +635,7 @@ def _one_lane(g, blocked, comp, f_goal, rc_of, col, near_along, far_along,
             return None, "nothing free at the lane start"
         if comp[s_rc] != comp[rc]:
             return None, "lane start cut off from the far side"
-        leg1 = walk_down(flood(blocked, rc), s_rc)
+        leg1 = walk_down(flood(blocked, rc, height=height), s_rc)
         leg2 = walk_down(f_goal, rc)
         pts = [to_world(g, r, c, cell_m) for r, c in leg1 + leg2]
         length = float(sum(
@@ -633,11 +675,11 @@ def alternatives(g, start, goal, cell_m=CELL_M, budgets=(0.0, 0.05, 0.10, 0.25,
     """
     from scipy.ndimage import label
 
-    blocked, n = grid_1m(g, cell_m)
+    blocked, n, height = grid_1m(g, cell_m)
     s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
     g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
-    f_s = flood(blocked, s_rc)
-    f_g = flood(blocked, g_rc)
+    f_s = flood(blocked, s_rc, height=height)
+    f_g = flood(blocked, g_rc, height=height)
     through = f_s + f_g
     opt = float(through[s_rc])
 
@@ -745,10 +787,11 @@ def class_routes(g, start, goal, budget=0.25, cell_m=CELL_M, max_holes=6,
     """
     from scipy.ndimage import label, binary_dilation
 
-    blocked, n = grid_1m(g, cell_m)
+    blocked, n, height = grid_1m(g, cell_m)
     s_rc, _ = nearest_free(blocked, to_cell(g, start[0], start[1], n, cell_m))
     g_rc, _ = nearest_free(blocked, to_cell(g, goal[0], goal[1], n, cell_m))
-    f_s, f_g = flood(blocked, s_rc), flood(blocked, g_rc)
+    f_s = flood(blocked, s_rc, height=height)
+    f_g = flood(blocked, g_rc, height=height)
     through = f_s + f_g
     opt = float(through[s_rc])
     afford = np.isfinite(through) & (through <= opt * (1.0 + budget))
