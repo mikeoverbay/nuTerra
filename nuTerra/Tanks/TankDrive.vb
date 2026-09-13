@@ -77,23 +77,32 @@ Public Class TankDrive
     ''' about which of four quite different causes to go and fix.</summary>
     Public stopReason As StopWhy
 
-    Public rng As Random
-
     ''' <summary>
     ''' Drive one tank for one step.
     ''' </summary>
     Public Sub Advance(inst As TankInstance, nav As TankNav,
                        others As List(Of TankInstance), dt As Single)
         If dt <= 0.0F Then Return
-        If rng Is Nothing Then rng = New Random(&H7A2B0000 Xor inst.id)
 
         Dim pos As New Vector2(inst.position.X, inst.position.Z)
 
         goalS += dt
-        If Not hasGoal OrElse (goal - pos).Length < TankDriveTune.ARRIVE_M OrElse
-           goalS > TankDriveTune.GOAL_PATIENCE_S Then
-            PickGoal(nav, pos)
-        End If
+
+        ' NOTHING SETS A GOAL IN THIS TREE ANY MORE, so every hull parks here.
+        '
+        ' The owner, 2026-09-12: "remove the resolve path button and the code to
+        ' seek tanks ... its dead code I want out." What stood here threw up to
+        ' 24 random points into a 60-220 m ring and drove at the first one that
+        ' could be stood on. It was never navigation - it was a hull wandering
+        ' until it happened to be somewhere.
+        '
+        ' Removing it is deliberately VISIBLE rather than quiet. The wandering
+        ' flattered every measurement of the real planner by keeping the fleet
+        ' in motion whether or not anything had planned a route, so a still tank
+        ' now means exactly what it looks like: it was never given a corridor.
+        ' The route catalogue on the tank-ai branch is what fills this in, and
+        ' when it merges its PickGoal - which walks a hull's own corridor and
+        ' advances the waypoint on arrival only - replaces this park.
         If Not hasGoal Then Return
 
         ' ---- backing out ---------------------------------------------------
@@ -151,7 +160,6 @@ Public Class TankDrive
             stopReason = If(aligned, StopWhy.Aligned, StopWhy.Turning)
             If aligned Then
                 stuckS += dt
-                If stuckS > TankDriveTune.STUCK_S Then PickGoal(nav, pos)
             End If
             Return
         End If
@@ -173,12 +181,6 @@ Public Class TankDrive
             ' so the turn is a jitter about the average and the tank never
             ' completes the turn that would take it away from the wall. It
             ' needs long enough to actually swing round.
-            blockedS += dt
-            If blockedS > TankDriveTune.REPICK_S Then
-                blockedS = 0.0F
-                PickGoal(nav, pos)
-            End If
-
             ' PINNING IS FOR BEING WEDGED, NOT FOR TOUCHING. A pin is
             ' permanent and it is written to disk, so pinning every wall a
             ' tank brushes would fill the map with them - the first run laid
@@ -202,7 +204,6 @@ Public Class TankDrive
             stopReason = StopWhy.Traffic
             speed = 0.0F
             stuckS += dt
-            If stuckS > TankDriveTune.STUCK_S Then PickGoal(nav, pos)
             Return
         End If
 
@@ -211,38 +212,6 @@ Public Class TankDrive
         blockedS = 0.0F
         inst.position = New Vector3(nxt.X, get_Y_at_XZ_fast(nxt.X, nxt.Y), nxt.Y)
         inst.trackDistance += stride
-    End Sub
-
-    ''' <summary>
-    ''' Somewhere open to head for.
-    '''
-    ''' A RING, NOT A DISC. Sampling a uniform disc puts most of the candidates
-    ''' close to the tank, so it shuffles about instead of crossing ground. The
-    ''' minimum radius is what makes it travel.
-    '''
-    ''' Gives up after a bounded number of tries rather than searching: a tank
-    ''' boxed in badly enough that two dozen throws all miss is a tank that
-    ''' should sit still this frame and be asked again next frame, not one that
-    ''' should spend the frame proving it is stuck.
-    ''' </summary>
-    Private Sub PickGoal(nav As TankNav, pos As Vector2)
-        hasGoal = False
-        goalS = 0.0F
-        For attempt = 1 To TankDriveTune.GOAL_TRIES
-            Dim a = rng.NextDouble() * Math.PI * 2.0
-            Dim r = TankDriveTune.GOAL_MIN_M +
-                    rng.NextDouble() * (TankDriveTune.GOAL_MAX_M - TankDriveTune.GOAL_MIN_M)
-            Dim gx = pos.X + CSng(Math.Cos(a) * r)
-            Dim gz = pos.Y + CSng(Math.Sin(a) * r)
-            If nav.CanStand(gx, gz, TankDriveTune.HULL_R) Then
-                goal = New Vector2(gx, gz)
-                hasGoal = True
-                ' stuckS is NOT cleared here. A new goal is not progress, and
-                ' zeroing it on every pick is what made the first fleet report
-                ' zero stuck tanks while not one of them was moving.
-                Return
-            End If
-        Next
     End Sub
 
     ''' <summary>
@@ -317,29 +286,13 @@ Public Module TankDriveTune
     ''' would not have been allowed to spawn.</summary>
     Public HULL_R As Single = 4.5F
 
-    ''' <summary>How close counts as arrived.</summary>
-    Public ARRIVE_M As Single = 6.0F
-
-    ''' <summary>Goals are thrown into this ring around the tank.</summary>
-    Public GOAL_MIN_M As Single = 60.0F
-    Public GOAL_MAX_M As Single = 220.0F
-    Public GOAL_TRIES As Integer = 24
-
-    ''' <summary>Seconds on one goal before giving up on it. A tank still
-    ''' trying after this is circling something it cannot pass.</summary>
-    Public GOAL_PATIENCE_S As Single = 45.0F
-
-    ''' <summary>Seconds held at a standstill before choosing again.</summary>
+    ''' <summary>Seconds at a standstill before a hull counts as stuck.
+    ''' No longer re-chooses anything - the goal picker that did is gone. Read
+    ''' by the fleet report in Window.vb and by MapTankRays.</summary>
     Public STUCK_S As Single = 1.5F
 
-    ''' <summary>Seconds of being blocked before trying a different goal. Long
-    ''' enough for the hull to have swung a useful part of the way round at
-    ''' TURN_RATE_RAD - about 40 degrees - so the tank commits to a direction
-    ''' instead of jittering between fresh random ones.</summary>
-    Public REPICK_S As Single = 1.2F
-
     ''' <summary>Seconds wedged before the map is told about it. Deliberately
-    ''' several times REPICK_S: a pin is permanent and persisted, so it should
+    ''' several times STUCK_S: a pin is permanent and persisted, so it should
     ''' record a tank that could not get out, never one that brushed a wall.
     ''' </summary>
     Public PIN_S As Single = 5.0F
