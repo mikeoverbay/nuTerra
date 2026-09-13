@@ -299,7 +299,8 @@ Public Class ViewerWindow
                        .Size = New Vector2i(1280, 800),
                        .Title = "Slicer",
                        .APIVersion = New Version(3, 3),
-                       .Profile = ContextProfile.Core})
+                       .Profile = ContextProfile.Core,
+                       .StartFocused = False})
         pkg = index
         assets = bl.Assets.Values.ToList()
         settings = cfg
