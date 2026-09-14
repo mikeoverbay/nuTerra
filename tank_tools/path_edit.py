@@ -82,7 +82,8 @@ class PathEdit(object):
         if snap:
             x, z = self.snap(x, z)
         self.nodes[i] = dict(x=float(x), z=float(z), team=int(team),
-                             start=False, msg="", note="", spd="")
+                             start=False, start_team=0,
+                             msg="", note="", spd="")
         self.edges[i] = []
         return i
 
@@ -165,6 +166,9 @@ class PathEdit(object):
         # onto rather than dragged.
         if src in self.nodes and dst in self.nodes:
             self.nodes[dst]["team"] |= self.nodes[src].get("team", 0)
+            self.nodes[dst]["start_team"] = (
+                self.nodes[dst].get("start_team", 0) |
+                self.nodes[src].get("start_team", 0))
         self.remove(src)
         return dst
 
@@ -179,11 +183,14 @@ class PathEdit(object):
         """
         n = self.nodes[i]
         return dict(team=n.get("team", 0), start=n.get("start", False),
+                    start_team=n.get("start_team", 0),
                     msg=n["msg"], note=n["note"], spd=n["spd"])
 
     def _spawn(self, x, z, data):
         j = self.add(x, z, snap=False, team=data["team"])
-        self.nodes[j].update(start=data.get("start", False), msg=data["msg"],
+        self.nodes[j].update(start=data.get("start", False),
+                             start_team=data.get("start_team", 0),
+                             msg=data["msg"],
                              note=data["note"], spd=data["spd"])
         return j
 
@@ -430,6 +437,7 @@ class PathEdit(object):
             snap_m=self.snap_m,
             nodes=[dict(id=i, x=n["x"], z=n["z"], team=n.get("team", 0),
                         start=bool(n.get("start", False)),
+                        start_team=int(n.get("start_team", 0)),
                         msg=n["msg"], note=n["note"], spd=n["spd"])
                    for i, n in sorted(self.nodes.items())],
             edges=sorted({(min(a, b), max(a, b))
@@ -440,9 +448,17 @@ class PathEdit(object):
         pe = cls(snap_m=d.get("snap_m", 0.5))
         for n in d.get("nodes", ()):
             i = int(n["id"])
+            # A GRAPH SAVED BEFORE start_team EXISTED has only the shared
+            # `team` mask on its starts. Falling back to it reproduces exactly
+            # what that file used to mean rather than leaving every start in
+            # it teamless, which would read as "nobody spawns here".
+            st = int(n.get("start_team", 0))
+            if not st and n.get("start"):
+                st = int(n.get("team", 0))
             pe.nodes[i] = dict(x=float(n["x"]), z=float(n["z"]),
                                team=int(n.get("team", 0)),
                                start=bool(n.get("start", False)),
+                               start_team=st,
                                msg=n.get("msg", ""), note=n.get("note", ""),
                                spd=n.get("spd", ""))
             pe.edges[i] = []
