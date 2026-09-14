@@ -59,6 +59,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 import math
+import threading
 import time
 import struct
 import numpy as np
@@ -1059,6 +1060,7 @@ def main():
         print("squares: NOT LOADED - %s" % ex)
     slider_rects = {}             # name -> (rect, lo, hi) from the last frame
     active_slider = None
+    reload_job = {}               # the bake being re-read, off the UI thread
 
     # ---- THE PATH EDITOR ------------------------------------------------
     # The graph is in path_edit and knows nothing about GL; everything here is
@@ -1385,6 +1387,24 @@ def main():
             maze_roads = maze_live[:]
 
         # THE WORKER'S RESULT, collected on the frame that finds it.
+        # THE RELOADED BAKE, swapped in at a frame boundary rather than under
+        # the drawing. Everything derived from the grid is rebuilt with it: the
+        # ground picture, the play box, and the block layer.
+        if "g" in reload_job:
+            g = reload_job.pop("g")
+            base = build_base(base_mode)
+            ground_dirty = True
+            play_bb = _mz.play_box(map_name)
+            try:
+                squares = Squares(map_name)
+            except Exception:
+                squares = None
+            sq_surf = None
+            maze_msg = ("bake reloaded - %d clear texel(s)"
+                        % int((~g["collide"]).sum()))
+        if "err" in reload_job:
+            maze_msg = "bake reload FAILED: %s" % reload_job.pop("err")
+
         if "done" in maze_job:
             d = maze_job.pop("done")
             if "pts" in d:
@@ -1545,12 +1565,12 @@ def main():
                         # "select the verts that enclose the area" - the
                         # smallest ring containing the click, so a region
                         # inside another region picks the inner one.
-                        f = edit.face_at(wx, wz)
-                        lit_face = f
-                        sel = list(f.ring) if f else []
+                        face = edit.face_at(wx, wz)
+                        lit_face = face
+                        sel = list(face.ring) if face else []
                         sel_edge = None
                         edit_msg = ("area %d m2 - the %d verts enclosing it"
-                                    % (abs(f.area), len(f))) if f else                             "no enclosed area there"
+                                    % (abs(face.area), len(face))) if face else                             "no enclosed area there"
 
                     elif not adding:
                         # ---- PICKING -------------------------------------
@@ -1841,7 +1861,6 @@ def main():
                     # The thread writes into maze_job and the frame loop picks
                     # the result up, so the map keeps drawing and panning while
                     # it runs.
-                    import threading
                     if maze_job.get("busy"):
                         maze_msg = "still working - one run at a time"
                     else:
@@ -1957,11 +1976,51 @@ def main():
                 elif e.key == pygame.K_d:
                     show_dead = not show_dead
                 elif e.key == pygame.K_z:
-                    # CLEAR THE MAP. "I have no clear button to remove the path
-                    # before Run again." Wipes what was drawn without touching
-                    # the block data, which is what [x] is for.
-                    maze_pts, maze_roads = [], []
-                    maze_msg = "cleared"
+                    # CLEAR, AND RELOAD THE HEIGHT MAPS.
+                    #
+                    # "the path clear button has no affect. it should reload the
+                    # height maps on click."
+                    #
+                    # It had no effect for a reason that is entirely my doing:
+                    # it wiped maze_pts and maze_roads, and since the editor
+                    # took over the drawing NEITHER OF THOSE IS ON SCREEN any
+                    # more. The raw sweep is hidden the moment the graph holds
+                    # it, so clearing the sweep cleared something invisible and
+                    # left the visible thing - the graph - untouched. A button
+                    # that wipes a variable nobody draws is a button that does
+                    # nothing.
+                    #
+                    # So it clears what is actually drawn, and reloads the bake
+                    # off disk with it: top, floor and ids. That is the point of
+                    # a clear here - nuTerra re-bakes while this window is open
+                    # (bake_version went 2 to 5 in one evening) and until the
+                    # grid is re-read the Studio is planning against ground that
+                    # no longer exists.
+                    #
+                    # ON A THREAD. build_grid is a distance transform over an
+                    # 8192 square - 6.4 seconds by its own measurement - and on
+                    # the UI thread that is a window Windows reports as not
+                    # responding.
+                    if reload_job.get("busy"):
+                        maze_msg = "still reloading the bake"
+                    else:
+                        maze_pts, maze_roads = [], []
+                        edit.clear()
+                        edit.rebuild()
+                        sel, sel_edge, lit_face, line_from = [], None, None, None
+                        roads_loaded, edit_auto = False, True
+                        reload_job["busy"] = True
+                        maze_msg = "reloading the bake from disk..."
+
+                        def _reload():
+                            try:
+                                ng = build_grid(map_name, hull)
+                                reload_job["g"] = ng
+                            except Exception as ex:
+                                reload_job["err"] = str(ex)
+                            reload_job["busy"] = False
+
+                        threading.Thread(target=_reload, daemon=True).start()
                 elif e.key == pygame.K_x:
                     # A FULL RESET: reload the block data from disk.
                     #
@@ -2318,9 +2377,14 @@ def main():
         # on this map is drawn as lines and points in one batch and a filled
         # polygon would need its own pass for something the outline already
         # says. The one under the last zone click is drawn brighter and wider.
-        for f in edit.faces:
-            lit = (f is lit_face)
-            ring = f.ring
+        # NOT `f` - that is the ground picture's decimation step, a local of
+        # main that build_base reads every time it runs. Rebinding it here made
+        # the next bake reload crash inside build_base with "slice indices must
+        # be integers", a hundred lines and one thread away from the loop that
+        # actually broke it.
+        for face in edit.faces:
+            lit = (face is lit_face)
+            ring = face.ring
             for k in range(len(ring)):
                 a = edit.nodes[ring[k]]
                 b = edit.nodes[ring[(k + 1) % len(ring)]]
@@ -2530,8 +2594,10 @@ def main():
         y = header(LX, y, "SEARCH", LW)
         y = button(LX, y, LW, "Run  [g]", pygame.K_g, bool(maze_pts),
                    (150, 255, 200))
-        y = button(LX, y, LW, "Clear  [z]", pygame.K_z,
-                   False, (255, 210, 150))
+        y = button(LX, y, LW,
+                   "Reloading the bake..." if reload_job.get("busy")
+                   else "Clear + reload bake  [z]", pygame.K_z,
+                   bool(reload_job.get("busy")), (255, 210, 150))
         y = button(LX, y, LW, "Roads round obstacles  [t]", pygame.K_t,
                    bool(maze_roads), (150, 255, 200))
         y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a,

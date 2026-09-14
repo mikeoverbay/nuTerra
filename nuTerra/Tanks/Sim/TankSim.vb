@@ -40,8 +40,35 @@ Public Module TankSim
     ''' <summary>Draw the path each hull is following.</summary>
     Public SIM_SHOW_PATHS As Boolean = True
 
-    ''' <summary>How far a hull looks for its neighbours.</summary>
+    ''' <summary>Draw the old hull-to-goal ray, the one that predates the sim.
+    '''
+    ''' OFF, and on its own switch, because it is the other thing that appears
+    ''' when SIM starts and vanishes on Reset - it needs drive.hasGoal, which
+    ''' only the sim sets. With two blocks behaving identically there was no way
+    ''' to say which was on screen without turning one off, so now you can.
+    '''
+    ''' It also mostly duplicates the run now: under the sim `goal` is the next
+    ''' waypoint, so the ray is a short piece of the path already drawn.</summary>
+    Public SIM_SHOW_GOAL As Boolean = False
+
+    ''' <summary>How far a hull looks to the SIDES and BEHIND. Short, because
+    ''' a neighbour alongside is either touching or it is not.</summary>
     Public SIM_RAY_M As Single = 3.0F
+
+    ''' <summary>How far a hull looks AHEAD - the owner's twenty metres.
+    '''
+    ''' Long, and only forward, because forward is the one direction with time
+    ''' in it: at 7 m/s twenty metres is about three seconds of warning, which is
+    ''' enough to turn. Twenty metres out of the sides would just report every
+    ''' tank in the column beside it, permanently.</summary>
+    Public SIM_RAY_FRONT_M As Single = 20.0F
+
+    ''' <summary>How far ray i reaches. The three forward ones get the long
+    ''' range; the rest stay short.</summary>
+    Public Function RayLen(i As Integer) As Single
+        If i = R_FL OrElse i = R_FR OrElse i = R_FRONT Then Return SIM_RAY_FRONT_M
+        Return SIM_RAY_M
+    End Function
 
     ''' <summary>Eight rays a hull: the four corners and the middle of each
     ''' of the four sides. The order is fixed and the code below depends on
@@ -121,6 +148,8 @@ Public Module TankSim
         nodes.Clear()
         adj.Clear()
         startIds.Clear()
+        lines.Clear()
+        startPts.Clear()
         hullRun.Clear()
         atOf.Clear()
 
@@ -190,38 +219,94 @@ Public Module TankSim
             howLong = age.TotalHours.ToString("0.#") & " h ago"
         End If
         pathsStamp = String.Format("saved {0:HH:mm:ss} ({1})", wrote, howLong)
+        BuildDrawLists()
         LogThis("tank sim: {0} from {1}_paths.json, {2} - Ray Studio's graph, not the route catalogue",
                 startsMsg, mapName, pathsStamp)
         Return startIds.Count
     End Function
 
     ''' <summary>
-    ''' The run leaving a start point, walked to the first fork or dead end.
+    ''' The run leaving a start point, walked to a dead end.
     '''
-    ''' STOPS AT A FORK rather than guessing. A fork is a real choice and the
-    ''' editor marked it as one; picking a branch here would be this file
-    ''' inventing a route, which is the thing the whole arrangement exists to
-    ''' avoid. Whatever chooses at forks later gets to choose properly.
+    ''' IT CHOOSES AT FORKS, and it has to. The first version stopped at one
+    ''' rather than guess, on the reasoning that a fork is a real decision and
+    ''' inventing a branch here would be this file making up a route. That was
+    ''' wrong for a reason the data makes obvious the moment it is looked at:
+    ''' EVERY START IS A FORK. The 1 m dedupe merges all the roads leaving a
+    ''' base onto one vertex, so the six starts have degree 3, 3, 3, 3, 3 and
+    ''' 8 - and a walk that stops at the first fork stopped on the first point
+    ''' every time. Six runs, one point each. The tanks drove to their start
+    ''' and parked, and nothing was ever drawn under them.
+    '''
+    ''' `pick` is the choosing hand - each tank passes its own number, so two
+    ''' hulls on the same start take different roads off it instead of thirty
+    ''' following one. It is deliberately not random: the same tank on the same
+    ''' graph takes the same road every run, which is what makes two runs
+    ''' comparable.
+    '''
+    ''' `seen` stops it circling a loop forever; a road that rejoins itself
+    ''' ends the run rather than lapping.
     ''' </summary>
-    Public Function RunFrom(startId As Integer) As List(Of Vector2)
+    Public Function RunFrom(startId As Integer, Optional pick As Integer = 0) As List(Of Vector2)
         Dim outp As New List(Of Vector2)
         If Not nodes.ContainsKey(startId) Then Return outp
         Dim seen As New HashSet(Of Integer)
-        Dim cur = startId, prev = -1
+        Dim cur = startId, prev = -1, step_ = 0
         For guard = 0 To 4000
             If Not nodes.ContainsKey(cur) OrElse seen.Contains(cur) Then Exit For
             seen.Add(cur)
             outp.Add(New Vector2(nodes(cur).x, nodes(cur).z))
-            Dim nxt = -1, ways = 0
+            Dim ways As New List(Of Integer)
             For Each n In adj(cur)
-                If n = prev Then Continue For
-                ways += 1
-                If nxt < 0 Then nxt = n
+                If n <> prev AndAlso Not seen.Contains(n) Then ways.Add(n)
             Next
-            ' One way on is a road; none is the end; more than one is a fork.
-            If ways <> 1 Then Exit For
+            If ways.Count = 0 Then Exit For
+            ' Sorted, so the choice depends on the graph and not on the order a
+            ' dictionary happened to hand back its neighbours.
+            ways.Sort()
+            Dim take = 0
+            If ways.Count > 1 Then
+                take = Math.Abs(pick + step_ * 7) Mod ways.Count
+                step_ += 1
+            End If
             prev = cur
-            cur = nxt
+            cur = ways(take)
+        Next
+        Return Subdivide(outp)
+    End Function
+
+    ''' <summary>
+    ''' Cut every long leg into steps, so a hull FOLLOWS the road instead of
+    ''' aiming across it.
+    '''
+    ''' Ray Studio simplifies before it saves - a straight lane keeps its corners
+    ''' and loses everything between - so two consecutive verts on one of these
+    ''' roads can be 234 m apart. Measured on the saved file: a hull standing on
+    ''' its start advanced to waypoint 1 and had a goal 234 m away, which it then
+    ''' drove at in a straight line. Wherever the road bent, the tank did not.
+    '''
+    ''' It also drew that straight line, which is the base-to-base ray that
+    ''' appeared the moment the sim started and went away on Reset.
+    '''
+    ''' The extra points are on the segment the file already describes, so this
+    ''' adds no geometry of its own - it only stops the hull cutting the corner
+    ''' between two points that are both on the road.
+    ''' </summary>
+    Public Const STEP_M As Single = 12.0F
+
+    Private Function Subdivide(pts As List(Of Vector2)) As List(Of Vector2)
+        If pts.Count < 2 Then Return pts
+        Dim outp As New List(Of Vector2)(pts.Count * 2)
+        outp.Add(pts(0))
+        For i = 0 To pts.Count - 2
+            Dim a = pts(i), b = pts(i + 1)
+            Dim d = (b - a).Length
+            Dim steps = CInt(Math.Floor(d / STEP_M))
+            For k = 1 To steps
+                Dim f = CSng(k) / CSng(steps + 1)
+                outp.Add(New Vector2(a.X + (b.X - a.X) * f, a.Y + (b.Y - a.Y) * f))
+            Next
+            outp.Add(b)
         Next
         Return outp
     End Function
@@ -240,14 +325,27 @@ Public Module TankSim
     Public Function TargetFor(inst As TankInstance) As Vector2
         Dim run As List(Of Vector2) = Nothing
         If Not hullRun.TryGetValue(inst, run) Then
-            Dim bit = If(inst.team = TankTeam.Green, 1, 2)
-            Dim mine As New List(Of Integer)
-            For Each id In startIds
-                If (nodes(id).team And bit) <> 0 Then mine.Add(id)
-            Next
-            If mine.Count = 0 Then mine.AddRange(startIds)
-            Dim pick = mine(rng.Next(mine.Count))
-            run = RunFrom(pick)
+            Dim chosen = 0
+            If Not assigned.TryGetValue(inst, chosen) Then
+                ' Not placed by AssignStarts - a hull that appeared after the
+                ' line-up. Nearest start rather than a random one, which is
+                ' the same rule the sorted map follows.
+                Dim best = -1
+                Dim bd = Single.MaxValue
+                Dim bit = If(inst.team = TankTeam.Green, 1, 2)
+                For Each id In startIds
+                    If startIds.Count > 1 AndAlso (nodes(id).team And bit) = 0 Then Continue For
+                    Dim dx = nodes(id).x - inst.position.X
+                    Dim dz = nodes(id).z - inst.position.Z
+                    Dim d = dx * dx + dz * dz
+                    If d < bd Then bd = d : best = id
+                Next
+                If best < 0 Then Return New Vector2(inst.position.X, inst.position.Z)
+                chosen = best
+            End If
+            ' The hull's own hand at every fork - its id, so two tanks on one
+            ' start fan out down different roads and do it the same way twice.
+            run = RunFrom(chosen, inst.id * 3 + If(inst.team = TankTeam.Green, 0, 1))
             hullRun(inst) = run
             atOf(inst) = 0
         End If
@@ -312,6 +410,7 @@ Public Module TankSim
         If others IsNot Nothing Then
             For i = 0 To Math.Min(RAY_COUNT, rays.Count) - 1
                 Dim o = rays(i).Item1, d = rays(i).Item2
+                Dim reach = RayLen(i)
                 For Each t In others
                     If t Is inst OrElse t Is Nothing Then Continue For
                     ' Closest approach of the segment to the other hull's centre.
@@ -319,7 +418,7 @@ Public Module TankSim
                     Dim cz = t.position.Z - o.Y
                     Dim along = cx * d.X + cz * d.Y
                     If along < 0.0F Then along = 0.0F
-                    If along > SIM_RAY_M Then along = SIM_RAY_M
+                    If along > reach Then along = reach
                     Dim px = o.X + d.X * along - t.position.X
                     Dim pz = o.Y + d.Y * along - t.position.Z
                     If px * px + pz * pz <= OTHER_R * OTHER_R Then
@@ -353,10 +452,175 @@ Public Module TankSim
         Return Not (h(R_RIGHT) OrElse h(R_FR))
     End Function
 
+    ''' <summary>Is something up against the back of this hull.
+    '''
+    ''' So it does not reverse into it. Backing out is the drive's answer to
+    ''' being wedged, and it is the wrong answer when the thing behind is
+    ''' another tank - two hulls nose to tail both reversing is how a column
+    ''' concertinas.</summary>
+    Public Function RearBlocked(inst As TankInstance,
+                                others As List(Of TankInstance)) As Boolean
+        Dim h = RayHits(inst, others)
+        Return h(R_REAR) OrElse h(R_RL) OrElse h(R_RR)
+    End Function
+
+    ''' <summary>
+    ''' A ray that hits nothing, and the point at the far end of it.
+    '''
+    ''' "he should travel the no hit rays to the end of the ray length." So the
+    ''' way out is not a fixed turn any more - it is whichever of the eight the
+    ''' hull can actually see down, driven to the end of its reach.
+    '''
+    ''' THE ORDER IS THE RIGHT-HAND RULE, still. Right first, then round the
+    ''' front, then left, then the back corners. Two hulls meeting head-on both
+    ''' find their right clear and swing apart; picking the roomiest side per
+    ''' tank would have them both choose the same side of the road and meet
+    ''' again there. The rule decides; the rays only say which options exist.
+    '''
+    ''' Returns False when every ray is blocked, and then waiting really is the
+    ''' only answer.
+    ''' </summary>
+    Public ReadOnly WAY_OUT As Integer() =
+        {R_RIGHT, R_FR, R_FRONT, R_FL, R_LEFT, R_RR, R_RL, R_REAR}
+
+    Public Function ClearWay(inst As TankInstance,
+                             others As List(Of TankInstance),
+                             ByRef target As Vector2) As Boolean
+        Dim h = RayHits(inst, others)
+        Dim rays = HullRays(inst)
+        For Each i In WAY_OUT
+            If i >= rays.Count OrElse h(i) Then Continue For
+            Dim o = rays(i).Item1, d = rays(i).Item2
+            target = o + d * RayLen(i)
+            Return True
+        Next
+        Return False
+    End Function
+
+    ''' <summary>Every line in the file, as two world points and the team
+    ''' the line serves. Built once at load - the graph does not move.
+    '''
+    ''' THE WHOLE FILE, not the bit a tank happens to be on. The runs drawn
+    ''' per hull stop at the first fork and only exist once a hull has been
+    ''' given one, so most of a graph was never on screen and there was no
+    ''' way to see whether the thing loaded matched the thing drawn in Ray
+    ''' Studio. This is the file, drawn as the file.</summary>
+    Public ReadOnly lines As New List(Of ValueTuple(Of Vector2, Vector2, Integer))
+
+    ''' <summary>Every start point, for the rings.</summary>
+    Public ReadOnly startPts As New List(Of ValueTuple(Of Vector2, Integer))
+
+    Private Sub BuildDrawLists()
+        lines.Clear()
+        startPts.Clear()
+        For Each kv In adj
+            Dim a = kv.Key
+            For Each b In kv.Value
+                If a > b Then Continue For
+                Dim na = nodes(a), nb = nodes(b)
+                ' A line serves what both its ends have in common; only a join
+                ' with nothing in common reports both.
+                Dim t = (na.team And nb.team)
+                If t = 0 Then t = na.team Or nb.team
+                lines.Add((New Vector2(na.x, na.z), New Vector2(nb.x, nb.z), t))
+            Next
+        Next
+        For Each id In startIds
+            startPts.Add((New Vector2(nodes(id).x, nodes(id).z), nodes(id).team))
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' Re-read the file if it has changed on disk since we last looked.
+    '''
+    ''' So pressing [F5] in Ray Studio shows up here without pressing anything
+    ''' in nuTerra. Checked at most once a second and only against the file's
+    ''' write time, which is a directory read, not a parse.
+    ''' </summary>
+    Public Sub PollFile(mapName As String)
+        If DateTime.Now < nextPoll Then Return
+        nextPoll = DateTime.Now.AddSeconds(1.0)
+        Dim p = Path.Combine(Environment.GetEnvironmentVariable("TEMP"),
+                             "nuTerra", "flight", mapName & "_paths.json")
+        Dim stamp = If(File.Exists(p), File.GetLastWriteTimeUtc(p), DateTime.MinValue)
+        If stamp = lastSeen Then Return
+        lastSeen = stamp
+        LoadPaths(mapName)
+    End Sub
+
+    Private nextPoll As DateTime = DateTime.MinValue
+    Private lastSeen As DateTime = DateTime.MinValue
+
+    ''' <summary>
+    ''' Hand out the start points BY POSITION - left of the formation to the
+    ''' left of the fan.
+    '''
+    ''' "tanks at base locations that are left should be attached to points to
+    ''' the left. We are going to paint the front mid and back rows with the
+    ''' path start location points."
+    '''
+    ''' Picking at random was the wrong shape for this. Thirty hulls drawing
+    ''' from a hat means the tank on the far left of the grid can be sent to
+    ''' the far right start, so its first move is to drive across the front of
+    ''' the whole formation - fourteen hulls crossing each other before anyone
+    ''' has left the base. Sorted left to right on both sides, nobody crosses
+    ''' anybody, and the column that leaves by the left road is the column
+    ''' that was already standing on the left.
+    '''
+    ''' THE ROWS FALL OUT OF IT. The grid is five abreast and three deep, so
+    ''' sorting a side's hulls by X puts the three tanks of one column
+    ''' together, and the proportional map sends that whole column to the same
+    ''' start - front, middle and back row painted with the same point. That is
+    ''' the "paint the rows" part: a column of three follows one road, rather
+    ''' than three rows fanning to three different ones.
+    '''
+    ''' Called from sim_line_up, AFTER the hulls are placed - their X has to be
+    ''' the formation X, not wherever the last run left them.
+    ''' </summary>
+    Public Sub AssignStarts(all As List(Of TankInstance))
+        hullRun.Clear()
+        atOf.Clear()
+        assigned.Clear()
+        If all Is Nothing OrElse startIds.Count = 0 Then Return
+
+        For Each side In {1, 2}
+            Dim hulls As New List(Of TankInstance)
+            For Each t In all
+                If t Is Nothing Then Continue For
+                Dim bit = If(t.team = TankTeam.Green, 1, 2)
+                If bit = side Then hulls.Add(t)
+            Next
+            If hulls.Count = 0 Then Continue For
+
+            ' This side's starts, and any start if it has none of its own -
+            ' a hull with nowhere to go is worse than one sharing a road.
+            Dim pts As New List(Of Integer)
+            For Each id In startIds
+                If (nodes(id).team And side) <> 0 Then pts.Add(id)
+            Next
+            If pts.Count = 0 Then pts.AddRange(startIds)
+
+            ' LEFT TO LEFT. Both sorted on world X, so rank matches rank.
+            hulls.Sort(Function(p, q) p.position.X.CompareTo(q.position.X))
+            pts.Sort(Function(p, q) nodes(p).x.CompareTo(nodes(q).x))
+
+            For k = 0 To hulls.Count - 1
+                Dim idx = CInt(Math.Floor(CDbl(k) * pts.Count / hulls.Count))
+                If idx >= pts.Count Then idx = pts.Count - 1
+                assigned(hulls(k)) = pts(idx)
+            Next
+        Next
+        LogThis("tank sim: {0} hull(s) attached to start points, left to left",
+                assigned.Count)
+    End Sub
+
+    Private ReadOnly assigned As New Dictionary(Of TankInstance, Integer)
+
     ''' <summary>Forget every assignment, so the next frame re-rolls.</summary>
     Public Sub Reroll()
         hullRun.Clear()
         atOf.Clear()
+        assigned.Clear()
         hitsOf.Clear()
         hitFrame.Clear()
     End Sub

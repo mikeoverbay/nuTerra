@@ -107,10 +107,12 @@ Public Class MapTankRays
         ' Count first, then fill. A ray's LENGTH decides how many segments it
         ' takes, so the total is not a function of the hull count alone.
         Dim want = 0
-        For Each t In live
-            If t Is Nothing OrElse Not t.drive.hasGoal Then Continue For
-            want += segments_for(t) * 2 + 4          ' the ray, then the cross
-        Next
+        If TankSim.SIM_SHOW_GOAL Then
+            For Each t In live
+                If t Is Nothing OrElse Not t.drive.hasGoal Then Continue For
+                want += segments_for(t) * 2 + 4      ' the ray, then the cross
+            Next
+        End If
         ' THE AVOIDANCE RAYS ARE STRAIGHT AND SHORT, so two vertices each and
         ' no following the ground - over three metres the terrain under a hull
         ' does not bend enough to bury a line, and cutting them into segments
@@ -123,14 +125,20 @@ Public Class MapTankRays
             Next
             want += rayHulls * TankSim.RAY_COUNT * 2
         End If
-        ' The sim runs: one segment a leg, so two vertices a leg.
-        If TankSim.SIM_SHOW_PATHS AndAlso TankSim.SIM_RUN Then
-            For Each t In live
-                If t Is Nothing Then Continue For
-                Dim rr = TankSim.RunOf(t)
-                If rr IsNot Nothing AndAlso rr.Count > 1 Then want += (rr.Count - 1) * 2
-            Next
+        ' The whole graph from the file, plus the run each hull is on over it.
+        If TankSim.SIM_SHOW_PATHS Then
+            want += TankSim.lines.Count * 2 + TankSim.startPts.Count * 8
+            If TankSim.SIM_RUN Then
+                For Each t In live
+                    If t Is Nothing Then Continue For
+                    Dim rr = TankSim.RunOf(t)
+                    If rr IsNot Nothing AndAlso rr.Count > 1 Then want += (rr.Count - 1) * 2
+                Next
+            End If
         End If
+        ' NOT "no goals, nothing to draw" any more - the file's own lines are
+        ' worth drawing with every hull sitting still, which is exactly the
+        ' state before the sim is started.
         If want = 0 Then Return
 
         If verts Is Nothing OrElse verts.Length < want * FLOATS_PER_VERT Then
@@ -139,6 +147,7 @@ Public Class MapTankRays
 
         Dim n = 0, rays = 0, amber = 0
         For Each t In live
+            If Not TankSim.SIM_SHOW_GOAL Then Exit For
             If t Is Nothing OrElse Not t.drive.hasGoal Then Continue For
             rays += 1
 
@@ -192,6 +201,36 @@ Public Class MapTankRays
         ' question being asked while a sim runs. Twenty per cent alpha for the
         ' part already driven is enough to see the shape without competing
         ' with the part that still matters.
+        ' THE FILE ITSELF, drawn on load and whether or not the sim is running.
+        ' Dim, because it is the map rather than the action - the run a hull is
+        ' actually driving is drawn over the top at full weight.
+        If TankSim.SIM_SHOW_PATHS Then
+            For Each ln In TankSim.lines
+                Dim c As Vector4
+                Select Case ln.Item3
+                    Case 1 : c = New Vector4(0.31F, 0.92F, 0.43F, 0.45F)
+                    Case 2 : c = New Vector4(1.0F, 0.27F, 0.27F, 0.45F)
+                    Case 3 : c = New Vector4(0.88F, 0.75F, 1.0F, 0.5F)
+                    Case Else : c = New Vector4(0.78F, 0.8F, 0.84F, 0.4F)
+                End Select
+                Dim a = ln.Item1, b = ln.Item2
+                n = put(n, a.X, ground(a.X, a.Y) + 0.15F, a.Y, c)
+                n = put(n, b.X, ground(b.X, b.Y) + 0.15F, b.Y, c)
+            Next
+            ' A cross on every start, in its side's colour.
+            For Each sp In TankSim.startPts
+                Dim c = If(sp.Item2 = 2,
+                           New Vector4(1.0F, 0.27F, 0.27F, 1.0F),
+                           New Vector4(0.31F, 0.92F, 0.43F, 1.0F))
+                Dim p = sp.Item1
+                Dim gy = ground(p.X, p.Y) + 0.3F
+                n = put(n, p.X - CROSS_M, gy, p.Y, c)
+                n = put(n, p.X + CROSS_M, gy, p.Y, c)
+                n = put(n, p.X, gy, p.Y - CROSS_M, c)
+                n = put(n, p.X, gy, p.Y + CROSS_M, c)
+            Next
+        End If
+
         If TankSim.SIM_SHOW_PATHS AndAlso TankSim.SIM_RUN Then
             For Each t In live
                 If t Is Nothing Then Continue For
@@ -233,9 +272,9 @@ Public Class MapTankRays
                 For i = 0 To hullR.Count - 1
                     Dim o = hullR(i).Item1, d = hullR(i).Item2
                     Dim cc = If(i < hits.Length AndAlso hits(i), hitC, clearC)
+                    Dim reach = TankSim.RayLen(i)
                     n = put(n, o.X, ry, o.Y, cc)
-                    n = put(n, o.X + d.X * TankSim.SIM_RAY_M, ry,
-                            o.Y + d.Y * TankSim.SIM_RAY_M, cc)
+                    n = put(n, o.X + d.X * reach, ry, o.Y + d.Y * reach, cc)
                 Next
             Next
         End If

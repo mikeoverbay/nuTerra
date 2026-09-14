@@ -363,6 +363,16 @@ Public Class TankDrive
                 Dim probe = pos + fwd * (TankDriveTune.HULL_R + nav.cell_m)
                 nav.Pin(probe.X, probe.Y)
                 stuckS = 0.0F
+                ' NOT BACKWARDS INTO SOMEBODY. "try to move away from ass if
+                ' its being hit" - the rear rays say whether there is anything
+                ' there, and a hull that reverses into the tank behind it turns
+                ' one stuck vehicle into two. Wedged against terrain still
+                ' reverses; wedged against a neighbour waits for it to move.
+                If TankSim.SIM_RUN AndAlso TankSim.RearBlocked(inst, others) Then
+                    stopReason = StopWhy.Traffic
+                    speed = 0.0F
+                    Return
+                End If
                 reverseS = TankDriveTune.REVERSE_S
             End If
             Return
@@ -396,16 +406,25 @@ Public Class TankDrive
             ' is not itself occupied - otherwise going round is just a second
             ' way to get stuck.
             If passS <= 0.0F Then
-                Dim ph = inst.headingRad + PASS_TURN_RAD
-                Dim pd As New Vector2(CSng(Math.Sin(ph)), CSng(Math.Cos(ph)))
-                Dim spot = pos + pd * PASS_M
-                ' Right has to be clear BY THE RAYS as well as standable - a
-                ' hull with a neighbour already alongside on that side would
-                ' otherwise turn straight into it, which is the one way a
-                ' right-hand rule can make things worse instead of better.
-                Dim rightOk = (Not TankSim.SIM_RUN) OrElse
+                ' DOWN A RAY THAT HITS NOTHING, to the end of its reach. The
+                ' rays already know where the room is; a fixed fifty degrees
+                ' right was a guess at it, and the guess is wrong whenever the
+                ' room is somewhere else.
+                Dim spot As Vector2
+                Dim haveWay = False
+                If TankSim.SIM_RUN Then
+                    haveWay = TankSim.ClearWay(inst, others, spot)
+                End If
+                If Not haveWay Then
+                    ' No sim, or every ray blocked: the old fixed swing, which
+                    ' at least commits to the same hand as everyone else.
+                    Dim ph = inst.headingRad + PASS_TURN_RAD
+                    Dim pd As New Vector2(CSng(Math.Sin(ph)), CSng(Math.Cos(ph)))
+                    spot = pos + pd * PASS_M
+                    haveWay = (Not TankSim.SIM_RUN) OrElse
                               TankSim.RightIsClear(inst, others)
-                If rightOk AndAlso
+                End If
+                If haveWay AndAlso
                    nav.CanStand(spot.X, spot.Y, TankDriveTune.HULL_R) AndAlso
                    Not Crowded(inst, others, spot) Then
                     goal = spot
