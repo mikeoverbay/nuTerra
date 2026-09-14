@@ -1,5 +1,14 @@
 # Rays or search: what the measurements say
 
+> **The question this file argues was settled on 2026-09-12, and by neither
+> answer.** Rays and grid search were compared for a day; a flood fill from
+> the goal then produced the EXACT optimum on monastery in 0.6 s — 846 m
+> against the ray planner's best of 877 and A*'s catalogue. Everything below
+> still holds as measurement, and the traps at the bottom are still traps.
+> The conclusion is superseded: see `tank_tools/maze.py` and §14 of
+> `docs/HANDOFF_2026-09-11_tank_ai.md`.
+
+
 19_monastery, hull 4.5 m, collision = flight bake at 8192² / 0.171 m,
 Y over 1.0 m solid, trees + fences + props exempt (a tank crushes them).
 Every route below was re-sampled at a quarter texel and none has a single

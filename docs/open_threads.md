@@ -8,6 +8,218 @@ Ordered roughly by how much they will bite.
 
 ---
 
+## 0. The FXAA toggle does nothing, and the fix crosses two lanes
+
+`perform_SSAA_Pass` in `modRender.vb` does
+
+    GL.Uniform1(FXAAShader("pass_through"), CInt(FXAA_enable))
+
+and **`shaders/PostProcessing/FXAA.frag` declares no such uniform.** The lookup
+returns -1, GL discards the set silently, and the shader has no pass-through
+branch in it at all. So FXAA runs on every frame regardless of what the
+checkbox says, and has done for as long as the line has existed.
+
+**Why it is not a one-line fix.** The uniform is named `pass_through` but is
+fed `FXAA_enable` - opposite senses. Declaring `uniform int pass_through` in
+the shader and branching on it literally would make ticking "FXAA" SKIP FXAA.
+The semantics have to be settled before either half is written, and the two
+halves are in different lanes: the call site is nuTerra's `modRender.vb`, the
+branch is in the shader.
+
+**Decided 2026-09-13:** rename the uniform to `apply_fxaa` and pass
+`FXAA_enable` through unchanged, rather than inverting at the call site with
+`CInt(Not FXAA_enable)`. The name then matches the value it carries and nobody
+has to remember an inversion - an inverted flag whose name says the opposite is
+how this bug happened in the first place.
+
+**Next step:** one line in `modRender.vb` (rename the uniform in the lookup),
+one declaration plus a branch in `FXAA.frag`. Held until after the pending push
+so it does not land in a tree four sessions have just declared ready.
+
+**Worth knowing while it stands:** any A/B done by toggling FXAA is comparing a
+frame against itself. Found by the Shader IDE + engine session while checking
+whether FXAA was responsible for a measured lift in the frame's transfer curve;
+it was not, and the toggle being inert is why that had to be checked another
+way.
+
+---
+
+## 0b. PrimitiveLoader is missing two shipping vertex formats, and fails silent
+
+A census of every shipping `vertices` section on the NA install - 120,975 of
+them, from the PKG Explorer session - found exactly six formats, one stride
+each:
+
+    BPVTxyznuvtb        32
+    BPVTxyznuviiiwwtb   40
+    BPVTxyznuvitb       36     <-- nuTerra has no case for this
+    BPVTxyznuv          24
+    BPVTxyz             12     <-- nor this
+    BPVTxyznuviiiww     32
+
+`PrimitiveLoader.vb:448-495` handles **four** of those six and falls to
+`Case Else -> Debug.Assert(False)` on the other two. `stride` is initialised to
+0 at :445 and the Else branch does not set it, so in a RELEASE build - where
+`Debug.Assert` compiles out entirely - the loader carries on with **stride 0
+and no message at all**. That silence is the expensive part, not the missing
+arithmetic: `BPVTxyznuvitb` alone is 164 sections under `content/buildings`.
+
+**And three of the seven branches are dead.** `xyznuv`, `xyznuviiiwwtb` and
+`xyznuvtb` - the non-BPVT spellings - match nothing: the census found ZERO
+sections with a bare header, every one is `BPVT`. So the switch carries three
+cases that cannot fire while missing two that do. (`xyznuviiiwwtb` also claims
+`stride = 37`, an odd number for a vertex stride, which nothing has ever
+exercised.)
+
+### `BPVTxyz` does not garble - it OVERRUNS, and stays plausible
+
+The stride-12 format is the nastier of the two and the reason the fix is not
+just two more `Case` lines. It is POSITION ONLY. A reader with fixed attribute
+offsets does not produce obvious rubbish: the normal it reads from `+12` is the
+NEXT VERTEX'S POSITION, so the stream stays structured, in range, and plausible
+the whole way through the buffer. Nothing trips. Exporter Studio hit exactly
+this in their own reader and reported it was not a one-line fix.
+
+That is the same failure the directives file calls out under "measure, then
+claim" - correct arithmetic over the wrong set, producing a believable answer -
+and it is worth knowing that it happens in binary parsing too, not only in
+measurement. A garbled mesh announces itself. A mesh read one vertex out of
+phase looks like a mesh.
+
+### NEITHER missing format is render geometry - expect NOTHING to appear
+
+This is the part to read before implementing, because the obvious expectation
+is wrong and will cost an evening.
+
+`BPVTxyznuvitb` is the **havok collision proxy** format. Every occurrence found
+scanning `bld_*.primitives_processed` across the packages sits in a
+`lod0/havok/` subfolder and is named `*.hkt.primitives_processed` - measured by
+the Shader IDE + engine session, and independently consistent with PKG
+Explorer's winding statistics, which put it on the rigid side at +0.92.
+
+`BPVTxyz` is **audio occlusion geometry**. Measured here 2026-09-13: scanning
+1,040 `.primitives_processed` across 14 map packages for the exact marker
+`BPVTxyz\0` - the NUL matters, or it also matches `BPVTxyznuv` - found 11
+sections and every one is
+
+    content/Audio/SoundObstacle/<map>/<map>_SoundObstacle_01.primitives_processed
+
+One per map, plus the `_comp7` variants. A sample rather than a census, but 11
+of 11 on a single path shape. Position-only is exactly what a sound occluder
+needs, the same way it is what a collision hull needs.
+
+**So adding both strides will make NOTHING APPEAR ON SCREEN.** No building is
+missing parts. nuTerra is failing to read collision hulls and audio occluders
+that it very likely never draws. Three consequences:
+
+* **Do not go hunting a second bug** when the geometry count does not change.
+  That is the fix working.
+* **This is a correctness and diagnostics fix, not a missing-content fix.** The
+  silent `stride = 0` is worth killing because of the CLASS - the next format
+  that ships may well be drawable - not because of these two instances.
+* **There may be no way to see it working except a log line**, which is the
+  argument for doing the logging half FIRST and the two `Case` entries second.
+  The log is the only instrument that will show either of them landing.
+
+### It is LATENT, not live - and the decision is to log, and NOT add the strides
+
+Neither format is ever handed to `PrimitiveLoader` in normal operation, so the
+`Case Else` has very likely never fired for either one on any map.
+
+Verified two ways here, 2026-09-13:
+
+* `grep -in "havok|\.hkt|soundobstacle"` across all of `nuTerra/` source -
+  **zero hits**. The loader never names either path.
+* The obvious hole in that - a `.visual_processed` that POINTS into a havok
+  folder - is closed. Havok geometry has its OWN parallel visual:
+
+        ..._Doors_Big_01_Scaled__n_metal4_1_2.hkt.visual_processed   contains "havok"
+        ..._Doors_Big_01_Scaled.visual_processed                     does not
+
+  They are SIBLING files, not nested references. The render visual does not
+  reach the collision hull, so walking visuals cannot arrive at one.
+
+**So the two `Case` entries are deliberately NOT being added.** They would buy
+nothing today - nothing loads these - and could actively mislead tomorrow. A
+stride inferred from a collision hull and an audio volume is a guess about a
+layout that nothing exercises. If a later patch ever ships `BPVTxyznuvitb` as
+real render geometry, whoever meets it finds a `Case` entry that already exists,
+assumes it is correct, and gets a plausible wrong answer instead of the log line
+that would have told them. **An entry that looks handled is worse than one that
+announces itself** - which is the same failure shape as the rest of this
+evening.
+
+What they are, so nobody has to re-derive it:
+
+    BPVTxyznuvitb   36   havok collision proxies, lod0/havok/*.hkt.primitives_processed
+    BPVTxyz         12   audio occluders, content/Audio/SoundObstacle/<map>/
+
+**Next step, after the pending push:** name the unrecognised format string in a
+log line and make `stride = 0` a hard error at the call site. That is the whole
+fix. It catches the seventh format on the day it ships, which is the only thing
+here with future value.
+
+**If you repeat the package measurement, search for `BPVTxyz` followed by a
+NUL.** Without the terminator it also matches `BPVTxyznuv` and returns tens of
+thousands of false hits. The naive search is the one everybody reaches for
+first.
+
+### A `stride = 0` error does NOT cover `BPVTxyz`, and the reason matters
+
+The hard-error-on-zero above catches an UNKNOWN format. It does not catch this
+one if somebody ever "helpfully" adds the stride, because then the stride is
+**correct** - 12 - and the read still runs off the end.
+
+`BPVTxyz` is POSITION ONLY: three floats and nothing after them. A reader with
+fixed attribute offsets takes the normal from `+12` and the UV from `+16`
+regardless, so it walks into the next vertex and past the end of the buffer.
+Both PKG Explorer and Exporter Studio hit exactly this in their own readers, and
+both report that adding the stride ALONE would have introduced an overrun rather
+than fixed anything.
+
+So if these are ever surfaced here, the guard is not "is the stride non-zero" -
+it is "does this format actually HAVE the field I am about to read". The element
+count is already tracked per format (`renderSet.element_count`,
+`has_tangent`); position-only needs the same treatment rather than a stride
+entry.
+
+### PKG Explorer made the OPPOSITE decision, and both are right
+
+Worth knowing before someone reads the two repos side by side and assumes one is
+wrong. PKG Explorer names all six formats explicitly, with per-field offsets, and
+RAISES on an unrecognised header.
+
+The difference is the entry point, not the measurement - which was the same on
+both sides, twice, independently:
+
+* **nuTerra only ever draws what a visual names.** A collision hull is reached
+  through its own `.hkt.visual_processed` sibling, not from the render visual,
+  so these formats never arrive. An unreachable table entry is a trap for the
+  next person.
+* **PKG Explorer is a browser.** Every `.primitives_processed` in a package is a
+  row the user can double-click, havok proxies and SoundObstacles included.
+  There is no visual naming the path - the user IS the path - so every format
+  has to be handled, and silence is the thing it cannot afford.
+
+Same evidence, opposite conclusion, both correct for their own entry point.
+
+### The trap waiting in that fix: the lone `i` is NOT a skinned marker
+
+Winding is already handled correctly here and it is worth not breaking.
+`load_primitives_indices` applies an unconditional DirectX-to-OpenGL corner
+flip at :411, reading `y, x, z`. Skinned meshes ship with the OPPOSITE winding
+to rigid ones - measured by PKG Explorer at signed normal-vs-winding **-0.937
+for iii/ww meshes against +0.92 for rigid** - so :572 swaps them back, gated on
+`hasIdx`, which is set only for the three `iii`/`ww` families. That is the
+conditional the measurement says is required, and the comment at :566 says why.
+
+**`BPVTxyznuvitb` has a single `i`, and it is RIGID.** It is the havok proxy
+format. Setting `hasIdx = True` for it because the name contains an `i` would
+un-flip geometry that was never double-flipped and render all 164 sections
+inside out. Add it with `hasIdx = False`.
+
+---
+
 ## 1. Three new maps crash natively
 
 The 2026-09-01 game patch added three maps nuTerra has never seen:

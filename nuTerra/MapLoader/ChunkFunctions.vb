@@ -1281,9 +1281,9 @@ Module ChunkFunctions
                 End If
                 ns += 1
             Next
-            Console.WriteLine("outland orientation {0}: mean seam error {1:0.0} m", onames(o), errsum / ns)
+            LogThis("outland orientation {0}: mean seam error {1:0.0} m", onames(o), errsum / ns)
         Next
-        Console.WriteLine("outland seam by edge (current orientation): N mean {0:0.0} max {1:0.0} | S mean {2:0.0} max {3:0.0} | W mean {4:0.0} max {5:0.0} | E mean {6:0.0} max {7:0.0}",
+        LogThis("outland seam by edge (current orientation): N mean {0:0.0} max {1:0.0} | S mean {2:0.0} max {3:0.0} | W mean {4:0.0} max {5:0.0} | E mean {6:0.0} max {7:0.0}",
                           edge_err(0) / 32, edge_max(0), edge_err(1) / 32, edge_max(1),
                           edge_err(2) / 32, edge_max(2), edge_err(3) / 32, edge_max(3))
 
@@ -1293,7 +1293,7 @@ Module ChunkFunctions
         ' mismatch instead, capped so farm maps keep their tight seam.
         Dim gmax = Math.Max(Math.Max(edge_max(0), edge_max(1)), Math.Max(edge_max(2), edge_max(3)))
         band = Math.Clamp(CSng(gmax) * 2.5F, MapTerrain.OUTLAND_WELD_BAND, 400.0F)
-        Console.WriteLine("outland weld band: {0:0} m (worst seam mismatch {1:0.0} m)", band, gmax)
+        LogThis("outland weld band: {0:0} m (worst seam mismatch {1:0.0} m)", band, gmax)
 
         Dim gsize = CSng(MapTerrain.OUTLAND_GRID)
         Dim ghalf = gsize / 2.0F
@@ -1358,7 +1358,7 @@ Module ChunkFunctions
                 Dim wy = px(i) / 65535.0F * y_range + y_off
                 px(i) = CUShort(Math.Clamp((wy - need_floor) / new_range, 0.0F, 1.0F) * 65535.0F)
             Next
-            Console.WriteLine("outland Y floor extended: {0:0.0} -> {1:0.0} m (terrain min {2:0.0})",
+            LogThis("outland Y floor extended: {0:0.0} -> {1:0.0} m (terrain min {2:0.0})",
                               y_off, need_floor, terrain_min)
             y_off = need_floor
             y_range = new_range
@@ -1423,7 +1423,7 @@ Module ChunkFunctions
 
         LogThis("outland heightmap patch: {0} of {1}x{2} texels welded in {3} ms (fast-lookup check: {4:0.000} m)",
                 n, w, h, sw.ElapsedMilliseconds, worst)
-        Console.WriteLine("outland heightmap patch: {0} texels in {1} ms (check {2:0.000} m)", n, sw.ElapsedMilliseconds, worst)
+        LogThis("outland heightmap patch: {0} texels in {1} ms (check {2:0.000} m)", n, sw.ElapsedMilliseconds, worst)
 
         ' ---- crossing audit -----------------------------------------------
         ' Does the PATCHED sheet still rise above the terrain anywhere between
@@ -1448,7 +1448,7 @@ Module ChunkFunctions
                     cross_n += 1
                     cross_max = Math.Max(cross_max, excess)
                     If cross_n <= 5 Then
-                        Console.WriteLine("  crossing: tx={0} ty={1} world=({2:0.0},{3:0.0}) sheet={4:0.00} terrain={5:0.00} pxL={6} pxR={7} minmapL={8:0.00} minmapR={9:0.00}",
+                        LogThis("  crossing: tx={0} ty={1} world=({2:0.0},{3:0.0}) sheet={4:0.00} terrain={5:0.00} pxL={6} pxR={7} minmapL={8:0.00} minmapR={9:0.00}",
                                           tx, ty, world_x, world_z, sheet, get_Y_at_XZ_fast(world_x, world_z),
                                           px(ty * w + tx), px(ty * w + tx + 1),
                                           min_map(ty * w + tx), min_map(ty * w + tx + 1))
@@ -1456,7 +1456,7 @@ Module ChunkFunctions
                 End If
             Next
         Next
-        Console.WriteLine("outland crossing audit: {0} midpoints above terrain (worst +{1:0.00} m)", cross_n, cross_max)
+        LogThis("outland crossing audit: {0} midpoints above terrain (worst +{1:0.00} m)", cross_n, cross_max)
 
         ' Raw 16-bit dump of the PATCHED near heightmap for offline mesh work
         ' (the PNG dumps are 8-bit - ~6 m steps, useless for geometry).
@@ -1528,7 +1528,7 @@ Module ChunkFunctions
                 omax = Math.Max(omax, Math.Abs(nh - fh))
                 osum += Math.Abs(nh - fh)
             Next
-            Console.WriteLine("outland far ring orientation {0}: mean {1:0.0} max {2:0.0} m",
+            LogThis("outland far ring orientation {0}: mean {1:0.0} max {2:0.0} m",
                               {"mirror-both", "no-mirror", "mirror-x", "mirror-z"}(o), osum / 64.0, omax)
             If o = 0 Then ring_max = omax
         Next
@@ -1537,7 +1537,7 @@ Module ChunkFunctions
         ' calibration probe: all three surfaces must roughly agree at centre
         Dim cxp = theMap.center_offset.X
         Dim czp = theMap.center_offset.Y
-        Console.WriteLine("outland centre probe: terrain {0:0.0}  near {1:0.0}  far {2:0.0}  (far y_off {3:0.0} range {4:0.0})",
+        LogThis("outland centre probe: terrain {0:0.0}  near {1:0.0}  far {2:0.0}  (far y_off {3:0.0} range {4:0.0})",
                           get_Y_at_XZ_fast(cxp, czp),
                           sample_outland_px(px, w, h, cxp, czp, theMap.near_scale, y_range, y_off),
                           sample_outland_px(px2, w2, h2, cxp, czp, theMap.far_scale, yr2, yo2),
@@ -1580,7 +1580,7 @@ Module ChunkFunctions
         Next
 
         GL4.GL.TextureSubImage2D(tex2.texture_id, 0, 0, 0, w2, h2, GL4.PixelFormat.Red, GL4.PixelType.UnsignedShort, px2)
-        Console.WriteLine("outland far-cascade weld: {0} texels, band {1:0} m (ring mismatch {2:0.0} m)", n2, band2, ring_max)
+        LogThis("outland far-cascade weld: {0} texels, band {1:0} m (ring mismatch {2:0.0} m)", n2, band2, ring_max)
 
         dump_heightmap_png(px, w, h, "outland_height_near_patched")
         dump_heightmap_png(px2, w2, h2, "outland_height_far_patched")
@@ -1612,7 +1612,7 @@ Module ChunkFunctions
                 bmp.Save(IO.Path.Combine(dir, name + ".png"), Drawing.Imaging.ImageFormat.Png)
             End Using
         Catch ex As Exception
-            Console.WriteLine("heightmap dump failed: {0}", ex.Message)
+            LogThis("heightmap dump failed: {0}", ex.Message)
         End Try
     End Sub
 

@@ -15,6 +15,14 @@
     <OptionCompare>Text</OptionCompare>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
     <AssemblyName>Slicer</AssemblyName>
+    <!--
+      For System.Drawing, which the UI font atlas rasterises through. This is
+      the Windows Desktop SHARED FRAMEWORK, not a package: the project still
+      carries exactly one PackageReference, which is what the one-dependency
+      rule was protecting. The app was already net8.0-windows and x64, so it
+      runs on exactly the machines it ran on before.
+    -->
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
   <ItemGroup>
     <!-- Same version nuTerra and SrtViewer pin, so all three agree on Vector3. -->

@@ -19,6 +19,7 @@ the supports and the G-code. That is their work and they are good at it.
     Slicer --export --asset cathedral --out models    write one, somewhere
     Slicer --export 20 --set out.format=obj          the first 20, as OBJ
     Slicer --view                                    the 3D viewer
+    Slicer --view --find "*eu*thouse*roof*"          open on the first match
     Slicer --check                                   watertightness sweep
     Slicer --list                                    every building, one line each
     Slicer --show-settings                           print the settings and exit
@@ -244,6 +245,74 @@ reports its `tower_03` at 80.14 m and `tower_01` at 75.75 m, against a whole
 asset 82.09 m tall. A cathedral with an 80 m spire is the right order of
 magnitude; a stride or offset error does not land there by accident.
 
+## Finding a model
+
+The viewer opens with a panel down the left: a search box, and every `.model`
+in the library at **lod 0** - 1,189 of them across 325 assets. Double-click a
+row and that model loads.
+
+    /              focus the search box          Tab    hide the panel
+    Enter          load the selected row         Esc    clear, then leave the box
+    up / down      move the selection            wheel  scroll the list
+
+**`*` is a wildcard and there can be as many as you like.** `*eu*thouse*roof*`
+finds the three townhouse roofs; `house` on its own is read as `*house*`,
+because that is what someone typing three letters into a search box means. The
+match runs against `asset/partname`, so either half works.
+
+The matcher is written out rather than translated into a `Regex`. A model path
+is nothing but `_`, `.` and digits, and a Regex translation needs every one of
+those escaped - one missed escape silently matches the wrong set, which looks
+exactly like a search that works.
+
+### A row loads ONE model, not its asset
+
+This is the point of the panel rather than a detail of it. An asset's lod0 is a
+KIT holding all of its interchangeable variants at once - `hd_bld_eu_049_thouse`
+has 24 - so loading the whole asset stacks two dozen overlapping walls in the
+same cubic metre. That is what made the first OBJ export unreadable, and no
+count caught it: the file was well formed, every `usemtl` resolved, every map
+existed. It took loading the OBJ back in and looking at it.
+
+Picking a row narrows to the one mesh. The roof above is 880 triangles on its
+own against the asset's 20,653. Left/Right (whole asset) and `[` `]` (LOD) both
+clear the pick, because a part chosen at lod0 does not exist at lod3 and showing
+nothing would be worse than falling back.
+
+### Typing must not drive the viewer
+
+Every viewer hotkey is a bare letter - W, B, P, D, R, F, S, C, X, Y, Z, K, E -
+so while the search box has focus the whole key block stands down. Without that,
+typing "house" walks through the shell pipeline, the bottom fill, the cut and
+the solid/wireframe toggle on the way to filtering the list. The mouse is
+deliberately NOT gated: the camera stays live while you type.
+
+Two more places the same care was needed. A drag that STARTS on the panel stays
+the panel's until the button comes up, so a click on a row cannot also spin the
+model once the pointer crosses into the 3D. And the 3D viewport is INSET by the
+panel width rather than drawn full-window underneath it - otherwise the building
+centres behind the list, and every framing decision gets measured against a
+width that is not the visible one.
+
+### Drawing it with one dependency
+
+There was no text rendering in this app at all. The first attempt was a 5x7
+bitmap font authored by hand, to keep the app to its one dependency; it does not
+pay - 95 glyphs is 665 rows of art to get right by eye, one wrong row is a
+silently ugly character, and the result is worse than what the machine already
+has.
+
+`<UseWindowsForms>` gets `System.Drawing` out of the Windows Desktop shared
+framework. It is NOT a NuGet package, so the project still carries exactly one
+`PackageReference` - which is what that rule was protecting. The app was already
+`net8.0-windows` and x64, so it runs on exactly the machines it ran on before.
+
+ASCII 32..126 is rasterised once into a 16x6 atlas. The 96th cell is solid
+white, and every untextured quad - panel background, row highlight, scrollbar -
+points its UVs at that one texel. So the whole interface is one shader, one
+vertex buffer and one `DrawArrays`, with no state to get out of order between a
+background and the label sitting on it.
+
 ## The viewer
 
 `--view` opens an OpenTK window on the building and reads its real geometry.
@@ -304,6 +373,37 @@ exactly. It came out a whole number on all 5,352 vertex sections under
 `content/buildings`, and it reproduced 32 and 40 for the two formats the engine
 already knows — which is what makes 36 trustworthy for the one it does not. 36
 is also what the name predicts: `BPVTxyznuvtb` plus one 4-byte `i` bone index.
+
+Since re-censused over the **whole install** rather than just the buildings -
+**121,000 vertex sections** - after the PKG Explorer session flagged a format
+this reader did not have. The same arithmetic returns exactly one stride per
+format, unanimously:
+
+| format | stride | sections | where |
+|---|---|---|---|
+| `BPVTxyznuvtb` | 32 | 64,836 | |
+| `BPVTxyznuviiiwwtb` | 40 | 53,300 | skinned |
+| `BPVTxyznuvitb` | 36 | 2,128 | havok collision proxies |
+| `BPVTxyznuv` | 24 | 608 | |
+| **`BPVTxyz`** | **12** | **67** | audio occluders, position only |
+| `BPVTxyznuviiiww` | 32 | 36 | `env_birds` |
+
+**No non-BPVT format ships.** Not one section in 121,000 uses a bare
+`xyznuv`-style header, so the 136-byte body offset is right for 100% of real
+data and the three non-BPVT rows in the stride table are dead fallbacks.
+
+Adding `BPVTxyz` needed a second fix to be safe rather than merely wrong later.
+The vertex loop read the packed normal at `+12` and the uv at `+16..+23` at
+FIXED offsets, unconditionally - fine when every shipped format had both. At
+stride 12 that takes 12 bytes out of the NEXT vertex and runs off the end of the
+buffer on the last one, and the bounds check only guarantees
+`nVerts * stride`, so it would not have caught it. Both reads are now gated on
+the stride being large enough to hold the field.
+
+Section sizes, measured the same pass: only ever **0 or 2 mod 4** - 245,050 and
+36,842 of 281,892 sections, never odd. So a reader that pads with a wrong
+`+= size Mod 4` still lands correctly on every shipped file, and would keep
+doing so right up until it did not.
 
 `PrimitiveLoader.load_primitives_vertices` has no case for `BPVTxyznuvitb`. It
 falls through to `Case Else`, which is `Debug.Assert(False)` — compiled out in
@@ -371,8 +471,24 @@ render mesh's index buffer that the renderer skips entirely — an invisible
 blocker. The correlation holds both ways, which is what makes it a rule rather
 than an observation:
 
-* **1,512 of 1,544** `s_wall_*` / `s_ramp_*` materials have no `<fx>`
+* **1,512 of 1,512** materials whose identifier STARTS WITH `s_wall` or `s_ramp`
+  have no `<fx>`. Not 97%, not "nearly always" - none of them, ever.
 * **1,512 of 1,545** materials with no `<fx>` are `s_wall_*` / `s_ramp_*`
+
+### The 32 exceptions were my own bug
+
+That first number was reported as 1,512 of 1,544 before it was measured
+properly, with 32 apparent exceptions carrying a real shader. The 32 are all
+one identifier - **`s_nd_0_wall`** - and it is not a wall material at all. It is
+an ordinary `s_nd` material, `collisionFlags` 0, with a real `PBS_tiled` or
+`PBS_ext` shader, that happens to contain the letters `w-a-l-l`. A SUBSTRING
+test swept it in; a prefix test does not.
+
+That is the same mistake the flight bake's classifier makes when it keys
+`StreetLamp` as a **tree** because the name contains `t-r-e-e`. It is worth
+leaving written down here rather than quietly corrected, because the corrected
+rule is much stronger than the one it replaces: a material that blocks is a
+material with no shader, with no exceptions in the shipped library.
 
 On `hd_bld_EU_049_THouse`, `UpperFloorsSmall_02` carries one: **4 triangles, 8
 verts, 1.97 × 2.09 × 1.79 m** — two quads across a doorway.

@@ -55,7 +55,55 @@ Public Class VisualMaterial
         Return New String() {Texture("albedoHeightTile0"), Texture("albedoHeightTile1"),
                              Texture("albedoHeightTile2"), Texture("blendMask"), Texture("dirtMap")}
     End Function
+    ''' <summary>The tiled family's OTHER two channels per tile. The bake only
+    ''' ever needed the albedo; a live shader needs these to light the surface
+    ''' at all, which is why the viewer has been drawing 19,121 tiled materials
+    ''' as flat white.</summary>
+    Public Function TiledNormalMaps() As String()
+        Return New String() {Texture("normalGlossSpecTile0"), Texture("normalGlossSpecTile1"),
+                             Texture("normalGlossSpecTile2")}
+    End Function
+
+    Public Function TiledMetalMaps() As String()
+        Return New String() {Texture("metallicAOTile0"), Texture("metallicAOTile1"),
+                             Texture("metallicAOTile2")}
+    End Function
+
+    ''' <summary>
+    ''' True for PBS_tiled_atlas_global - 118 materials on exactly four assets:
+    ''' the mountain dam, the bunker, the cooling tower and the thermal power
+    ''' plant. Nothing else in the building library uses it, and the non-global
+    ''' PBS_tiled_atlas is used by no building at all.
+    '''
+    ''' Detected on the PROPERTY, not on the fx name, for the same reason
+    ''' IsTiled is: a material either carries the maps the path needs or it does
+    ''' not, and that is the thing the renderer actually depends on.
+    ''' </summary>
+    Public ReadOnly Property IsAtlas As Boolean
+        Get
+            Return Texture("atlasAlbedoHeight") IsNot Nothing
+        End Get
+    End Property
+
+    ''' <summary>The atlas family's maps, in the order the shader binds them:
+    ''' three atlas MANIFESTS, the blend SHEET, dirt, and the per-object global
+    ''' texture.</summary>
+    Public Function AtlasMaps() As String()
+        Return New String() {Texture("atlasAlbedoHeight"), Texture("atlasNormalGlossSpec"),
+                             Texture("atlasMetallicAO"), Texture("atlasBlend"),
+                             Texture("dirtMap"), Texture("globalTex")}
+    End Function
+
+    ''' <summary>A Vector4 property, or the fallback when it is absent. The
+    ''' atlas path has eight of these and most are optional - g_tile2Tint is
+    ''' missing on a third of the materials that carry g_tile0Tint.</summary>
+    Public Function Vec4(name As String, fallback As Vector4) As Vector4
+        Dim v As Vector4
+        If Vectors.TryGetValue(name, v) Then Return v
+        Return fallback
+    End Function
 End Class
+
 
 ''' <summary>
 ''' Reads a `.visual_processed` for what is needed to SHADE a mesh: the material

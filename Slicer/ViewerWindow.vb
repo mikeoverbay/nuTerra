@@ -70,6 +70,44 @@ Public Class ViewerWindow
     Private soloPart As Integer = -1
     Private wireframe As Boolean = False
 
+    ' ---- the model browser ----
+    Private ui As UiOverlay
+    Private browser As ModelBrowser
+
+    ''' <summary>
+    ''' When set, ONLY this `.model` is loaded instead of every part of the
+    ''' current asset.
+    '''
+    ''' An asset's lod0 is a kit holding all of its interchangeable variants at
+    ''' once - hd_bld_eu_049_thouse has 24 - so loading the whole asset stacks
+    ''' two dozen overlapping walls in the same cubic metre. That is what made
+    ''' the first OBJ export unreadable. Picking a row narrows to the one mesh;
+    ''' Left/Right clears it and goes back to the whole asset.
+    ''' </summary>
+    Private soloModel As BuildingPart = Nothing
+
+    ' Double-click is measured here rather than asked of the OS: OpenTK reports
+    ' button presses, not clicks, so the interval and the travel are ours to
+    ' judge. 400 ms and 6 px are the usual Windows defaults.
+    Private lastClickAt As DateTime = DateTime.MinValue
+    Private lastClickRow As Integer = -1
+    Private lastClickPos As Vector2 = Vector2.Zero
+    Private pressedOverPanel As Boolean = False
+
+    ''' <summary>--ui: build the panel even for a --shot, so the interface
+    ''' itself can be looked at in a still instead of only over someone's
+    ''' shoulder. Off by default, because a strip of UI down one side of every
+    ''' comparison shot is worse than useless.</summary>
+    Private panelInShot As Boolean = False
+
+    ''' <summary>--find: open with the search box already filled in, the first
+    ''' match selected and loaded. Saves arrowing through 1,189 rows to reach a
+    ''' known model, and it is how the browser gets exercised end to end without
+    ''' anyone having to click.</summary>
+    Private startQuery As String = Nothing
+    Private Const DOUBLE_CLICK_MS As Double = 400.0
+    Private Const DOUBLE_CLICK_PX As Single = 6.0F
+
     ' The cut is an inspection aid now, not the job - this is an exporter.
     ' S still turns it on to look inside a building.
     Private slicing As Boolean = False
@@ -171,11 +209,47 @@ Public Class ViewerWindow
         Public PackDxt1 As Boolean
         Public EnableAO As Boolean
         Public Fx As String = ""
+
+        ' ---- PBS_tiled_atlas_global ----
+        ' IsAtlas decides which PROGRAM draws this part. The atlas path needs
+        ' sampler2DArray and the flat one needs sampler2D, and a single program
+        ' carrying both types on one texture unit is undefined GL.
+        Public IsAtlas As Boolean
+        Public AtlasAm As Integer
+        Public AtlasNgs As Integer
+        Public AtlasMao As Integer
+        Public AtlasBlend As Integer
+        Public AtlasDirt As Integer
+        Public AtlasGlobal As Integer
+        Public Idx As Vector4
+        Public Grid As Vector4
+        Public Tint0 As Vector4
+        Public Tint1 As Vector4
+        Public Tint2 As Vector4
+        Public UvScale As Vector4
+        Public DirtColor As Vector4
+        Public DirtParams As Vector4
     End Class
     Private ReadOnly pbrParts As New List(Of PbrPart)
     ''' <summary>Texture path to GL handle, so a map shared by twenty parts is
     ''' uploaded once. The building library leans on shared tile sets heavily.</summary>
     Private ReadOnly texCache As New Dictionary(Of String, Integer)(StringComparer.OrdinalIgnoreCase)
+
+    ''' <summary>Atlas path to its array texture. The dam's 56 materials name
+    ''' the same three manifests, so this is three uploads and not 168.</summary>
+    Private ReadOnly atlasCache As New Dictionary(Of String, Integer)(StringComparer.OrdinalIgnoreCase)
+    Private atlasProgram As Integer = 0
+    Private atlasParts As Integer = 0
+
+    ''' <summary>The vestigial tile inset. 0.0 is what the data wants; 0.0625
+    ''' reproduces nuTerra's current sampling exactly. See AtlasShader for why
+    ''' the two differ and which one is right.</summary>
+    Private atlasPad As Single = 0.0F
+
+    ''' <summary>Whether globalTex is mixed into the normal/gloss channel at
+    ''' half, as nuTerra does. Switchable because it is the first suspect when
+    ''' the surface normal comes out flat.</summary>
+    Private atlasMixGlobal As Boolean = True
 
     Private boundsMin, boundsMax As Vector3
     Private totalVerts, totalTris, clippedTris, cutSegs As Integer
@@ -218,13 +292,15 @@ Public Class ViewerWindow
                    Optional shot As String = Nothing, Optional doShell As Boolean = False,
                    Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False,
                    Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
-                   Optional objFile As String = Nothing)
+                   Optional objFile As String = Nothing, Optional uiInShot As Boolean = False,
+                   Optional findPattern As String = Nothing, Optional debugView As Integer = 0)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
                        .Title = "Slicer",
                        .APIVersion = New Version(3, 3),
-                       .Profile = ContextProfile.Core})
+                       .Profile = ContextProfile.Core,
+                       .StartFocused = False})
         pkg = index
         assets = bl.Assets.Values.ToList()
         settings = cfg
@@ -234,6 +310,9 @@ Public Class ViewerWindow
         shellOnLoad = doShell
         bakeDir = bakeTo
         objPath = objFile
+        panelInShot = uiInShot
+        startQuery = findPattern
+        pbrDebug = Math.Max(0, debugView)
         If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
             ' The angle decides what the picture can prove, so it is explicit
@@ -274,10 +353,41 @@ Public Class ViewerWindow
         cutVao = GL.GenVertexArray() : cutVbo = GL.GenBuffer()
         pbrVao = GL.GenVertexArray() : pbrVbo = GL.GenBuffer() : pbrEbo = GL.GenBuffer()
         pbrProgram = PbrShader.Build()
+        atlasProgram = AtlasShader.Build()
         whiteTex = DdsTexture.White()
         checkerTex = DdsTexture.Checker(512, 16)
         flatNrmTex = DdsTexture.FlatNormal()
-        If objPath IsNot Nothing Then
+
+        ' The browser needs a live GL context for its font atlas, so it is built
+        ' here and not in the constructor. A --shot run gets no panel at all:
+        ' the whole point of a shot is a picture of the MODEL, and a strip of
+        ' interface down one side would be in every comparison forever after.
+        If shotPath Is Nothing OrElse panelInShot Then
+            ui = New UiOverlay(New UiFont("Consolas", 13.0F))
+            browser = New ModelBrowser(assets)
+            Console.WriteLine("browser: {0:N0} lod0 models across {1:N0} assets",
+                              browser.Rows.Count, assets.Count)
+        End If
+
+        ' A --find picks the model, so it must run BEFORE the fallback load -
+        ' otherwise the whole asset is read out of the packages and thrown away
+        ' one line later.
+        Dim found = False
+        If browser IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(startQuery) Then
+            browser.Query = startQuery
+            browser.Apply()
+            If browser.Shown.Count > 0 Then
+                browser.Selected = 0
+                LoadRow(browser.Shown(0))
+                found = True
+            End If
+            Console.WriteLine("find {0}: {1:N0} match(es){2}", startQuery, browser.Shown.Count,
+                              If(found, "", "  - nothing loaded"))
+        End If
+
+        If found Then
+            ' already loaded
+        ElseIf objPath IsNot Nothing Then
             LoadObj(objPath)
         Else
             LoadCurrent()
@@ -309,6 +419,23 @@ Public Class ViewerWindow
         If ok = 0 Then Throw New Exception(what & " shader: " & GL.GetShaderInfoLog(s))
     End Sub
 
+    ''' <summary>
+    ''' The parts to load: every part of the current asset at the current LOD,
+    ''' or the single `.model` the browser picked.
+    '''
+    ''' One place, because three separate loops read this - the geometry load,
+    ''' the PBR build and the texture bake. When they disagreed about which
+    ''' parts were in play the render and the bake quietly described different
+    ''' buildings, and nothing in either output said so.
+    ''' </summary>
+    Private Function CurrentParts() As List(Of BuildingPart)
+        If soloModel IsNot Nothing Then Return New List(Of BuildingPart) From {soloModel}
+        Dim asset = assets(assetIndex)
+        Dim lods = asset.Lods
+        If lods.Count = 0 Then Return New List(Of BuildingPart)
+        Return asset.PartsAt(lods(Math.Max(0, Math.Min(lodIndex, lods.Count - 1))))
+    End Function
+
     ''' <summary>Read the current asset's current LOD out of the packages. Only
     ''' called when the asset or LOD changes - moving the plane does not touch
     ''' this, which is what lets the plane be dragged.</summary>
@@ -325,7 +452,7 @@ Public Class ViewerWindow
         Dim any = False
         Dim wanted = If(settings.Parts, "all").Trim().ToLowerInvariant()
 
-        For Each part In asset.PartsAt(lod)
+        For Each part In CurrentParts()
             If wanted <> "all" AndAlso Not part.Name.ToLowerInvariant().Contains(wanted) Then Continue For
             Dim raw = pkg.ReadPath(PrimitivesPathFor(part))
             If raw Is Nothing Then Continue For
@@ -377,6 +504,7 @@ Public Class ViewerWindow
     Private Sub BuildPbr()
         pbrParts.Clear()
         pbrTris = 0
+        atlasParts = 0
         Dim verts As New List(Of Single)
         Dim idx As New List(Of Integer)
 
@@ -385,7 +513,7 @@ Public Class ViewerWindow
         If lods.Count = 0 Then Return
         Dim lod = lods(Math.Max(0, Math.Min(lodIndex, lods.Count - 1)))
 
-        For Each part In asset.PartsAt(lod)
+        For Each part In CurrentParts()
             Dim stem = If(Not String.IsNullOrEmpty(part.Visual),
                           part.Visual.Replace("\"c, "/"c).ToLowerInvariant(),
                           part.Path.Substring(0, part.Path.Length - ".model".Length))
@@ -412,7 +540,7 @@ Public Class ViewerWindow
             For Each m In meshes
                 If m.Positions.Length = 0 OrElse m.Indices.Length < 3 Then Continue For
 
-                Dim baseVert = verts.Count \ 14
+                Dim baseVert = verts.Count \ 16
                 For i = 0 To m.Positions.Length - 1
                     Dim pp = m.Positions(i)
                     Dim nn = If(m.Normals.Length > i, m.Normals(i), Vector3.UnitY)
@@ -424,6 +552,12 @@ Public Class ViewerWindow
                     verts.Add(uvv.X) : verts.Add(uvv.Y)
                     verts.Add(tt.X) : verts.Add(tt.Y) : verts.Add(tt.Z)
                     verts.Add(bb.X) : verts.Add(bb.Y) : verts.Add(bb.Z)
+                    ' UV2, the second set. The tiled and atlas families address
+                    ' their blend mask and their per-object global texture with
+                    ' it, so without it here those materials cannot be shaded at
+                    ' all - which is why they have been drawing flat white.
+                    Dim u2 = If(m.HasUV2 AndAlso m.UV2.Length > i, m.UV2(i), Vector2.Zero)
+                    verts.Add(u2.X) : verts.Add(u2.Y)
                 Next
 
                 Dim groups = m.Groups
@@ -455,6 +589,89 @@ Public Class ViewerWindow
                         pt.Fx = mat.Fx
                         pt.PackDxt1 = mat.Flag("g_useNormalPackDXT1", False)
                         pt.EnableAO = mat.Flag("g_enableAO", False)
+                        If mat.IsAtlas Then
+                            ' The three atlases are MANIFESTS listing member
+                            ' textures, not images - see AtlasFile. Each gets its
+                            ' own array at its own members' size: the MAO sheets
+                            ' are consistently half the resolution of their AM
+                            ' and GBMT siblings, so sizing all three from the
+                            ' first would halve or double two of them.
+                            Dim am = mat.AtlasMaps()
+                            Dim nA = 0, nB = 0, nC = 0
+                            pt.AtlasAm = LoadAtlas(am(0), nA)
+                            pt.AtlasNgs = LoadAtlas(am(1), nB)
+                            pt.AtlasMao = LoadAtlas(am(2), nC)
+                            ' All three or none. A part drawn by the atlas
+                            ' program with a missing array samples unit 0 as the
+                            ' wrong type and comes out black, which reads as a
+                            ' shading bug rather than a missing file.
+                            pt.IsAtlas = pt.AtlasAm <> 0 AndAlso pt.AtlasNgs <> 0 AndAlso pt.AtlasMao <> 0
+                            If pt.IsAtlas Then
+                                Dim one As New Vector4(1.0F, 1.0F, 1.0F, 1.0F)
+                                ' The blend sheet is declared .png in the material and ships
+                                ' as .dds, exactly like the atlas member paths. Without the
+                                ' correction it silently falls back to white, and a white
+                                ' blend makes every surface one tile - which looks like flat
+                                ' untextured grey rather than like a missing file.
+                                pt.AtlasBlend = If(am(3) IsNot Nothing, LoadTex(AsDds(am(3)), whiteTex), whiteTex)
+                                pt.AtlasDirt = If(am(4) IsNot Nothing, LoadTex(AsDds(am(4)), 0), 0)
+                                pt.AtlasGlobal = If(am(5) IsNot Nothing, LoadTex(AsDds(am(5)), 0), 0)
+                                pt.Idx = mat.Vec4("g_atlasIndexes", Vector4.Zero)
+                                pt.Grid = mat.Vec4("g_atlasSizes", one)
+                                pt.Tint0 = mat.Vec4("g_tile0Tint", one)
+                                pt.Tint1 = mat.Vec4("g_tile1Tint", one)
+                                pt.Tint2 = mat.Vec4("g_tile2Tint", one)
+                                pt.UvScale = mat.Vec4("g_tileUVScale", Vector4.Zero)
+                                pt.DirtColor = mat.Vec4("g_dirtColor", Vector4.Zero)
+                                pt.DirtParams = mat.Vec4("g_dirtParams", one)
+                                atlasParts += 1
+                            End If
+                        End If
+
+                        If Not pt.IsAtlas AndAlso mat.IsTiled Then
+                            ' TILED, which is the MAJORITY - 19,121 materials
+                            ' against the atlas family's 118, and about four
+                            ' fifths of the surface of a typical building. It drew
+                            ' flat white until now because the live shader only
+                            ' ever implemented PBS_ext, which is why every render
+                            ' came out mostly grey.
+                            '
+                            ' Reuses the atlas path exactly: three tiles in a
+                            ' three-layer array, indices 0/1/2, and the blend mask
+                            ' on uv2 with a ONE-CELL grid. The grid is forced to
+                            ' 1x1 rather than read from g_atlasSizes - tiled
+                            ' materials carry that property too, with the atlas
+                            ' family's values, and honouring it here would sample
+                            ' a twentieth of the blend mask.
+                            Dim tAm = TileList(mat.TiledMaps(), 3)
+                            Dim tNgs = TileList(mat.TiledNormalMaps(), 3)
+                            Dim tMao = TileList(mat.TiledMetalMaps(), 3)
+                            If tAm IsNot Nothing AndAlso tNgs IsNot Nothing AndAlso tMao IsNot Nothing Then
+                                Dim nA = 0, nB = 0, nC = 0
+                                pt.AtlasAm = LoadTileArray(tAm, nA)
+                                pt.AtlasNgs = LoadTileArray(tNgs, nB)
+                                pt.AtlasMao = LoadTileArray(tMao, nC)
+                                pt.IsAtlas = pt.AtlasAm <> 0 AndAlso pt.AtlasNgs <> 0 AndAlso pt.AtlasMao <> 0
+                                If pt.IsAtlas Then
+                                    Dim one As New Vector4(1.0F, 1.0F, 1.0F, 1.0F)
+                                    Dim bm = mat.Texture("blendMask")
+                                    Dim dm = mat.Texture("dirtMap")
+                                    pt.AtlasBlend = If(bm IsNot Nothing, LoadTex(AsDds(bm), whiteTex), whiteTex)
+                                    pt.AtlasDirt = If(dm IsNot Nothing, LoadTex(AsDds(dm), 0), 0)
+                                    pt.AtlasGlobal = 0
+                                    pt.Idx = New Vector4(0.0F, 1.0F, 2.0F, 0.0F)
+                                    pt.Grid = one
+                                    pt.Tint0 = mat.Vec4("g_tile0Tint", one)
+                                    pt.Tint1 = mat.Vec4("g_tile1Tint", one)
+                                    pt.Tint2 = mat.Vec4("g_tile2Tint", one)
+                                    pt.UvScale = mat.Vec4("g_tileUVScale", Vector4.Zero)
+                                    pt.DirtColor = mat.Vec4("g_dirtColor", Vector4.Zero)
+                                    pt.DirtParams = mat.Vec4("g_dirtParams", one)
+                                    atlasParts += 1
+                                End If
+                            End If
+                        End If
+
                         Dim maps = mat.ExtMaps()
                         If maps(0) IsNot Nothing Then pt.Albedo = LoadTex(maps(0), whiteTex)
                         If maps(1) IsNot Nothing Then
@@ -476,12 +693,13 @@ Public Class ViewerWindow
         GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
         GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
-        Const ST As Integer = 14 * 4
+        Const ST As Integer = 16 * 4
         GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
         GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
         GL.EnableVertexAttribArray(2) : GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, ST, 24)
         GL.EnableVertexAttribArray(3) : GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, ST, 32)
         GL.EnableVertexAttribArray(4) : GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, ST, 44)
+        GL.EnableVertexAttribArray(5) : GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, ST, 56)
         GL.BindVertexArray(0)
 
         Dim withN = pbrParts.Where(Function(x) x.HasNormal).Count()
@@ -512,7 +730,7 @@ Public Class ViewerWindow
         Dim written = 0, noUv = 0, noMat = 0
         Dim meshIndex = 0
 
-        For Each part In asset.PartsAt(lod)
+        For Each part In CurrentParts()
             Dim stem = If(Not String.IsNullOrEmpty(part.Visual),
                           part.Visual.Replace("\"c, "/"c).ToLowerInvariant(),
                           part.Path.Substring(0, part.Path.Length - ".model".Length))
@@ -644,6 +862,7 @@ Public Class ViewerWindow
         For i = 0 To pbrParts.Count - 1
             If soloPart >= 0 AndAlso i <> soloPart Then Continue For
             Dim pt = pbrParts(i)
+            If pt.IsAtlas Then Continue For          ' drawn by DrawAtlas instead
             GL.ActiveTexture(TextureUnit.Texture0) : GL.BindTexture(TextureTarget.Texture2D, pt.Albedo)
             GL.ActiveTexture(TextureUnit.Texture1) : GL.BindTexture(TextureTarget.Texture2D, pt.NormalTex)
             GL.ActiveTexture(TextureUnit.Texture2) : GL.BindTexture(TextureTarget.Texture2D, pt.Gmm)
@@ -656,6 +875,146 @@ Public Class ViewerWindow
         GL.ActiveTexture(TextureUnit.Texture0)
         GL.BindVertexArray(0)
     End Sub
+
+    ''' <summary>
+    ''' The atlas parts, in their own pass and their own program.
+    '''
+    ''' A second pass rather than a program switch inside the first: switching
+    ''' per part would re-upload every uniform of both programs at every
+    ''' boundary. Nothing here runs at all when a model carries no atlas
+    ''' material, which is 321 of the 325 assets.
+    ''' </summary>
+    Private Sub DrawAtlas(mvp As Matrix4, eye As Vector3)
+        If atlasParts = 0 Then Return
+
+        GL.UseProgram(atlasProgram)
+        GL.UniformMatrix4(GL.GetUniformLocation(atlasProgram, "u_mvp"), False, mvp)
+        GL.Uniform3(GL.GetUniformLocation(atlasProgram, "u_eye"), eye.X, eye.Y, eye.Z)
+        GL.Uniform3(GL.GetUniformLocation(atlasProgram, "u_lightDir"), 0.45F, 0.75F, 0.4F)
+        GL.Uniform3(GL.GetUniformLocation(atlasProgram, "u_lightColor"), 1.9F, 1.84F, 1.7F)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_debug"), pbrDebug)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_exposure"), pbrExposure)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_pad"), atlasPad)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_mixGlobal"), If(atlasMixGlobal, 1, 0))
+
+        ' Every sampler gets its OWN unit. They all default to unit 0, and two
+        ' samplers of DIFFERENT TYPES on one unit is undefined - it shows up as
+        ' a black surface rather than as an error.
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_am"), 0)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_ngs"), 1)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_mao"), 2)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_blend"), 3)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_dirt"), 4)
+        GL.Uniform1(GL.GetUniformLocation(atlasProgram, "u_global"), 5)
+
+        Dim uIdx = GL.GetUniformLocation(atlasProgram, "u_idx")
+        Dim uGrid = GL.GetUniformLocation(atlasProgram, "u_grid")
+        Dim uT0 = GL.GetUniformLocation(atlasProgram, "u_tint0")
+        Dim uT1 = GL.GetUniformLocation(atlasProgram, "u_tint1")
+        Dim uT2 = GL.GetUniformLocation(atlasProgram, "u_tint2")
+        Dim uSc = GL.GetUniformLocation(atlasProgram, "u_uvScale")
+        Dim uDc = GL.GetUniformLocation(atlasProgram, "u_dirtColor")
+        Dim uDp = GL.GetUniformLocation(atlasProgram, "u_dirtParams")
+        Dim uHd = GL.GetUniformLocation(atlasProgram, "u_hasDirt")
+        Dim uHg = GL.GetUniformLocation(atlasProgram, "u_hasGlobal")
+
+        GL.BindVertexArray(pbrVao)
+        GL.PolygonMode(MaterialFace.FrontAndBack, If(wireframe, PolygonMode.Line, PolygonMode.Fill))
+        For i = 0 To pbrParts.Count - 1
+            If soloPart >= 0 AndAlso i <> soloPart Then Continue For
+            Dim pt = pbrParts(i)
+            If Not pt.IsAtlas Then Continue For
+            GL.ActiveTexture(TextureUnit.Texture0) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasAm)
+            GL.ActiveTexture(TextureUnit.Texture1) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasNgs)
+            GL.ActiveTexture(TextureUnit.Texture2) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasMao)
+            GL.ActiveTexture(TextureUnit.Texture3) : GL.BindTexture(TextureTarget.Texture2D, pt.AtlasBlend)
+            GL.ActiveTexture(TextureUnit.Texture4) : GL.BindTexture(TextureTarget.Texture2D, If(pt.AtlasDirt = 0, whiteTex, pt.AtlasDirt))
+            GL.ActiveTexture(TextureUnit.Texture5) : GL.BindTexture(TextureTarget.Texture2D, If(pt.AtlasGlobal = 0, whiteTex, pt.AtlasGlobal))
+            GL.Uniform4(uIdx, pt.Idx.X, pt.Idx.Y, pt.Idx.Z, pt.Idx.W)
+            GL.Uniform4(uGrid, pt.Grid.X, pt.Grid.Y, pt.Grid.Z, pt.Grid.W)
+            GL.Uniform4(uT0, pt.Tint0.X, pt.Tint0.Y, pt.Tint0.Z, pt.Tint0.W)
+            GL.Uniform4(uT1, pt.Tint1.X, pt.Tint1.Y, pt.Tint1.Z, pt.Tint1.W)
+            GL.Uniform4(uT2, pt.Tint2.X, pt.Tint2.Y, pt.Tint2.Z, pt.Tint2.W)
+            GL.Uniform4(uSc, pt.UvScale.X, pt.UvScale.Y, pt.UvScale.Z, pt.UvScale.W)
+            GL.Uniform4(uDc, pt.DirtColor.X, pt.DirtColor.Y, pt.DirtColor.Z, pt.DirtColor.W)
+            GL.Uniform4(uDp, pt.DirtParams.X, pt.DirtParams.Y, pt.DirtParams.Z, pt.DirtParams.W)
+            GL.Uniform1(uHd, If(pt.AtlasDirt <> 0, 1, 0))
+            GL.Uniform1(uHg, If(pt.AtlasGlobal <> 0, 1, 0))
+            GL.DrawElements(PrimitiveType.Triangles, pt.Count, DrawElementsType.UnsignedInt, pt.First * 4)
+        Next
+        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill)
+        GL.ActiveTexture(TextureUnit.Texture0)
+        GL.BindVertexArray(0)
+    End Sub
+
+    ''' <summary>Upload an atlas manifest as a texture array, cached by
+    ''' path.</summary>
+    ''' <summary>A texture path as it actually ships. Materials and atlas
+    ''' manifests both record the artist source as .png; the build converts
+    ''' it. 880 of 880 atlas members resolve once corrected and 0 before.</summary>
+    Private Shared Function AsDds(pth As String) As String
+        If pth Is Nothing Then Return Nothing
+        If pth.EndsWith(".png", StringComparison.OrdinalIgnoreCase) Then
+            Return pth.Substring(0, pth.Length - 4) & ".dds"
+        End If
+        Return pth
+    End Function
+
+    ''' <summary>The first `want` tile paths as .dds, or Nothing if any is
+    ''' absent. All three or none: a two-layer array indexed at layer 2 samples
+    ''' the wrong tile rather than failing.</summary>
+    Private Shared Function TileList(src As String(), want As Integer) As List(Of String)
+        If src Is Nothing OrElse src.Length < want Then Return Nothing
+        Dim outp As New List(Of String)
+        For i = 0 To want - 1
+            If src(i) Is Nothing Then Return Nothing
+            outp.Add(AsDds(src(i)))
+        Next
+        Return outp
+    End Function
+
+    ''' <summary>Three tile textures as one three-layer array, cached on the
+    ''' joined paths - tile sets are shared heavily across the library, so the
+    ''' same trio recurs on many materials.</summary>
+    Private Function LoadTileArray(paths As List(Of String), ByRef layers As Integer) As Integer
+        layers = 0
+        If paths Is Nothing OrElse paths.Count = 0 Then Return 0
+        Dim key = String.Join("|", paths)
+        Dim got = 0
+        If atlasCache.TryGetValue(key, got) Then Return got
+        Dim tex = AtlasFile.UploadLayers(pkg, paths, layers, quiet:=True)
+        atlasCache(key) = tex
+        Return tex
+    End Function
+
+    Private Function LoadAtlas(atlasPath As String, ByRef layers As Integer) As Integer
+        layers = 0
+        If String.IsNullOrEmpty(atlasPath) Then Return 0
+        Dim got = 0
+        If atlasCache.TryGetValue(atlasPath, got) Then Return got
+
+        ' The material names ".atlas"; what ships is ".atlas_processed", the
+        ' same _processed suffix the rest of this family carries.
+        Dim raw = pkg.ReadPath(atlasPath & "_processed")
+        If raw Is Nothing Then raw = pkg.ReadPath(atlasPath)
+        If raw Is Nothing Then
+            Console.WriteLine("    atlas: no manifest at {0}", atlasPath)
+            atlasCache(atlasPath) = 0
+            Return 0
+        End If
+
+        Dim af = AtlasFile.Load(raw, atlasPath)
+        If af Is Nothing Then
+            Console.WriteLine("    atlas: {0} is not a manifest", atlasPath)
+            atlasCache(atlasPath) = 0
+            Return 0
+        End If
+
+        Dim tex = af.Upload(pkg, layers, quiet:=False)
+        Console.WriteLine("    atlas {0}  {1}", IO.Path.GetFileName(atlasPath), af.Describe())
+        atlasCache(atlasPath) = tex
+        Return tex
+    End Function
 
     Private Sub ReportPbr()
         Console.WriteLine("  pbr {0}   view: {1}   {2} group(s), {3:N0} tris",
@@ -722,6 +1081,10 @@ Public Class ViewerWindow
                     verts.Add(uvv.X) : verts.Add(uvv.Y)
                     verts.Add(1.0F) : verts.Add(0.0F) : verts.Add(0.0F)
                     verts.Add(0.0F) : verts.Add(0.0F) : verts.Add(1.0F)
+                    ' uv2, to keep the 16-float stride the shared VAO expects.
+                    ' An exported OBJ has ONE uv set by design - uv2 was moved
+                    ' into it on the way out - so there is no second set to give.
+                    verts.Add(0.0F) : verts.Add(0.0F)
                     idx.Add(idx.Count)
                     lo = Vector3.ComponentMin(lo, pp)
                     hi = Vector3.ComponentMax(hi, pp)
@@ -746,12 +1109,13 @@ Public Class ViewerWindow
         GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
         GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
-        Const ST As Integer = 14 * 4
+        Const ST As Integer = 16 * 4
         GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
         GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
         GL.EnableVertexAttribArray(2) : GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, False, ST, 24)
         GL.EnableVertexAttribArray(3) : GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, False, ST, 32)
         GL.EnableVertexAttribArray(4) : GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, ST, 44)
+        GL.EnableVertexAttribArray(5) : GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, ST, 56)
         GL.BindVertexArray(0)
 
         pbrOn = True
@@ -1025,8 +1389,17 @@ Public Class ViewerWindow
         MyBase.OnRenderFrame(e)
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
 
+        ' The 3D gets the window MINUS the panel, and the aspect is computed
+        ' from that same width. Drawing the model full-window and laying the
+        ' panel over it would centre the building behind the list, and every
+        ' framing decision - the `dist` a load picks, what a zoom is centred on
+        ' - would be measured against a width that is not the visible one.
+        Dim viewX = PanelWidth()
+        Dim viewW = Math.Max(1, ClientSize.X - viewX)
+        GL.Viewport(viewX, 0, viewW, Math.Max(1, ClientSize.Y))
+
         If (If(pbrOn, pbrParts.Count, parts.Count)) > 0 Then
-            Dim aspect = CSng(Math.Max(ClientSize.X, 1)) / Math.Max(ClientSize.Y, 1)
+            Dim aspect = CSng(viewW) / Math.Max(ClientSize.Y, 1)
             ' The Y term is NEGATED, and that is not a taste setting - it is the
             ' sign nuTerra has.
             '
@@ -1057,6 +1430,7 @@ Public Class ViewerWindow
             ' file at all and said nothing about why.
             If pbrOn Then
                 DrawPbr(mvp, eye)
+                DrawAtlas(mvp, eye)
                 GoTo drawn
             End If
 
@@ -1097,6 +1471,18 @@ Public Class ViewerWindow
             End If
             GL.BindVertexArray(0)
 drawn:
+        End If
+
+        ' The panel wants the WHOLE window back, because its coordinates are
+        ' window pixels - the same space the mouse arrives in. Leaving the inset
+        ' viewport here would squeeze the UI into the 3D area and put every
+        ' click a panel-width out.
+        If browser IsNot Nothing AndAlso browser.Visible Then
+            GL.Viewport(0, 0, Math.Max(1, ClientSize.X), Math.Max(1, ClientSize.Y))
+            Dim mp = MouseState.Position
+            ui.BeginFrame(ClientSize.X, ClientSize.Y)
+            browser.Draw(ui, PanelWidth(), ClientSize.Y, mp.X, mp.Y)
+            ui.EndFrame()
         End If
 
         SwapBuffers()
@@ -1162,20 +1548,34 @@ drawn:
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
         MyBase.OnUpdateFrame(e)
         Dim k = KeyboardState
+
+        ' EVERY key below is a bare letter or an arrow, so all of it has to stand
+        ' down while the search box has the keyboard - otherwise typing "house"
+        ' walks through the shell pipeline, the bottom fill, the cut and the
+        ' solid/wireframe toggle on its way to filtering the list. The mouse is
+        ' deliberately NOT gated: the camera stays live while you type.
+        If browser IsNot Nothing AndAlso browser.Focused Then
+            CameraMouseUpdate()
+            Return
+        End If
+
         If k.IsKeyDown(Keys.Escape) Then Close()
 
         If k.IsKeyPressed(Keys.Right) Then
             assetIndex = (assetIndex + 1) Mod assets.Count
-            lodIndex = 0 : soloPart = -1 : LoadCurrent()
+            lodIndex = 0 : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         ElseIf k.IsKeyPressed(Keys.Left) Then
             assetIndex = (assetIndex - 1 + assets.Count) Mod assets.Count
-            lodIndex = 0 : soloPart = -1 : LoadCurrent()
+            lodIndex = 0 : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         End If
 
+        ' A LOD change drops the single-model pick: that pick names a part at
+        ' lod0, and it does not exist at lod3. Falling back to the whole asset
+        ' is the honest answer rather than silently showing nothing.
         If k.IsKeyPressed(Keys.RightBracket) Then
-            lodIndex += 1 : soloPart = -1 : LoadCurrent()
+            lodIndex += 1 : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         ElseIf k.IsKeyPressed(Keys.LeftBracket) Then
-            lodIndex = Math.Max(0, lodIndex - 1) : soloPart = -1 : LoadCurrent()
+            lodIndex = Math.Max(0, lodIndex - 1) : soloPart = -1 : soloModel = Nothing : LoadCurrent()
         End If
 
         If k.IsKeyPressed(Keys.Down) Then
@@ -1398,7 +1798,11 @@ drawn:
         Dim rightDown = m.IsButtonDown(MouseButton.Right)
         Dim ctrl = k.IsKeyDown(Keys.LeftControl) OrElse k.IsKeyDown(Keys.RightControl)
         Dim shiftHeld = k.IsKeyDown(Keys.LeftShift) OrElse k.IsKeyDown(Keys.RightShift)
-        Dim held = leftDown OrElse midDown
+        ' A drag that STARTED on the panel is the panel's, for as long as the
+        ' button is held - including after the pointer leaves the panel. Testing
+        ' where the cursor is right now instead would let a click on a row spin
+        ' the model the moment the drag crossed into the 3D view.
+        Dim held = (leftDown OrElse midDown) AndAlso Not pressedOverPanel
 
         ' Ignore the frame a button goes down: MouseState.Delta carries the
         ' travel since the last update, which can be a long way if the cursor
@@ -1430,7 +1834,15 @@ drawn:
 
         ' The wheel, this viewer's own addition - straight into the same pool
         ' so it coasts and decays like everything else.
-        If m.ScrollDelta.Y <> 0 Then zoomDelta -= m.ScrollDelta.Y * 0.25F
+        '
+        ' NOT while the pointer is over the browser. `OnMouseWheel` already
+        ' routes the wheel to the list there, but this poll of ScrollDelta is a
+        ' SECOND, INDEPENDENT reader of the same notch - an override and a poll
+        ' do not exclude each other - so without this test one notch scrolled
+        ' the list and zoomed the camera at the same time.
+        If m.ScrollDelta.Y <> 0 AndAlso Not PointerOverPanel() Then
+            zoomDelta -= m.ScrollDelta.Y * 0.25F
+        End If
 
         Dim f = 1.0F - CSng(Math.Pow(1.0F - Math.Min(ROT_DAMPING, 0.999F), dt * 60.0F))
 
@@ -1475,6 +1887,141 @@ drawn:
             Console.WriteLine("  part {0}/{1}  {2}  {3:N0} tris",
                               soloPart + 1, parts.Count, parts(soloPart).Name, parts(soloPart).Count \ 3)
         End If
+    End Sub
+
+    ''' <summary>Is the cursor over the browser panel right now? Asked by every
+    ''' input path the panel has to win.</summary>
+    Private Function PointerOverPanel() As Boolean
+        If browser Is Nothing OrElse Not browser.Visible Then Return False
+        Dim p = MouseState.Position
+        Return browser.HitsPanel(p.X, p.Y)
+    End Function
+
+    ''' <summary>Pixels the panel takes off the left of the 3D view, 0 when it
+    ''' is hidden or was never built (a --shot run). This is the ONE width -
+    ''' the draw and the hit tests both take it, so they cannot drift.</summary>
+    Private Function PanelWidth() As Integer
+        If browser Is Nothing OrElse Not browser.Visible Then Return 0
+        Return Math.Min(ModelBrowser.PANEL_W, Math.Max(0, ClientSize.X - 160))
+    End Function
+
+    ''' <summary>
+    ''' Load the single `.model` a row names.
+    '''
+    ''' The asset and LOD are set to that model's own, so the title, the PBR
+    ''' build and a bake all stay consistent with what is on screen - only the
+    ''' PART list is narrowed. Setting `soloModel` without moving `assetIndex`
+    ''' would leave the window captioned with whatever was loaded before.
+    ''' </summary>
+    Private Sub LoadRow(r As ModelRow)
+        If r Is Nothing Then Return
+        assetIndex = Math.Max(0, Math.Min(r.AssetIndex, assets.Count - 1))
+        Dim lods = assets(assetIndex).Lods
+        lodIndex = Math.Max(0, lods.IndexOf(r.Part.Lod))
+        soloModel = r.Part
+        soloPart = -1
+        Console.WriteLine("load {0}  ({1})", r.Part.Name, r.AssetName)
+        LoadCurrent()
+    End Sub
+
+    ''' <summary>Characters for the search box. Only reaches the box when it has
+    ''' focus, so the viewer's letter hotkeys are untouched otherwise.</summary>
+    Protected Overrides Sub OnTextInput(e As TextInputEventArgs)
+        MyBase.OnTextInput(e)
+        If browser Is Nothing OrElse Not browser.Focused Then Return
+        For Each c In e.AsString
+            browser.TypeChar(c)
+        Next
+    End Sub
+
+    Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
+        MyBase.OnMouseWheel(e)
+        If browser Is Nothing OrElse Not browser.Visible Then Return
+        ' Only when the pointer is actually over the panel - otherwise the wheel
+        ' belongs to the camera, which reads it in CameraMouseUpdate.
+        If Not PointerOverPanel() Then Return
+        browser.ScrollBy(-CInt(Math.Sign(e.OffsetY)) * 3)
+    End Sub
+
+    Protected Overrides Sub OnMouseDown(e As MouseButtonEventArgs)
+        MyBase.OnMouseDown(e)
+        If browser Is Nothing OrElse Not browser.Visible Then Return
+        Dim p = MouseState.Position
+        pressedOverPanel = browser.HitsPanel(p.X, p.Y)
+        If Not pressedOverPanel OrElse e.Button <> MouseButton.Left Then Return
+
+        If browser.HitsSearch(p.X, p.Y) Then
+            browser.Focused = True
+            Return
+        End If
+
+        Dim row = browser.RowAtPixel(p.X, p.Y)
+        If row < 0 Then
+            browser.Focused = False
+            Return
+        End If
+
+        ' A double click is the SAME row, twice, close together in both time and
+        ' space. Testing time alone fires on a fast pair of clicks on different
+        ' rows and loads whichever was second, which reads as the list picking
+        ' at random.
+        Dim now = DateTime.UtcNow
+        Dim near = (New Vector2(p.X, p.Y) - lastClickPos).Length <= DOUBLE_CLICK_PX
+        Dim quick = (now - lastClickAt).TotalMilliseconds <= DOUBLE_CLICK_MS
+        browser.Selected = row
+        browser.Focused = False
+        If quick AndAlso near AndAlso row = lastClickRow Then
+            LoadRow(browser.Shown(row))
+            lastClickAt = DateTime.MinValue          ' a triple click is not two loads
+            lastClickRow = -1
+        Else
+            lastClickAt = now
+            lastClickRow = row
+            lastClickPos = New Vector2(p.X, p.Y)
+        End If
+    End Sub
+
+    Protected Overrides Sub OnMouseUp(e As MouseButtonEventArgs)
+        MyBase.OnMouseUp(e)
+        pressedOverPanel = False
+    End Sub
+
+    ''' <summary>Editing keys, which do not arrive as text input.</summary>
+    Protected Overrides Sub OnKeyDown(e As KeyboardKeyEventArgs)
+        MyBase.OnKeyDown(e)
+        If browser Is Nothing Then Return
+
+        ' Tab toggles the panel whether or not anything has focus.
+        If e.Key = Keys.Tab Then
+            browser.Visible = Not browser.Visible
+            If Not browser.Visible Then browser.Focused = False
+            Return
+        End If
+
+        If Not browser.Visible Then Return
+
+        If browser.Focused Then
+            Select Case e.Key
+                Case Keys.Backspace : browser.Backspace()
+                Case Keys.Escape
+                    ' Escape leaves the box rather than closing the window. The
+                    ' window's Escape still works the moment focus is elsewhere.
+                    If browser.Query.Length > 0 Then browser.ClearQuery() Else browser.Focused = False
+                Case Keys.Enter, Keys.KeyPadEnter
+                    If browser.Shown.Count > 0 Then
+                        If browser.Selected < 0 Then browser.MoveSelection(1)
+                        LoadRow(browser.Shown(browser.Selected))
+                    End If
+                Case Keys.Down : browser.MoveSelection(1)
+                Case Keys.Up : browser.MoveSelection(-1)
+                Case Keys.PageDown : browser.MoveSelection(10)
+                Case Keys.PageUp : browser.MoveSelection(-10)
+            End Select
+            Return
+        End If
+
+        ' Not focused: F starts a search the way every list does.
+        If e.Key = Keys.Slash Then browser.Focused = True
     End Sub
 
     Protected Overrides Sub OnResize(e As ResizeEventArgs)

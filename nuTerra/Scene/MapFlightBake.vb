@@ -76,7 +76,7 @@ Public Class MapFlightBake
     ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
     ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 3
+    Public Const BAKE_VERSION As Integer = 5
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
@@ -229,6 +229,34 @@ Public Class MapFlightBake
     ''' </summary>
     Private Shared Function classify(p As String) As Byte
 
+        ' BEFORE THE FENCE TEST, and it has to be, because the fence test
+        ' matches the FOLDER and not just the file. The owner, 2026-09-13:
+        ' "the entire olive garden area is mostly marked in black. Those should
+        ' be crushable."
+        '
+        ' The vineyard on monastery is two assets. The vines are SpeedTree -
+        ' vegetation/Broadleaves/GrapeVine_01.srt - and were always keyed tree
+        ' by the tree pass, which writes a constant. The TRELLIS is a model:
+        '
+        '     content/GatesAndFences/gaf_19_05_GrapevineFence/normal/lod0/...
+        '
+        ' and "GatesAndFences" alone matches both `fence` and `gate`, so every
+        ' asset under that folder keyed KIND_FENCE whatever its name. Crushable
+        ' is "kind = tree AND NOT solid", so a fence-keyed texel can never be
+        ' crushed - and a vineyard is a GRID of these, which turned the whole
+        ' field into an obstacle a tank would drive around.
+        '
+        ' I HAD THIS WRONG IN WRITING, below, listing GrapevineFence among names
+        ' that "are all fences - correct". Correct about the NAME and wrong about
+        ' the consequence: a wooden grape trellis is not a barrier. Its own havok
+        ' proxy is named __n_wood0.
+        '
+        ' Narrow on purpose, like the lamp line. `grapevine` matches exactly one
+        ' model family in all 218 packages - gaf_19_05_GrapevineFence - so this
+        ' cannot reach a real fence. It does not touch `vine` on its own, which
+        ' still falls through to the tree test below where it belongs.
+        If has(p, "grapevine") Then Return KIND_TREE
+
         If has(p, "fence", "zabor", "ograda", "rail", "hedge",
                "gate", "wire", "palisade") Then Return KIND_FENCE
         ' BEFORE the tree test, and this is the whole reason it exists:
@@ -239,8 +267,12 @@ Public Class MapFlightBake
         ' Narrow on purpose. The tempting fix is to require a word boundary
         ' around every keyword, and that is a REGRESSION: 23 of monastery's 212
         ' names match a keyword buried inside a longer word and most of them are
-        ' right anyway - WoodFence, StoneFence, ForgedFence, GrapevineFence and
-        ' RabitzFence are all fences; ItalyOutlandHousesCluster is a building;
+        ' right anyway - WoodFence, StoneFence, ForgedFence and RabitzFence are
+        ' all fences; ItalyOutlandHousesCluster is a building;
+        ' (GrapevineFence was in that list and should not have been - see the
+        ' grapevine line above. It is a trellis, and the owner wants it
+        ' crushable. The survey was right that the NAME says fence and wrong
+        ' that the name settles it.)
         ' VendorCart and WoodenCart reach prop through "car" and a cart IS a
         ' prop. A boundary rule breaks fifteen correct answers to fix one wrong
         ' one. So the fix is the one keyword that actually collides.
@@ -589,6 +621,19 @@ Public Class MapFlightBake
         ' question "is something SOLID standing here" has an answer. A texel
         ' that later keys as tree because a canopy closed over it still carries
         ' the bit this reads. See SOLID_BIT.
+        '
+        ' DO NOT MOVE THIS CALL. Since bake_version 5 the ordering is not a
+        ' convenience, it is load bearing for CORRECTNESS, and moving it breaks
+        ' the bake silently rather than loudly.
+        '
+        ' read_solid also reads kind_tex, and it is only meaningful here: every
+        ' byte in that texture right now belongs to a MODEL, because draw_trees
+        ' has not run. That is what lets it ask "is the solid thing standing at
+        ' this texel ITSELF crushable" and exempt a grape trellis from its own
+        ' solid bit while a rock under a canopy keeps one. Draw the trees first
+        ' and every canopy texel reads as kind TREE, so the exemption would fire
+        ' on foliage standing over walls and walk tanks through them - with no
+        ' error, no crash, and a bake that still looks entirely reasonable.
         read_solid()
 
         draw_trees(vp)
@@ -1045,18 +1090,49 @@ Public Class MapFlightBake
                            OpenGL4.PixelFormat.DepthComponent, PixelType.Float,
                            d.Length * 4, d)
 
-        If solid_b Is Nothing Then ReDim solid_b(SIZE * SIZE - 1)
+        ' THE MODELS' OWN KINDS, read at the one moment they are alone in the
+        ' buffer. draw_models has run and draw_trees has NOT, so every byte
+        ' here belongs to a model - which is what lets the loop below ask
+        ' 'is the solid thing at this texel crushable' and get a truthful
+        ' answer. Ten lines later the trees overwrite it and the question
+        ' becomes unanswerable.
+        Dim mk(SIZE * SIZE - 1) As Byte
+        GL.GetTextureImage(kind_tex.texture_id, 0,
+                           OpenGL4.PixelFormat.Red, PixelType.UnsignedByte,
+                           mk.Length, mk)
 
+        If solid_b Is Nothing Then ReDim solid_b(SIZE * SIZE - 1)
         ' Every texel is assigned, not just the set ones: this array outlives a
         ' map load, and a rebake on a second map would otherwise inherit the
         ' first map's bits wherever the new one has nothing standing.
-        Dim n = 0
+        Dim n = 0, skipped = 0
         For r = 0 To SIZE - 1
             Dim src = (SIZE - 1 - r) * SIZE
             Dim dst_row = r * SIZE
             For c = 0 To SIZE - 1
                 Dim i = dst_row + c
-                If (eye_y - d(src + c) * far_d) - floor_m(i) > OBSTACLE_MIN_H Then
+                ' A MODEL THAT KEYS AS TREE DOES NOT MAKE ITS OWN TEXEL SOLID.
+                '
+                ' Measured by Tank AI work on the bake_version 4 bake: the
+                ' grapevine re-key put 100% of the vineyard's 13,044 texels
+                ' under kind TREE, and 4,903 of them - 37.6% - STILL blocked a
+                ' hull, because crushable is 'tree AND NOT solid' and the
+                ' trellis is a model, so it set the solid bit for itself.
+                ' Re-keying moved it under the tree rule; the tree rule then
+                ' asked the one question it answers wrongly.
+                '
+                ' This does NOT relax 'tree AND solid' generally, and must not:
+                ' that pairing is what keeps a tank out of a wall or a rock
+                ' standing under a canopy - 2,581 cells on monastery. Those
+                ' survive untouched, because the solid there is contributed by
+                ' the ROCK, which keys rock at this moment, and the canopy that
+                ' makes the texel read tree is a SpeedTree that has not been
+                ' drawn yet. Only a model that is ITSELF crushable is exempted,
+                ' and only from its OWN bit.
+                If (mk(src + c) And KIND_MASK) = KIND_TREE Then
+                    solid_b(i) = 0
+                    skipped += 1
+                ElseIf (eye_y - d(src + c) * far_d) - floor_m(i) > OBSTACLE_MIN_H Then
                     solid_b(i) = 1
                     n += 1
                 Else
@@ -1065,6 +1141,10 @@ Public Class MapFlightBake
             Next
         Next
         solid_cells = n
+        If skipped > 0 Then
+            LogThis("flight bake: {0} texel(s) left NOT solid because the model " &
+                    "standing there is itself crushable - a trellis, not a wall", skipped)
+        End If
     End Sub
 
     ''' <summary>

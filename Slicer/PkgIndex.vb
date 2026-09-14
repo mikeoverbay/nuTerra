@@ -50,7 +50,15 @@ Public Class PkgIndex
     ''' </summary>
     Private Shared ReadOnly KEEP As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
         ".model", ".visual_processed", ".primitives_processed", ".havok",
-        ".dds"}
+        ".dds", ".atlas_processed"}
+
+    ' Both additions to that set were made the same way: something reported
+    ' MISSING and the reason was that it had never been indexed. `.dds` was the
+    ' first, and its absence made every texture on every building read missing -
+    ' which looked like a material bug. `.atlas_processed` was the second, and it
+    ' made the four atlas assets report "no manifest" for a file sitting in the
+    ' package all along. An extension outside KEEP does not fail loudly; it
+    ' simply cannot be found, which is the harder thing to diagnose.
 
     Public Shared Function TryOpen(gamePath As String, skipVehicles As Boolean) As PkgIndex
         If String.IsNullOrEmpty(gamePath) Then Return Nothing
@@ -138,6 +146,42 @@ Public Class PkgIndex
         Dim e = Lookup(name)
         If Not e.HasValue Then Return Nothing
         Return Read(e.Value)
+    End Function
+
+    ''' <summary>
+    ''' Find an entry by the TAIL of its path, for a path that arrives with a
+    ''' prefix this index does not use.
+    '''
+    ''' The index is keyed on the package-relative path - `content/...` - and a
+    ''' caller handing one over may reasonably have a leading separator, a
+    ''' `res/`, a `./`, or a full absolute path from its own resource manager.
+    ''' An exact lookup answers "not found" to every one of those, which is
+    ''' indistinguishable from the file genuinely not existing and was exactly
+    ''' the "Exporter Studio doesn't load anything" report.
+    '''
+    ''' Matching on a `/`-aligned suffix rather than a bare EndsWith, so that
+    ''' `.../lamp01.model` cannot be satisfied by `.../streetlamp01.model`.
+    ''' Returns Nothing when more than one entry matches, and reports the count
+    ''' through `matches` so the caller can say WHICH problem it hit - ambiguous
+    ''' is a different failure from absent and deserves a different message.
+    ''' </summary>
+    Public Function LookupBySuffix(name As String, ByRef matches As Integer) As Entry?
+        matches = 0
+        If String.IsNullOrWhiteSpace(name) Then Return Nothing
+        Dim key = name.Replace("\"c, "/"c).ToLowerInvariant().TrimStart("/"c)
+        Dim found As Entry = Nothing
+        For Each kv In map
+            If kv.Key.Length < key.Length Then Continue For
+            If Not kv.Key.EndsWith(key, StringComparison.Ordinal) Then Continue For
+            ' Anchor to a segment boundary: either the whole key, or the
+            ' character before it is a separator.
+            If kv.Key.Length > key.Length AndAlso kv.Key(kv.Key.Length - key.Length - 1) <> "/"c Then Continue For
+            matches += 1
+            If matches = 1 Then found = kv.Value
+            If matches > 1 Then Return Nothing
+        Next
+        If matches = 1 Then Return found
+        Return Nothing
     End Function
 
     ''' <summary>Every indexed entry whose path ends with this extension.</summary>

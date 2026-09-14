@@ -44,6 +44,9 @@ Module Program
         Dim doShell = False
         Dim shotAngle As String = Nothing
         Dim shotCut = False
+        Dim uiInShot = False
+        Dim findPattern As String = Nothing
+        Dim debugView = 0
         Dim bakeDir As String = Nothing
         Dim objPath As String = Nothing
         Dim bakePx As Integer = 2048
@@ -99,6 +102,12 @@ Module Program
                     If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), checkCount) Then i += 1 Else checkCount = 0
                 Case "--shot"
                     i += 1 : If i < args.Length Then shotPath = args(i)
+                Case "--ui"
+                    uiInShot = True
+                Case "--find"
+                    i += 1 : If i < args.Length Then findPattern = args(i)
+                Case "--debug"
+                    i += 1 : If i < args.Length Then Integer.TryParse(args(i), debugView)
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -196,7 +205,7 @@ Module Program
         Dim sw = Diagnostics.Stopwatch.StartNew()
         Dim library As BuildingLibrary
         If openPath IsNot Nothing Then
-            library = BuildingLibrary.ForSingleModel(openPath)
+            library = BuildingLibrary.ForSingleModel(ResolveOpenPath(pkg, openPath))
         Else
             library = BuildingLibrary.Scan(pkg)
         End If
@@ -300,12 +309,113 @@ Module Program
             Console.WriteLine()
             Console.WriteLine("viewer: drag orbit, wheel zoom, left/right building, [ ] LOD,")
             Console.WriteLine("        up/down solo a part, W wireframe, R reload, Esc quit")
+            Console.WriteLine("browser: click the box and type to search - * is a wildcard and there may")
+            Console.WriteLine("        be several (*eu*house*). Double-click a row to load THAT one model.")
+            Console.WriteLine("        / focuses the box, Enter loads, Tab hides the panel.")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView)
                 win.Run()
             End Using
         End If
     End Sub
+
+
+    ''' <summary>
+    ''' Turn whatever --open was handed into a path this index can find, and say
+    ''' out loud when it cannot.
+    '''
+    ''' --open is the seam with nuTerra: its "Open in Exporter Studio" button
+    ''' passes the path ModelInfo captured from space.bin, and that value does
+    ''' NOT arrive in one shape. Measured against the index, the bare
+    ''' package-relative form works and every decorated form failed silently:
+    '''
+    '''     content/.../x.model                     found
+    '''     /content/.../x.model                    NOT found
+    '''     res/content/.../x.model                 NOT found
+    '''     ./content/.../x.model                   NOT found
+    '''     C:/Games/.../packages/content/.../x.model   NOT found
+    '''
+    ''' All four failures produced the same message the genuine-absence case
+    ''' produces - "no geometry could be read" - which is why this took a report
+    ''' from the other side rather than being caught here. A receiver that
+    ''' cannot find a file should say what it looked for.
+    '''
+    ''' So: try the exact key, then fall back to a segment-aligned SUFFIX match
+    ''' over the index, which finds the entry whatever prefix it arrived with.
+    ''' The extension is normalised too - a bare `.primitives` is the space.bin
+    ''' spelling and `.primitives_processed` is the file that exists. nuTerra
+    ''' corrects that on its side and is right to, because passing the real
+    ''' filename beats a spelling the receiver has to forgive; this handles it
+    ''' anyway, because a button that half works is worse than one that does not.
+    ''' </summary>
+    Private Function ResolveOpenPath(pkg As PkgIndex, given As String) As String
+        If pkg Is Nothing OrElse String.IsNullOrWhiteSpace(given) Then Return given
+
+        Dim p = given.Replace("\"c, "/"c).Trim().ToLowerInvariant()
+
+        ' Cut to the package root. The index is keyed from `content/`, and a
+        ' caller may hand over `/content/...`, `res/content/...`, `./content/...`
+        ' or a full `C:/Games/.../packages/content/...` - all four of which an
+        ' exact lookup rejects as firmly as a file that does not exist.
+        Dim at = p.IndexOf("/content/", StringComparison.Ordinal)
+        If at >= 0 Then
+            p = p.Substring(at + 1)
+        ElseIf p.StartsWith("content/", StringComparison.Ordinal) Then
+            ' already rooted
+        End If
+
+        If p.EndsWith("/vertices", StringComparison.Ordinal) Then p = p.Substring(0, p.Length - 9)
+        If p.EndsWith(".primitives", StringComparison.Ordinal) Then p &= "_processed"
+
+        ' The stem, with whichever of the three sibling extensions it carried
+        ' taken off. No extension at all is fine - a stem is what we want.
+        Dim stem = p
+        For Each ext In {".primitives_processed", ".visual_processed", ".model"}
+            If stem.EndsWith(ext, StringComparison.Ordinal) Then
+                stem = stem.Substring(0, stem.Length - ext.Length)
+                Exit For
+            End If
+        Next
+
+        ' The file that has to exist for anything to draw.
+        Dim prim = stem & ".primitives_processed"
+        If pkg.Lookup(prim).HasValue Then Return stem
+
+        Dim n = 0
+        Dim hit = pkg.LookupBySuffix(prim, n)
+        If hit.HasValue Then
+            Dim resolved = hit.Value.Path
+            resolved = resolved.Substring(0, resolved.Length - ".primitives_processed".Length)
+            Console.WriteLine("--open: resolved {0}", resolved)
+            Console.WriteLine("        from     {0}", given)
+            Return resolved
+        End If
+
+        Console.WriteLine("--open: NOTHING MATCHES {0}", given)
+        Console.WriteLine("        looked for      {0}", prim)
+        If n > 1 Then
+            Console.WriteLine("        {0} entries end with that path - too ambiguous to pick one", n)
+        Else
+            Console.WriteLine("        and no indexed entry ends with it either.")
+            ' The leaf on its own, as a last hint: it is usually a wrong FOLDER
+            ' rather than a wrong name, and saying where the name does live
+            ' turns a dead end into an obvious fix.
+            Dim segs = prim.Split("/"c)
+            Dim leaf = segs(segs.Length - 1)
+            Dim near = 0
+            Dim shown = 0
+            For Each e In pkg.AllWithExtension(".primitives_processed")
+                If Not e.Path.EndsWith("/" & leaf, StringComparison.Ordinal) Then Continue For
+                near += 1
+                If shown < 3 Then
+                    Console.WriteLine("        but that name exists at {0}", e.Path)
+                    shown += 1
+                End If
+            Next
+            If near = 0 Then Console.WriteLine("        the file name itself is nowhere in the packages.")
+        End If
+        Return stem
+    End Function
 
     ''' <summary>(asset name, footprint, height) for every asset whose lod0 has a box.</summary>
     Private Function SizedRows(library As BuildingLibrary) As List(Of Tuple(Of String, Single, Single))
@@ -422,6 +532,8 @@ Module Program
         Console.WriteLine("  --bake <dir>         bake the maps into UV2 space as PNG + MTL")
         Console.WriteLine("  --bake-size <px>     bake resolution, default 2048")
         Console.WriteLine("  --obj <file.obj>     load an exported OBJ back and look at it")
+        Console.WriteLine("  --find <pattern>     open on the first matching model; * wildcards, any number")
+        Console.WriteLine("  --ui                 keep the browser panel in a --shot")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")

@@ -967,6 +967,13 @@ try_again:
     Private model_info_text As String = ""
     Private model_info_open As Boolean = False
 
+    ''' <summary>Which pick the open Model Info window is describing.
+    ''' The window outlives the double-click that filled it, so
+    ''' PICKED_MODEL_INDEX may have moved on by the time a button inside
+    ''' it is pressed - reading it there would export whatever the mouse
+    ''' last happened to be over.</summary>
+    Private model_info_pick As UInteger = 0
+
     ''' <summary>
     ''' Double-click a model with Pick Models on and get everything known about
     ''' it, in a window whose text can be selected and copied.
@@ -980,9 +987,11 @@ try_again:
         If ModelPicker.Enabled AndAlso map_scene IsNot Nothing AndAlso
            Not ImGui.GetIO().WantCaptureMouse AndAlso
            ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left) Then
-            Dim report = ModelInfo.Report(CUInt(Math.Max(0, map_scene.PICKED_MODEL_INDEX)))
+            Dim picked = CUInt(Math.Max(0, map_scene.PICKED_MODEL_INDEX))
+            Dim report = ModelInfo.Report(picked)
             If report <> "" Then
                 model_info_text = report
+                model_info_pick = picked
                 model_info_open = True
                 ImGui.SetNextWindowSize(New System.Numerics.Vector2(720, 620), ImGuiCond.FirstUseEver)
             End If
@@ -993,6 +1002,26 @@ try_again:
         If ImGui.Begin("Model Info###ModelInfo", model_info_open) Then
             If ImGui.Button("Copy all") Then ImGui.SetClipboardText(model_info_text)
             ImGui.SameLine()
+
+            ' Hand THIS part to Exporter Studio.
+            '
+            ' Disabled rather than hidden when the path is unknown: a button
+            ' that vanishes reads as a missing feature, one that greys out
+            ' reads as "not for this pick", which is what it means.
+            Dim part = ModelInfo.PathForPick(model_info_pick)
+            Dim has_part = Not String.IsNullOrEmpty(part)
+            If Not has_part Then ImGui.BeginDisabled()
+            If ImGui.Button("Open in Exporter Studio") Then
+                open_in_exporter_studio(part)
+            End If
+            If Not has_part Then ImGui.EndDisabled()
+            If ImGui.IsItemHovered() Then
+                ImGui.SetTooltip(If(has_part,
+                                    "Open this part in Exporter Studio." & vbLf & part,
+                                    "No .primitives path captured for this pick."))
+            End If
+            ImGui.SameLine()
+
             If ImGui.Button("Close") Then model_info_open = False
             ImGui.SameLine()
             ImGui.TextDisabled("double-click another model to replace this")
@@ -4664,6 +4693,102 @@ try_again:
     ''' window and reports its own errors - including a missing Python, which is
     ''' its launcher's job to explain, not this one's.
     ''' </summary>
+    ''' <summary>
+    ''' Turn what ModelInfo captured into a path Exporter Studio recognises.
+    '''
+    ''' MEASURED from a real load rather than assumed, 2026-09-13. The value is
+    ''' a space.bin string and comes in BOTH shapes:
+    '''
+    '''     content\Environment\...\env_19_39_BurntGrass.primitives
+    '''     content/environment/.../env_19_08_streetlamp01.primitives_processed
+    '''
+    ''' Exporter Studio's --open strips .primitives_processed, .visual_processed
+    ''' or .model to get the stem. A BARE .primitives is not in that list, so it
+    ''' survives, the stem comes out as <name>.primitives, and it then looks for
+    ''' <name>.primitives.model and finds nothing. That was the whole of
+    ''' 'Exporter Studio doesn't load anything'.
+    '''
+    ''' Fixed HERE rather than there because _processed is the name of the file
+    ''' that actually exists on disk - passing the real filename is the correct
+    ''' thing to send, not a spelling the receiver has to forgive.
+    '''
+    ''' Separators are left alone: --open normalises them itself.
+    ''' </summary>
+    Private Shared Function exporter_stem(part_path As String) As String
+        If String.IsNullOrEmpty(part_path) Then Return part_path
+        Dim p = part_path.Trim()
+
+        ' A render set's name can still carry the section on it.
+        If p.EndsWith("/vertices", StringComparison.OrdinalIgnoreCase) OrElse
+           p.EndsWith("\vertices", StringComparison.OrdinalIgnoreCase) Then
+            p = p.Substring(0, p.Length - 9)
+        End If
+
+        If p.EndsWith(".primitives", StringComparison.OrdinalIgnoreCase) Then
+            p &= "_processed"
+        End If
+        Return p
+    End Function
+
+    ''' <summary>
+    ''' Open one picked part in Exporter Studio.
+    '''
+    ''' --open takes any path sharing the stem - .model, .visual_processed or
+    ''' .primitives_processed - so the .primitives path ModelInfo captured is
+    ''' accepted as it stands and does not have to be translated here.
+    '''
+    ''' --view rather than --export: this is a "show me that part" button, and
+    ''' --export writes a file somewhere the user did not choose. Exporter
+    ''' Studio skips its own package scan under --open, so it comes up on the
+    ''' part rather than on its browser.
+    ''' </summary>
+    Private Sub open_in_exporter_studio(part_path As String)
+        If String.IsNullOrEmpty(part_path) Then Return
+        Try
+            Dim exe = find_exporter_studio()
+            If exe Is Nothing Then
+                LogThis("Exporter Studio: Slicer.exe not found beside nuTerra or in the solution")
+                Return
+            End If
+            Dim psi As New Diagnostics.ProcessStartInfo(exe) With {
+                .UseShellExecute = False,
+                .WorkingDirectory = IO.Path.GetDirectoryName(exe)}
+            ' ArgumentList, not a joined string: the paths contain slashes and
+            ' may contain spaces, and this quotes each one correctly without a
+            ' hand-rolled escape.
+            psi.ArgumentList.Add("--open")
+            psi.ArgumentList.Add(exporter_stem(part_path))
+            psi.ArgumentList.Add("--view")
+            Diagnostics.Process.Start(psi)
+            LogThis("Exporter Studio: opening {0}", exporter_stem(part_path))
+        Catch ex As Exception
+            LogThis("Exporter Studio: could not start - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Slicer.exe, the Exporter Studio app. Same search as find_path_studio and
+    ''' for the same reasons - project build first, hand copy beside the exe
+    ''' last - but net8.0-windows, which is what that project targets.
+    '''
+    ''' The FOLDER and the EXE are still called Slicer; only the session and the
+    ''' app's job were renamed. Do not "fix" these two strings.
+    ''' </summary>
+    Private Function find_exporter_studio() As String
+        Dim dir = New IO.DirectoryInfo(AppContext.BaseDirectory)
+        While dir IsNot Nothing
+            For Each cfg In {"Debug", "Release"}
+                Dim built = IO.Path.Combine(dir.FullName, "Slicer", "bin", cfg,
+                                            "net8.0-windows", "Slicer.exe")
+                If IO.File.Exists(built) Then Return built
+            Next
+            dir = dir.Parent
+        End While
+        Dim here = IO.Path.Combine(AppContext.BaseDirectory, "Slicer.exe")
+        If IO.File.Exists(here) Then Return here
+        Return Nothing
+    End Function
+
     Private Sub start_path_studio()
         Try
             Dim exe = find_path_studio()

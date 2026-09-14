@@ -1,0 +1,5 @@
+# nuTerra/Tanks/Sim
+#
+# Tank simulation - path following. Owned by the session "Tank AI work".
+# Created empty 2026-09-13 by nuTerra work at their request; the SIM button in
+# the TANKS! menu raises TANK_SIM_START and nothing consumes it yet.

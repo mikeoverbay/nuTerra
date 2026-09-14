@@ -59,10 +59,23 @@ the shared checkout is two days behind and will not know it.
 Per tank, every frame, in `TankDrive.Advance`:
 
 1. If it has no goal, has arrived (within `ARRIVE_M` 6 m) or has been on one
-   goal longer than `GOAL_PATIENCE_S` 45 s — pick a new one. `PickGoal`
-   throws up to 24 darts into a **ring** 60–220 m out and takes the first
-   that `TankNav.CanStand` accepts. A ring, not a disc: a uniform disc puts
-   most candidates near the tank and it shuffles instead of travelling.
+   goal longer than `GOAL_PATIENCE_S` 45 s — ask `PickGoal` again. It walks
+   this hull's **catalogue corridor**, advancing the waypoint on arrival only;
+   nothing is searched at runtime.
+
+   **The random goal picker is gone** (`d4b3083b`, and again on master in
+   `a9ad5d48`). It threw up to 24 darts into a 60–220 m ring and drove at the
+   first `TankNav.CanStand` accepted — never navigation, just a hull wandering
+   until it happened to be somewhere. The owner: "i want the bull shit path
+   seeking code that never worked removed." `rng`, `GOAL_MIN_M`, `GOAL_MAX_M`
+   and `GOAL_TRIES` went with it. `GOAL_PATIENCE_S` and `REPICK_S` stayed:
+   with the route half they are a TURNING BUDGET, the time a blocked hull
+   needs to come round, not a jitter guard against a fresh dart.
+
+   A hull with no corridor now PARKS and says so once, gated on
+   `HandOutRoutes` so it cannot fire during the load. That is deliberate — the
+   wandering flattered every measurement of the planner by keeping the fleet
+   moving whether or not anything had planned a route.
 2. If it is backing out (`reverseS` > 0), reverse in a straight line and
    return.
 3. Turn toward the goal at `TURN_RATE_RAD` 1.0 rad/s.
@@ -219,8 +232,8 @@ another still.
    without the shot. REASONED: a naive sweep is 30 × 15 rays at full step
    and far too much (~13 M steps/s); stagger it round-robin so a few tanks
    sweep each frame, use a coarse step, and cap the range.
-2. ~~**Pathfinding.** Slots in at `PickGoal`.~~ **DONE, and not there.**
-   Superseded on 2026-09-12. It is not a `PickGoal` tweak - it is a route
+2. ~~**Pathfinding.** Slots in at `PickGoal`.~~ **DONE, and the picker it
+   would have slotted into no longer exists.** Superseded on 2026-09-12. It is not a `PickGoal` tweak - it is a route
    CATALOGUE built once and held in memory, which is the owner's own design:
    "Rule one. seek base. Rule 2 seek using path finders algo. Rule 3. Tag
    that path as used and try path. When we cant find a way there, we are
@@ -293,9 +306,17 @@ a path is the only kind that survives a busy day.
 `nuTerra/Modules/modGlobalVars.vb` is SHARED: name the change and tell the
 others first. That has already caught a duplicate declaration.
 
-Still unsettled at time of writing: `nuTerra/Scene/MapTankRays.vb` and
-`RouteFilm.vb`. They draw route CONTENT, which is the Tank AI lane, but they
-live in nuTerra's tree. Tank AI and Path Studio both argued ONE AUTHOR PER
+`RouteFilm.vb` IS GONE — panel, `Draw()` call, the `film` command-line
+argument and `Scene/RouteFilm.vb` itself, removed in `a9ad5d48`. Nothing had
+ever written `RouteFilm.pixels` on either branch: it was a surface waiting for
+a producer, and `ray_studio.py` went its own way with a pygame window instead.
+The owner stopped an earlier removal of it with "we are not removing the fly
+path!", then settled it directly: "resolve path is not part of the path flying
+/ that can go". The fly path — `cam_paths`, the flight, Path Studio — was never
+involved.
+
+Still unsettled: `nuTerra/Scene/MapTankRays.vb`. It draws route CONTENT, which
+is the Tank AI lane, but it lives in nuTerra's tree. Tank AI and Path Studio both argued ONE AUTHOR PER
 FILE rather than splitting GL maintenance from content decisions inside one
 file - that split is exactly what the directory rule exists to prevent.
 
@@ -628,13 +649,15 @@ Dijkstra - that one cost 466,229 expansions on this map once).
 
 ## 13. Reference docs on this branch
 
-Three markdown files under `tank_tools/`, all measured rather than argued.
-Read the one that matches the question:
+Four files under `tank_tools/`, all measured rather than argued. Read the one
+that matches the question — and note that two of them now describe history
+rather than the code:
 
 | file | answers |
 |---|---|
-| `tank_tools/BRANCH_SEARCH.md` | how the branch search works, with a changelog of every rule change and why |
-| `tank_tools/ROUTING_FINDINGS.md` | rays versus A*, the three clutter failures, the retracted "8 = 8" homotopy coincidence |
+| `tank_tools/maze.py` | **the method.** Flood fill, lane sweep, junctions, standoff, climb limit — see §14 |
+| `tank_tools/BRANCH_SEARCH.md` | **SUPERSEDED.** The branch search, kept as history; the code is deleted |
+| `tank_tools/ROUTING_FINDINGS.md` | rays versus A*, the three clutter failures, the retracted "8 = 8" — measurements stand, conclusion superseded |
 | `tank_tools/MATERIAL_IDENTIFIERS.md` | **what the game itself says is crushable**, dug out of the packages |
 
 ### 13.1 The part identifiers, in one paragraph
@@ -675,3 +698,94 @@ Also handed to them for their own viewer: colour models by that prefix.
 The surprise finding for a colour view is `s_ramp`: 159 building parts and 184
 environment parts are named as ramps — drivable geometry that currently looks
 exactly like a wall.
+
+## 14. The maze solver, 2026-09-12 evening — and it is the method now
+
+The owner, after a day of the ray planner refusing to get under 3x the direct
+line: "can we look at how maze solvers work and if we can use that somehow
+here? This is going no where."
+
+It was going nowhere for a measurable reason: **there was no ruler.** Every
+change was compared against the previous run, on a map where 0.25 degrees of
+ray spacing once moved the same configuration from 2,455 m to 5,655 m. That is
+rerolling, not tuning.
+
+### The ruler, and then the method
+
+`tank_tools/maze.py`. Flood fill from the goal — Lee's algorithm, the
+micromouse standard — labels every cell with its true distance and the route is
+a downhill walk. Exact, no parameters, nothing to tune. scipy Dijkstra over the
+8-connected metre grid, diagonals at sqrt(2), refused when both orthogonals are
+blocked so a hull cannot squeeze through the corner where two walls touch.
+
+    direct line   785 m
+    OPTIMUM       846 m   1.08x direct   0.6 s
+    ray planner   877 m   1.12x direct   621 casts
+
+So the ray planner was 3.7% off optimal, which nothing could see. It has since
+been removed from `ray_studio.py` entirely (`e3245a29`, 1,575 lines) on the
+owner's instruction.
+
+### What the tool produces now
+
+`sweep_roads` — the owner's lane scheme, arrived at over several corrections
+that are worth recording because each one was a real misunderstanding on my
+part:
+
+* a lane is a line of **constant X**, and BOTH ends sit on it ("ffs. end and
+  start" — I had pinned every start at the base and stepped only the far end,
+  twice)
+* it sweeps **left to right in steps**, not obstacle-driven like the earlier
+  `class_routes`
+* each end snaps into a **20 m seek ring**; a column widens 20 -> 40 -> 80 m
+  before giving up
+* every lane is **stitched back to the base ring**, unless its start is already
+  inside it — a lane started on the base LINE at its own X, which for the outer
+  lanes is hundreds of metres from where a tank actually stands
+* a **6 m wall standoff**, as a COST and not a wall: 26% of the unmodified
+  route ran within 3 m of something, 1% at 6 m standoff, for 16 m more road on
+  846. Eroding instead would wall off streets the tanks are meant to drive.
+
+Eighteen roads on monastery, 876–2386 m, about 18 s at a 45 m step. Two floods
+serve every lane for the home leg; stepping both ends costs one more flood per
+lane, which is why it is seconds rather than instant.
+
+### What the map answers back
+
+* **Nine columns of 32 cannot be finished at all.** Their start rings are on
+  the west bank and the base's component covers only 48.7% of the map. No ring
+  widening reaches across a river. Painted BLACK in the viewer on the owner's
+  instruction — "if we cant reach them, they are dead" — toggled on `[d]`.
+* **Two ways round the village**, at +5% budget, found exactly: the affordable
+  ground is one connected region, so counting pieces says "one road" and is
+  wrong. What separates the two is that the village is a HOLE in that region.
+  Ways round = 1 + holes.
+* **1,375 junctions** across routes started from the drivable boundary, 1,065
+  where three or more meet — including the water's-edge road the owner said
+  was there and the lane sweeps could not produce, because a road that follows
+  a bank is at no constant X.
+
+### The climb rule, and why it was inert
+
+`MAX_SLOPE` was 0.7 in `TankNav`, 1.0 in the ray marcher, and ABSENT from both
+`TankSquares.vb` and `maze.py` — so every flood-fill route was free to climb a
+cliff. One number now, tan(40 degrees) = 0.8391, the owner's "40 off bottom
+plane", applied on grid EDGES.
+
+It was still inert after that: 0 of 16 lanes changed, because the metre grid
+pooled heights by MEAN and averaging a metre of ground flattens the thing being
+looked for — 0.41% of bake-resolution edges exceed 40 degrees against 0.138% of
+metre edges. Fixed by measuring the gradient between adjacent TEXELS and
+max-pooling that to the metre. Now blocks 9,027 cells and changes 4 of 16
+lanes. `TankSquares.vb` still has no slope test.
+
+### Still open
+
+1. **Smoothing.** The roads are grid paths with 45-degree staircases between
+   corners. `maze.simplify` removes collinear points for DRAWING only. The fix
+   is string-pulling: wherever a straight line between two points is clear,
+   drop everything between.
+2. **The other end's fifteen.** Every lane starts on the south line; team 2's
+   set is the same sweep with the ends swapped.
+3. `TankSquares.vb` has no slope test, and the metre grid still under-reports
+   steepness for anything reading `height` rather than `blocked`.

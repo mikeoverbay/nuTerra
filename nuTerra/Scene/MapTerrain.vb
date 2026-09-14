@@ -405,7 +405,7 @@ Public Class MapTerrain
             If nz <> "" Then
                 OUTLAND_DETAIL_REAL = TextureMgr.find_and_load_texture_from_pkgs(nz)
             End If
-            Console.WriteLine("outland detail candidate: {0} -> {1}",
+            LogThis("outland detail candidate: {0} -> {1}",
                               If(nz = "", "(no name)", nz),
                               If(OUTLAND_DETAIL_REAL Is Nothing, "NOT loaded, neutral stays", "loaded"))
         End If
@@ -536,7 +536,7 @@ Public Class MapTerrain
         fbo.Dispose()
         accum.Dispose()
 
-        Console.WriteLine("outland bake {0}: span {1:0} m, tileScale {2:0.#} m -> {3:0.#} repeats, {4} tiles, err={5}",
+        LogThis("outland bake {0}: span {1:0} m, tileScale {2:0.#} m -> {3:0.#} repeats, {4} tiles, err={5}",
                           name, span, tileScale, tile_repeats, OUTLAND_TILES.Length, GL.GetError())
         If DUMP_OUTLAND_BAKES Then dump_outland_bake(final, SIZE, name)
         Return final
@@ -550,9 +550,9 @@ Public Class MapTerrain
     Private Sub dump_outland_bake(tex As GLTexture, size As Integer, name As String)
         Try
             dump_outland_bake_core(tex, size, name)
-            Console.WriteLine("outland bake dump written: {0}", name)
+            LogThis("outland bake dump written: {0}", name)
         Catch ex As Exception
-            Console.WriteLine("outland bake dump FAILED: {0}: {1}", name, ex.Message)
+            LogThis("outland bake dump FAILED: {0}: {1}", name, ex.Message)
         End Try
     End Sub
 

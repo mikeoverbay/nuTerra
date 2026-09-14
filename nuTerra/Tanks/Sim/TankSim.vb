@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Text.Json
 Imports OpenTK.Mathematics
 
@@ -103,6 +103,12 @@ Public Module TankSim
         Public z As Single
         Public team As Integer      ' bitmask: 1, 2, or 3 for both
         Public isStart As Boolean
+        ' WHICH SIDE SPAWNS HERE, and it is NOT `team`. A base vertex is the
+        ' first point of its own side's roads and the LAST point of the other
+        ' side's, so its team mask is 1|2 = 3 at both bases - it matches
+        ' everybody and can never say who starts there. Ray Studio writes this
+        ' one where the side is still known. Same bitmask, different question.
+        Public startTeam As Integer
         Public msg As String
         Public spd As String
     End Structure
@@ -177,6 +183,15 @@ Public Module TankSim
                     sn.team = If(n.TryGetProperty("team", e), e.GetInt32(), 0)
                     sn.isStart = n.TryGetProperty("start", e) AndAlso
                                  e.ValueKind = JsonValueKind.True
+                    ' AN OLDER FILE HAS NO start_team. Falling back to the
+                    ' mask leaves that file meaning exactly what it meant
+                    ' before, rather than reading as "nobody spawns anywhere"
+                    ' and parking the whole roster.
+                    sn.startTeam = If(n.TryGetProperty("start_team", e),
+                                      e.GetInt32(), 0)
+                    If sn.isStart AndAlso sn.startTeam = 0 Then
+                        sn.startTeam = sn.team
+                    End If
                     sn.msg = If(n.TryGetProperty("msg", e), e.GetString(), "")
                     sn.spd = If(n.TryGetProperty("spd", e), e.GetString(), "")
                     nodes(id) = sn
@@ -334,7 +349,7 @@ Public Module TankSim
                 Dim bd = Single.MaxValue
                 Dim bit = If(inst.team = TankTeam.Green, 1, 2)
                 For Each id In startIds
-                    If startIds.Count > 1 AndAlso (nodes(id).team And bit) = 0 Then Continue For
+                    If startIds.Count > 1 AndAlso (nodes(id).startTeam And bit) = 0 Then Continue For
                     Dim dx = nodes(id).x - inst.position.X
                     Dim dz = nodes(id).z - inst.position.Z
                     Dim d = dx * dx + dz * dz
@@ -526,7 +541,7 @@ Public Module TankSim
             Next
         Next
         For Each id In startIds
-            startPts.Add((New Vector2(nodes(id).x, nodes(id).z), nodes(id).team))
+            startPts.Add((New Vector2(nodes(id).x, nodes(id).z), nodes(id).startTeam))
         Next
     End Sub
 
@@ -583,6 +598,22 @@ Public Module TankSim
         assigned.Clear()
         If all Is Nothing OrElse startIds.Count = 0 Then Return
 
+        ' THE TWO FORMATION CENTRES, taken once and before anything is
+        ' assigned, because judging either side's starts needs both.
+        Dim ctr(2) As Vector2
+        Dim ctrN(2) As Integer
+        For Each t In all
+            If t Is Nothing Then Continue For
+            Dim b = If(t.team = TankTeam.Green, 1, 2)
+            ctr(b) = New Vector2(ctr(b).X + t.position.X, ctr(b).Y + t.position.Z)
+            ctrN(b) += 1
+        Next
+        For b = 1 To 2
+            If ctrN(b) > 0 Then
+                ctr(b) = New Vector2(ctr(b).X / ctrN(b), ctr(b).Y / ctrN(b))
+            End If
+        Next
+
         For Each side In {1, 2}
             Dim hulls As New List(Of TankInstance)
             For Each t In all
@@ -596,9 +627,41 @@ Public Module TankSim
             ' a hull with nowhere to go is worse than one sharing a road.
             Dim pts As New List(Of Integer)
             For Each id In startIds
-                If (nodes(id).team And side) <> 0 Then pts.Add(id)
+                If (nodes(id).startTeam And side) <> 0 Then pts.Add(id)
             Next
             If pts.Count = 0 Then pts.AddRange(startIds)
+
+            ' EVERY START MATCHED, WHICH IS NO ANSWER AT ALL. That is what a
+            ' graph saved before start_team existed looks like: its starts
+            ' carry only the shared mask, and that mask is 1|2 = 3 at BOTH
+            ' bases, so this side was just handed the enemy's spawn points
+            ' along with its own. It is the bug the owner reported - "it is
+            ' assigning both teams to start points".
+            '
+            ' Re-sweeping and re-saving in Ray Studio writes the real field
+            ' and this never fires. Until then, fall back to the one thing
+            ' still true on the ground: a side spawns at the base it is
+            ' STANDING on. Hulls are on their formation at this moment - the
+            ' doc above says so - so their centre IS their base.
+            If pts.Count = startIds.Count AndAlso startIds.Count > 1 AndAlso
+               ctrN(1) > 0 AndAlso ctrN(2) > 0 Then
+                Dim mine = If(side = 1, ctr(1), ctr(2))
+                Dim theirs = If(side = 1, ctr(2), ctr(1))
+                Dim near As New List(Of Integer)
+                For Each id In pts
+                    Dim q As New Vector2(nodes(id).x, nodes(id).z)
+                    If (q - mine).LengthSquared < (q - theirs).LengthSquared Then
+                        near.Add(id)
+                    End If
+                Next
+                ' Only if it actually split them. Every start equidistant
+                ' leaves this alone rather than emptying the list.
+                If near.Count > 0 AndAlso near.Count < pts.Count Then
+                    pts = near
+                    LogThis("tank sim: side {0} has no start_team - fell back " &
+                            "to the {1} start(s) at its own base", side, near.Count)
+                End If
+            End If
 
             ' LEFT TO LEFT. Both sorted on world X, so rank matches rank.
             hulls.Sort(Function(p, q) p.position.X.CompareTo(q.position.X))

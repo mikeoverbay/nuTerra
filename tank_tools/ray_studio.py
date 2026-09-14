@@ -1179,8 +1179,21 @@ def main():
         edit.clear()
         cell, at = 1.0, {}
 
-        def vert(x, z):
-            k = (round(x / cell), round(z / cell))
+        def vert(x, z, team):
+            # KEYED ON THE SIDE AS WELL AS THE CELL. "don't merge diff team
+            # points in to one. that's bad" - the owner, and it was: one
+            # vertex that belonged to both sides is exactly how a base point
+            # came out masked 1|2 = 3. Our roads START there and theirs END
+            # there, because team 1 sweeps base 1 -> base 2 and team 2 sweeps
+            # base 2 -> base 1, so the two landed in the same cell and were
+            # folded into one point. AssignStarts then matched every side to
+            # both bases and sent hulls to the enemy spawn.
+            #
+            # Two sides on the same street now get one vertex EACH, in the
+            # same place, each on its own network. WITHIN a side nothing
+            # changes - that is what still folds the thirty roads leaving a
+            # base into one fork instead of thirty lines lying on each other.
+            k = (round(x / cell), round(z / cell), team)
             i = at.get(k)
             if i is None:
                 i = edit.add(x, z, snap=False)
@@ -1189,10 +1202,12 @@ def main():
 
         lines = 0
         for road in maze_roads:
-            # WHICH SIDE THIS ROAD SERVES, kept as a BITMASK - 1, 2, or 3 for
-            # ground both teams use. It has to be a mask and not a number
-            # because the dedupe above deliberately merges verts where the two
-            # sets share a street, and that shared vertex belongs to both.
+            # WHICH SIDE THIS ROAD SERVES, kept as a BITMASK - 1, 2, or 3.
+            # It stays a mask rather than a plain 1 or 2 because the EDITOR
+            # can still join the two networks by hand: a dragged end landing
+            # on the other side's point merges them, and that survivor really
+            # does belong to both. What no longer produces a 3 is merely
+            # LOADING the roads, which is what it used to do at both bases.
             #
             # Without this the editor drew all 31 roads in the warm palette,
             # straight over the cool ones underneath, and the two sets stopped
@@ -1201,7 +1216,7 @@ def main():
             prev = None
             first = True
             for q in road["pts"]:
-                i = vert(q[0], q[1])
+                i = vert(q[0], q[1], bit)
                 edit.nodes[i]["team"] |= bit
                 if first:
                     # WHERE THE TANKS ARE SENT. A road's first point is at the
@@ -1209,6 +1224,14 @@ def main():
                     # side on the same one - so a side ends up with one start,
                     # not fifteen, which is what a spawn point should be.
                     edit.nodes[i]["start"] = True
+                    # WHOSE START, recorded where the side is known. With
+                    # the per-side dedupe above `team` is already right here,
+                    # but this is the field AssignStarts asks - and it stays
+                    # right through a hand-merge that makes `team` 3 again.
+                    # "Who spawns here" is not the same question as "whose
+                    # roads touch this ground", so it gets its own field.
+                    edit.nodes[i]["start_team"] = (
+                        edit.nodes[i].get("start_team", 0) | bit)
                     first = False
                 if prev is not None and prev != i:
                     before = edit.degree(prev)
@@ -1815,6 +1838,15 @@ def main():
                     for i in sel:
                         if i in edit.nodes:
                             edit.nodes[i]["start"] = on
+                            # A HAND-PLACED START takes the side of whatever
+                            # roads meet it, and both when it stands on ground
+                            # neither side reached - the mask is everything
+                            # known about a point put here by hand. Cleared to
+                            # 0 with the flag so a cleared start cannot be
+                            # matched by its leftovers.
+                            edit.nodes[i]["start_team"] = (
+                                (edit.nodes[i].get("team", 0) or 3) if on
+                                else 0)
                     edit_auto = False
                     edit_msg = ("%d start point(s) set" % len(sel) if on
                                 else "start cleared")
