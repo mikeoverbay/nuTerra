@@ -729,11 +729,24 @@ Public Class MapTanks
     ''' 64 is the shader's ceiling. A palette longer than that is clamped and
     ''' said out loud rather than silently drawing the wrong bones.
     ''' </summary>
+    ''' <summary>
+    ''' The bone palette, into whichever shader is being drawn with.
+    '''
+    ''' TAKES THE SHADER because the shadow pass needs the same palette in a
+    ''' different program. It wrote to `shader(...)` - the gbuffer one - which
+    ''' was right while that was the only program that drew tanks. A shadow
+    ''' caster skinned from a different palette than the tank is a shadow of a
+    ''' differently-posed vehicle.
+    ''' </summary>
     Private Sub upload_bones(part As TankPart, m As TankMesh)
+        upload_bones(part, m, shader)
+    End Sub
+
+    Private Sub upload_bones(part As TankPart, m As TankMesh, sh As Shader)
         Const MAX_BONES As Integer = 64
         Dim palette = part.PaletteFor(m)
         If Not TANK_SKINNING OrElse palette Is Nothing OrElse m.layout.offBoneIdx < 0 Then
-            GL.Uniform1(shader("u_skinned"), 0)
+            GL.Uniform1(sh("u_skinned"), 0)
             Return
         End If
 
@@ -775,8 +788,8 @@ Public Class MapTanks
             spin_wheel_bone(part, m, palette(i), i, bones, i * 16)
         Next
 
-        GL.UniformMatrix4(shader("u_bones"), MAX_BONES, False, bones)
-        GL.Uniform1(shader("u_skinned"), 1)
+        GL.UniformMatrix4(sh("u_bones"), MAX_BONES, False, bones)
+        GL.Uniform1(sh("u_skinned"), 1)
     End Sub
 
     Private warned_palette As Boolean
@@ -983,6 +996,15 @@ Public Class MapTanks
     ''' doing the same measurable thing. TANK_AI off returns to it.
     ''' </summary>
     Private Sub advance_movement()
+        ' THE POLL IS FIRST, BEFORE EVERY RETURN BELOW.
+        '
+        ' It was after the "nothing moves until SIM" guard, which meant the
+        ' file was only ever read while the sim was already running - so the
+        ' graph could not be drawn on load, which is the one time it is most
+        ' wanted. Reading the file is not moving; it does not belong behind a
+        ' guard about movement.
+        TankSim.PollFile(MAP_NAME_NO_PATH)
+
         ' NOTHING MOVES UNTIL THE SIM SAYS GO.
         '
         ' "we have something starting before I tell it to go." The vehicles
@@ -1007,6 +1029,7 @@ Public Class MapTanks
         ' ONE FRAME STAMP, so every ray is cast once and the driving and the
         ' drawing read the same eight answers.
         TankSim.frame += 1
+
 
         Dim aiSw = Stopwatch.StartNew()
         If TANK_AI AndAlso nav.ready Then
@@ -1094,6 +1117,9 @@ Public Class MapTanks
             inst.drive.hasSimTarget = False
         Next
         LogThis("tank sim: {0} hull(s) lined up on their bases", instances.Count)
+        ' NOW, not before - the hulls have just been put on their grid and the
+        ' assignment is by where they stand.
+        TankSim.AssignStarts(instances)
     End Sub
 
     ''' <summary>
@@ -1434,6 +1460,65 @@ Public Class MapTanks
     ''' draw and the shot have to agree about where the gun is pointing to the
     ''' last decimal - a muzzle computed from a second copy of this drifts from
     ''' the barrel it is supposed to be at the end of.</summary>
+    ''' <summary>
+    ''' Draw one vehicle's geometry, depth only, for a shadow pass.
+    '''
+    ''' WRITTEN HERE RATHER THAN RE-DERIVED THERE, at the Shader IDE session's
+    ''' request and it is the right call: world_matrix, part_model,
+    ''' shuttle_position and the bone palette are all private to this class,
+    ''' and TANK_SKINNING is on. A caster built from a second copy of those
+    ''' transforms drifts from the tank it belongs to the moment one of them
+    ''' changes - which is how a shadow ends up beside its vehicle instead of
+    ''' under it. One place computes a tank's pose; everything that draws it
+    ''' asks here.
+    '''
+    ''' It is Draw()'s inner loop with everything that is not geometry removed:
+    ''' no materials, no lights, no armour, no recoil - and `mvp` instead of
+    ''' `u_model`, because a shadow map has no view of its own to multiply by
+    ''' later.
+    '''
+    ''' The FlipSkinnedZ branch and the base-vertex-zero rule are kept
+    ''' VERBATIM. Both are load bearing: the first is why skinned parts face
+    ''' the right way, and the second is the bug that silently dropped group 1
+    ''' of all 31 multi-group meshes on the roster. A shadow that re-derived
+    ''' either would be a shadow of a different vehicle.
+    ''' </summary>
+    ' FRIEND, not Public: ShaderLoader is a Module, so `Shader` is Friend, and
+    ' a Public signature cannot expose it. Everything that draws tanks is in
+    ' this assembly, so Friend reaches all of it - and widening ShaderLoader to
+    ' make this Public would be a change in a file that is not mine to make.
+    Friend Sub DrawDepth(sh As Shader, viewProj As Matrix4, inst As TankInstance)
+        If inst Is Nothing OrElse inst.vehicle Is Nothing Then Return
+
+        Dim wp = shuttle_position(inst)
+        Dim world = world_matrix(inst, wp)
+        For Each part In inst.vehicle.parts
+            Dim partModel = part_model(inst, part, world)
+            For Each m In part.meshes
+                Dim model = partModel
+                If FlipSkinnedZ AndAlso m.layout.offBoneIdx >= 0 Then
+                    model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * partModel
+                End If
+                Dim mvp = model * viewProj
+                GL.UniformMatrix4(sh("mvp"), False, mvp)
+                upload_bones(part, m, sh)
+                m.vao.Bind()
+                Dim itype = If(m.index32, DrawElementsType.UnsignedInt,
+                               DrawElementsType.UnsignedShort)
+                Dim isz = If(m.index32, 4, 2)
+                For gi = 0 To m.groups.Count - 1
+                    Dim g = m.groups(gi)
+                    ' BASE VERTEX ZERO, and the byte offset only - BigWorld
+                    ' group indices already include startVertex. See the note
+                    ' in Draw(); passing it again asks GL for vertices past the
+                    ' end of the buffer and rasterises nothing.
+                    GL.DrawElements(PrimitiveType.Triangles, g.nPrimitives * 3, itype,
+                                    New IntPtr(g.startIndex * isz))
+                Next
+            Next
+        Next
+    End Sub
+
     Private Function world_matrix(inst As TankInstance, wp As Vector3) As Matrix4
         Return Matrix4.CreateScale(If(MirrorX, -1.0F, 1.0F), 1.0F, 1.0F) *
                Matrix4.CreateRotationY(inst.headingRad) *
