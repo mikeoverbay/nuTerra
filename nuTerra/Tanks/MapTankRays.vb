@@ -132,10 +132,9 @@ Public Class MapTankRays
             LogThis("tank rays: TankNav not found on MapTanks/MapScene - nav overlay and map-hit colours disabled")
         End If
 
-        ' Global debug switch supplied by Global Vars.
-        ' True  = draw yellow TankNav boundaries + cyan raw height markers.
-        ' False = hide both overlays. Ray diagnostics keep their own controls.
-        Dim showNavMap As Boolean = NAVMAP_Visable
+        ' NAVMAP overlay disabled. Keep tank ray diagnostics, but do not draw
+        ' the yellow TankNav boundaries or cyan raw-height marker lines.
+        Dim showNavMap As Boolean = False
 
         If showNavMap Then
             refresh_nav_overlay(nav)

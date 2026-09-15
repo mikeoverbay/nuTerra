@@ -21,7 +21,7 @@ Module modUtilities
     ''' </summary>
     Private ReadOnly LOG_KEEP As String() = {
         "tank:", "tank ai:", "tank routes:", "tank nav:",
-        "tank squares:", "tank rays:", "tank sim:"}
+        "tank squares:", "tank rays:", "tank sim:", "tank comm:"}
 
     ''' <summary>Let everything through again. Off is the owner's ask,
     ''' 2026-09-13: "remove all debug out writes for everything but the tank

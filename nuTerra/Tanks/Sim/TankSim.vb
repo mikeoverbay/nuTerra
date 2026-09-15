@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.Text.Json
 Imports OpenTK.Mathematics
 
@@ -59,17 +59,17 @@ Public Module TankSim
     ''' a neighbour alongside is either touching or it is not.</summary>
     Public SIM_RAY_M As Single = 2.0F
 
-    ''' <summary>How far a hull looks AHEAD - the owner's twenty metres.
+    ''' <summary>How far a hull looks AHEAD - ten metres.
     '''
     ''' Long, and only forward, because forward is the one direction with time
-    ''' in it: at 7 m/s twenty metres is about three seconds of warning, which is
-    ''' enough to turn. Twenty metres out of the sides would just report every
+    ''' in it: at 7 m/s ten metres is about 1.4 seconds of warning, which is
+    ''' enough to react. Ten metres out of the sides would just report every
     ''' tank in the column beside it, permanently.</summary>
-    Public SIM_RAY_FRONT_M As Single = 20.0F
+    Public SIM_RAY_FRONT_M As Single = 10.0F
 
     ''' <summary>How far ray i reaches. ONLY the centre-front ray gets the long
     ''' warning range. The corner, side and rear rays are contact sensors: if
-    ''' they reach twenty metres they see neighbouring columns as blockers.
+    ''' they reach ten metres they see neighbouring columns as blockers.
     ''' </summary>
     Public Function RayLen(i As Integer) As Single
         If i = R_FRONT Then Return SIM_RAY_FRONT_M
@@ -100,7 +100,7 @@ Public Module TankSim
 
     ''' <summary>
     ''' A ray seeing another hull does NOT automatically mean this hull must stop.
-    ''' The front ray may look 20 m ahead for warning, but only a nearby hit is an
+    ''' The front ray may look 10 m ahead for warning, but only a nearby hit is an
     ''' immediate obstruction. Corner rays are even stricter: a tank off the front
     ''' corner is relevant only when it is close enough to enter the swept hull.
     ''' Distances are measured from the ray origin on this hull's edge to the near
@@ -188,6 +188,11 @@ Public Module TankSim
     Private debugTankId As Integer = -1
     Private debugTankDumped As Boolean = False
     Private debugTankLastNodeId As Integer = -1
+
+    ' Detailed route progress is useful when debugging Ray Studio identity, but
+    ' it buries TankComms during a live fleet run. Keep it available, quiet by
+    ' default. Errors and one-shot load/warning messages still print.
+    Private ReadOnly VERBOSE_PATH_LOG As Boolean = False
 
     ''' <summary>
     ''' Read the editor's saved graph - every node, every edge.
@@ -478,6 +483,10 @@ Public Module TankSim
 
     Private Sub DumpDebugTankPath(inst As TankInstance)
         If inst Is Nothing OrElse debugTankDumped Then Return
+        If Not VERBOSE_PATH_LOG Then
+            debugTankDumped = True
+            Return
+        End If
 
         Dim ids As List(Of Integer) = Nothing
         If Not hullRunNodeIds.TryGetValue(inst, ids) Then
@@ -548,6 +557,7 @@ Public Module TankSim
         If nodeId = debugTankLastNodeId Then Return
 
         debugTankLastNodeId = nodeId
+        If Not VERBOSE_PATH_LOG Then Return
 
         If Not nodes.ContainsKey(nodeId) Then
             LogThis("tank sim: REACHED POINT id=" & nodeId & " MISSING")
@@ -736,9 +746,11 @@ Public Module TankSim
                 ' Dump HERE, on the exact first START hit, through the same visible
                 ' tank sim: console path. This is diagnostic only: reaching the start
                 ' no longer pauses or holds the tank.
-                LogThis("tank sim: REACHED START: id=" & inst.id &
-                        " team=" & inst.team.ToString() &
-                        " node=" & reachedNodeId)
+                If VERBOSE_PATH_LOG Then
+                    LogThis("tank sim: REACHED START: id=" & inst.id &
+                            " team=" & inst.team.ToString() &
+                            " node=" & reachedNodeId)
+                End If
                 DumpDebugTankPath(inst)
             End If
 
@@ -747,7 +759,7 @@ Public Module TankSim
             If inst.id = debugTankId Then
                 If reachedNodeId >= 0 Then
                     LogReachedPathPoint(inst, reachedNodeId)
-                ElseIf driveNodeIds Is Nothing Then
+                ElseIf driveNodeIds Is Nothing AndAlso VERBOSE_PATH_LOG Then
                     LogThis("tank sim: PATH DUMP ERROR - no drive-to-node map for tank " & inst.id)
                 End If
             End If
@@ -785,6 +797,9 @@ Public Module TankSim
 
     Private ReadOnly hitsOf As New Dictionary(Of TankInstance, Boolean())
     Private ReadOnly hitDistOf As New Dictionary(Of TankInstance, Single())
+    ' Exact nearest tank behind each hit distance. Kept beside hitDistOf so
+    ' communication uses the SAME cast the avoidance brain already trusted.
+    Private ReadOnly hitTankOf As New Dictionary(Of TankInstance, TankInstance())
     Private ReadOnly hitFrame As New Dictionary(Of TankInstance, Integer)
 
     ''' <summary>
@@ -807,8 +822,10 @@ Public Module TankSim
 
         Dim hits(RAY_COUNT - 1) As Boolean
         Dim hitDist(RAY_COUNT - 1) As Single
+        Dim hitTank(RAY_COUNT - 1) As TankInstance
         For i = 0 To RAY_COUNT - 1
             hitDist(i) = Single.MaxValue
+            hitTank(i) = Nothing
         Next
 
         Dim rays = HullRays(inst)
@@ -844,15 +861,35 @@ Public Module TankSim
                     If enter < 0.0F Then enter = 0.0F
 
                     hits(i) = True
-                    If enter < hitDist(i) Then hitDist(i) = enter
+                    If enter < hitDist(i) Then
+                        hitDist(i) = enter
+                        hitTank(i) = t
+                    End If
                 Next
             Next
         End If
 
         hitsOf(inst) = hits
         hitDistOf(inst) = hitDist
+        hitTankOf(inst) = hitTank
         hitFrame(inst) = frame
         Return hits
+    End Function
+
+    ''' <summary>
+    ''' Exact nearest tank hit by each of this hull's eight rays. Nothing means
+    ''' that ray hit no tank. This does NOT cast again; RayHits fills the cache
+    ''' once per frame and avoidance, drawing and communications all read it.
+    ''' </summary>
+    Public Function RayHitTanks(inst As TankInstance,
+                                others As List(Of TankInstance)) As TankInstance()
+        RayHits(inst, others)
+
+        Dim h As TankInstance() = Nothing
+        If hitTankOf.TryGetValue(inst, h) Then Return h
+
+        Dim none(RAY_COUNT - 1) As TankInstance
+        Return none
     End Function
 
     ''' <summary>
@@ -881,7 +918,7 @@ Public Module TankSim
         Dim dist = RayHitDistances(inst, others)
 
         ' Straight ahead: stop only when the other hull is close enough to
-        ' interfere with forward travel. A hit 15-20 m away is warning, not a
+        ' interfere with forward travel. A hit 6-10 m away is warning, not a
         ' reason to freeze now.
         If dist(R_FRONT) <= FRONT_STOP_M Then Return True
 
@@ -1211,7 +1248,9 @@ Public Module TankSim
         assigned.Clear()
         hitsOf.Clear()
         hitDistOf.Clear()
+        hitTankOf.Clear()
         hitFrame.Clear()
+        TankComms.Reset()
         debugTankId = -1
         debugTankDumped = False
         debugTankLastNodeId = -1
