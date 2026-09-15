@@ -73,7 +73,7 @@ Public Class TankDrive
     ''' <summary>Set when the route this hull was given has stopped being
     ''' usable. The driver cannot re-plan - it has no idea where the bases are -
     ''' so it raises this and MapTanks cuts a fresh route from where the hull
-    ''' now stands, using the pins it has learned since.</summary>
+    ''' now stands, using the current baked TankNav.</summary>
     Public wantsReplan As Boolean = False
 
     ''' <summary>Which way round an obstacle this hull committed to, +1 or -1,
@@ -144,9 +144,8 @@ Public Class TankDrive
     ''' </summary>
     Public blockedS As Single
 
-    ''' <summary>Seconds left of backing out. A tank that has pinned the thing
-    ''' in front of it still has that thing in front of it, and turning on the
-    ''' spot against a wall does not help - it has to give itself room first.
+    ''' <summary>Seconds left of backing out. A tank wedged against something
+    ''' cannot fix that by turning in place; it has to give itself room first.
     ''' </summary>
     Public reverseS As Single
 
@@ -154,6 +153,61 @@ Public Class TankDrive
     ''' report: "ten of thirty moving" says a fleet is sluggish and nothing
     ''' about which of four quite different causes to go and fix.</summary>
     Public stopReason As StopWhy
+
+    ''' <summary>
+    ''' Hard rule for the three forward rays. If FL + FRONT + FR are ALL
+    ''' blocked, do not try another turn angle. The forward fan has already
+    ''' proved that the whole nose is shut, so turning through those same
+    ''' steps is exactly what causes the left/right oscillation.
+    '''
+    ''' Try backing up instead. If the rear rays or the ground immediately
+    ''' behind are blocked too, stand still and return. Because no timer or
+    ''' alternate goal is started in that case, Advance reaches this test again
+    ''' next frame and keeps checking until either front or rear opens.
+    ''' </summary>
+    Private Function HandleAllThreeFrontBlocked(inst As TankInstance,
+                                                nav As TankNav,
+                                                others As List(Of TankInstance),
+                                                pos As Vector2,
+                                                dt As Single,
+                                                blockers As Boolean()) As Boolean
+        If blockers Is Nothing OrElse blockers.Length <= TankSim.R_FRONT Then Return False
+
+        Dim allFront = blockers(TankSim.R_FL) AndAlso
+                       blockers(TankSim.R_FRONT) AndAlso
+                       blockers(TankSim.R_FR)
+        If Not allFront Then Return False
+
+        ' Stop any committed turn/pass. Three-of-three overrides steering.
+        passS = 0.0F
+        skirtS = 0.0F
+        skirtSide = 0
+        speed = 0.0F
+
+        ' Is there somewhere to back into RIGHT NOW? Rear rays protect against
+        ' tanks; CanStand protects against the static/nav map.
+        Dim rearTraffic = TankSim.SIM_RUN AndAlso TankSim.RearBlocked(inst, others)
+        Dim back As New Vector2(-CSng(Math.Sin(inst.headingRad)),
+                                -CSng(Math.Cos(inst.headingRad)))
+        Dim bstep = TankDriveTune.REVERSE_MS * dt
+        Dim bnxt = pos + back * bstep
+        Dim rearGround = Not nav.CanStand(bnxt.X, bnxt.Y, TankDriveTune.HULL_R)
+
+        If rearTraffic OrElse rearGround Then
+            ' Boxed in: WAIT. Do not turn, do not choose another goal, do not
+            ' start reverse. Next frame checks the same rays again.
+            reverseS = 0.0F
+            stopReason = If(rearTraffic, StopWhy.Traffic, StopWhy.Ground)
+            Return True
+        End If
+
+        ' Rear is open: back out and give the nose room.
+        reverseS = TankDriveTune.REVERSE_S
+        stopReason = StopWhy.Reversing
+        stuckS = 0.0F
+        blockedS = 0.0F
+        Return True
+    End Function
 
     ''' <summary>
     ''' Drive one tank for one step.
@@ -214,8 +268,13 @@ Public Class TankDrive
             ' No alignment test and no turning: reverse is a straight line out
             ' of wherever the nose got to. If behind is shut too then the tank
             ' is boxed, and the goal timer will move it on.
+            Dim reverseTrafficClear =
+                If(TankSim.SIM_RUN,
+                   Not TankSim.RearBlocked(inst, others),
+                   Not Crowded(inst, others, bnxt))
+
             If nav.CanStand(bnxt.X, bnxt.Y, TankDriveTune.HULL_R) AndAlso
-               Not Crowded(inst, others, bnxt) Then
+               reverseTrafficClear Then
                 inst.position = New Vector3(bnxt.X, get_Y_at_XZ_fast(bnxt.X, bnxt.Y), bnxt.Y)
                 inst.trackDistance += bstep
             Else
@@ -227,7 +286,7 @@ Public Class TankDrive
 
         ' ---- turn ----------------------------------------------------------
         Dim to_goal = goal - pos
-        If to_goal.LengthSquared < 1.0E-6F Then Return
+        If to_goal.LengthSquared < 0.000001F Then Return
 
         ' Forward is (sin h, cos h) - the convention world_matrix's
         ' CreateRotationY already uses, so heading 0 faces +Z.
@@ -292,30 +351,104 @@ Public Class TankDrive
             ' giving up on the direction is the right answer rather than the
             ' easy one.
             '
-            ' THE SIDE IS REMEMBERED once chosen. Picking afresh each frame is
-            ' how a hull ends up oscillating in the mouth of a gap - left looks
-            ' best, it turns, right looks best, it turns back - and skirting an
-            ' obstacle means committing to one way round it until it is passed.
-            Dim skirted = False
-            If skirtSide = 0 Then skirtSide = 1
-            For ring = 1 To SKIRT_RINGS
-                Dim ang = SKIRT_STEP_RAD * ring
-                For pass = 0 To 1
-                    ' The remembered side first, the other second.
-                    Dim sgn = If(pass = 0, skirtSide, -skirtSide)
-                    Dim h = inst.headingRad + ang * sgn
-                    Dim probe2 = pos + New Vector2(CSng(Math.Sin(h)), CSng(Math.Cos(h))) * stride
-                    If nav.CanStand(probe2.X, probe2.Y, TankDriveTune.HULL_R) Then
-                        goal = pos + New Vector2(CSng(Math.Sin(h)), CSng(Math.Cos(h))) *
-                                     TankDriveTune.ARRIVE_M * 2.0F
-                        hasGoal = True
-                        skirtSide = sgn
-                        skirtS = SKIRT_HOLD_S
-                        skirted = True
-                        Exit For
+            ' CHOOSE THE SIDE FROM THE CURRENT RAYS, THEN COMMIT TO IT.
+            '
+            ' Truth table:
+            '   FL / LEFT blocked  -> turn RIGHT  (+ heading)
+            '   FR / RIGHT blocked -> turn LEFT   (- heading)
+            '   FRONT + one side   -> turn away from that side
+            '
+            ' Multiple blockers mean a stronger first turn using the same
+            ' 45-degree spacing as the rays:
+            '   1 blocker = 45 degrees
+            '   2 blockers = 90 degrees
+            '   3 blockers = 135 degrees
+            ' We already know the smaller angles point into blocked space, so
+            ' testing them again causes oscillation.
+            '
+            ' DO NOT alternate sides inside the ring loop. Once a side is chosen
+            ' it stays chosen for this skirt attempt.
+            Dim blockers = TankSim.RayBlockers(inst, others, nav)
+
+            ' THREE FORWARD BLOCKS: do not turn through known-blocked headings.
+            ' Try reverse; if the rear is blocked too, wait and keep checking.
+            If HandleAllThreeFrontBlocked(inst, nav, others, pos, dt, blockers) Then Return
+
+            If skirtSide = 0 Then
+                Dim leftPressure = 0
+                Dim rightPressure = 0
+
+                If blockers(TankSim.R_FL) Then leftPressure += 1
+                If blockers(TankSim.R_LEFT) Then leftPressure += 1
+
+                If blockers(TankSim.R_FR) Then rightPressure += 1
+                If blockers(TankSim.R_RIGHT) Then rightPressure += 1
+
+                If leftPressure > rightPressure Then
+                    skirtSide = 1             ' obstacle left -> turn right
+                ElseIf rightPressure > leftPressure Then
+                    skirtSide = -1            ' obstacle right -> turn left
+                ElseIf blockers(TankSim.R_FRONT) Then
+                    ' Straight ahead is blocked and side pressure is tied.
+                    ' Prefer the side whose side ray is actually clear.
+                    If blockers(TankSim.R_RIGHT) AndAlso
+                       Not blockers(TankSim.R_LEFT) Then
+                        skirtSide = -1
+                    ElseIf blockers(TankSim.R_LEFT) AndAlso
+                           Not blockers(TankSim.R_RIGHT) Then
+                        skirtSide = 1
+                    ElseIf blockers(TankSim.R_FL) AndAlso
+                           Not blockers(TankSim.R_FR) Then
+                        skirtSide = 1
+                    ElseIf blockers(TankSim.R_FR) AndAlso
+                           Not blockers(TankSim.R_FL) Then
+                        skirtSide = -1
+                    Else
+                        skirtSide = 1          ' true tie: right-hand rule
                     End If
-                Next
-                If skirted Then Exit For
+                ElseIf blockers(TankSim.R_FL) Then
+                    skirtSide = 1
+                ElseIf blockers(TankSim.R_FR) Then
+                    skirtSide = -1
+                ElseIf blockers(TankSim.R_LEFT) Then
+                    skirtSide = 1
+                ElseIf blockers(TankSim.R_RIGHT) Then
+                    skirtSide = -1
+                Else
+                    skirtSide = 1
+                End If
+            End If
+
+            ' Count blockers on the side we are turning AWAY from, plus FRONT.
+            ' This is the "two blocks = two turns" rule.
+            Dim turnSteps = 0
+            If blockers(TankSim.R_FRONT) Then turnSteps += 1
+
+            If skirtSide > 0 Then
+                If blockers(TankSim.R_FL) Then turnSteps += 1
+                If blockers(TankSim.R_LEFT) Then turnSteps += 1
+            Else
+                If blockers(TankSim.R_FR) Then turnSteps += 1
+                If blockers(TankSim.R_RIGHT) Then turnSteps += 1
+            End If
+
+            If turnSteps < 1 Then turnSteps = 1
+            If turnSteps > SKIRT_RINGS Then turnSteps = SKIRT_RINGS
+
+            Dim skirted = False
+            For ring = turnSteps To SKIRT_RINGS
+                Dim ang = SKIRT_STEP_RAD * ring
+                Dim h = inst.headingRad + ang * skirtSide
+                Dim dir As New Vector2(CSng(Math.Sin(h)), CSng(Math.Cos(h)))
+                Dim probe2 = pos + dir * stride
+
+                If nav.CanStand(probe2.X, probe2.Y, TankDriveTune.HULL_R) Then
+                    goal = pos + dir * TankDriveTune.ARRIVE_M * 2.0F
+                    hasGoal = True
+                    skirtS = SKIRT_HOLD_S
+                    skirted = True
+                    Exit For
+                End If
             Next
             If skirted Then
                 stopReason = StopWhy.Turning
@@ -345,29 +478,20 @@ Public Class TankDrive
                 blockedS = 0.0F
                 ' A HULL ON A ROUTE THAT IS BLOCKED DOES NOT WANT A NEW
                 ' WAYPOINT, IT WANTS A NEW ROUTE. Re-aiming at the same point is
-                ' right for a moment's obstruction and useless against a wall:
-                ' the route was cut before this hull learned what is here, and
-                ' every pin it has dropped since is knowledge the plan does not
-                ' have. Wandering off a dart would lose the base entirely.
+                ' right for a moment's obstruction and useless against a wall.
+                ' The baked TankNav is the authoritative static no-go map.
                 If path IsNot Nothing Then wantsReplan = True
                 PickGoal(inst, nav, pos)
             End If
 
-            ' PINNING IS FOR BEING WEDGED, NOT FOR TOUCHING. A pin is
-            ' permanent and it is written to disk, so pinning every wall a
-            ' tank brushes would fill the map with them - the first run laid
-            ' down several hundred in under a minute doing exactly that. Only
-            ' a tank that has failed to move for a sustained stretch has
-            ' learned anything worth keeping.
-            If stuckS > TankDriveTune.PIN_S Then
-                Dim probe = pos + fwd * (TankDriveTune.HULL_R + nav.cell_m)
-                nav.Pin(probe.X, probe.Y)
+            ' NO RUNTIME PINNING. The baked height/nav map is the complete
+            ' static no-go source. If the hull remains wedged, recovery may back
+            ' it out, but it must never rewrite the navigation map.
+            If stuckS > TankDriveTune.WEDGED_S Then
                 stuckS = 0.0F
-                ' NOT BACKWARDS INTO SOMEBODY. "try to move away from ass if
-                ' its being hit" - the rear rays say whether there is anything
-                ' there, and a hull that reverses into the tank behind it turns
-                ' one stuck vehicle into two. Wedged against terrain still
-                ' reverses; wedged against a neighbour waits for it to move.
+                ' NOT BACKWARDS INTO SOMEBODY. The rear rays say whether there
+                ' is traffic behind us. Wedged against terrain reverses; wedged
+                ' against a neighbour waits for it to move.
                 If TankSim.SIM_RUN AndAlso TankSim.RearBlocked(inst, others) Then
                     stopReason = StopWhy.Traffic
                     speed = 0.0F
@@ -378,10 +502,8 @@ Public Class TankDrive
             Return
         End If
 
-        ' OTHER TANKS ARE NOT PINNED. They move; pinning one would leave a
-        ' permanent hole in the map where a tank happened to pause. Waiting is
-        ' the right answer, and the stuck timer eventually sends this one
-        ' somewhere else if the other never clears.
+        ' OTHER TANKS ARE DYNAMIC TRAFFIC, not map data. Waiting/avoidance is
+        ' handled by the rays; the static navigation map is never rewritten.
         ' THE RAYS DECIDE, not a circle round the nose.
         '
         ' Crowded asks "is any hull within SEPARATION_M and forward of my
@@ -391,7 +513,16 @@ Public Class TankDrive
         ' something in front of me, and is the side I am about to swing into
         ' clear. That is what they were made for.
         Dim rayBlocked = TankSim.SIM_RUN AndAlso TankSim.BlockedAhead(inst, others)
-        If rayBlocked OrElse Crowded(inst, others, nxt) Then
+
+        ' Under the SIM the rays are the collision sensor. Do NOT OR the old
+        ' 8 m Crowded() disc back in here or a tank alongside/in the forward
+        ' half-plane can stop this hull even though no relevant ray is close.
+        Dim trafficBlocked =
+            If(TankSim.SIM_RUN,
+               rayBlocked,
+               Crowded(inst, others, nxt))
+
+        If trafficBlocked Then
             ' GO ROUND TO THE RIGHT rather than stand and wait.
             '
             ' Waiting is correct when the other hull is passing THROUGH; it is
@@ -406,27 +537,92 @@ Public Class TankDrive
             ' is not itself occupied - otherwise going round is just a second
             ' way to get stuck.
             If passS <= 0.0F Then
-                ' DOWN A RAY THAT HITS NOTHING, to the end of its reach. The
-                ' rays already know where the room is; a fixed fifty degrees
-                ' right was a guess at it, and the guess is wrong whenever the
-                ' room is somewhere else.
                 Dim spot As Vector2
                 Dim haveWay = False
+
                 If TankSim.SIM_RUN Then
-                    haveWay = TankSim.ClearWay(inst, others, spot)
-                End If
-                If Not haveWay Then
-                    ' No sim, or every ray blocked: the old fixed swing, which
-                    ' at least commits to the same hand as everyone else.
+                    ' ONE TRUTH TABLE FOR THE THREE FORWARD RAYS.
+                    '
+                    ' Do NOT call ClearWay here. That used to search the clear
+                    ' rays again from scratch and could choose the first turn
+                    ' step even when CENTER had already proved that step bad.
+                    ' That is the oscillation we already fixed once.
+                    '
+                    '   C only       -> RIGHT 1 step  (right-hand rule)
+                    '   C + L        -> RIGHT 2 steps
+                    '   C + R        -> LEFT  2 steps
+                    '   C + L + R    -> REVERSE; if rear blocked, WAIT
+                    '   L only       -> RIGHT 1 step
+                    '   R only       -> LEFT  1 step
+                    '
+                    ' The count is the FIRST ring to try. If C+L is blocked,
+                    ' ring 1 is known bad, so begin at ring 2. Never retry it.
+                    Dim blockers = TankSim.RayBlockers(inst, others, nav)
+
+                    ' THREE FORWARD BLOCKS override the turn table: back up.
+                    ' If the rear is blocked too, wait motionless and re-check
+                    ' on the next frame.
+                    If HandleAllThreeFrontBlocked(inst, nav, others, pos, dt, blockers) Then Return
+
+                    Dim c = blockers(TankSim.R_FRONT)
+                    Dim l = blockers(TankSim.R_FL)
+                    Dim r = blockers(TankSim.R_FR)
+
+                    Dim turnSide As Integer = 1     ' + = right, - = left
+                    Dim turnSteps As Integer = 1
+
+                    If c Then
+                        If l Then
+                            turnSide = 1
+                            turnSteps = 2
+                        ElseIf r Then
+                            turnSide = -1
+                            turnSteps = 2
+                        Else
+                            turnSide = 1
+                            turnSteps = 1
+                        End If
+                    ElseIf l AndAlso r Then
+                        ' Both corners blocked with CENTER clear: keep the
+                        ' right-hand tie rule and skip the first known-bad side.
+                        turnSide = 1
+                        turnSteps = 2
+                    ElseIf l Then
+                        turnSide = 1
+                        turnSteps = 1
+                    ElseIf r Then
+                        turnSide = -1
+                        turnSteps = 1
+                    Else
+                        turnSide = 1
+                        turnSteps = 1
+                    End If
+
+                    If turnSteps > SKIRT_RINGS Then turnSteps = SKIRT_RINGS
+
+                    ' Commit to ONE side and sweep outward from the first ring
+                    ' not already disproved by the blocked forward rays.
+                    For ring = turnSteps To SKIRT_RINGS
+                        Dim ang = SKIRT_STEP_RAD * ring
+                        Dim h = inst.headingRad + ang * turnSide
+                        Dim dir As New Vector2(CSng(Math.Sin(h)), CSng(Math.Cos(h)))
+                        spot = pos + dir * PASS_M
+
+                        If NavSegmentClear(nav, pos, spot, TankDriveTune.HULL_R) Then
+                            haveWay = True
+                            Exit For
+                        End If
+                    Next
+                Else
+                    ' Outside the SIM there are no authoritative ray blockers;
+                    ' keep the old fixed right-hand pass behaviour.
                     Dim ph = inst.headingRad + PASS_TURN_RAD
                     Dim pd As New Vector2(CSng(Math.Sin(ph)), CSng(Math.Cos(ph)))
                     spot = pos + pd * PASS_M
-                    haveWay = (Not TankSim.SIM_RUN) OrElse
-                              TankSim.RightIsClear(inst, others)
+                    haveWay = Not Crowded(inst, others, spot)
                 End If
-                If haveWay AndAlso
-                   nav.CanStand(spot.X, spot.Y, TankDriveTune.HULL_R) AndAlso
-                   Not Crowded(inst, others, spot) Then
+
+                If haveWay Then
                     goal = spot
                     hasGoal = True
                     passS = PASS_HOLD_S
@@ -548,6 +744,36 @@ Public Class TankDrive
         Return False
     End Function
 
+    ''' <summary>
+    ''' Final ground guard for an escape target. The endpoint alone is not enough:
+    ''' a target can be clear while a wall lies between the tank and that target.
+    ''' Test the whole segment using the same hull-radius CanStand test used by
+    ''' normal movement.
+    ''' </summary>
+    Private Shared Function NavSegmentClear(nav As TankNav,
+                                            a As Vector2,
+                                            b As Vector2,
+                                            hullR As Single) As Boolean
+        If nav Is Nothing OrElse Not nav.ready Then Return True
+
+        Dim v = b - a
+        Dim length = v.Length
+        If length <= 0.001F Then Return nav.CanStand(b.X, b.Y, hullR)
+
+        Dim d = v / length
+        Dim stepM = Math.Max(0.25F, nav.cell_m * 0.5F)
+        Dim steps = Math.Max(1, CInt(Math.Ceiling(length / stepM)))
+
+        ' Skip the exact current position; the tank is already standing there.
+        For s = 1 To steps
+            Dim dist = Math.Min(length, CSng(s) * stepM)
+            Dim q = a + d * dist
+            If Not nav.CanStand(q.X, q.Y, hullR) Then Return False
+        Next
+
+        Return True
+    End Function
+
     ''' <summary>An angle folded back into -pi..pi. Without it the shortest way
     ''' round from 179 degrees to -179 looks like 358 degrees of turning.
     ''' </summary>
@@ -608,11 +834,11 @@ Public Module TankDriveTune
     ''' throw, so this is a turning budget, not a jitter guard.</summary>
     Public REPICK_S As Single = 1.2F
 
-    ''' <summary>Seconds wedged before the map is told about it. Deliberately
-    ''' several times REPICK_S: a pin is permanent and persisted, so it should
-    ''' record a tank that could not get out, never one that brushed a wall.
+    ''' <summary>
+    ''' Seconds continuously wedged before the recovery reverse is attempted.
+    ''' This no longer creates or records any map obstacle.
     ''' </summary>
-    Public PIN_S As Single = 5.0F
+    Public WEDGED_S As Single = 5.0F
 
     ''' <summary>How long, and how fast, a wedged tank backs out.</summary>
     Public REVERSE_S As Single = 1.5F

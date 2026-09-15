@@ -1132,6 +1132,7 @@ Public Class MapTanks
     ''' from one that is jammed against a wall it cannot see.
     ''' </summary>
     Private Sub report_fleet()
+        Return
         fleet_report_s += ANIM_DELTA
         If fleet_report_s < 5.0F Then Return
         fleet_report_s = 0.0F
@@ -1671,7 +1672,7 @@ Public Class MapTanks
     ''' </summary>
     Public Sub RebuildRoutes()
         If Not loaded Then
-            LogThis("tank routes: nothing loaded to rebuild")
+            'LogThis("tank routes: nothing loaded to rebuild")
             Return
         End If
         Dim t0 = Date.UtcNow

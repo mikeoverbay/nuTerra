@@ -700,8 +700,11 @@ void main()
     result = pow(clamp(result, 0.0, 1.0), vec3(1.0 / 2.2)) * total_level;
 
     // ---- Out, into the G-buffer -----------------------------------------------
-    // gColor carries the FINISHED colour and gGMF.b is GFLAG_UNLIT, so the
-    // resolve hands it to the screen untouched. The rest of the G-buffer is
+    // gColor carries the FINISHED colour and gGMF.b is GFLAG_TANK, so the
+    // resolve hands it to the screen untouched - GFLAG_TANK carries no render
+    // bits, so it takes the same unlit passthrough GFLAG_UNLIT did. What it adds
+    // is that the passthrough can now TELL a tank from a pixel nothing wrote,
+    // which is what lets the tank receive the sun shadow. See common.h. The rest of the G-buffer is
     // still filled in properly: gNormal in VIEW space - its own TBN, not the
     // world one - gPosition in view space, gSurfaceNormals flat. Everything
     // downstream that reads depth rather than lighting keeps working.
@@ -711,7 +714,7 @@ void main()
 
     gColor          = vec4(result, 0.0);
     gNormal         = n_view * 0.5 + 0.5;
-    gGMF            = vec4(gloss_raw, metallic, GFLAG_UNLIT, 0.0);
+    gGMF            = vec4(gloss_raw, metallic, GFLAG_TANK, 0.0);
     gPosition       = fs_in.viewPosition;
     gSurfaceNormals = fs_in.surfaceNormal;
 }

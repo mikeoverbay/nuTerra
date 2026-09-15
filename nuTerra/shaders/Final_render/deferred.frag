@@ -415,6 +415,23 @@ uniform int sun_tile_tint;
 // this answers "is it landing, where, and what shape" in one frame.
 uniform int   tank_debug;
 
+// What fraction of a tank's finished colour survives in full sun shadow. See
+// the passthrough at the bottom of main(). 1.0 disables the term entirely,
+// which is the quickest A/B if a tank ever looks wrong in shade.
+// What fraction of a tank's finished colour survives in full sun shadow.
+//
+// THE DEFAULT BELOW IS NOT WHAT RUNS. modRender.vb:1128 uploads the global
+// TANK_SHADOW_FLOOR every frame, so the panel wins and this initialiser only
+// covers a program that is somehow used before that upload. Change the global,
+// not this line.
+//
+// It was briefly set to 1.0 - a no-op - while MapTankShadow.draw_box() still
+// rendered a unit CUBE: a tank sits inside its own bounding box, so tank_factor
+// reported every tank pixel self-shadowed and this term darkened whole tanks
+// off a placeholder. The caster draws real meshes since 2026-09-14 and the term
+// does what it was written for.
+uniform float tank_shadow_floor = 0.5;
+
 // Moment Shadow Map variant of the same bake - four power moments instead of a
 // comparison sampler. Plain sampler2D, mipmapped and pre-blurred.
 layout(binding = 9) uniform sampler2D sun_moment_map;
@@ -1922,6 +1939,32 @@ void main (void)
         // absence of one. Do not put a term here that assumes what these pixels
         // are.
         outColor = texelFetch(gColor, ivec2(gl_FragCoord), 0) * props.BRIGHTNESS;
+
+        // ---- and now the tanks CAN be told apart -------------------------
+        //
+        // GFLAG_TANK is KIND_MODEL with no render bits. 4 & 248 is zero, so a
+        // tank lands in this same passthrough and every test above is unchanged
+        // - but the kind bits say a tank WROTE this pixel, where the billboard
+        // writes gColor only and leaves a kind of 0. Set by commission against
+        // set by nobody: that is the distinction the reverted attempt lacked,
+        // and it does not depend on knowing why the billboard's flag is zero.
+        //
+        // THE FACTOR IS ALREADY HERE AND WAS BEING DISCARDED. Tanks write
+        // gPosition like everything else (tank_gbuffer.frag:715), so
+        // sun_shadow_tiles.frag has resolved a correct shadow for these exact
+        // pixels every frame. One texel fetch, no new pass, nothing reordered.
+        //
+        // A FLOOR, NOT A MULTIPLY TO ZERO. The lit path scales only the SUN
+        // term and leaves ambient alone. Here the colour is already finished
+        // and carries the tank's own ambient, so scaling it to zero paints a
+        // black tank rather than a shaded one. The floor is what survives in
+        // full shadow. Defaulted rather than wired to a slider - nothing sets
+        // it, so it takes the value below until someone wants it on the panel.
+        if (has_sun_shadow == 3 &&
+            GBUF_KIND(texelFetch(gGMF, ivec2(gl_FragCoord), 0).b) == KIND_MODEL) {
+            float s = texelFetch(sun_shadow_pre, ivec2(gl_FragCoord), 0).r;
+            outColor.rgb *= mix(tank_shadow_floor, 1.0, s);
+        }
     }
 
     // ---- tank shadows, painted ----------------------------------------

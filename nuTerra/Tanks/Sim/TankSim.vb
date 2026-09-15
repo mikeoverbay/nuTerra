@@ -1,4 +1,4 @@
-﻿Imports System.IO
+Imports System.IO
 Imports System.Text.Json
 Imports OpenTK.Mathematics
 
@@ -8,7 +8,7 @@ Imports OpenTK.Mathematics
 '''
 ''' EVERY METRE OF THIS COMES FROM RAY STUDIO. The graph is read from
 ''' &lt;map&gt;_paths.json - the editor's own PathEdit.to_dict - and the runs are
-''' walked from its nodes and edges. The route catalogue in TankRoutes is NOT
+''' driven from its saved ordered roads; nodes and edges remain for drawing and metadata. The route catalogue in TankRoutes is NOT
 ''' consulted: TankDrive.PickGoal is the only thing that reads `drive.path`,
 ''' and it is switched off while SIM_RUN. `sim_line_up` clears `drive.path`
 ''' outright so there is nothing left to read by accident.
@@ -92,11 +92,28 @@ Public Module TankSim
     ''' avoid, not measuring one.</summary>
     Public Const OTHER_R As Single = 2.25F
 
+    ''' <summary>
+    ''' A ray seeing another hull does NOT automatically mean this hull must stop.
+    ''' The front ray may look 20 m ahead for warning, but only a nearby hit is an
+    ''' immediate obstruction. Corner rays are even stricter: a tank off the front
+    ''' corner is relevant only when it is close enough to enter the swept hull.
+    ''' Distances are measured from the ray origin on this hull's edge to the near
+    ''' edge of the other hull's avoidance disc.
+    ''' </summary>
+    Public Const FRONT_STOP_M As Single = 6.0F
+    Public Const CORNER_STOP_M As Single = 2.5F
+
     ''' <summary>How close counts as reaching a waypoint. Looser than the
     ''' drive's own ARRIVE_M so a hull that stops just short still advances -
     ''' a run that stalls one metry short of a waypoint never finishes, and
     ''' looks exactly like a hull that has lost its path.</summary>
     Public Const WAYPOINT_M As Single = 8.0F
+
+    ' A START is not an ordinary waypoint. The 8 m waypoint ring is intentionally
+    ' loose so a moving hull does not hang just short of a road point, but using
+    ' that same ring for START made the sim pause visibly several metres away.
+    ' START must be reached by the hull centre before it can pause the run.
+    Public Const START_REACH_M As Single = 1.0F
 
     Public Structure SimNode
         Public x As Single
@@ -110,12 +127,24 @@ Public Module TankSim
         ' one where the side is still known. Same bitmask, different question.
         Public startTeam As Integer
         Public msg As String
+        Public note As String
         Public spd As String
+    End Structure
+
+    ' ONE ORDERED ROAD EXACTLY AS RAY STUDIO SAVED IT. The graph is still kept
+    ' for drawing, point metadata and editor topology, but it is NOT enough to
+    ' recover a road at a fork. `nodeIds` is the authoritative driving order.
+    Private Structure SimRoad
+        Public id As Integer
+        Public team As Integer
+        Public nodeIds As List(Of Integer)
     End Structure
 
     Private ReadOnly nodes As New Dictionary(Of Integer, SimNode)
     Private ReadOnly adj As New Dictionary(Of Integer, List(Of Integer))
     Private ReadOnly startIds As New List(Of Integer)
+    Private ReadOnly savedRoads As New List(Of SimRoad)
+    Private savedRoadsValid As Boolean = False
 
     Public startsMsg As String = "no paths loaded"
 
@@ -142,6 +171,18 @@ Public Module TankSim
     Private ReadOnly hullRun As New Dictionary(Of TankInstance, List(Of Vector2))
     Private ReadOnly atOf As New Dictionary(Of TankInstance, Integer)
 
+    ' DEBUG ONE TANK ONLY. The first hull that ACTUALLY REACHES its assigned
+    ' start becomes DEBUG_TANK. Keep BOTH representations of its route:
+    '   hullRunNodeIds = the ORIGINAL Ray Studio graph nodes, in route order.
+    '   hullRunNodeAt  = one entry per subdivided drive waypoint; -1 means the
+    '                    waypoint is synthetic, otherwise it is the real node id.
+    ' This preserves point identity all the way to the reached-point test.
+    Private ReadOnly hullRunNodeIds As New Dictionary(Of TankInstance, List(Of Integer))
+    Private ReadOnly hullRunNodeAt As New Dictionary(Of TankInstance, List(Of Integer))
+    Private debugTankId As Integer = -1
+    Private debugTankDumped As Boolean = False
+    Private debugTankLastNodeId As Integer = -1
+
     ''' <summary>
     ''' Read the editor's saved graph - every node, every edge.
     '''
@@ -154,10 +195,17 @@ Public Module TankSim
         nodes.Clear()
         adj.Clear()
         startIds.Clear()
+        savedRoads.Clear()
+        savedRoadsValid = False
         lines.Clear()
         startPts.Clear()
         hullRun.Clear()
         atOf.Clear()
+        hullRunNodeIds.Clear()
+        hullRunNodeAt.Clear()
+        debugTankId = -1
+        debugTankDumped = False
+        debugTankLastNodeId = -1
 
         Dim p = Path.Combine(Environment.GetEnvironmentVariable("TEMP"),
                              "nuTerra", "flight", mapName & "_paths.json")
@@ -193,6 +241,7 @@ Public Module TankSim
                         sn.startTeam = sn.team
                     End If
                     sn.msg = If(n.TryGetProperty("msg", e), e.GetString(), "")
+                    sn.note = If(n.TryGetProperty("note", e), e.GetString(), "")
                     sn.spd = If(n.TryGetProperty("spd", e), e.GetString(), "")
                     nodes(id) = sn
                     adj(id) = New List(Of Integer)
@@ -208,6 +257,46 @@ Public Module TankSim
                         End If
                     Next
                 End If
+
+                ' THE ORDERED MAZE ROADS ARE THE DRIVING TRUTH. Nodes+edges are
+                ' an undirected merged editor graph; at a fork they cannot tell
+                ' which outgoing edge belonged to the road that arrived there.
+                ' Ray Studio saves each solved road as an ordered node-id chain.
+                Dim rv As JsonElement = Nothing
+                savedRoadsValid = doc.RootElement.TryGetProperty("roads_valid", rv) AndAlso
+                                  rv.ValueKind = JsonValueKind.True
+                If savedRoadsValid Then
+                    Dim roadsEl As JsonElement = Nothing
+                    If doc.RootElement.TryGetProperty("roads", roadsEl) AndAlso
+                       roadsEl.ValueKind = JsonValueKind.Array Then
+                        For Each rr As JsonElement In roadsEl.EnumerateArray()
+                            Dim sr As SimRoad
+                            Dim re As JsonElement = Nothing
+                            sr.id = If(rr.TryGetProperty("id", re), re.GetInt32(), savedRoads.Count)
+                            sr.team = If(rr.TryGetProperty("team", re), re.GetInt32(), 0)
+                            sr.nodeIds = New List(Of Integer)
+
+                            Dim idsEl As JsonElement = Nothing
+                            If rr.TryGetProperty("nodes", idsEl) AndAlso
+                               idsEl.ValueKind = JsonValueKind.Array Then
+                                Dim badRoad = False
+                                For Each je As JsonElement In idsEl.EnumerateArray()
+                                    Dim nid = je.GetInt32()
+                                    If Not nodes.ContainsKey(nid) Then
+                                        badRoad = True
+                                        Exit For
+                                    End If
+                                    sr.nodeIds.Add(nid)
+                                Next
+                                If Not badRoad AndAlso sr.nodeIds.Count >= 2 AndAlso
+                                   (sr.team = 1 OrElse sr.team = 2) Then
+                                    savedRoads.Add(sr)
+                                End If
+                            End If
+                        Next
+                    End If
+                    If savedRoads.Count = 0 Then savedRoadsValid = False
+                End If
             End Using
         Catch ex As Exception
             ' LOUD, NOT SILENT. A sim that quietly found no path and drove
@@ -221,8 +310,8 @@ Public Module TankSim
         For Each kv In adj
             edgeCount += kv.Value.Count
         Next
-        startsMsg = String.Format("{0} verts, {1} lines, {2} start(s)",
-                                  nodes.Count, edgeCount \ 2, startIds.Count)
+        startsMsg = String.Format("{0} verts, {1} lines, {2} start(s), {3} saved road(s)",
+                                  nodes.Count, edgeCount \ 2, startIds.Count, savedRoads.Count)
         Dim wrote = File.GetLastWriteTime(p)
         Dim age = DateTime.Now - wrote
         Dim howLong As String
@@ -235,9 +324,48 @@ Public Module TankSim
         End If
         pathsStamp = String.Format("saved {0:HH:mm:ss} ({1})", wrote, howLong)
         BuildDrawLists()
-        LogThis("tank sim: {0} from {1}_paths.json, {2} - Ray Studio's graph, not the route catalogue",
-                startsMsg, mapName, pathsStamp)
+        If savedRoadsValid Then
+            LogThis("tank sim: {0} from {1}_paths.json, {2} - driving ordered Ray Studio roads",
+                    startsMsg, mapName, pathsStamp)
+        Else
+            LogThis("tank sim: {0} from {1}_paths.json, {2} - WARNING no valid ordered roads; graph-walk fallback",
+                    startsMsg, mapName, pathsStamp)
+        End If
         Return startIds.Count
+    End Function
+
+    ''' <summary>
+    ''' Build one run from the exact ordered road Ray Studio saved. No graph
+    ''' walking and no fork choice happens here. Multiple roads may share one
+    ''' start; `pick` deterministically selects one for this hull.
+    ''' </summary>
+    Private Function BuildSavedRoad(startId As Integer,
+                                    teamBit As Integer,
+                                    pick As Integer,
+                                    ByRef rawIds As List(Of Integer),
+                                    ByRef driveNodeIds As List(Of Integer)) As List(Of Vector2)
+        rawIds = New List(Of Integer)
+        driveNodeIds = New List(Of Integer)
+        Dim choices As New List(Of Integer)
+
+        For i = 0 To savedRoads.Count - 1
+            Dim r = savedRoads(i)
+            If r.team <> teamBit OrElse r.nodeIds Is Nothing OrElse r.nodeIds.Count < 2 Then Continue For
+            If r.nodeIds(0) = startId Then choices.Add(i)
+        Next
+
+        If choices.Count = 0 Then Return New List(Of Vector2)
+
+        Dim slot = Math.Abs(pick) Mod choices.Count
+        Dim chosenRoad = savedRoads(choices(slot))
+        rawIds.AddRange(chosenRoad.nodeIds)
+
+        Dim pts As New List(Of Vector2)(rawIds.Count)
+        For Each id In rawIds
+            pts.Add(New Vector2(nodes(id).x, nodes(id).z))
+        Next
+
+        Return Subdivide(pts, rawIds, driveNodeIds)
     End Function
 
     ''' <summary>
@@ -263,32 +391,193 @@ Public Module TankSim
     ''' ends the run rather than lapping.
     ''' </summary>
     Public Function RunFrom(startId As Integer, Optional pick As Integer = 0) As List(Of Vector2)
+        Dim rawIds As List(Of Integer) = Nothing
+        Dim driveNodeIds As List(Of Integer) = Nothing
+        Return BuildRunFrom(startId, pick, rawIds, driveNodeIds)
+    End Function
+
+    ''' <summary>
+    ''' Walk the graph and preserve the ORIGINAL Ray Studio node IDs in the exact
+    ''' order chosen. It also builds a parallel id list for the subdivided drive
+    ''' waypoints: a real saved point carries its node id, while an inserted
+    ''' STEP_M point carries -1. That mapping is what lets TargetFor know which
+    ''' real path point was reached instead of losing identity in Subdivide().
+    ''' </summary>
+    Private Function BuildRunFrom(startId As Integer,
+                                  pick As Integer,
+                                  ByRef rawIds As List(Of Integer),
+                                  ByRef driveNodeIds As List(Of Integer)) As List(Of Vector2)
         Dim outp As New List(Of Vector2)
+        rawIds = New List(Of Integer)
         If Not nodes.ContainsKey(startId) Then Return outp
+
         Dim seen As New HashSet(Of Integer)
         Dim cur = startId, prev = -1, step_ = 0
+
         For guard = 0 To 4000
             If Not nodes.ContainsKey(cur) OrElse seen.Contains(cur) Then Exit For
+
             seen.Add(cur)
+            rawIds.Add(cur)
             outp.Add(New Vector2(nodes(cur).x, nodes(cur).z))
+
             Dim ways As New List(Of Integer)
             For Each n In adj(cur)
                 If n <> prev AndAlso Not seen.Contains(n) Then ways.Add(n)
             Next
             If ways.Count = 0 Then Exit For
-            ' Sorted, so the choice depends on the graph and not on the order a
-            ' dictionary happened to hand back its neighbours.
+
             ways.Sort()
             Dim take = 0
             If ways.Count > 1 Then
                 take = Math.Abs(pick + step_ * 7) Mod ways.Count
                 step_ += 1
             End If
+
             prev = cur
             cur = ways(take)
         Next
-        Return Subdivide(outp)
+
+        Return Subdivide(outp, rawIds, driveNodeIds)
     End Function
+
+    ''' <summary>
+    ''' Print one readable tank's ORIGINAL saved path once, exactly when it
+    ''' reaches its assigned start. These are Ray Studio graph nodes, not the
+    ''' synthetic STEP_M points inserted for driving.
+    ''' </summary>
+    Private Function DebugPathPointType(nodeId As Integer) As String
+        ' EXACTLY Ray Studio / PathEdit.kind():
+        '   degree >= 3 = fork
+        '   degree = 1  = end
+        '   degree = 2  = through
+        '   degree = 0  = loose
+        ' START is a separate saved flag and is printed separately.
+        If Not nodes.ContainsKey(nodeId) Then Return "missing"
+
+        Dim degree = DebugPathPointDegree(nodeId)
+        If degree >= 3 Then Return "fork"
+        If degree = 1 Then Return "end"
+        If degree = 2 Then Return "through"
+        Return "loose"
+    End Function
+
+    Private Function DebugPathPointDegree(nodeId As Integer) As Integer
+        Dim links As List(Of Integer) = Nothing
+        If adj.TryGetValue(nodeId, links) AndAlso links IsNot Nothing Then
+            Return links.Count
+        End If
+        Return 0
+    End Function
+
+    Private Sub DumpDebugTankPath(inst As TankInstance)
+        If inst Is Nothing OrElse debugTankDumped Then Return
+
+        Dim ids As List(Of Integer) = Nothing
+        If Not hullRunNodeIds.TryGetValue(inst, ids) Then
+            LogThis("tank sim: PATH DUMP ERROR - no raw path stored for tank " & inst.id)
+            Return
+        End If
+        If ids Is Nothing Then
+            LogThis("tank sim: PATH DUMP ERROR - raw path is NOTHING for tank " & inst.id)
+            Return
+        End If
+
+        debugTankDumped = True
+        LogThis("tank sim: ========== FIRST START PATH BEGIN ==========")
+
+        Dim startId = If(ids.Count > 0, ids(0), -1)
+        Dim endId = If(ids.Count > 0, ids(ids.Count - 1), -1)
+        LogThis("tank sim: FIRST START HIT: tank=" & inst.id &
+                " team=" & inst.team.ToString() &
+                " start=" & startId &
+                " end=" & endId &
+                " saved_points=" & ids.Count)
+        LogThis("tank sim: PATH IDS: " & String.Join(" -> ", ids))
+
+        For j = 0 To ids.Count - 1
+            Dim id = ids(j)
+            If Not nodes.ContainsKey(id) Then
+                LogThis("tank sim: PATH [" & j.ToString("000") &
+                        "] type=MISSING id=" & id)
+                Continue For
+            End If
+
+            Dim n = nodes(id)
+            Dim pointType = DebugPathPointType(id)
+            Dim degree = DebugPathPointDegree(id)
+
+            Dim chainRole As String = "middle"
+            If j = 0 Then chainRole = "first"
+            If j = ids.Count - 1 Then chainRole = If(j = 0, "first+last", "last")
+
+            LogThis("tank sim: PATH [" & j.ToString("000") & "]" &
+                    " id=" & id &
+                    " kind=" & pointType &
+                    " degree=" & degree &
+                    " start=" & n.isStart &
+                    " chain=" & chainRole &
+                    " x=" & n.x.ToString("0.0") &
+                    " z=" & n.z.ToString("0.0") &
+                    " team=" & n.team &
+                    " start_team=" & n.startTeam &
+                    " msg=[" & If(n.msg, "") & "]" &
+                    " note=[" & If(n.note, "") & "]" &
+                    " spd=[" & If(n.spd, "") & "]")
+        Next
+
+        LogThis("tank sim: ========== FIRST START PATH END ==========")
+    End Sub
+
+    ''' <summary>
+    ''' Output the REAL Ray Studio point that has just been reached. Synthetic
+    ''' subdivision waypoints never call this routine because their mapped id is
+    ''' -1. Node IDs are unique in BuildRunFrom (the walk keeps a seen set), so
+    ''' debugTankLastNodeId also prevents the final point from printing every
+    ''' frame after the tank stops there.
+    ''' </summary>
+    Private Sub LogReachedPathPoint(inst As TankInstance, nodeId As Integer)
+        If inst Is Nothing OrElse nodeId < 0 Then Return
+        If inst.id <> debugTankId Then Return
+        If nodeId = debugTankLastNodeId Then Return
+
+        debugTankLastNodeId = nodeId
+
+        If Not nodes.ContainsKey(nodeId) Then
+            LogThis("tank sim: REACHED POINT id=" & nodeId & " MISSING")
+            Return
+        End If
+
+        Dim n = nodes(nodeId)
+        Dim ids As List(Of Integer) = Nothing
+        Dim pathIndex = -1
+        Dim pathCount = 0
+        If hullRunNodeIds.TryGetValue(inst, ids) AndAlso ids IsNot Nothing Then
+            pathIndex = ids.IndexOf(nodeId)
+            pathCount = ids.Count
+        End If
+
+        Dim kind As String = ""
+        If pathIndex = 0 Then kind = " START"
+        If pathCount > 0 AndAlso pathIndex = pathCount - 1 Then kind &= " END"
+        Dim pointType = DebugPathPointType(nodeId)
+        Dim degree = DebugPathPointDegree(nodeId)
+
+        LogThis("tank sim: REACHED POINT" & kind &
+                " path=" & If(pathIndex >= 0, (pathIndex + 1).ToString(), "?") &
+                "/" & If(pathCount > 0, pathCount.ToString(), "?") &
+                " kind=" & pointType &
+                " degree=" & degree &
+                " id=" & nodeId &
+                " x=" & n.x.ToString("0.0") &
+                " z=" & n.z.ToString("0.0") &
+                " team=" & n.team &
+                " start=" & n.isStart &
+                " start_team=" & n.startTeam &
+                " msg=[" & If(n.msg, "") & "]" &
+                " note=[" & If(n.note, "") & "]" &
+                " spd=[" & If(n.spd, "") & "]")
+    End Sub
 
     ''' <summary>
     ''' Cut every long leg into steps, so a hull FOLLOWS the road instead of
@@ -309,20 +598,36 @@ Public Module TankSim
     ''' </summary>
     Public Const STEP_M As Single = 12.0F
 
-    Private Function Subdivide(pts As List(Of Vector2)) As List(Of Vector2)
-        If pts.Count < 2 Then Return pts
+    Private Function Subdivide(pts As List(Of Vector2),
+                               rawIds As List(Of Integer),
+                               ByRef driveNodeIds As List(Of Integer)) As List(Of Vector2)
+        driveNodeIds = New List(Of Integer)
+        If pts.Count = 0 Then Return pts
+
         Dim outp As New List(Of Vector2)(pts.Count * 2)
         outp.Add(pts(0))
+        driveNodeIds.Add(If(rawIds IsNot Nothing AndAlso rawIds.Count > 0, rawIds(0), -1))
+
+        If pts.Count < 2 Then Return outp
+
         For i = 0 To pts.Count - 2
             Dim a = pts(i), b = pts(i + 1)
             Dim d = (b - a).Length
             Dim steps = CInt(Math.Floor(d / STEP_M))
+
+            ' Inserted steering points are geometry only, not Ray Studio points.
             For k = 1 To steps
                 Dim f = CSng(k) / CSng(steps + 1)
                 outp.Add(New Vector2(a.X + (b.X - a.X) * f, a.Y + (b.Y - a.Y) * f))
+                driveNodeIds.Add(-1)
             Next
+
+            ' The end of each leg IS the next original Ray Studio node.
             outp.Add(b)
+            driveNodeIds.Add(If(rawIds IsNot Nothing AndAlso i + 1 < rawIds.Count,
+                                rawIds(i + 1), -1))
         Next
+
         Return outp
     End Function
 
@@ -358,23 +663,96 @@ Public Module TankSim
                 If best < 0 Then Return New Vector2(inst.position.X, inst.position.Z)
                 chosen = best
             End If
-            ' The hull's own hand at every fork - its id, so two tanks on one
-            ' start fan out down different roads and do it the same way twice.
-            run = RunFrom(chosen, inst.id * 3 + If(inst.team = TankTeam.Green, 0, 1))
+            Dim rawIds As List(Of Integer) = Nothing
+            Dim builtDriveNodeIds As List(Of Integer) = Nothing
+            Dim sideBit = If(inst.team = TankTeam.Green, 1, 2)
+            Dim roadPick = inst.id * 3 + If(inst.team = TankTeam.Green, 0, 1)
+
+            If savedRoadsValid Then
+                ' EXACT SAVED ROAD. Do not walk the merged graph and do not
+                ' choose at forks: Ray Studio already told us the node order.
+                run = BuildSavedRoad(chosen, sideBit, roadPick,
+                                     rawIds, builtDriveNodeIds)
+                If run.Count = 0 Then
+                    LogThis("tank sim: ERROR no saved team " & sideBit &
+                            " road begins at assigned start " & chosen &
+                            " for tank " & inst.id)
+                End If
+            Else
+                ' OLD FILE COMPATIBILITY ONLY. This can choose a wrong branch.
+                run = BuildRunFrom(chosen, roadPick, rawIds, builtDriveNodeIds)
+            End If
             hullRun(inst) = run
+            hullRunNodeIds(inst) = rawIds
+            hullRunNodeAt(inst) = builtDriveNodeIds
             atOf(inst) = 0
         End If
         If run.Count = 0 Then Return New Vector2(inst.position.X, inst.position.Z)
 
         Dim i = atOf(inst)
         Dim here As New Vector2(inst.position.X, inst.position.Z)
-        ' ADVANCE ON ARRIVAL, one waypoint a frame at most. Skipping ahead to
-        ' the furthest reached point would let a hull cut a corner it never
-        ' drove, and the path drawn behind it would be a lie.
-        If i < run.Count - 1 AndAlso (run(i) - here).Length < WAYPOINT_M Then
-            atOf(inst) = i + 1
-            i += 1
+
+        ' WALK THE IDENTITY FIRST. The arrival radius depends on WHAT this drive
+        ' point is. Synthetic STEP_M points are -1; real Ray Studio points keep
+        ' their node id all the way from BuildRunFrom to here.
+        Dim driveNodeIds As List(Of Integer) = Nothing
+        Dim reachedNodeId As Integer = -1
+        If hullRunNodeAt.TryGetValue(inst, driveNodeIds) AndAlso
+           driveNodeIds IsNot Nothing AndAlso i < driveNodeIds.Count Then
+            reachedNodeId = driveNodeIds(i)
         End If
+
+        Dim currentIsStart As Boolean =
+            reachedNodeId >= 0 AndAlso
+            nodes.ContainsKey(reachedNodeId) AndAlso
+            nodes(reachedNodeId).isStart
+
+        ' Ordinary road points keep the forgiving 8 m ring. A real START uses
+        ' the tight centre-to-point radius, otherwise the sim can register the
+        ' start up to eight metres away and falsely look as though it hit the point.
+        Dim reachM As Single = If(currentIsStart, START_REACH_M, WAYPOINT_M)
+        Dim reached As Boolean =
+            i < run.Count AndAlso (run(i) - here).Length < reachM
+
+        If reached Then
+            ' AUTHORITATIVE START-ARRIVAL EVENT.
+            ' The first tank to reach any real Ray Studio node marked start=True
+            ' becomes the debug tank. Dump its entire saved road once, then let
+            ' normal waypoint advancement continue without pausing the simulation.
+            ' Do not assume that means a global start 0 or depend on drive index 0.
+            If reachedNodeId >= 0 AndAlso
+               nodes.ContainsKey(reachedNodeId) AndAlso
+               nodes(reachedNodeId).isStart AndAlso
+               debugTankId < 0 Then
+
+                debugTankId = inst.id
+
+                ' Dump HERE, on the exact first START hit, through the same visible
+                ' tank sim: console path. This is diagnostic only: reaching the start
+                ' no longer pauses or holds the tank.
+                LogThis("tank sim: REACHED START: id=" & inst.id &
+                        " team=" & inst.team.ToString() &
+                        " node=" & reachedNodeId)
+                DumpDebugTankPath(inst)
+            End If
+
+            ' Point output comes from the SAME reached event and the SAME preserved
+            ' Ray Studio node identity. Synthetic subdivision points stay silent.
+            If inst.id = debugTankId Then
+                If reachedNodeId >= 0 Then
+                    LogReachedPathPoint(inst, reachedNodeId)
+                ElseIf driveNodeIds Is Nothing Then
+                    LogThis("tank sim: PATH DUMP ERROR - no drive-to-node map for tank " & inst.id)
+                End If
+            End If
+
+            ' Advance one point only when another point actually exists.
+            If i < run.Count - 1 Then
+                atOf(inst) = i + 1
+                i += 1
+            End If
+        End If
+
         Return run(i)
     End Function
 
@@ -400,6 +778,7 @@ Public Module TankSim
     Public frame As Integer = 0
 
     Private ReadOnly hitsOf As New Dictionary(Of TankInstance, Boolean())
+    Private ReadOnly hitDistOf As New Dictionary(Of TankInstance, Single())
     Private ReadOnly hitFrame As New Dictionary(Of TankInstance, Integer)
 
     ''' <summary>
@@ -421,50 +800,115 @@ Public Module TankSim
         End If
 
         Dim hits(RAY_COUNT - 1) As Boolean
+        Dim hitDist(RAY_COUNT - 1) As Single
+        For i = 0 To RAY_COUNT - 1
+            hitDist(i) = Single.MaxValue
+        Next
+
         Dim rays = HullRays(inst)
         If others IsNot Nothing Then
             For i = 0 To Math.Min(RAY_COUNT, rays.Count) - 1
                 Dim o = rays(i).Item1, d = rays(i).Item2
                 Dim reach = RayLen(i)
+
                 For Each t In others
                     If t Is inst OrElse t Is Nothing Then Continue For
-                    ' Closest approach of the segment to the other hull's centre.
+
+                    ' Project the other hull centre onto this ray.
                     Dim cx = t.position.X - o.X
                     Dim cz = t.position.Z - o.Y
                     Dim along = cx * d.X + cz * d.Y
-                    If along < 0.0F Then along = 0.0F
-                    If along > reach Then along = reach
-                    Dim px = o.X + d.X * along - t.position.X
-                    Dim pz = o.Y + d.Y * along - t.position.Z
-                    If px * px + pz * pz <= OTHER_R * OTHER_R Then
-                        hits(i) = True
-                        Exit For
-                    End If
+
+                    ' A centre entirely behind the ray origin cannot be hit by
+                    ' this outward-looking ray unless its disc overlaps origin.
+                    Dim centre2 = cx * cx + cz * cz
+                    Dim perp2 = centre2 - along * along
+                    Dim r2 = OTHER_R * OTHER_R
+                    If perp2 > r2 Then Continue For
+
+                    ' Distance to the NEAR edge of the other hull's avoidance
+                    ' disc, not merely distance to its centre projection.
+                    Dim halfChord = CSng(Math.Sqrt(Math.Max(0.0F, r2 - perp2)))
+                    Dim enter = along - halfChord
+                    Dim leave = along + halfChord
+
+                    ' The disc misses the finite forward ray segment.
+                    If leave < 0.0F OrElse enter > reach Then Continue For
+
+                    If enter < 0.0F Then enter = 0.0F
+
+                    hits(i) = True
+                    If enter < hitDist(i) Then hitDist(i) = enter
                 Next
             Next
         End If
+
         hitsOf(inst) = hits
+        hitDistOf(inst) = hitDist
         hitFrame(inst) = frame
         Return hits
+    End Function
+
+    ''' <summary>
+    ''' Distance from each ray origin to the first hull it actually hits.
+    ''' Single.MaxValue means no hit. RayHits is called first so the Boolean
+    ''' drawing data and the distances are always from the same frame/cast.
+    ''' </summary>
+    Public Function RayHitDistances(inst As TankInstance,
+                                    others As List(Of TankInstance)) As Single()
+        RayHits(inst, others)
+
+        Dim d As Single() = Nothing
+        If hitDistOf.TryGetValue(inst, d) Then Return d
+
+        Dim none(RAY_COUNT - 1) As Single
+        For i = 0 To RAY_COUNT - 1
+            none(i) = Single.MaxValue
+        Next
+        Return none
     End Function
 
     ''' <summary>Is anything in front of this hull, by the rays that look
     ''' forward. This is what the go-around asks.</summary>
     Public Function BlockedAhead(inst As TankInstance,
                                  others As List(Of TankInstance)) As Boolean
-        Dim h = RayHits(inst, others)
-        For Each i In FORWARD_RAYS
-            If h(i) Then Return True
-        Next
+        Dim dist = RayHitDistances(inst, others)
+
+        ' Straight ahead: stop only when the other hull is close enough to
+        ' interfere with forward travel. A hit 15-20 m away is warning, not a
+        ' reason to freeze now.
+        If dist(R_FRONT) <= FRONT_STOP_M Then Return True
+
+        ' Front-corner rays look diagonally outward. They should stop straight
+        ' travel only for a very near hull that is entering the swept corner.
+        ' A distant side hit is not in this tank's path.
+        If dist(R_FL) <= CORNER_STOP_M Then Return True
+        If dist(R_FR) <= CORNER_STOP_M Then Return True
+
         Return False
     End Function
 
     ''' <summary>Is the ground this hull would swing into already taken - the
     ''' right side, by the rays that look that way.</summary>
     Public Function RightIsClear(inst As TankInstance,
-                                 others As List(Of TankInstance)) As Boolean
+                                 others As List(Of TankInstance),
+                                 nav As TankNav) As Boolean
         Dim h = RayHits(inst, others)
-        Return Not (h(R_RIGHT) OrElse h(R_FR))
+        Dim rays = HullRays(inst)
+
+        If h(R_RIGHT) OrElse h(R_FR) Then Return False
+
+        If R_RIGHT < rays.Count Then
+            Dim o = rays(R_RIGHT).Item1, d = rays(R_RIGHT).Item2
+            If RayHitsNav(nav, o, d, RayLen(R_RIGHT)) Then Return False
+        End If
+
+        If R_FR < rays.Count Then
+            Dim o = rays(R_FR).Item1, d = rays(R_FR).Item2
+            If RayHitsNav(nav, o, d, RayLen(R_FR)) Then Return False
+        End If
+
+        Return True
     End Function
 
     ''' <summary>Is something up against the back of this hull.
@@ -500,16 +944,88 @@ Public Module TankSim
 
     Public Function ClearWay(inst As TankInstance,
                              others As List(Of TankInstance),
+                             nav As TankNav,
                              ByRef target As Vector2) As Boolean
         Dim h = RayHits(inst, others)
         Dim rays = HullRays(inst)
+
         For Each i In WAY_OUT
             If i >= rays.Count OrElse h(i) Then Continue For
+
             Dim o = rays(i).Item1, d = rays(i).Item2
-            target = o + d * RayLen(i)
+            Dim reach = RayLen(i)
+
+            ' A ray that crosses the baked no-go map is NOT a way out.
+            ' This is the same cell test used by the yellow diagnostic ray.
+            If RayHitsNav(nav, o, d, reach) Then Continue For
+
+            target = o + d * reach
             Return True
         Next
+
         Return False
+    End Function
+
+    ''' <summary>
+    ''' Does this finite ray cross the authoritative baked TankNav no-go map?
+    '''
+    ''' Sample at half a nav cell so a one-cell blocker cannot be stepped over.
+    ''' The first sample is beyond the hull-edge ray origin, matching the visual
+    ''' yellow-ray diagnostic rather than treating the current hull cell as a hit.
+    ''' </summary>
+    Private Function RayHitsNav(nav As TankNav,
+                                o As Vector2,
+                                d As Vector2,
+                                reach As Single) As Boolean
+        If nav Is Nothing OrElse Not nav.ready Then Return False
+
+        Dim stepM = Math.Max(0.25F, nav.cell_m * 0.5F)
+        Dim steps = Math.Max(1, CInt(Math.Ceiling(reach / stepM)))
+
+        For s = 1 To steps
+            Dim dist = Math.Min(reach, CSng(s) * stepM)
+            Dim q = o + d * dist
+
+            Dim cx As Integer, cz As Integer
+            nav.CellOf(q.X, q.Y, cx, cz)
+
+            If Not nav.InBounds(cx, cz) Then Return True
+
+            Dim flags = nav.cell(cz * TankNav.SIZE + cx)
+            If (flags And TankNav.IMPASSABLE) <> 0 Then Return True
+        Next
+
+        Return False
+    End Function
+
+    ''' <summary>
+    ''' Combined blocker state for all eight hull rays.
+    '''
+    ''' True means that ray is unusable because it hits either another tank or
+    ''' the authoritative baked TankNav no-go map. TankDrive uses this for the
+    ''' left/right truth table.
+    ''' </summary>
+    Public Function RayBlockers(inst As TankInstance,
+                                others As List(Of TankInstance),
+                                nav As TankNav) As Boolean()
+        Dim blocked(RAY_COUNT - 1) As Boolean
+        Dim tankHits = RayHits(inst, others)
+        Dim rays = HullRays(inst)
+
+        For i = 0 To RAY_COUNT - 1
+            If i < tankHits.Length AndAlso tankHits(i) Then
+                blocked(i) = True
+                Continue For
+            End If
+
+            If i >= rays.Count Then Continue For
+
+            Dim o = rays(i).Item1
+            Dim d = rays(i).Item2
+            blocked(i) = RayHitsNav(nav, o, d, RayLen(i))
+        Next
+
+        Return blocked
     End Function
 
     ''' <summary>Every line in the file, as two world points and the team
@@ -683,9 +1199,15 @@ Public Module TankSim
     Public Sub Reroll()
         hullRun.Clear()
         atOf.Clear()
+        hullRunNodeIds.Clear()
+        hullRunNodeAt.Clear()
         assigned.Clear()
         hitsOf.Clear()
+        hitDistOf.Clear()
         hitFrame.Clear()
+        debugTankId = -1
+        debugTankDumped = False
+        debugTankLastNodeId = -1
     End Sub
 
     ''' <summary>

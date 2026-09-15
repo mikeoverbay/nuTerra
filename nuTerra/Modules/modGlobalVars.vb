@@ -7,6 +7,7 @@ Module modGlobalVars
     Public BG_MAX_VALUE As Integer
     Public BG_VALUE As Integer
     Public BG_TEXT As String
+    Public NAVMAP_Visable As Boolean = True
 
     ' VT params
     ' Overlay showing the baked sun depth map, for checking the sun camera

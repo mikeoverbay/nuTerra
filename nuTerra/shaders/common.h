@@ -37,6 +37,25 @@
 // tonemapping it - GFLAG_UNLIT would skip those too.
 #define GFLAG_GLOW    ( 36.0 / 255.0)   //  32 | KIND_MODEL
 
+// A TANK. Unlit like GFLAG_UNLIT - the tank shades itself - but SAYING SO.
+//
+// The whole value is in which bits it uses. KIND_MODEL is 4, and 4 & 248 is
+// ZERO, so this sits entirely OUTSIDE GBUF_RENDER_MASK: every existing test
+// (FLAG & 248, FLAG & 192, GBUF_RENDER) sees exactly what it saw when the tank
+// wrote 0, and the tank stays in the unlit passthrough where it belongs.
+//
+// What it buys is the one thing GFLAG_UNLIT could not give. A shadow term for
+// tanks was tried in that passthrough on 2026-09-12 and reverted, because the
+// branch is not "the tanks" - it is every pixel whose flag is zero, and the SUN
+// BILLBOARD writes gColor and nothing else, so it arrives with a flag nobody
+// set. GFLAG_UNLIT is the ABSENCE of a mark and cannot be told from one.
+//
+// This is a mark made BY COMMISSION. A pixel reading KIND_MODEL with no render
+// bits was written by a tank; a pixel reading 0 was written by nothing. That
+// holds however the billboard's flag comes to be zero, which is the part of the
+// original failure nobody fully explained.
+#define GFLAG_TANK    (  4.0 / 255.0)   //   0 | KIND_MODEL - unlit, and a model
+
 // Decode gGMF.b. Compare the render bits, never the raw byte - the low 3 bits
 // now carry the surface kind, so an == 64 test no longer matches a model.
 #define GBUF_RENDER(b)      (uint((b) * 255.0 + 0.5) & 192u)
