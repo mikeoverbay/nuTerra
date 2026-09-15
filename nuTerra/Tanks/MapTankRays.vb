@@ -87,6 +87,7 @@ Public Class MapTankRays
     Private Const NAV_LINE_PX As Single = 1.2F          ' in-game nav outline
     Private Const NAV_LIFT_M As Single = 0.35F          ' above terrain
     Private Const HEIGHT_LINE_PX As Single = 2.0F       ' raw bake height markers
+    Private Const HIT_SQUARE_HALF_M As Single = 0.28F    ' tiny world-space hit marker
 
     ''' <summary>
     ''' Blank the few metres nearest the eye. Standing beside a hull, its own ray
@@ -163,8 +164,18 @@ Public Class MapTankRays
                 If t Is Nothing Then Continue For
                 rayHulls += 1
             Next
-            want += rayHulls * TankSim.RAY_COUNT * 2
+            ' 2 vertices for the ray + up to 8 for a square hit marker.
+            want += rayHulls * TankSim.RAY_COUNT * 10
         End If
+
+        ' Terrain-recovery brain scan: 36 rays, each with a nav hit square.
+        ' Drawn even while the sim is paused, because that pause exists so this
+        ' exact decision can be inspected.
+        For Each t In live
+            If t Is Nothing OrElse Not t.drive.brainScanVisible Then Continue For
+            want += t.drive.brainScanRays.Count * 10
+        Next
+
         ' The whole graph from the file, plus the run each hull is on over it.
         If TankSim.SIM_SHOW_PATHS Then
             want += TankSim.lines.Count * 2 + TankSim.startPts.Count * 8
@@ -298,16 +309,10 @@ Public Class MapTankRays
         End If
 
         ' ---- the avoidance rays ------------------------------------------
-        ' Drawn for every hull, driving or not: a tank that has stopped is
-        ' exactly the one whose neighbours matter, and drawing only the moving
-        ' ones would hide the jam being diagnosed.
+        ' Drawn for every hull, driving or not. A tiny world-space square marks
+        ' the ACTUAL FIRST hit point: red = tank, yellow = nav/terrain. If both
+        ' are on one ray, distance decides which one the sensor encountered first.
         If TankSim.SIM_SHOW_RAYS Then
-            ' COLOUR IS DIAGNOSTIC:
-            '   pale blue = clear
-            '   red       = another tank
-            '   yellow    = baked/nav-map impassable ground/scenery/off-map
-            '
-            ' Map colours are display-only. They do NOT feed back into TankDrive.
             Dim clearC As New Vector4(0.55F, 0.85F, 1.0F, 0.5F)
             Dim tankHitC As New Vector4(1.0F, 0.25F, 0.2F, 1.0F)
             Dim mapHitC As New Vector4(1.0F, 1.0F, 0.0F, 1.0F)
@@ -316,28 +321,55 @@ Public Class MapTankRays
                 If t Is Nothing Then Continue For
 
                 Dim ry = ground(t.position.X, t.position.Z) + 0.35F
-                Dim tankHits = TankSim.RayHits(t, live)
+                Dim tankDist = TankSim.RayHitDistances(t, live)
                 Dim hullR = TankSim.HullRays(t)
-                Dim mapHits = ray_map_hits(nav, hullR)
+                Dim mapDist = ray_map_hit_distances(nav, hullR)
 
                 For i = 0 To hullR.Count - 1
                     Dim o = hullR(i).Item1, d = hullR(i).Item2
+                    Dim reach = TankSim.RayLen(i)
+                    Dim td = If(i < tankDist.Length, tankDist(i), Single.MaxValue)
+                    Dim md = If(i < mapDist.Length, mapDist(i), Single.MaxValue)
 
-                    Dim cc As Vector4
-                    If i < mapHits.Length AndAlso mapHits(i) Then
-                        cc = mapHitC
-                    ElseIf i < tankHits.Length AndAlso tankHits(i) Then
-                        cc = tankHitC
-                    Else
-                        cc = clearC
+                    Dim hitD = Math.Min(td, md)
+                    Dim cc = clearC
+                    If hitD < Single.MaxValue Then
+                        cc = If(td < md, tankHitC, mapHitC)
                     End If
 
-                    Dim reach = TankSim.RayLen(i)
                     n = put(n, o.X, ry, o.Y, cc)
                     n = put(n, o.X + d.X * reach, ry, o.Y + d.Y * reach, cc)
+
+                    If hitD < Single.MaxValue Then
+                        Dim hp = o + d * hitD
+                        n = put_square(n, hp, cc)
+                    End If
                 Next
             Next
         End If
+
+        ' ---- terrain brain scan ------------------------------------------
+        ' The brain stores the exact 10-degree sweep that selected its escape
+        ' heading. Every endpoint is a static-nav hit: yellow squares normally,
+        ' green for the winning longest ray. The winner's ray is green too.
+        Dim scanC As New Vector4(0.42F, 0.82F, 1.0F, 0.65F)
+        Dim scanHitC As New Vector4(1.0F, 1.0F, 0.0F, 1.0F)
+        Dim winnerC As New Vector4(0.2F, 1.0F, 0.25F, 1.0F)
+
+        For Each t In live
+            If t Is Nothing OrElse Not t.drive.brainScanVisible Then Continue For
+
+            For Each sr In t.drive.brainScanRays
+                Dim rc = If(sr.isWinner, winnerC, scanC)
+                Dim hc = If(sr.isWinner, winnerC, scanHitC)
+                Dim y0 = ground(sr.origin.X, sr.origin.Y) + 0.5F
+                Dim y1 = ground(sr.hit.X, sr.hit.Y) + 0.5F
+
+                n = put(n, sr.origin.X, y0, sr.origin.Y, rc)
+                n = put(n, sr.hit.X, y1, sr.hit.Y, rc)
+                n = put_square(n, sr.hit, hc)
+            Next
+        Next
 
         Dim vcount = n \ FLOATS_PER_VERT
         If vcount = 0 AndAlso
@@ -726,11 +758,20 @@ Public Class MapTankRays
     ''' VISUAL ONLY: mark every avoidance ray that crosses an impassable TankNav
     ''' cell. The nav now comes only from the baked static no-go map.
     ''' </summary>
-    Private Shared Function ray_map_hits(
+    ''' <summary>
+    ''' VISUAL ONLY: distance to the first impassable TankNav cell on each of
+    ''' the normal eight avoidance rays. Single.MaxValue means no nav hit inside
+    ''' that ray's finite reach. This is paired with TankSim.RayHitDistances so
+    ''' the renderer can mark whichever hit - tank or terrain - happened first.
+    ''' </summary>
+    Private Shared Function ray_map_hit_distances(
         nav As TankNav,
-        hullR As List(Of ValueTuple(Of Vector2, Vector2))) As Boolean()
+        hullR As List(Of ValueTuple(Of Vector2, Vector2))) As Single()
 
-        Dim hit(TankSim.RAY_COUNT - 1) As Boolean
+        Dim hit(TankSim.RAY_COUNT - 1) As Single
+        For i = 0 To hit.Length - 1
+            hit(i) = Single.MaxValue
+        Next
         If nav Is Nothing OrElse Not nav.ready OrElse hullR Is Nothing Then Return hit
 
         Dim stepM = Math.Max(0.25F, nav.cell_m * 0.5F)
@@ -749,13 +790,13 @@ Public Class MapTankRays
                 nav.CellOf(q.X, q.Y, cx, cz)
 
                 If Not nav.InBounds(cx, cz) Then
-                    hit(i) = True
+                    hit(i) = dist
                     Exit For
                 End If
 
                 Dim flags = nav.cell(cz * TankNav.SIZE + cx)
                 If (flags And TankNav.IMPASSABLE) <> 0 Then
-                    hit(i) = True
+                    hit(i) = dist
                     Exit For
                 End If
             Next
@@ -776,6 +817,21 @@ Public Class MapTankRays
 
     Private Function ground(x As Single, z As Single) As Single
         Return get_Y_at_XZ_fast(x, z) + LIFT_M
+    End Function
+
+    Private Function put_square(n As Integer, p As Vector2, c As Vector4) As Integer
+        Dim h = HIT_SQUARE_HALF_M
+        Dim y = ground(p.X, p.Y) + 0.55F
+
+        n = put(n, p.X - h, y, p.Y - h, c)
+        n = put(n, p.X + h, y, p.Y - h, c)
+        n = put(n, p.X + h, y, p.Y - h, c)
+        n = put(n, p.X + h, y, p.Y + h, c)
+        n = put(n, p.X + h, y, p.Y + h, c)
+        n = put(n, p.X - h, y, p.Y + h, c)
+        n = put(n, p.X - h, y, p.Y + h, c)
+        n = put(n, p.X - h, y, p.Y - h, c)
+        Return n
     End Function
 
     Private Function put(n As Integer, x As Single, y As Single, z As Single,

@@ -18,6 +18,25 @@ Public Enum StopWhy
 End Enum
 
 ''' <summary>
+''' The tank's own driving brain. Terrain recovery is a state transition, not
+''' a one-frame steering trick: after two failed static attempts the hull scans,
+''' optionally backs out, turns to the best escape ray, then returns to Forward.
+''' </summary>
+Public Enum TankBrainState
+    Forward = 0
+    TerrainScan = 1
+    TerrainReverse = 2
+    TerrainTurn = 3
+End Enum
+
+Public Structure TankBrainScanRay
+    Public origin As Vector2
+    Public hit As Vector2
+    Public distanceM As Single
+    Public isWinner As Boolean
+End Structure
+
+''' <summary>
 ''' One tank's driving: where it is going, how fast, and what it does when the
 ''' way is shut.
 '''
@@ -154,6 +173,345 @@ Public Class TankDrive
     ''' about which of four quite different causes to go and fix.</summary>
     Public stopReason As StopWhy
 
+    ' TWO STATIC ATTEMPTS THE SAME WAY MEANS THAT WAY IS NOT WORKING.
+    ' This is per TankDrive/per hull. Traffic never counts; it resets the streak.
+    ' On the second matching terrain attempt the brain enters its recovery state
+    ' machine instead of freezing the tank.
+    Public Const SAME_WAY_ATTEMPT_LIMIT As Integer = 2
+    Public attemptCount As Integer = 0
+    Public brainState As TankBrainState = TankBrainState.Forward
+
+    Private lastAttemptDir As Integer = 99       ' +1 right, -1 left, 0 reverse
+    Private lastAttemptTarget As Vector2
+    Private haveLastAttempt As Boolean = False
+    Private lastAttemptReason As String = ""
+    Private attemptEpochSeen As Integer = -1
+
+    ' TERRAIN ESCAPE BRAIN. Scan only the forward 90-degree fan, from
+    ' -45 through +45 degrees relative to the hull heading, in ten-degree steps.
+    ' The heading whose ray stays clear farthest is remembered
+    ' while the tank backs and turns; it is not recomputed every frame.
+    Private Const ESCAPE_SWEEP_MIN_DEG As Integer = -45
+    Private Const ESCAPE_SWEEP_MAX_DEG As Integer = 45
+    Private Const ESCAPE_SWEEP_STEP_DEG As Integer = 10
+    Private Const DEG_TO_RAD As Single = 0.0174532925F
+    Private Const ESCAPE_TURN_EPS_RAD As Single = 0.034906585F    ' 2 degrees
+    Private Const ESCAPE_BACK_M As Single = 4.5F
+    Private escapeHeading As Single = 0.0F
+    Private escapeRayM As Single = 0.0F
+    Private escapeBackRemainingM As Single = 0.0F
+
+    ' Visible copy of the last 10-degree terrain scan. The renderer reads this
+    ' directly from the tank's brain, so the picture is the exact scan that made
+    ' the decision rather than a second diagnostic scan that could disagree.
+    Public ReadOnly brainScanRays As New List(Of TankBrainScanRay)
+    Private _brainScanVisible As Boolean = False
+
+    ' REROLL INVALIDATES THE OLD BRAIN IMMEDIATELY. Advance also checks this
+    ' epoch, but Reset Sim stops driving before it calls Reroll; without this
+    ' guard the renderer could keep showing the previous recovery fan until the
+    ' next run. The first read after the epoch changes clears the stale scan and
+    ' restores the brain to Forward.
+    Public ReadOnly Property brainScanVisible As Boolean
+        Get
+            If attemptEpochSeen <> TankSim.ATTEMPT_EPOCH Then
+                ResetAttemptMemory()
+                attemptEpochSeen = TankSim.ATTEMPT_EPOCH
+            End If
+            Return _brainScanVisible
+        End Get
+    End Property
+
+    Private Sub ResetAttemptStreak()
+        attemptCount = 0
+        lastAttemptDir = 99
+        lastAttemptTarget = Vector2.Zero
+        haveLastAttempt = False
+        lastAttemptReason = ""
+    End Sub
+
+    Private Sub ResetAttemptMemory()
+        ResetAttemptStreak()
+        brainState = TankBrainState.Forward
+        escapeHeading = 0.0F
+        escapeRayM = 0.0F
+        escapeBackRemainingM = 0.0F
+        brainScanRays.Clear()
+        _brainScanVisible = False
+    End Sub
+
+    ''' <summary>
+    ''' Another tank is temporary traffic, not proof that this route direction
+    ''' failed. Break the consecutive static-obstacle streak immediately. Log
+    ''' only when there was a streak to clear so a traffic jam does not print
+    ''' sixty reset lines a second. This does NOT cancel an already-armed terrain
+    ''' escape state; it only clears the retry memory.
+    ''' </summary>
+    Private Sub ResetAttemptsForTraffic(inst As TankInstance)
+        If attemptCount > 0 OrElse haveLastAttempt Then
+            LogThis("tank ai: ATTEMPT RESET tank={0} team={1} count={2} blocker=TANK",
+                    inst.id, inst.team.ToString(), attemptCount)
+        End If
+        ResetAttemptStreak()
+    End Sub
+
+    ''' <summary>
+    ''' Record ONE committed STATIC recovery, not one blocked frame. Consecutive
+    ''' means the same SIM waypoint and the same direction. The second matching
+    ''' attempt arms the terrain-escape brain; the caller returns immediately and
+    ''' TerrainScan runs on the next Advance with the authoritative nav grid.
+    ''' </summary>
+    Private Function RegisterRecoveryAttempt(inst As TankInstance,
+                                             dir As Integer,
+                                             ring As Integer,
+                                             reason As String) As Boolean
+        If Not TankSim.SIM_RUN Then Return False
+
+        Dim target = If(hasSimTarget, simTarget, goal)
+        Dim sameTarget = haveLastAttempt AndAlso
+                         (target - lastAttemptTarget).Length <= 0.5F
+        Dim sameWay = sameTarget AndAlso lastAttemptDir = dir
+
+        If sameWay Then
+            attemptCount += 1
+        Else
+            attemptCount = 1
+        End If
+
+        lastAttemptDir = dir
+        lastAttemptTarget = target
+        lastAttemptReason = reason
+        haveLastAttempt = True
+
+        If attemptCount < SAME_WAY_ATTEMPT_LIMIT Then Return False
+
+        brainState = TankBrainState.TerrainScan
+        speed = 0.0F
+        reverseS = 0.0F
+        passS = 0.0F
+        skirtS = 0.0F
+        skirtSide = 0
+
+        Dim way = If(dir > 0, "RIGHT", If(dir < 0, "LEFT", "REVERSE"))
+        LogThis("tank ai: TERRAIN ESCAPE ARMED tank={0} team={1} count={2} way={3} ring={4} reason={5} target=({6:0.0},{7:0.0})",
+                inst.id, inst.team.ToString(), attemptCount, way, ring, reason,
+                target.X, target.Y)
+        Return True
+    End Function
+
+    ''' <summary>
+    ''' How far a sensor ray travels before it hits an impassable nav square.
+    ''' No arbitrary local range is used:
+    ''' the ray may cross the whole nav grid, and OFFMAP eventually ends it.
+    ''' </summary>
+    Private Shared Function NavRayDistance(nav As TankNav,
+                                           pos As Vector2,
+                                           heading As Single) As Single
+        If nav Is Nothing OrElse Not nav.ready Then Return 0.0F
+
+        Dim d As New Vector2(CSng(Math.Sin(heading)), CSng(Math.Cos(heading)))
+        Dim stepM = Math.Max(0.25F, nav.cell_m * 0.5F)
+        Dim maxM = nav.cell_m * TankNav.SIZE * 1.5F
+        Dim dist = stepM
+
+        ' THIS IS A SENSOR RAY, NOT A HULL-FIT TEST. Read the nav square itself.
+        ' If we use CanStand(..., HULL_R) here, a tank already tight to a wall can
+        ' report every direction blocked at zero because its 4.5 m footprint still
+        ' overlaps that wall. The ray asks where the static obstruction actually is.
+        While dist <= maxM
+            Dim q = pos + d * dist
+            Dim cx As Integer, cz As Integer
+            nav.CellOf(q.X, q.Y, cx, cz)
+
+            If Not nav.InBounds(cx, cz) Then Return dist
+
+            Dim flags = nav.cell(cz * TankNav.SIZE + cx)
+            If (flags And TankNav.IMPASSABLE) <> 0 Then Return dist
+
+            dist += stepM
+        End While
+
+        Return maxM
+    End Function
+
+    ''' <summary>
+    ''' Run a non-Forward brain state. True means the recovery state owns this
+    ''' frame and normal path/traffic steering must not run underneath it.
+    ''' </summary>
+    Private Function RunBrainState(inst As TankInstance,
+                                   nav As TankNav,
+                                   others As List(Of TankInstance),
+                                   pos As Vector2,
+                                   dt As Single) As Boolean
+        Select Case brainState
+            Case TankBrainState.Forward
+                Return False
+
+            Case TankBrainState.TerrainScan
+                speed = 0.0F
+                reverseS = 0.0F
+                passS = 0.0F
+                skirtS = 0.0F
+                skirtSide = 0
+                stopReason = StopWhy.Ground
+
+                Dim bestM As Single = -1.0F
+                Dim bestOffset As Integer = 0
+                Dim bestIndex As Integer = -1
+                brainScanRays.Clear()
+
+                ' FORWARD FAN ONLY. -45 through +45 relative to the current
+                ' hull heading, ten degrees at a time. Store the exact ray and
+                ' first nav-hit point the brain saw so the renderer shows the
+                ' same decision the brain made.
+                For offsetDeg = ESCAPE_SWEEP_MIN_DEG To ESCAPE_SWEEP_MAX_DEG Step ESCAPE_SWEEP_STEP_DEG
+                    Dim h = WrapPi(inst.headingRad + offsetDeg * DEG_TO_RAD)
+                    Dim rayM = NavRayDistance(nav, pos, h)
+                    Dim d As New Vector2(CSng(Math.Sin(h)), CSng(Math.Cos(h)))
+                    Dim q = pos + d * rayM
+
+                    brainScanRays.Add(New TankBrainScanRay With {
+                        .origin = pos,
+                        .hit = q,
+                        .distanceM = rayM,
+                        .isWinner = False
+                    })
+
+                    If rayM > bestM + 0.001F OrElse
+                       (Math.Abs(rayM - bestM) <= 0.001F AndAlso
+                        Math.Abs(offsetDeg) < Math.Abs(bestOffset)) Then
+                        bestM = rayM
+                        bestOffset = offsetDeg
+                        bestIndex = brainScanRays.Count - 1
+                        escapeHeading = h
+                    End If
+                Next
+
+                If bestIndex >= 0 Then
+                    Dim winner = brainScanRays(bestIndex)
+                    winner.isWinner = True
+                    brainScanRays(bestIndex) = winner
+                End If
+                _brainScanVisible = (brainScanRays.Count > 0)
+                escapeRayM = Math.Max(0.0F, bestM)
+
+                ' Check the whole backup segment against static ground and the
+                ' rear tank rays. If either is blocked, skip Reverse and turn in
+                ' place; otherwise back one hull radius before turning.
+                Dim scanBack As New Vector2(-CSng(Math.Sin(inst.headingRad)),
+                                            -CSng(Math.Cos(inst.headingRad)))
+                Dim backTarget = pos + scanBack * ESCAPE_BACK_M
+                Dim rearTraffic = TankSim.SIM_RUN AndAlso TankSim.RearBlocked(inst, others)
+                Dim rearGround = Not NavSegmentClear(nav, pos, backTarget, TankDriveTune.HULL_R)
+
+                If Not rearTraffic AndAlso Not rearGround Then
+                    escapeBackRemainingM = ESCAPE_BACK_M
+                    brainState = TankBrainState.TerrainReverse
+                Else
+                    escapeBackRemainingM = 0.0F
+                    If rearTraffic Then ResetAttemptsForTraffic(inst)
+                    brainState = TankBrainState.TerrainTurn
+                End If
+
+                LogThis("tank ai: TERRAIN SCAN tank={0} team={1} bestOffset={2}deg clear={3:0.0}m back={4}",
+                        inst.id, inst.team.ToString(), bestOffset, escapeRayM,
+                        If(brainState = TankBrainState.TerrainReverse, "YES", "NO"))
+
+                ' NO DIAGNOSTIC PAUSE. The scan is retained for drawing while
+                ' this recovery runs, then cleared when the turn completes or the
+                ' SIM is reset. Continue directly into reverse/turn on later frames.
+                Return True
+
+            Case TankBrainState.TerrainReverse
+                stopReason = StopWhy.Reversing
+                speed = 0.0F
+                reverseS = 0.0F
+                passS = 0.0F
+                skirtS = 0.0F
+                skirtSide = 0
+
+                If escapeBackRemainingM <= 0.001F Then
+                    brainState = TankBrainState.TerrainTurn
+                    Return True
+                End If
+
+                ' Re-check every reverse step. A tank can move behind us after
+                ' the scan, and dynamic traffic must never be backed into.
+                If TankSim.SIM_RUN AndAlso TankSim.RearBlocked(inst, others) Then
+                    ResetAttemptsForTraffic(inst)
+                    escapeBackRemainingM = 0.0F
+                    brainState = TankBrainState.TerrainTurn
+                    LogThis("tank ai: TERRAIN BACK interrupted tank={0} blocker=TANK -> TURN",
+                            inst.id)
+                    Return True
+                End If
+
+                Dim reverseDir As New Vector2(-CSng(Math.Sin(inst.headingRad)),
+                                              -CSng(Math.Cos(inst.headingRad)))
+                Dim bstep = Math.Min(TankDriveTune.REVERSE_MS * dt, escapeBackRemainingM)
+                Dim bnxt = pos + reverseDir * bstep
+
+                If Not nav.CanStand(bnxt.X, bnxt.Y, TankDriveTune.HULL_R) Then
+                    escapeBackRemainingM = 0.0F
+                    brainState = TankBrainState.TerrainTurn
+                    LogThis("tank ai: TERRAIN BACK stopped tank={0} blocker=NAV -> TURN",
+                            inst.id)
+                    Return True
+                End If
+
+                inst.position = New Vector3(bnxt.X,
+                                            get_Y_at_XZ_fast(bnxt.X, bnxt.Y),
+                                            bnxt.Y)
+                inst.trackDistance += bstep
+                escapeBackRemainingM -= bstep
+
+                If escapeBackRemainingM <= 0.001F Then
+                    escapeBackRemainingM = 0.0F
+                    brainState = TankBrainState.TerrainTurn
+                    LogThis("tank ai: TERRAIN BACK complete tank={0} -> TURN", inst.id)
+                End If
+                Return True
+
+            Case TankBrainState.TerrainTurn
+                stopReason = StopWhy.Turning
+                speed = 0.0F
+                reverseS = 0.0F
+                passS = 0.0F
+                skirtS = 0.0F
+                skirtSide = 0
+
+                Dim dh = WrapPi(escapeHeading - inst.headingRad)
+                Dim maxTurn = TankDriveTune.TURN_RATE_RAD * dt
+
+                If Math.Abs(dh) <= ESCAPE_TURN_EPS_RAD Then
+                    inst.headingRad = escapeHeading
+
+                    ' The escape is finished. Clear every stale recovery timer and
+                    ' retry count, and hand the tank back to normal forward/path
+                    ' driving on the next frame.
+                    ResetAttemptStreak()
+                    brainState = TankBrainState.Forward
+                    brainScanRays.Clear()
+                    _brainScanVisible = False
+                    stuckS = 0.0F
+                    blockedS = 0.0F
+                    goalS = 0.0F
+                    speed = 0.0F
+
+                    LogThis("tank ai: TERRAIN TURN complete tank={0} heading={1:0.0}deg clear={2:0.0}m -> FORWARD",
+                            inst.id, escapeHeading * CSng(180.0 / Math.PI), escapeRayM)
+                    Return True
+                End If
+
+                inst.headingRad = WrapPi(inst.headingRad +
+                                         Math.Max(-maxTurn, Math.Min(maxTurn, dh)))
+                Return True
+        End Select
+
+        brainState = TankBrainState.Forward
+        Return False
+    End Function
+
     ''' <summary>
     ''' Hard rule for the three forward rays. If FL + FRONT + FR are ALL
     ''' blocked, do not try another turn angle. The forward fan has already
@@ -170,7 +528,8 @@ Public Class TankDrive
                                                 others As List(Of TankInstance),
                                                 pos As Vector2,
                                                 dt As Single,
-                                                blockers As Boolean()) As Boolean
+                                                blockers As Boolean(),
+                                                countStaticAttempt As Boolean) As Boolean
         If blockers Is Nothing OrElse blockers.Length <= TankSim.R_FRONT Then Return False
 
         Dim allFront = blockers(TankSim.R_FL) AndAlso
@@ -201,7 +560,15 @@ Public Class TankDrive
             Return True
         End If
 
-        ' Rear is open: back out and give the nose room.
+        ' Rear is open: back out and give the nose room. Count this only when
+        ' the caller got here because the NAV/GROUND was blocked. The same
+        ' three-ray shape can be caused by another tank in the traffic branch,
+        ' and moving traffic must never advance the static-obstacle retry count.
+        If countStaticAttempt AndAlso
+           RegisterRecoveryAttempt(inst, 0, 0, "three-front reverse") Then
+            stopReason = StopWhy.Ground
+            Return True
+        End If
         reverseS = TankDriveTune.REVERSE_S
         stopReason = StopWhy.Reversing
         stuckS = 0.0F
@@ -216,7 +583,22 @@ Public Class TankDrive
                        others As List(Of TankInstance), dt As Single)
         If dt <= 0.0F Then Return
 
+        ' Honour the SIM's manual/global pause before advancing this tank.
+        ' Terrain recovery no longer raises this flag itself.
+        If TankSim.SIM_RUN AndAlso TankSim.SIM_PAUSED Then Return
+
+        ' A SIM reset starts a fresh attempt history for every existing drive.
+        If attemptEpochSeen <> TankSim.ATTEMPT_EPOCH Then
+            ResetAttemptMemory()
+            attemptEpochSeen = TankSim.ATTEMPT_EPOCH
+        End If
+
         Dim pos As New Vector2(inst.position.X, inst.position.Z)
+
+        ' THE BRAIN STATE OWNS THE FRAME. Terrain recovery must finish its scan,
+        ' optional reverse and turn before ordinary path steering can write a
+        ' different goal underneath it.
+        If RunBrainState(inst, nav, others, pos, dt) Then Return
 
         goalS += dt
         If skirtS > 0.0F Then
@@ -286,7 +668,7 @@ Public Class TankDrive
 
         ' ---- turn ----------------------------------------------------------
         Dim to_goal = goal - pos
-        If to_goal.LengthSquared < 0.000001F Then Return
+        If to_goal.LengthSquared < 1.0E-6F Then Return
 
         ' Forward is (sin h, cos h) - the convention world_matrix's
         ' CreateRotationY already uses, so heading 0 faces +Z.
@@ -372,7 +754,7 @@ Public Class TankDrive
 
             ' THREE FORWARD BLOCKS: do not turn through known-blocked headings.
             ' Try reverse; if the rear is blocked too, wait and keep checking.
-            If HandleAllThreeFrontBlocked(inst, nav, others, pos, dt, blockers) Then Return
+            If HandleAllThreeFrontBlocked(inst, nav, others, pos, dt, blockers, True) Then Return
 
             If skirtSide = 0 Then
                 Dim leftPressure = 0
@@ -436,6 +818,8 @@ Public Class TankDrive
             If turnSteps > SKIRT_RINGS Then turnSteps = SKIRT_RINGS
 
             Dim skirted = False
+            Dim newSkirtAttempt = (skirtS <= 0.0F)
+            Dim chosenSkirtRing = 0
             For ring = turnSteps To SKIRT_RINGS
                 Dim ang = SKIRT_STEP_RAD * ring
                 Dim h = inst.headingRad + ang * skirtSide
@@ -443,6 +827,12 @@ Public Class TankDrive
                 Dim probe2 = pos + dir * stride
 
                 If nav.CanStand(probe2.X, probe2.Y, TankDriveTune.HULL_R) Then
+                    chosenSkirtRing = ring
+                    If newSkirtAttempt AndAlso
+                       RegisterRecoveryAttempt(inst, skirtSide, chosenSkirtRing, "ground skirt") Then
+                        stopReason = StopWhy.Ground
+                        Return
+                    End If
                     goal = pos + dir * TankDriveTune.ARRIVE_M * 2.0F
                     hasGoal = True
                     skirtS = SKIRT_HOLD_S
@@ -523,6 +913,12 @@ Public Class TankDrive
                Crowded(inst, others, nxt))
 
         If trafficBlocked Then
+            ' A TANK IS NOT A FAILED STATIC ROUTE ATTEMPT. It may move on the
+            ' next frame, so every traffic loop breaks the consecutive attempt
+            ' streak. Only nav/ground obstruction is allowed to reach two and
+            ' trigger the diagnostic freeze.
+            If TankSim.SIM_RUN Then ResetAttemptsForTraffic(inst)
+
             ' GO ROUND TO THE RIGHT rather than stand and wait.
             '
             ' Waiting is correct when the other hull is passing THROUGH; it is
@@ -562,7 +958,7 @@ Public Class TankDrive
                     ' THREE FORWARD BLOCKS override the turn table: back up.
                     ' If the rear is blocked too, wait motionless and re-check
                     ' on the next frame.
-                    If HandleAllThreeFrontBlocked(inst, nav, others, pos, dt, blockers) Then Return
+                    If HandleAllThreeFrontBlocked(inst, nav, others, pos, dt, blockers, False) Then Return
 
                     Dim c = blockers(TankSim.R_FRONT)
                     Dim l = blockers(TankSim.R_FL)
@@ -623,6 +1019,9 @@ Public Class TankDrive
                 End If
 
                 If haveWay Then
+                    ' This manoeuvre is around ANOTHER TANK. The traffic branch
+                    ' already reset the static attempt streak above; do not
+                    ' register the pass as an obstacle retry.
                     goal = spot
                     hasGoal = True
                     passS = PASS_HOLD_S

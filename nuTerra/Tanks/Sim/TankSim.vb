@@ -28,6 +28,10 @@ Public Module TankSim
     ''' <summary>The sim is running. The SIM button sets it.</summary>
     Public SIM_RUN As Boolean = False
 
+    ' Each Reroll is a new experiment. TankDrive instances survive a SIM reset,
+    ' so this epoch lets every per-tank attempt counter clear on its next frame.
+    Public ATTEMPT_EPOCH As Integer = 0
+
     ''' <summary>Held. Space toggles it, and it stops the hulls moving without
     ''' throwing away where they were going - a stop that forgot the goals
     ''' would restart as a different run and could not be compared with the
@@ -53,7 +57,7 @@ Public Module TankSim
 
     ''' <summary>How far a hull looks to the SIDES and BEHIND. Short, because
     ''' a neighbour alongside is either touching or it is not.</summary>
-    Public SIM_RAY_M As Single = 3.0F
+    Public SIM_RAY_M As Single = 2.0F
 
     ''' <summary>How far a hull looks AHEAD - the owner's twenty metres.
     '''
@@ -63,10 +67,12 @@ Public Module TankSim
     ''' tank in the column beside it, permanently.</summary>
     Public SIM_RAY_FRONT_M As Single = 20.0F
 
-    ''' <summary>How far ray i reaches. The three forward ones get the long
-    ''' range; the rest stay short.</summary>
+    ''' <summary>How far ray i reaches. ONLY the centre-front ray gets the long
+    ''' warning range. The corner, side and rear rays are contact sensors: if
+    ''' they reach twenty metres they see neighbouring columns as blockers.
+    ''' </summary>
     Public Function RayLen(i As Integer) As Single
-        If i = R_FL OrElse i = R_FR OrElse i = R_FRONT Then Return SIM_RAY_FRONT_M
+        If i = R_FRONT Then Return SIM_RAY_FRONT_M
         Return SIM_RAY_M
     End Function
 
@@ -107,13 +113,13 @@ Public Module TankSim
     ''' drive's own ARRIVE_M so a hull that stops just short still advances -
     ''' a run that stalls one metry short of a waypoint never finishes, and
     ''' looks exactly like a hull that has lost its path.</summary>
-    Public Const WAYPOINT_M As Single = 8.0F
+    Public Const WAYPOINT_M As Single = 3.0F
 
     ' A START is not an ordinary waypoint. The 8 m waypoint ring is intentionally
-    ' loose so a moving hull does not hang just short of a road point, but using
-    ' that same ring for START made the sim pause visibly several metres away.
-    ' START must be reached by the hull centre before it can pause the run.
-    Public Const START_REACH_M As Single = 1.0F
+    ' loose so a moving hull does not hang just short of a road point. START keeps
+    ' a tighter 3 m hit radius: close enough to require the hull to reach the mark,
+    ' but wide enough that a tank does not circle forever around an exact pin point.
+    Public Const START_REACH_M As Single = 6.0F
 
     Public Structure SimNode
         Public x As Single
@@ -782,7 +788,7 @@ Public Module TankSim
     Private ReadOnly hitFrame As New Dictionary(Of TankInstance, Integer)
 
     ''' <summary>
-    ''' Which of this hull's eight rays strike another tank, out to SIM_RAY_M.
+    ''' Which of this hull's eight rays strike another tank, out to that ray's RayLen().
     '''
     ''' Segment against disc, each neighbour treated as a circle of OTHER_R.
     ''' A box-to-box test would be more exact and it is not worth it: the ray
@@ -1197,6 +1203,7 @@ Public Module TankSim
 
     ''' <summary>Forget every assignment, so the next frame re-rolls.</summary>
     Public Sub Reroll()
+        ATTEMPT_EPOCH += 1
         hullRun.Clear()
         atOf.Clear()
         hullRunNodeIds.Clear()
