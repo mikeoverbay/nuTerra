@@ -100,8 +100,24 @@ Public Class TankSquares
                         Dim crushable = MapFlightBake.Crushable(k)
                         If Not crushable Then
                             If b.top_m(i) - b.floor_m(i) > TankNavLimits.MAX_OBSTACLE Then
-                                hit = True
-                                Exit For
+                                ' A DOORWAY IS TALL AND STILL PASSABLE. The owner,
+                                ' 2026-09-16: "a bottom projection of buildings to see
+                                ' if there is a door or anything we can get through".
+                                ' top_m is the lintel over an archway, so height alone
+                                ' calls a gate a wall. The bottom projection says what
+                                ' the lowest built underside is, and the difference is
+                                ' the gap a hull drives through.
+                                '
+                                ' has_ceiling FIRST, and it is not a formality: a tree
+                                ' trunk is tall, not crushable, and has open sky over
+                                ' it - clearance there is the whole height of the bake
+                                ' volume, so without this guard every trunk on the map
+                                ' would stop blocking.
+                                If Not (b.has_ceiling(i) AndAlso
+                                        b.clearance_m(i) >= MapFlightBake.MIN_CLEARANCE) Then
+                                    hit = True
+                                    Exit For
+                                End If
                             End If
                         End If
                     Next
@@ -130,8 +146,10 @@ Public Class TankSquares
                 "value=1 solid or used, 0 open" & vbLf &
                 "rule=outland|water always; height over {5:0.##} m unless the" &
                 " kind is fence or prop, or is tree with neither the solid nor" &
-                " the trunk bit set" & vbLf,
-                map, CELL_M, n, wx0, b.wz_max, TankNavLimits.MAX_OBSTACLE))
+                " the trunk bit set, or something built stands over it leaving" &
+                " {6:0.##} m or more to pass under" & vbLf,
+                map, CELL_M, n, wx0, b.wz_max, TankNavLimits.MAX_OBSTACLE,
+                MapFlightBake.MIN_CLEARANCE))
 
         LogThis("tank squares: {0}x{0} of {1:0.#} m, {2:N0} solid ({3:0.0}%), wrote {4}",
                 n, CELL_M, solid, 100.0 * solid / (n * n), p)

@@ -76,7 +76,7 @@ Public Class MapFlightBake
     ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
     ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 6
+    Public Const BAKE_VERSION As Integer = 7
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
@@ -129,6 +129,25 @@ Public Class MapFlightBake
     Private top_u(SIZE * SIZE - 1) As UShort
     Private floor_u(SIZE * SIZE - 1) As UShort
 
+    ''' <summary>
+    ''' The UNDERSIDE of the lowest built thing standing over a texel.
+    '''
+    ''' The owner, 2026-09-16: "we are going to have to do a bottom projection
+    ''' of buildings to see if there is a door or anything we can get through".
+    '''
+    ''' top_m answers "how tall is what is here", and for a doorway the answer
+    ''' is the height of the lintel above it - so an archway, a gate and a
+    ''' solid wall all read the same and all read blocked. This is the other
+    ''' end of the same geometry, and the difference between the two is the
+    ''' gap a hull could drive through.
+    ''' </summary>
+    Private ceil_u(SIZE * SIZE - 1) As UShort
+
+    ''' <summary>The value ceil_u carries where nothing is overhead - the top
+    ''' of the bake volume. Stored rather than recomputed so a reader can ask
+    ''' has_ceiling without knowing how the pass was set up.</summary>
+    Private ceil_sky As UShort
+
     ''' <summary>Metres the stored counts are measured up from. Fixed by the
     ''' FLOOR pass and used by both maps and by the export, so the numbers in
     ''' memory and the numbers on disk cannot drift apart.</summary>
@@ -143,6 +162,49 @@ Public Class MapFlightBake
         Set(value As Single)
             top_u(i) = quantise(value)
         End Set
+    End Property
+
+    ''' <summary>
+    ''' The lowest built UNDERSIDE over a texel, metres. NO_CEILING where
+    ''' nothing is overhead.
+    '''
+    ''' MODELS ONLY - no terrain and no trees. Terrain would win everywhere and
+    ''' report a ceiling at ground level; a canopy would put one at 2.6 m over
+    ''' every wood and close the forest to traffic that drives through it
+    ''' today. The question is what BUILT thing is overhead.
+    ''' </summary>
+    ''' <summary>
+    ''' Is anything BUILT standing over this texel?
+    '''
+    ''' THE GUARD ON EVERY CLEARANCE TEST. clearance_m is enormous where
+    ''' nothing is overhead, which is the right answer for open ground and a
+    ''' catastrophe for a caller that reads it as "room to pass": a tree trunk
+    ''' has open sky above it and would stop blocking. Ask this first.
+    ''' </summary>
+    Public ReadOnly Property has_ceiling(i As Integer) As Boolean
+        Get
+            Return ceil_u(i) < ceil_sky
+        End Get
+    End Property
+
+    Public ReadOnly Property ceiling_m(i As Integer) As Single
+        Get
+            Return h_offset + ceil_u(i) / HEIGHT_SCALE
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' Floor to ceiling at a texel, metres - how tall a thing can pass.
+    '''
+    ''' A DIFFERENCE, so h_offset cancels and the number is meaningful without
+    ''' knowing the offset. Open sky comes back enormous rather than zero,
+    ''' which is the right way round: a caller that forgets to special-case it
+    ''' lets traffic through open ground instead of walling it off.
+    ''' </summary>
+    Public ReadOnly Property clearance_m(i As Integer) As Single
+        Get
+            Return ceiling_m(i) - floor_m(i)
+        End Get
     End Property
 
     ''' <summary>The terrain alone, under whatever is standing on it.</summary>
@@ -303,6 +365,22 @@ Public Class MapFlightBake
     ''' than this one would otherwise silently clamp at zero.
     ''' </summary>
     Public Const HEIGHT_SCALE As Single = 64.0F
+
+    ''' <summary>
+    ''' Clearance a hull needs to pass under something, metres.
+    '''
+    ''' THE TALLEST HULL ON THE TIER 10 ROSTER IS 2.68 m - Ho-Ri 3, with the
+    ''' Strv 103B at 2.67 - and a turret and gun sit above that. 3.5 m is the
+    ''' hull plus room for the turret, and it is deliberately generous: an arch
+    ''' wrongly called passable sends a brain at a wall, while one wrongly
+    ''' called blocked only costs a detour.
+    '''
+    ''' Measured, not assumed - the numbers come from the game's own
+    ''' boundingBox by way of TankRoster, printed by Brain Testing's hullbox
+    ''' table.
+    ''' </summary>
+    Public Const MIN_CLEARANCE As Single = 3.5F
+
 
     ''' <summary>
     ''' The key byte carries two things, so read it with these.
@@ -619,6 +697,26 @@ Public Class MapFlightBake
         read_ids()
         despike_top()
 
+        ' THE BOTTOM PROJECTION. Everything above looked DOWN and kept the
+        ' nearest surface; this looks down and keeps the FARTHEST, which is the
+        ' lowest underside of anything built. Reversing DepthFunc is the whole
+        ' trick - the same draw, the opposite end of the same geometry.
+        '
+        ' MODELS ONLY, and the order matters as much as it does above: terrain
+        ' would win at every texel and report a ceiling on the ground, and trees
+        ' would hang one at canopy height over every wood. Neither is a thing a
+        ' hull passes under - a canopy is driven through.
+        '
+        ' LAST, after read_ids and despike_top have taken everything they need
+        ' out of the depth buffer. This clobbers it.
+        GL.ClearDepth(0.0)
+        GL.DepthFunc(DepthFunction.Greater)
+        GL.Clear(ClearBufferMask.DepthBufferBit)
+        draw_models(vp)
+        read_ceiling()
+        GL.ClearDepth(1.0)
+        GL.DepthFunc(DepthFunction.Less)
+
         GL.Enable(EnableCap.CullFace)
         GL.DepthFunc(DepthFunction.Greater)
         GL.ClearDepth(0.0F)
@@ -680,6 +778,7 @@ Public Class MapFlightBake
             Dim stem = bake_stem()
             Dim f_top = stem & "_top.rgba"
             Dim f_floor = stem & "_floor.r16"
+            Dim f_ceiling = stem & "_ceiling.r16"
             Dim f_ids = stem & "_ids.u32"
             Dim f_meta = stem & "_meta.txt"
 
@@ -693,6 +792,7 @@ Public Class MapFlightBake
             Dim missing As New List(Of String)
             If Not IO.File.Exists(f_top) Then missing.Add("_top.rgba")
             If Not IO.File.Exists(f_floor) Then missing.Add("_floor.r16")
+            If Not IO.File.Exists(f_ceiling) Then missing.Add("_ceiling.r16")
             If Not IO.File.Exists(f_ids) Then missing.Add("_ids.u32")
             If Not IO.File.Exists(f_meta) Then missing.Add("_meta.txt")
             If missing.Count > 0 Then
@@ -1230,6 +1330,61 @@ Public Class MapFlightBake
         Next
     End Sub
 
+    ''' <summary>
+    ''' Take the bottom projection out of the depth buffer.
+    '''
+    ''' A texel with nothing over it comes back at the CLEAR value, which for
+    ''' this reversed pass is depth 0 - the top of the ortho volume. That is
+    ''' already the answer we want, "open sky", and it needs no sentinel: the
+    ''' clearance there comes out as the whole height of the volume.
+    '''
+    ''' A LOW UNDERSIDE IS THE ANSWER, NOT AN ARTEFACT, and getting that
+    ''' backwards was the first version of this. Treating geometry near the
+    ''' floor as "not really a ceiling" and recording open sky was meant to
+    ''' ignore a doorway's threshold - but a solid wall's base sits at the
+    ''' floor too, so it turned every wall on the map into open sky. Measured
+    ''' against the layer it wrote: 4.1 million ROCK texels came out with a
+    ''' 3.5 m gap over them, which is what a bug looks like when it is
+    ''' plausible.
+    '''
+    ''' The cost of dropping it is a doorway whose threshold is modelled reads
+    ''' SHUT. That is the conservative direction: a door wrongly shut costs a
+    ''' detour, a wall wrongly open drives a tank into it.
+    '''
+    ''' The rows are flipped on the way out exactly as read_heights does, so
+    ''' all three maps are indexed the same way.
+    ''' </summary>
+    Private Sub read_ceiling()
+        Dim d(SIZE * SIZE - 1) As Single
+        GL.GetTextureImage(depth_tex.texture_id, 0,
+                           OpenGL4.PixelFormat.DepthComponent, PixelType.Float,
+                           d.Length * 4, d)
+
+        ceil_sky = quantise(eye_y)
+        Dim covered = 0, room = 0
+        For r = 0 To SIZE - 1
+            Dim src = (SIZE - 1 - r) * SIZE
+            Dim dst_row = r * SIZE
+            For c = 0 To SIZE - 1
+                Dim i = dst_row + c
+                Dim z = d(src + c)
+                Dim y = eye_y - z * far_d
+                ceil_u(i) = quantise(y)
+
+                ' DEPTH EXACTLY AT THE CLEAR VALUE means nothing was drawn -
+                ' open sky. Anything else is real geometry and its height is
+                ' the answer, whatever that height is.
+                If z <= 0.0F Then Continue For
+                covered += 1
+                If y - floor_m(i) >= MIN_CLEARANCE Then room += 1
+            Next
+        Next
+
+        LogThis("flight bake: something overhead at {0:N0} texel(s) ({1:0.00}% of the map); " &
+                "{2:N0} of those leave {3:0.0} m or more to pass under",
+                covered, 100.0 * covered / (SIZE * SIZE), room, MIN_CLEARANCE)
+    End Sub
+
     Private Sub draw_terrain(vp As Matrix4)
         If Not scene.TERRAIN_LOADED Then Return
 
@@ -1421,6 +1576,7 @@ Public Class MapFlightBake
 
             write_top_rgba(stem & "_top.rgba")
             write_floor_r16(stem & "_floor.r16")
+            write_ceiling_r16(stem & "_ceiling.r16")
             write_ids_u32(stem & "_ids.u32")
             write_id_names(stem & "_ids.csv")
             write_mask_png(stem & "_mask.png")
@@ -1429,7 +1585,7 @@ Public Class MapFlightBake
             ' 268 MB, and nothing in this process reads it - see id_u.
             Erase id_u
 
-            LogThis("flight bake: exported {0}_top.rgba / _floor.r16 / _ids.u32 / _ids.csv / _mask.png / _meta.txt to {1}",
+            LogThis("flight bake: exported {0}_top.rgba / _floor.r16 / _ceiling.r16 / _ids.u32 / _ids.csv / _mask.png / _meta.txt to {1}",
                     MAP_NAME_NO_PATH, dir)
         Catch ex As Exception
             LogThis("flight bake: export FAILED: {0}", ex.Message)
@@ -1518,6 +1674,25 @@ Public Class MapFlightBake
             b(o + 1) = CByte((h >> 8) And &HFF)
             b(o + 2) = CByte(h And &HFF)
             b(o + 3) = 255
+        Next
+        IO.File.WriteAllBytes(path, b)
+    End Sub
+
+    ''' <summary>
+    ''' The bottom projection, same encoding as the floor.
+    '''
+    ''' SAME OFFSET AND SCALE as the other two layers, so a reader subtracts
+    ''' floor from ceiling and has metres without touching the meta. A
+    ''' different encoding here would be the one file that needed its own
+    ''' arithmetic, which is how a reader ends up with clearance in the wrong
+    ''' units and a tank driving into a lintel.
+    ''' </summary>
+    Private Sub write_ceiling_r16(path As String)
+        Dim b(SIZE * SIZE * 2 - 1) As Byte
+        For i = 0 To SIZE * SIZE - 1
+            Dim h = CInt(ceil_u(i))
+            b(i * 2) = CByte(h And &HFF)
+            b(i * 2 + 1) = CByte((h >> 8) And &HFF)
         Next
         IO.File.WriteAllBytes(path, b)
     End Sub
@@ -1791,6 +1966,10 @@ Public Class MapFlightBake
         ' Renaming it also invalidates every bake written under the old key,
         ' which is the correct outcome: those were baked at a flat radius.
         sb.AppendLine(String.Format(inv, "trunk_radius_fallback={0:0.00}", TRUNK_RADIUS))
+        sb.AppendLine(String.Format(inv, "min_clearance={0:0.00}", MIN_CLEARANCE))
+        sb.AppendLine("# ceiling.r16 is the UNDERSIDE of the lowest built thing over a texel,")
+        sb.AppendLine("# same uint16 encoding as floor.r16. clearance = ceiling - floor; a texel")
+        sb.AppendLine("# with open sky reads at the top of the bake volume, so clearance is huge.")
         Dim measured = 0
         For Each t In TreeTrunks.Measured
             If t.trunkKnown Then measured += 1
