@@ -22,6 +22,10 @@ Module BrainRender
         BrainModels.Init()
         BrainTankDraw.Init()
         BrainRings.Init()
+
+        ' The camera asks the same sampler the hulls and the nav grid ask, so
+        ' the point it looks at is on the surface they all agree about.
+        Cam.GroundAt = Function(x, z) BrainNav.Ground(x, z)
         BrainTrees.Init()
         If terrainShader.Ready Then LogThis("brain: shaders ready")
     End Sub

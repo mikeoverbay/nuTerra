@@ -56,7 +56,28 @@ Module BrainModels
         Dim built = 0, skipped = 0, verts = 0L, tris = 0L
         Dim tally(7) As Integer
 
+        ' WHICH MODELS ARE PLACED INSIDE THE MAP AT ALL. Built first so an
+        ' outland-only model is never parsed, never uploaded and never takes
+        ' memory - skipping it at DRAW time saved the draw call and nothing
+        ' else, and this app exists to get up fast.
+        Dim wanted As New HashSet(Of Integer)
+        Dim outlandOnly = 0
+        If MODEL_INDEX_LIST IsNot Nothing Then
+            For Each inst In MODEL_INDEX_LIST
+                Dim mat = inst.matrix
+                If Not outside_map(mat) Then wanted.Add(inst.model_index)
+            Next
+            For Each inst In MODEL_INDEX_LIST
+                If Not wanted.Contains(inst.model_index) Then outlandOnly += 1
+            Next
+        End If
+
         For i = 0 To MAP_MODELS.Length - 1
+            ' Never placed inside the map: the mountain ring. Not built.
+            If wanted.Count > 0 AndAlso Not wanted.Contains(i) Then
+                skipped += 1
+                Continue For
+            End If
             Dim lods = MAP_MODELS(i).modelLods
             If lods Is Nothing OrElse lods.Length = 0 Then skipped += 1 : Continue For
             Dim lod = lods(0)
@@ -98,8 +119,9 @@ Module BrainModels
         For k = 0 To 7
             If tally(k) > 0 Then parts.Add(String.Format("{0} {1}", ModelKind.KIND_NAMES(k), tally(k)))
         Next
-        LogThis("brain: {0} model mesh(es) in {1} ms, {2} skipped, {3:N0} triangles - {4}",
-                built, sw.ElapsedMilliseconds, skipped, tris, String.Join(", ", parts))
+        LogThis("brain: {0} model mesh(es) in {1} ms, {2} skipped ({3:N0} outland placement(s) " &
+                "never built), {4:N0} triangles - {5}",
+                built, sw.ElapsedMilliseconds, skipped, outlandOnly, tris, String.Join(", ", parts))
 
         If MODEL_INDEX_LIST IsNot Nothing Then Total = MODEL_INDEX_LIST.Length
         LogThis("brain: {0:N0} placement(s) on the map", Total)
@@ -193,6 +215,32 @@ Module BrainModels
     End Function
 
     ''' <summary>
+    ''' The map's own square, corner to corner, in the frame the placements
+    ''' are in.
+    '''
+    ''' THE BAKE'S OWN FORMULA, not a second one: MapFlightBake derives its
+    ''' extent as 100 * b_x_min to 100 * (b_x_max + 1), and those chunk bounds
+    ''' are globals this app already links. Anything placed outside that
+    ''' square is outland scenery - the mountain ring - and the owner does not
+    ''' want it drawn: "remove outland models.. just check if they are outside
+    ''' the total map corner locations".
+    '''
+    ''' A MARGIN, because a building ON the edge has its pivot inside and its
+    ''' geometry hanging over, and dropping those would eat the map's own rim.
+    ''' </summary>
+    Private Const EDGE_MARGIN As Single = 25.0F
+
+    Private Function outside_map(ByRef m As Matrix4) As Boolean
+        Dim x0 = 100.0F * b_x_min - EDGE_MARGIN
+        Dim x1 = 100.0F * (b_x_max + 1.0F) + EDGE_MARGIN
+        Dim z0 = 100.0F * (b_y_min - 1.0F) - EDGE_MARGIN
+        Dim z1 = 100.0F * b_y_max + EDGE_MARGIN
+        If x1 - x0 < 1.0F OrElse z1 - z0 < 1.0F Then Return False   ' no bounds: keep everything
+        Dim p = m.Row3
+        Return p.X < x0 OrElse p.X > x1 OrElse p.Z < z0 OrElse p.Z > z1
+    End Function
+
+    ''' <summary>
     ''' Draw every placement the view can see.
     '''
     ''' VIEW-SPACE CLIPPING, which is what the owner asked for. Each instance's
@@ -208,6 +256,7 @@ Module BrainModels
         If meshes Is Nothing OrElse MODEL_INDEX_LIST Is Nothing Then Return
 
         Dim planes = BrainFrustum.FromViewProj(viewProj)
+        Dim skippedOutland = 0
 
         shader.Use()
         shader.SetMat4("viewProj", viewProj)
@@ -219,6 +268,12 @@ Module BrainModels
             If Not m.ok Then Continue For
 
             Dim mat = inst.matrix
+            ' Outland first: it is a cheaper test than the frustum and it
+            ' removes the biggest things on screen.
+            If outside_map(mat) Then
+                skippedOutland += 1
+                Continue For
+            End If
             If Not BrainFrustum.BoxVisible(planes, mat, m.bbMin, m.bbMax) Then Continue For
 
             If m.vao <> boundVao Then

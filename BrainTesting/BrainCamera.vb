@@ -52,6 +52,22 @@ Public Class BrainCamera
 
     ' The pools. A drag adds to these; the damping below drains them, which is
     ' what makes the view coast after the button comes up.
+    ''' <summary>
+    ''' Terrain height at a world XZ, or Nothing before a map is up.
+    '''
+    ''' THE LOOK-AT POINT RIDES THE GROUND. Panning or walking it used to
+    ''' keep whatever Y it started with, so crossing a valley left the target
+    ''' buried and crossing a ridge left it in the air - and since the eye is
+    ''' placed relative to the target, the whole view drifted with it. The
+    ''' owner: "I want the lookat on the terrains surface."
+    ''' </summary>
+    Public GroundAt As Func(Of Single, Single, Single) = Nothing
+
+    ''' <summary>How far the look-at point sits ABOVE the ground. Shift-drag
+    ''' moves this rather than Y directly, so raising the point survives the
+    ''' next pan instead of being snapped back down by it.</summary>
+    Private heightAboveGround As Single = 0.0F
+
     Private rotDeltaX, rotDeltaY As Single
     Private panDeltaX, panDeltaZ As Single
     Private zoomDelta As Single
@@ -89,6 +105,8 @@ Public Class BrainCamera
         Dist = Math.Max(400.0F, sizeMetres * 0.8F)
         YawRad = 0.0F
         PitchRad = -0.5F
+        heightAboveGround = 0.0F
+        StickToGround()
     End Sub
 
     ''' <summary>
@@ -107,6 +125,7 @@ Public Class BrainCamera
     Public Sub LookAt(x As Single, z As Single, ground As Single, standoff As Single)
         Target = New Vector3(x, ground, z)
         Dist = Math.Max(5.0F, standoff)
+        heightAboveGround = 0.0F
         ' STAND OUTSIDE AND LOOK IN. A fixed yaw puts the eye on whichever side
         ' the number happened to pick, and for a base at the south edge that is
         ' off the map looking further off it. Placing the eye on the far side
@@ -163,7 +182,9 @@ Public Class BrainCamera
         If held Then
             If shiftHeld Then
                 ' Height, applied directly - nuTerra does not pool this one.
-                Target.Y -= dy * ms
+                ' Into the OFFSET, not Y: Y is re-derived from the ground every
+                ' frame, so writing it here would be undone immediately.
+                heightAboveGround -= dy * ms
             ElseIf midDown OrElse ctrl Then
                 Dim ca = CSng(Math.Cos(YawRad))
                 Dim sa = CSng(Math.Sin(YawRad))
@@ -232,8 +253,17 @@ Public Class BrainCamera
         If k.IsKeyDown(Keys.S) Then Target += fwd * step_m
         If k.IsKeyDown(Keys.A) Then Target -= rgt * step_m
         If k.IsKeyDown(Keys.D) Then Target += rgt * step_m
-        If k.IsKeyDown(Keys.E) Then Target.Y += step_m
-        If k.IsKeyDown(Keys.Q) Then Target.Y -= step_m
+        If k.IsKeyDown(Keys.E) Then heightAboveGround += step_m
+        If k.IsKeyDown(Keys.Q) Then heightAboveGround -= step_m
+
+        StickToGround()
+    End Sub
+
+    ''' <summary>Put the look-at point back on the surface, plus whatever the
+    ''' operator raised it by. Called after anything moves it in XZ.</summary>
+    Public Sub StickToGround()
+        If GroundAt Is Nothing Then Return
+        Target.Y = GroundAt(Target.X, Target.Z) + heightAboveGround
     End Sub
 
 End Class
