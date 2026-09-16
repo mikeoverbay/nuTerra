@@ -203,6 +203,39 @@ changes, and each one came with the reason:
   and needs a cheap "is this cell free for a hull of radius r". `blocked(a, b)`
   can emulate it with tiny segments, but that is the wrong primitive and would
   be the slow path.
+
+  **TWO RADII, AND THE CALLER PICKS.** Tank AI work, 2026-09-16, and this is
+  the part that "will silently not work if it ships with one":
+
+  | radius | value | used for |
+  |---|---|---|
+  | TRACE | ~0.5 m, the grid cell | following the obstacle boundary |
+  | FIT | `sqrt(hx^2 + hz^2)` + 0.3 m, per vehicle | once, to ask if the gap found is drivable |
+
+  The trace radius is SMALL because walking a boundary means following the
+  actual edge; query it with a hull-sized disc and every corner rounds off and
+  the trace walks straight past the gaps it exists to find - which reads as
+  "the algorithm does not work" when it is really "we asked the wrong question
+  a hundred times".
+
+  The fit radius is the half-DIAGONAL, not the half-width, because a hull
+  rotates while it drives and a width-only test passes gaps a turning tank
+  wedges in. Per vehicle, from the extents the world already hands over: a
+  Panhard at 4.58 m and a Maus must not route identically, and one fixed
+  `HULL_R` makes them.
+
+  Step size for the trace is ONE CELL, because the owner's rule is "walk right
+  50 cells and left 50 cells" - the cell is the unit, and 50 of them has to
+  mean about 50 m or the bound means nothing.
+
+  Budget is roughly 200 calls per blocked event, and a hull blocks only
+  occasionally, so a few AABB tests each is affordable.
+
+  **ONE NOTION OF BLOCKED, BOTH USES.** `standable()` must answer with exactly
+  the rule the driving uses. If the trace walks an AABB boundary while the hull
+  actually stops on a slope, on water, or on a crushable rule, then the brain
+  traces an obstacle that is not where the tank stops and every score it
+  computes is about a different map.
 - **Hull half-extents belong ON `BrainHull`.** Ray origins sit on the hull
   edge, so every cast depends on the box - a Panhard and a Maus fan their rays
   differently. The world already knows it (`TankRoster.HullHalfExtents`), so
