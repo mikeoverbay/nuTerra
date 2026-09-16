@@ -148,6 +148,7 @@ Public Class BrainWindow
                 BrainRender.Cam.FrameMap(Math.Max(MAP_SIZE.X, MAP_SIZE.Y) * 100.0F)
                 BrainModels.Build()
                 BrainTrees.Build()
+                If BrainNav.NAV_AUDIT Then BrainTrunks.Measure()
                 If LOOK_AT IsNot Nothing Then
                     BrainRender.Cam.LookAt(LOOK_AT(0), LOOK_AT(1),
                                            get_Y_at_XZ(LOOK_AT(0), LOOK_AT(1)), LOOK_AT(2))

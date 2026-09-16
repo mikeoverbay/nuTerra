@@ -95,6 +95,7 @@
 
   <!-- STAGE 2 - terrain, as meshes. -->
   <ItemGroup>
+    <Compile Include="../nuTerra/SpeedTree/SrtFile.vb" Link="linked/SrtFile.vb" />
     <Compile Include="../nuTerra/Scene/ModelKind.vb" Link="linked/ModelKind.vb" />
     <Compile Include="../nuTerra/ModelLoaders/PrimitiveLoader.vb" Link="linked/PrimitiveLoader.vb" />
     <Compile Include="../nuTerra/Modules/modTypeStructures.vb" Link="linked/modTypeStructures.vb" />
