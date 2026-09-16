@@ -95,8 +95,22 @@ Public Class MapTankShadow
     End Sub
 
     ''' <summary>
-    ''' Rebuild every live layer. Called once a frame, BEFORE the tanks draw and
-    ''' before the shadow tiles resolve, because both read what this writes.
+    ''' Rebuild every live layer. Called once a frame, AFTER the tanks draw and
+    ''' before the shadow tiles resolve.
+    '''
+    ''' AFTER THE DRAW, and the order is the fix for a real bug. This said
+    ''' "BEFORE the tanks draw ... because both read what this writes", and the
+    ''' second half was wrong: tank_gbuffer.frag has no tank_maps sampler, so
+    ''' the tanks never read this. Only the tiles resolve does. Running before
+    ''' the draw cost a ONE FRAME STALE shadow, because advance_movement() is
+    ''' inside Draw (TankRenderer.vb:557) - so the bake used last frame's
+    ''' inst.position while the meshes drew at this frame's. Backing up made it
+    ''' plain: the old position is ahead of the new one, so the shadow sat off
+    ''' the front of the hull. Found by the owner at Abbey J8.5, 2026-09-15.
+    '''
+    ''' What still must hold: this runs before the tiles resolve, which reads
+    ''' the array at modRender.vb ~1354. Two stale comments in two files kept
+    ''' this bug alive - if the order changes again, fix BOTH.
     ''' </summary>
     Public Sub Render()
         ready = False

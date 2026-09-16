@@ -201,11 +201,26 @@ Module modRender
         ' convention, so the resolve lights it like any of them.
         If DONT_BLOCK_MODELS Then
             modGpuTimers.Begin("Tanks")
-            ' BEFORE the tanks draw and before the tiles resolve, because both
-            ' read what it writes. One 512 depth map per tank in range.
-            map_scene.tank_shadow.Render()
-
+            ' DRAW FIRST, THEN BAKE THE SHADOW. The order was the other way and
+            ' it shipped a one-frame-stale shadow: advance_movement() lives
+            ' INSIDE Draw (TankRenderer.vb:557), so a bake running before it
+            ' used LAST frame's inst.position while the meshes drew at this
+            ' frame's. Reversing made it obvious - the previous position is
+            ' ahead of the current one, so the shadow sat off the front of a
+            ' tank backing up. The owner found it at Abbey J8.5.
+            '
+            ' The old comment here said the bake had to precede the draw
+            ' "because both read what it writes". Only HALF of that was true
+            ' and the wrong half is what kept the bug: tank_gbuffer.frag has no
+            ' tank_maps sampler at all, so the tanks never read it. The tiles
+            ' resolve does, at line ~1354, and that still runs long after this.
+            '
+            ' Safe to move because Render() is self-contained: it restores the
+            ' polygon offset, DepthFunc, ClearDepth and cull state, rebinds
+            ' MainFBO and resets the viewport before returning.
             map_scene.tanks.Draw()
+
+            map_scene.tank_shadow.Render()
             modGpuTimers.Finish()
         End If
 
