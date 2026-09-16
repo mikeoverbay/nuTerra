@@ -161,49 +161,11 @@ Public Class MapTanks
 
 
 
-            ' THE ROSTER IS TIER 10, and it is taken from the package layout
-            ' rather than from a list anyone typed. The game ships vehicle
-            ' assets in vehicles_level_NN packages, so vehicles_level_10*.pkg
-            ' IS the tier 10 roster - 137 asset folders, of which 121 have a
-            ' matching item_def. These 30 are round-robined across the nations
-            ' so neither team is all one country.
-            '
-            ' The two halves of the install spell the nations differently:
-            ' assets use american / british / russian, item_defs use usa / uk /
-            ' ussr. The names below are the item_def spelling, because that is
-            ' what TankVehicle.Load wants.
-            Dim roster = {
-                Tuple.Create("china", "Ch19_121"),
-                Tuple.Create("czech", "Cz04_T50_51"),
-                Tuple.Create("france", "F108_Panhard_EBR_105"),
-                Tuple.Create("germany", "G121_Grille_15_L63"),
-                Tuple.Create("italy", "It08_Progetto_M40_mod_65"),
-                Tuple.Create("japan", "J16_ST_B1"),
-                Tuple.Create("poland", "Pl15_60TP_Lewandowskiego"),
-                Tuple.Create("sweden", "S11_Strv_103B"),
-                Tuple.Create("uk", "GB100_Manticore"),
-                Tuple.Create("usa", "A106_M48A2_120"),
-                Tuple.Create("ussr", "R110_Object_260"),
-                Tuple.Create("china", "Ch22_113"),
-                Tuple.Create("czech", "Cz17_Vz_55"),
-                Tuple.Create("france", "F10_AMX_50B"),
-                Tuple.Create("germany", "G125_Spz_57_Rh"),
-                Tuple.Create("italy", "It15_Rinoceronte"),
-                Tuple.Create("japan", "J20_Type_2605"),
-                Tuple.Create("poland", "Pl15_60TP_Lewandowskiego_CFE_A"),
-                Tuple.Create("sweden", "S16_Kranvagn"),
-                Tuple.Create("uk", "GB114_Vickers_MBT_Mk3"),
-                Tuple.Create("usa", "A116_XM551"),
-                Tuple.Create("ussr", "R119_Object_777C"),
-                Tuple.Create("china", "Ch22_113_Beijing_Opera"),
-                Tuple.Create("czech", "Cz21_Vz_60S"),
-                Tuple.Create("france", "F141_Durendal"),
-                Tuple.Create("germany", "G134_PzKpfw_VII"),
-                Tuple.Create("italy", "It20_Carro_Combattimento_45t"),
-                Tuple.Create("japan", "J35_Ho_Ri_3"),
-                Tuple.Create("poland", "Pl21_CS_63"),
-                Tuple.Create("sweden", "S28_UDES_15_16")
-            }
+            ' THE ROSTER LIVES IN TankRoster now, because Brain Testing
+            ' fields the same thirty and a second copy of a list like this is
+            ' one that goes quietly out of step. The notes about how it was
+            ' chosen, and about the order being a contract, went with it.
+            Dim roster = TankRoster.ALL
 
             ' HOW MANY A SIDE. TANK_PER_TEAM carries it - the slider beside the
             ' Load button, or perteam= on the command line - and it is read here

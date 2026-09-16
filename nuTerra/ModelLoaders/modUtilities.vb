@@ -19,7 +19,12 @@ Module modUtilities
     ''' `tank shadow:` are tank subsystems but not PATH, and the owner asked
     ''' for the path functions.
     ''' </summary>
-    Private ReadOnly LOG_KEEP As String() = {
+    ''' <summary>SETTABLE, so a second app built from these files can state
+    ''' its own policy. Brain Testing narrows it to its own tag: the tank
+    ''' loaders are chatty by design and "tank:" is kept here, so opening
+    ''' LOG_EVERYTHING to hear the harness also brought 150 lines of vehicle
+    ''' detail with it. Changed from Private ReadOnly 2026-09-15.</summary>
+    Public LOG_KEEP As String() = {
         "tank:", "tank ai:", "tank routes:", "tank nav:",
         "tank squares:", "tank rays:", "tank sim:", "tank comm:"}
 

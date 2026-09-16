@@ -33,7 +33,11 @@ NotInheritable Class MapMenuScreen
     Public Shared Sub Init()
         ' Short names and descriptions live in arenas.mo, a gettext catalog keyed
         ' "<space>/name" and "<space>/description".
-        Dim arenas_mo_path = Path.Combine(My.Settings.GamePath, "res/text/lc_messages/arenas.mo")
+        ' GAME_PATH(), not My.Settings directly - see modGamePath. Brain
+        ' Testing links this file and backs the same name with the
+        ' sidecar, because its own settings store would be keyed to its
+        ' own exe path and start empty.
+        Dim arenas_mo_path = Path.Combine(GAME_PATH(), "res/text/lc_messages/arenas.mo")
         Dim arenas_mo_catalog As Catalog
         Using moFileStream = File.OpenRead(arenas_mo_path)
             arenas_mo_catalog = New Catalog(moFileStream)

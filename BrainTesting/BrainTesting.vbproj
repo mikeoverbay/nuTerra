@@ -1,0 +1,109 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Brain Testing - the smallest thing that can open a WoT map and stand tanks
+    on it, so a NEW brain can be written against it. See
+    docs/brain_testing_plan.md.
+
+    LINKED SOURCE, NOT A PROJECT REFERENCE. nuTerra's types are Friend -
+    `Shader` is, because ShaderLoader is a Module - and Friend is assembly
+    scoped, so a project that merely REFERENCES nuTerra cannot reach its
+    loaders at all. Compiling nuTerra's own .vb files into this assembly keeps
+    one copy of every loader on disk and lets a fix over there arrive here on
+    the next build.
+
+    The linked list below is therefore the honest statement of what this app
+    is: everything absent is absent on purpose.
+
+    FORWARD SLASHES. MSBuild accepts them on Windows, and they survive being
+    written by a shell heredoc or a Python string without a backslash being
+    eaten on the way through. A path that lost one produced a broken project
+    file once already.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>BrainTesting</RootNamespace>
+    <AssemblyName>BrainTesting</AssemblyName>
+    <StartupObject>BrainTesting.Program</StartupObject>
+    <OptionCompare>Text</OptionCompare>
+    <UseWindowsForms>true</UseWindowsForms>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Product>Brain Testing</Product>
+    <AssemblyTitle>Brain Testing</AssemblyTitle>
+  </PropertyGroup>
+
+  <!-- nuTerra declares these project-wide; its linked files rely on them
+       (System.Drawing.Point appears unqualified in modGlobalVars). -->
+  <!-- The heightmap is a PNG; ChunkFunctions.get_heights reads it with
+       Pngcs. Same assembly nuTerra references, from its folder. -->
+  <ItemGroup>
+    <Reference Include="Pngcs">
+      <HintPath>../nuTerra/Pngcs.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Import Include="System.Drawing" />
+    <Import Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="shaders/**">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTK" Version="4.7.1" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="5.0.0" />
+  </ItemGroup>
+
+  <!--
+    ===================== LINKED nuTerra SOURCE =====================
+    Each stage adds the files it needs and NOTHING ELSE, so this list stays
+    readable and the exclusions stay visible.
+
+    STAGE 1 - reading the game's packages, and saying so.
+  -->
+  <ItemGroup>
+    <Compile Include="../nuTerra/ModelLoaders/modUtilities.vb" Link="linked/modUtilities.vb" />
+    <Compile Include="../nuTerra/Modules/modGlobalVars.vb" Link="linked/modGlobalVars.vb" />
+    <Compile Include="../nuTerra/OpenGL/modVertexPack.vb" Link="linked/modVertexPack.vb" />
+    <Compile Include="../nuTerra/OpenGL/modOpenGLAliases.vb" Link="linked/modOpenGLAliases.vb" />
+    <Compile Include="../nuTerra/OpenGL/GLBuffer.vb" Link="linked/GLBuffer.vb" />
+    <Compile Include="../nuTerra/OpenGL/GLVertexArray.vb" Link="linked/GLVertexArray.vb" />
+    <Compile Include="../nuTerra/ResMgr/PkgEntry.vb" Link="linked/PkgEntry.vb" />
+    <Compile Include="../nuTerra/ResMgr/ResMgr.vb" Link="linked/ResMgr.vb" />
+    <Compile Include="../nuTerra/ResMgr/packed_section.vb" Link="linked/packed_section.vb" />
+  </ItemGroup>
+
+  <!-- STAGE 4 (brought forward) - the thirty bodies and their hull boxes. -->
+  <ItemGroup>
+    <Compile Include="../nuTerra/OpenGL/GLTexture.vb" Link="linked/GLTexture.vb" />
+    <Compile Include="../nuTerra/Tanks/TankRoster.vb" Link="linked/TankRoster.vb" />
+    <Compile Include="../nuTerra/Tanks/TankBlast.vb" Link="linked/TankBlast.vb" />
+    <Compile Include="../nuTerra/Tanks/TankVisual.vb" Link="linked/TankVisual.vb" />
+    <Compile Include="../nuTerra/Tanks/TankVehicle.vb" Link="linked/TankVehicle.vb" />
+    <Compile Include="../nuTerra/Tanks/TankFiles.vb" Link="linked/TankFiles.vb" />
+    <Compile Include="../nuTerra/Tanks/TankPrimitives.vb" Link="linked/TankPrimitives.vb" />
+    <Compile Include="../nuTerra/Tanks/TankFormats.vb" Link="linked/TankFormats.vb" />
+  </ItemGroup>
+
+  <!-- STAGE 2 - terrain, as meshes. -->
+  <ItemGroup>
+    <Compile Include="../nuTerra/Scene/ModelKind.vb" Link="linked/ModelKind.vb" />
+    <Compile Include="../nuTerra/ModelLoaders/PrimitiveLoader.vb" Link="linked/PrimitiveLoader.vb" />
+    <Compile Include="../nuTerra/Modules/modTypeStructures.vb" Link="linked/modTypeStructures.vb" />
+    <Compile Include="../nuTerra/Space.bin/modSpacedBinVars.vb" Link="linked/modSpacedBinVars.vb" />
+    <Compile Include="../nuTerra/Space.bin/modSpaceBin.vb" Link="linked/modSpaceBin.vb" />
+    <Compile Include="../nuTerra/Space.bin/modSpaceBinFunctions.vb" Link="linked/modSpaceBinFunctions.vb" />
+    <Compile Include="../nuTerra/MapLoader/OutlandDecimator.vb" Link="linked/OutlandDecimator.vb" />
+    <Compile Include="../nuTerra/MapLoader/ChunkFunctions.vb" Link="linked/ChunkFunctions.vb" />
+    <Compile Include="../nuTerra/MapLoader/TerrainBuilder.vb" Link="linked/TerrainBuilder.vb" />
+  </ItemGroup>
+
+</Project>

@@ -649,23 +649,6 @@ Module modOpenGL
         GL.BindTextureUnit(0, 0)
     End Sub
 
-    Private Function pack_10(x As Single) As UInt32
-        Dim qx As Int32 = MathHelper.Clamp(CType(x * 511.0F, Int32), -512, 511)
-        If qx < 0 Then
-            Return (1 << 9) Or ((CType(-1 - qx, UInt32) Xor ((1 << 9) - 1)))
-        Else
-            Return qx
-        End If
-    End Function
-
-    Public Function pack_2_10_10_10(unpacked As Vector3, Optional w As UInt32 = 0) As UInt32
-        unpacked.Normalize()
-
-        Dim packed_x As UInt32 = pack_10(unpacked.X)
-        Dim packed_y As UInt32 = pack_10(unpacked.Y)
-        Dim packed_z As UInt32 = pack_10(unpacked.Z)
-        Return packed_x Or (packed_y << 10) Or (packed_z << 20) Or (w << 30)
-    End Function
 
     Private debugOutputCallbackProc As DebugProc
     Private Sub DebugOutputCallback(source As DebugSource,
