@@ -16,8 +16,16 @@ import struct, sys, os, json, zipfile
 
 WOT_PACKAGES = "C:/Games/World_of_Tanks_NA/res/packages"
 
+import sys as _sys; _sys.setrecursionlimit(20000)
+
+import sys as _sys; _sys.setrecursionlimit(20000)
+
+import sys as _sys; _sys.setrecursionlimit(20000)
+
+import sys as _sys; _sys.setrecursionlimit(20000)
+
 # ---------------------------------------------------------------- tagfile container + type table
-"""Havok 2020 tagfile (TAG0) reader. Sections, type strings, type
+"""Havok 2020 tagfile (TAG0) reader - first cut. Sections, type strings, type
 names, field names, type bodies, ITEM table. Every claim is checked by
 'consumed exactly the section' asserts."""
 
@@ -144,6 +152,7 @@ class Reader:
     def item(self, idx):
         if idx == 0: return None
         if idx in self.cache: return self.cache[idx]
+        self.cache[idx] = "<cycle>"      # a pointer back up the tree stops here
         ti, fl, off, cnt = self.items[idx]
         sz = self.size(ti)
         vals = [self.read(ti, self.d0 + off + i * sz) for i in range(cnt)]
@@ -197,7 +206,7 @@ def walk(v, f):
     elif isinstance(v, list):
         for x in v: yield from walk(x, f)
 
-def mesh_tree_tris(t):
+def mesh_tree_tris(t, convex_pieces=False):
     dom = t["domain"]; mn, mx = dom["min"], dom["max"]
     shared = t["sharedVertices"] or []; sidx = t["sharedVerticesIndex"] or []
     packed = t["packedVertices"] or []
@@ -207,10 +216,20 @@ def mesh_tree_tris(t):
                 mn[2] + ((p >> 42) & 0x3FFFFF) * (mx[2]-mn[2]) / 0x3FFFFF)
     def shared_v(i): return shared_v_raw(shared[sidx[i]])
     tris = []
-    if t["primitiveStoresIsFlatConvex"] == 0:
+    if not t["sections"] or not t["primitives"]: return tris     # an empty tree
+    if convex_pieces:
         # convex pieces: sharedVerticesIndex holds (info, firstVertex) pairs;
         # each piece is the shared vertices from firstVertex to the next first.
-        firsts = [sidx[i + 1] for i in range(0, len(sidx), 2)] + [len(shared)]
+        # entry = (info, firstVertex) and one extra word when info & 0x40 is set
+        # (seen: 0x1112 no extra, 0x4F52 / 0x1052 with an extra 0x3C24)
+        # info & 0x80: the piece is an EXTERN shape instance (info, first, externIndex, 0),
+        # drawn from shape.externShapes by the caller, so it owns no vertex range here.
+        firsts = []; i = 0
+        while i + 1 < len(sidx):
+            info, first = sidx[i], sidx[i + 1]
+            if info & 0x80: i += 4; continue
+            firsts.append(first); i += 3 if info & 0x40 else 2
+        firsts.append(len(shared))
         for k in range(len(firsts) - 1):
             pts = [shared_v_raw(shared[j]) for j in range(firsts[k], firsts[k + 1])]
             tris += convex_tris(pts)
@@ -224,6 +243,9 @@ def mesh_tree_tris(t):
             return packed_v(i) if i < npk else shared_v(s["firstSharedVertexIndex"] + i - npk)
         for k in range(s["numPrimitives"]):
             a, b, c, d = t["primitives"][s["firstPrimitiveIndex"] + k]["indices"]
+            if a == c or a == b or b == c: continue        # degenerate = an unused slot (seen as 222,173,222,173)
+            nv = npk + len(sidx) - s["firstSharedVertexIndex"]
+            if max(a, b, c, d) >= nv: continue              # out of range: not a vertex reference
             va, vb, vc = vert(a), vert(b), vert(c)
             tris.append((va, vb, vc))
             if d != c: tris.append((va, vc, vert(d)))
@@ -273,20 +295,25 @@ def shape_tris(sh, xf=None):
     out = []
     if sh is None: return out
     t = sh["__t"]
-    if t == "hknpCompressedMeshShape": out += mesh_tree_tris(sh["data"]["meshTree"])
+    if t == "hknpCompressedMeshShape":
+        out += mesh_tree_tris(sh["data"]["meshTree"], sh.get("numTriangles", 1) == 0 and sh.get("numConvexShapes", 0) > 0)
+        for inst in sh.get("externShapes") or []:            # convex pieces stored as shape instances
+            out += instance_tris(inst)
     elif t == "hknpTriangleShape":
         vs = [(v["x"], v["y"], v["z"]) for v in sh["hull"]["vertices"]]
         out.append(tuple(vs[:3]))
         if len(vs) == 4: out.append((vs[0], vs[2], vs[3]))
-    elif t in ("hknpConvexShape", "hknpConvexPolytopeShape", "hknpCapsuleShape", "hknpSphereShape"): out += hull_tris(sh["hull"], sh.get("convexRadius", 0.0))
+    elif t in ("hknpConvexShape", "hknpConvexPolytopeShape", "hknpCapsuleShape", "hknpSphereShape", "hknpBoxShape", "hknpCylinderShape"): out += hull_tris(sh["hull"], sh.get("convexRadius", 0.0))
     elif t == "hknpCompoundShape":
-        for inst in sh["instances"]["elements"]:
-            if inst["shape"] is None or inst.get("leafIndex") == 65535 and False: continue
-            q = inst["rotation"]; tr = inst["translation"]; sc = inst["scale"]
-            for tri in shape_tris(inst["shape"]):
-                out.append(tuple(rot(q, (p[0]*sc["x"], p[1]*sc["y"], p[2]*sc["z"]), (tr["x"], tr["y"], tr["z"])) for p in tri))
+        for inst in sh["instances"]["elements"]: out += instance_tris(inst)
     else: print("unhandled shape", t, file=sys.stderr)
     return out
+
+def instance_tris(inst):
+    """An hknpShapeInstance: its shape's triangles through rotation, translation, scale."""
+    if not inst or inst.get("shape") is None: return []
+    q = inst["rotation"]; tr = inst["translation"]; sc = inst["scale"]
+    return [tuple(rot(q, (p[0]*sc["x"], p[1]*sc["y"], p[2]*sc["z"]), (tr["x"], tr["y"], tr["z"])) for p in tri) for tri in shape_tris(inst["shape"])]
 
 def rot(q, p, t):
     x, y, z, w = q; px, py, pz = p

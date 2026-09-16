@@ -50,7 +50,7 @@ Wargaming's block, one `Info` per body:
 
 ```
 name              the identifier without the leading s_/n_/d_  ("armor_9", "s_nd_0_wall", "wood0_1")
-collisionFlags    0 on every file read so far
+collisionFlags    0 on 96% of bodies; 14, 2, 3, 1, 64, 4, 66, 78 seen (meaning not decoded)
 normalMatKind     material kind id, see table
 destroyedMatKind  material kind id of the broken state, 0 when there is none
 minBounds_ / maxBounds_   AABB of the whole model
@@ -85,6 +85,7 @@ been guessing at** (`flight_bake.md`): the game names it per body, in data.
 | `hknpCompoundShape` | instances (rotation, translation, scale, shape) of the shapes below | apply the transform per instance |
 | `hknpConvexShape` | `hknpConvexHull`: `vertices` (hkFloat3), `faces` (firstIndex, numIndices), `indices` | fan each face |
 | `hknpTriangleShape` | a convex hull with 3 (triangle) or 4 (quad) vertices and a degenerate face table | take the vertices |
+| `hknpBoxShape`, `hknpCylinderShape` | convex hulls with a full face table (a cylinder is 128 vertices) plus the box's `obb` / the cylinder's `a`, `b` axis points | fan the faces |
 | convex hull with **no** face table | a flat plate or a point cloud (triggers, thin parts) | build the hull; a flat set gets a 2-D hull in its plane |
 
 ### The compressed mesh
@@ -117,11 +118,25 @@ Verified: every mesh's decoded bounds equal its `domain` to float precision;
 the monastery arch's collision bounds sit 1-2 cm inside its render mesh's;
 the AMX turret meshes match their convex-hull twins.
 
-**Convex pieces** (`primitiveStoresIsFlatConvex == 0`, seen on vehicle trigger
-volumes): `sharedVerticesIndex` is `(info, firstVertex)` pairs, one per piece,
-and a piece is the shared vertices from its `firstVertex` up to the next
-pair's. Each piece is a convex hull. `numConvexShapes` on the shape says how
-many.
+**Convex pieces** (`numTriangles == 0` and `numConvexShapes > 0` on the
+SHAPE - not the tree's `primitiveStoresIsFlatConvex`, which is 0 on ordinary
+rock meshes too): the mesh holds convex hulls instead of quads. Two places:
+
+- `sharedVerticesIndex` becomes a list of piece headers `(info, firstVertex)`
+  with extra words by flag: `info & 0x40` adds one word, `info & 0x80` adds two
+  and marks the piece as EXTERNAL. A non-external piece is the shared vertices
+  from its `firstVertex` up to the next piece's, hulled.
+- external pieces are `hknpCompressedMeshShape.externShapes[]`, ordinary
+  `hknpShapeInstance`s (rotation, translation, scale, a convex shape). The
+  Tiger I hull is 247 of them under one mesh body; the reader draws every
+  instance in that list.
+
+Vehicle trigger volumes and a few hulls use this; every quad mesh has
+`numConvexShapes == 0`.
+
+A primitive whose indices repeat (`222, 173, 222, 173`) is an unused slot, not
+a triangle. Skipping those made the decoded triangle count equal the shape's
+`numTriangles` on every file checked.
 
 ## The tagfile container (the part that took the day)
 
@@ -179,4 +194,36 @@ can be used as written. `hkHalf16` is the top 16 bits of a float32.
 
 ## Census (all 9,680 files)
 
-CENSUS_TABLE
+Every one of the 9,680 files parses and every body decodes to triangles:
+`ok 9680, fail 0`, SDK `20200200` throughout, the same five TYPE sub-sections
+in all of them. Totals: 2,770,396 packed and 2,922,714 shared vertices,
+18,676,612 triangles.
+
+| shape | bodies |
+|---|---|
+| `hknpCompressedMeshShape` | 67,387 |
+| `hknpCompoundShape` | 54,044 |
+| `hknpConvexShape` | 949 |
+| `hknpTriangleShape` | 24 |
+| `hknpBoxShape` | 18 |
+| `hknpCylinderShape` | 9 |
+| no shape (a body record without geometry) | 5,350 |
+
+Material kinds over every `HKBodyFlagsData::Info` (one per body):
+
+| kind | bodies |
+|---|---|
+| armour groups (1-32) | 42,679 |
+| gun (25) | 1,912 |
+| surveyingDevice (28) | 1,886 |
+| leftTrack / rightTrack (23 / 24) | 2,128 |
+| gunBreech (31) | 173 |
+| stone (111) | 2,076 |
+| metal (112) | 740 |
+| undamaged destructible (73-86) | 2,342 |
+| broken destructible (87-100) | 167 |
+| wheel (254) | 64 |
+| ground family (101-110) | 493 |
+| kind 0 (unset) | 631 |
+
+`collisionFlags`: 0 on 53,356, 14 on 1,129, 2 on 513, 3 on 250, 1 on 39, 64 on 18, 4 on 5, 66 on 5, 78 on 3. `destroyedMatKind` is 0 on every body.
