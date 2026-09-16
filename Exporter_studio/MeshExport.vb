@@ -105,7 +105,7 @@ Public NotInheritable Class MeshExport
         Using fs As New FileStream(path, FileMode.Create, FileAccess.Write)
             Using w As New BinaryWriter(fs)
                 Dim header(79) As Byte
-                Dim tag = Text.Encoding.ASCII.GetBytes("Slicer - nuTerra building export")
+                Dim tag = Text.Encoding.ASCII.GetBytes("Exporter_studio - nuTerra building export")
                 Array.Copy(tag, header, Math.Min(tag.Length, 79))
                 w.Write(header)
 
@@ -318,7 +318,7 @@ Public NotInheritable Class MeshExport
                                 groups As List(Of ObjGroup), mtlLib As String)
         Dim inv = CultureInfo.InvariantCulture
         Using w As New StreamWriter(path, False, New Text.UTF8Encoding(False))
-            w.WriteLine("# Slicer - nuTerra building export")
+            w.WriteLine("# Exporter_studio - nuTerra building export")
             w.WriteLine("# {0} vertices, {1} triangles, {2}, scale x{3}",
                         pos.Length, idx.Length \ 3, If(zUp, "Z-up", "Y-up"),
                         scale.ToString("0.####", inv))

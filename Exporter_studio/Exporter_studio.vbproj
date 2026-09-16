@@ -3,7 +3,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
     <!--
-      Exe, not WinExe. The Slicer's first job is a scan that reports, and a
+      Exe, not WinExe. Exporter_studio's first job is a scan that reports, and a
       WinExe detaches from the console so every Console.WriteLine goes nowhere
       unless the app calls AllocConsole itself. An OpenTK GameWindow opens
       perfectly well from a console subsystem app, so the window this grows
@@ -14,7 +14,7 @@
     <RootNamespace></RootNamespace>
     <OptionCompare>Text</OptionCompare>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
-    <AssemblyName>Slicer</AssemblyName>
+    <AssemblyName>Exporter_studio</AssemblyName>
     <!--
       For System.Drawing, which the UI font atlas rasterises through. This is
       the Windows Desktop SHARED FRAMEWORK, not a package: the project still

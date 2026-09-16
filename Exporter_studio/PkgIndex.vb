@@ -12,7 +12,7 @@ Imports System.Xml
 ''' Using block. The entries in `map` outlive the loop that made them.
 '''
 ''' Unlike ResMgr this one scans EVERY package, vehicles and audio included.
-''' The whole question the Slicer exists to answer is "where are the buildings",
+''' The whole question Exporter_studio exists to answer is "where are the buildings",
 ''' and skipping a package because its name suggests it holds tanks is assuming
 ''' the answer. Run it once, measure, and then skip on evidence - which is what
 ''' --skip-vehicles is for, and why FoundOutsideBuildingRoot is reported.

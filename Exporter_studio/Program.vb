@@ -2,20 +2,20 @@
 Imports OpenTK.Mathematics
 
 ''' <summary>
-''' Building Slicer - finds the buildings in the World of Tanks packages.
+''' Exporter_studio - finds the buildings in the World of Tanks packages.
 '''
 ''' Standalone, like SrtViewer: it shares no code with nuTerra so it can be run
 ''' and proven in seconds without a map load, and so the format readers in here
 ''' stay honest reference implementations.
 '''
-'''     Slicer                          scan and summarise
-'''     Slicer --list                   every building, one line each
-'''     Slicer --list --filter cathedral
-'''     Slicer --asset hd_bld_eu_225_cathedral    every LOD and part
-'''     Slicer --csv buildings.csv      one row per part
-'''     Slicer --failures               show anything that would not parse
-'''     Slicer --skip-vehicles          faster; skips vehicles_/audioww- packages
-'''     Slicer --game "C:\Games\World_of_Tanks_NA"
+'''     Exporter_studio                          scan and summarise
+'''     Exporter_studio --list                   every building, one line each
+'''     Exporter_studio --list --filter cathedral
+'''     Exporter_studio --asset hd_bld_eu_225_cathedral    every LOD and part
+'''     Exporter_studio --csv buildings.csv      one row per part
+'''     Exporter_studio --failures               show anything that would not parse
+'''     Exporter_studio --skip-vehicles          faster; skips vehicles_/audioww- packages
+'''     Exporter_studio --game "C:\Games\World_of_Tanks_NA"
 ''' </summary>
 Module Program
 
@@ -183,6 +183,17 @@ Module Program
         ' settings do not depend on the game install or on a scan.
         If settingsPath Is Nothing Then
             settingsPath = IO.Path.Combine(AppContext.BaseDirectory, SliceSettings.DefaultFileName)
+            ' The app was renamed from Slicer, and a settings file written
+            ' under the old name is still worth reading. Ignoring it would
+            ' silently restore every default - which reads as the settings
+            ' having stopped working rather than as a rename.
+            If Not File.Exists(settingsPath) Then
+                Dim legacy = IO.Path.Combine(AppContext.BaseDirectory, SliceSettings.LegacyFileName)
+                If File.Exists(legacy) Then
+                    Console.WriteLine("settings: reading {0} (the pre-rename name)", SliceSettings.LegacyFileName)
+                    settingsPath = legacy
+                End If
+            End If
         End If
         Dim settings = SliceSettings.Load(settingsPath)
 
@@ -570,7 +581,7 @@ Module Program
     End Function
 
     Private Sub Usage()
-        Console.WriteLine("Building Slicer - finds the buildings in the World of Tanks packages")
+        Console.WriteLine("Exporter_studio - finds the buildings in the World of Tanks packages")
         Console.WriteLine()
         Console.WriteLine("  --view               open the 3D viewer")
         Console.WriteLine("  --shot <file.png>    render one frame of the bottom fill and exit")
@@ -590,7 +601,7 @@ Module Program
         Console.WriteLine("  --hide <pattern>     switch off parts whose name or .model matches; * wildcards")
         Console.WriteLine("  --export-now <vis|all>  press the viewer''s export button once on load")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
-        Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
+        Console.WriteLine("  --save-settings      write exporter_studio.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")
         Console.WriteLine("  --settings <file>    use a settings file other than the default")
         Console.WriteLine("  --list               one line per building")

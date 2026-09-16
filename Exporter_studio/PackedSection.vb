@@ -8,7 +8,7 @@ Imports OpenTK.Mathematics
 '''
 ''' This is a standalone transcription of nuTerra's ResMgr\packed_section.vb,
 ''' deliberately NOT shared with it - the same rule SrtViewer follows. The
-''' Slicer has to run without nuTerra, and a format reader that can be proven
+''' Exporter_studio has to run without nuTerra, and a format reader that can be proven
 ''' out in seconds beats one tangled into a map load.
 '''
 ''' Two differences from the ResMgr version, both on purpose:

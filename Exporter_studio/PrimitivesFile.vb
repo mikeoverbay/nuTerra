@@ -66,7 +66,7 @@ End Class
 ''' <summary>
 ''' Reads a `.primitives_processed` - the vertex and index buffers themselves.
 '''
-''' Standalone, like the rest of the Slicer. `nuTerra/ModelLoaders/PrimitiveLoader.vb`
+''' Standalone, like the rest of Exporter_studio. `nuTerra/ModelLoaders/PrimitiveLoader.vb`
 ''' is the engine's version and `docs/primitives_reader.md` writes the format up;
 ''' this is a third reader of the same bytes, which is the point - when two
 ''' disagree the file is not the thing that is wrong.

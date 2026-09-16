@@ -3,7 +3,7 @@ Imports System.Globalization
 Imports OpenTK.Mathematics
 
 ''' <summary>
-''' What the slicer needs to know before it cuts anything.
+''' What the cut and the export need to know.
 '''
 ''' Every default in here was chosen against a measurement of the shipped
 ''' building library rather than picked as a round number, and the two that
@@ -150,7 +150,13 @@ Public Class SliceSettings
     ''' settings.</summary>
     Private ReadOnly unknown As New List(Of String)
 
-    Public Shared ReadOnly DefaultFileName As String = "slicer.settings"
+    Public Shared ReadOnly DefaultFileName As String = "exporter_studio.settings"
+
+    ''' <summary>What the file was called before the app was renamed. Still
+    ''' read when the new name is absent, so a settings file written under the
+    ''' old name is not silently ignored - which would quietly restore every
+    ''' default and look like the settings had stopped working.</summary>
+    Public Shared ReadOnly LegacyFileName As String = "slicer.settings"
 
     ''' <summary>The plane normal this configuration actually means.</summary>
     Public Function EffectiveNormal() As Vector3
@@ -284,8 +290,8 @@ Public Class SliceSettings
 
     Public Sub Save(path As String)
         Dim w As New Text.StringBuilder
-        w.AppendLine("# Slicer settings. Plain key = value, # starts a comment.")
-        w.AppendLine("# Defaults are measured against the shipped building library - see Slicer/README.md.")
+        w.AppendLine("# Exporter_studio settings. Plain key = value, # starts a comment.")
+        w.AppendLine("# Defaults are measured against the shipped building library - see Exporter_studio/README.md.")
         w.AppendLine()
         w.AppendLine("# --- the plane ---------------------------------------------------")
         w.AppendLine("plane.axis            = " & Axis & "            # x | y | z | custom")

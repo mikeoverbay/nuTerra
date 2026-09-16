@@ -1,4 +1,4 @@
-# Slicer
+# Exporter_studio
 
 Pulls buildings out of the World of Tanks packages and writes them as STL or
 OBJ, so they can be printed or opened in anything.
@@ -8,22 +8,26 @@ so it runs without starting the engine and its format readers stay honest
 reference implementations. VB + OpenTK, `net8.0-windows`, x64. **One
 dependency, OpenTK** - every mesh routine here is written in this folder.
 
-The name is historical. It began as a plane-slicer and the cut is still in
-there as an inspection aid (`S` in the viewer), but the job is export: produce
-a clean mesh and let a real slicer - OrcaSlicer, PrusaSlicer - do the slicing,
-the supports and the G-code. That is their work and they are good at it.
+It began as a plane-slicer, was called `Slicer` for that reason, and the cut is
+still in there as an inspection aid (`S` in the viewer). The job is export
+though: produce a clean mesh and let a real slicer - OrcaSlicer, PrusaSlicer -
+do the slicing, the supports and the G-code. That is their work and they are
+good at it, and the app was renamed to say so.
+
+The classes that genuinely slice kept their names - `MeshSlicer`, `SliceResult`,
+`SliceSettings` - because they describe what they do. Only the APP was renamed.
 
 ## Running
 
-    Slicer --export                                  write every building as STL
-    Slicer --export --asset cathedral --out models    write one, somewhere
-    Slicer --export 20 --set out.format=obj          the first 20, as OBJ
-    Slicer --view                                    the 3D viewer
-    Slicer --view --find "*eu*thouse*roof*"          open on the first match
-    Slicer --check                                   watertightness sweep
-    Slicer --list                                    every building, one line each
-    Slicer --show-settings                           print the settings and exit
-    Slicer --game "C:\Games\World_of_Tanks_NA"
+    Exporter_studio --export                                  write every building as STL
+    Exporter_studio --export --asset cathedral --out models    write one, somewhere
+    Exporter_studio --export 20 --set out.format=obj          the first 20, as OBJ
+    Exporter_studio --view                                    the 3D viewer
+    Exporter_studio --view --find "*eu*thouse*roof*"          open on the first match
+    Exporter_studio --check                                   watertightness sweep
+    Exporter_studio --list                                    every building, one line each
+    Exporter_studio --show-settings                           print the settings and exit
+    Exporter_studio --game "C:\Games\World_of_Tanks_NA"
 
 The game install is auto-detected from the usual four locations.
 
@@ -68,7 +72,7 @@ do its own, before printing.
 
 ### Building it
 
-    dotnet build Slicer/Slicer.vbproj -c Debug
+    dotnet build Exporter_studio/Exporter_studio.vbproj -c Debug
 
 **Do not pass `-p:Platform=x64`.** nuTerra needs it to resolve its C++ DLL, and
 `CLAUDE.md` says so for that project — but this one is pure managed and already
@@ -601,10 +605,10 @@ as a measured fact.
 
 ## Settings
 
-    Slicer --show-settings              print them (no game install needed)
-    Slicer --save-settings              write a commented slicer.settings
-    Slicer --set slice.mode=stack       override one for this run
-    Slicer --settings other.txt         use a different file
+    Exporter_studio --show-settings              print them (no game install needed)
+    Exporter_studio --save-settings              write a commented exporter_studio.settings
+    Exporter_studio --set slice.mode=stack       override one for this run
+    Exporter_studio --settings other.txt         use a different file
 
 Plain `key = value` text with `#` comments, living beside the exe, editable in
 Notepad without the app running. Unknown keys are preserved on a round trip

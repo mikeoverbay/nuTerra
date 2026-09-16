@@ -323,7 +323,7 @@ Public Class ViewerWindow
 
     ''' <summary>nuTerra's ROT_DAMPING default, its "Rotation damping" slider.</summary>
     Private Const ROT_DAMPING As Single = 0.1F
-    ''' <summary>nuTerra reads My.Settings.speed here. The Slicer has no
+    ''' <summary>nuTerra reads My.Settings.speed here. Exporter_studio has no
     ''' settings store for it, so it takes the same neutral 1.0 that a fresh
     ''' nuTerra profile starts at.</summary>
     Private Const MOUSE_SPEED As Single = 1.0F
@@ -341,7 +341,7 @@ Public Class ViewerWindow
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = If(startSize.X > 200 AndAlso startSize.Y > 150, startSize, New Vector2i(1280, 800)),
-                       .Title = "Slicer",
+                       .Title = "Exporter_studio",
                        .APIVersion = New Version(3, 3),
                        .Profile = ContextProfile.Core,
                        .StartFocused = False})
@@ -1076,7 +1076,7 @@ Public Class ViewerWindow
         Console.WriteLine("  pbr {0}   view: {1}   {2} group(s), {3:N0} tris",
                           If(pbrOn, "ON", "off"), PbrShader.DebugNames(pbrDebug),
                           pbrParts.Count, pbrTris)
-        Title = String.Format("Slicer - {0}  PBR {1}  [{2}]  {3:N0} tris",
+        Title = String.Format("Exporter_studio - {0}  PBR {1}  [{2}]  {3:N0} tris",
                               assets(assetIndex).Name, If(pbrOn, "on", "off"),
                               PbrShader.DebugNames(pbrDebug), pbrTris)
     End Sub
@@ -1179,7 +1179,7 @@ Public Class ViewerWindow
         pbrOn = True
         Console.WriteLine("  {0} part(s), {1:N0} tris, span {2:F0} - drawn with a checker",
                           pbrParts.Count, pbrTris, (hi - lo).Length)
-        Title = String.Format("Slicer - OBJ {0}  {1:N0} tris", IO.Path.GetFileName(path), pbrTris)
+        Title = String.Format("Exporter_studio - OBJ {0}  {1:N0} tris", IO.Path.GetFileName(path), pbrTris)
     End Sub
 
     ''' <summary>Upload a texture once and remember it, because the building
@@ -1421,7 +1421,7 @@ Public Class ViewerWindow
         Dim asset = assets(assetIndex)
         Dim lod = If(asset.Lods.Count > 0, asset.Lods(Math.Min(lodIndex, asset.Lods.Count - 1)), 0)
         Title = String.Format(
-            "Slicer - {0}  lod{1}  [{2}/{3}]  {4:N0} tris{5}",
+            "Exporter_studio - {0}  lod{1}  [{2}/{3}]  {4:N0} tris{5}",
             asset.Name, lod, assetIndex + 1, assets.Count, totalTris,
             If(slicing,
                String.Format("   CUT {0} {1} @ {2:F2} m   {3:N0} clipped, {4:N0} cut edges",
