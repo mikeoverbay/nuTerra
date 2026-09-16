@@ -8,8 +8,11 @@ Public Class ModelRow
     ''' viewer's current asset without searching for it again.</summary>
     Public Property AssetIndex As Integer
     Public Property Label As String
-    ''' <summary>Lowered "asset/part", which is what a query is matched
-    ''' against.</summary>
+    ''' <summary>The full package path, lowered, which is what a query is
+    ''' matched against. The whole path and not "asset/part", because the list
+    ''' now spans every package: part names repeat across assets (every tank
+    ''' has a gun_03) and the folder is the only thing that separates them, so
+    ''' *vehicles/german* has to be a query you can type.</summary>
     Public Property Key As String
 End Class
 
@@ -78,7 +81,7 @@ Public Class ModelBrowser
                 Rows.Add(New ModelRow With {
                     .Part = p, .AssetName = a.Name, .AssetIndex = ai,
                     .Label = p.Name,
-                    .Key = (a.Name & "/" & p.Name).ToLowerInvariant()})
+                    .Key = p.Path.ToLowerInvariant()})
             Next
         Next
         Rows.Sort(Function(x, y) String.Compare(x.Key, y.Key, StringComparison.OrdinalIgnoreCase))

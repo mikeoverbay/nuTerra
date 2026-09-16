@@ -279,18 +279,41 @@ Module Program
         ' building. That is the launched-from-nuTerra path: its picker
         ' already knows the exact primitives path, so there is nothing to
         ' search for, and the model it hands over may well be a rock.
+        ' --open means "open this", so it opens the viewer. It used to build a
+        ' one-model library and then fall off the end of Main, printing the
+        ' report and exiting - from outside, the window never appears and the
+        ' console closes. The exception is a run that asked for something
+        ' headless as well: there --open is SCOPING the output to one model, not
+        ' asking for a window, and a one-model library is exactly right.
+        Dim headlessAsk = doList OrElse doFailures OrElse csvPath IsNot Nothing OrElse
+                          checkCount >= 0 OrElse exportCount >= 0 OrElse matCount >= 0 OrElse
+                          identPattern IsNot Nothing OrElse glbCheck IsNot Nothing OrElse
+                          showSettings OrElse saveSettings
+
         Dim sw = Diagnostics.Stopwatch.StartNew()
         Dim library As BuildingLibrary
-        If openPath IsNot Nothing Then
-            library = BuildingLibrary.ForSingleModel(ResolveOpenPath(pkg, openPath))
+        Dim openResolved As String = Nothing
+        If openPath IsNot Nothing Then openResolved = ResolveOpenPath(pkg, openPath)
+
+        If openResolved IsNot Nothing AndAlso headlessAsk Then
+            library = BuildingLibrary.ForSingleModel(openResolved)
         Else
             library = BuildingLibrary.Scan(pkg)
+            ' A path the scan did not file - handed in from somewhere else, or
+            ' one of the shapes nothing recognises - still has to open. Fall back
+            ' to the one-model library rather than starting on an unrelated asset
+            ' and pretending the request was honoured.
+            If openResolved IsNot Nothing AndAlso Not library.HasModel(openResolved) Then
+                Console.WriteLine("--open: {0} is not in the scan; opening it on its own", openResolved)
+                library = BuildingLibrary.ForSingleModel(openResolved)
+                openResolved = Nothing
+            End If
         End If
         sw.Stop()
 
-        Console.WriteLine("BUILDINGS")
+        Console.WriteLine("MODELS, every package")
         Console.WriteLine("  assets           {0:N0}", library.Assets.Count)
-        Console.WriteLine("  mesh models      {0:N0}  ({1:N0} parsed, {2:N0} unparsable)",
+        Console.WriteLine("  mesh models      {0:N0}  (lod0: {1:N0} parsed, {2:N0} unparsable)",
                           library.ModelsFound, library.ModelsParsed, library.ModelsUnparsable)
         Console.WriteLine("  havok proxies    {0:N0}  (collision hulls, not geometry)", library.HavokFound)
         Console.WriteLine("  scanned in       {0:N0} ms", sw.ElapsedMilliseconds)
@@ -302,14 +325,10 @@ Module Program
         Console.WriteLine("  cross-check, folder against the game's own bld_ prefix:")
         Console.WriteLine("    named bld_ but outside content/buildings   {0}",
                           If(library.NamedBldOutsideRoot.Count = 0, "none", library.NamedBldOutsideRoot.Count.ToString()))
-        For Each s In library.NamedBldOutsideRoot
-            Console.WriteLine("      {0}", s)
-        Next
+        ShowSome(library.NamedBldOutsideRoot)
         Console.WriteLine("    inside content/buildings but not bld_      {0}",
                           If(library.InRootNotNamedBld.Count = 0, "none", library.InRootNotNamedBld.Count.ToString()))
-        For Each s In library.InRootNotNamedBld
-            Console.WriteLine("      {0}", s)
-        Next
+        ShowSome(library.InRootNotNamedBld)
         Console.WriteLine("    under content/buildings, shape not recognised   {0}",
                           If(library.OddShaped = 0, "none", library.OddShaped.ToString()))
 
@@ -322,7 +341,9 @@ Module Program
             lodHist(n) = lodHist.GetValueOrDefault(n) + 1
             Dim p = a.PartsAt(0).Count
             partHist(p) = partHist.GetValueOrDefault(p) + 1
-            For Each pt In a.Parts
+            ' lod0 only: deeper LODs are not parsed at scan time, and counting
+            ' them here would report every unread part as "no box".
+            For Each pt In a.PartsAt(0)
                 If pt.HasBox Then withBox += 1 Else withoutBox += 1
                 If pt.Visual IsNot Nothing AndAlso Not pt.Nodeless Then nodefull += 1
             Next
@@ -332,8 +353,8 @@ Module Program
         Console.WriteLine("  parts at lod0    {0} assets are a single mesh, {1} are multi-part (up to {2})",
                           partHist.GetValueOrDefault(1), library.Assets.Count - partHist.GetValueOrDefault(1),
                           If(partHist.Count = 0, 0, partHist.Keys.Max()))
-        Console.WriteLine("  visibility box   {0:N0} models carry one, {1:N0} do not", withBox, withoutBox)
-        Console.WriteLine("  node trees       {0:N0} models are nodefull (animated), the rest nodeless", nodefull)
+        Console.WriteLine("  visibility box   {0:N0} lod0 models carry one, {1:N0} do not", withBox, withoutBox)
+        Console.WriteLine("  node trees       {0:N0} lod0 models are nodefull (animated), the rest nodeless", nodefull)
 
         If doFailures Then
             Console.WriteLine()
@@ -371,9 +392,16 @@ Module Program
             MeshExport.ExportAssets(pkg, library, settings, If(assetArg, filter), exportCount)
         End If
 
-        If doView OrElse shotPath IsNot Nothing OrElse doShell OrElse bakeDir IsNot Nothing OrElse objPath IsNot Nothing Then
+        If doView OrElse shotPath IsNot Nothing OrElse doShell OrElse bakeDir IsNot Nothing OrElse objPath IsNot Nothing OrElse
+           (openPath IsNot Nothing AndAlso Not headlessAsk) Then
             ' --asset picks the building to open on; without one it starts at
             ' the first and the arrow keys walk the library.
+            ' Starting on the opened model goes through the browser's search
+            ' rather than a second lookup: the path is a query that matches the
+            ' one row, the browser selects it and loads it, and --open lands on
+            ' the same code path a double-click uses.
+            If openResolved IsNot Nothing AndAlso findPattern Is Nothing Then findPattern = openResolved
+
             Dim startAt = 0
             If assetArg IsNot Nothing Then
                 Dim ordered = library.Assets.Values.ToList()
@@ -397,6 +425,26 @@ Module Program
         End If
     End Sub
 
+
+    ''' <summary>
+    ''' Print a control's hits, but never more than ten of them.
+    '''
+    ''' These lists are meant to be empty. When one is not, the first few names
+    ''' say what kind of thing it caught and the count says how big it is -
+    ''' printing all of them just buries the rest of the report.
+    ''' </summary>
+    Private Sub ShowSome(items As SortedSet(Of String))
+        Const CAP As Integer = 10
+        Dim n = 0
+        For Each s In items
+            If n >= CAP Then
+                Console.WriteLine("      ... and {0:N0} more", items.Count - CAP)
+                Exit For
+            End If
+            Console.WriteLine("      {0}", s)
+            n += 1
+        Next
+    End Sub
 
     ''' <summary>
     ''' A path with any lod&lt;N&gt; segment removed, so two paths that differ
