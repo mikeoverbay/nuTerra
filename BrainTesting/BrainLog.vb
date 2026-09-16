@@ -18,6 +18,18 @@ Imports OpenTK.Mathematics
 ''' If the header ever changes over there it must change here; that is written
 ''' on both sides.
 '''
+''' DRIFTED ONCE ALREADY, on 2026-09-16: Tank AI work appended blk_ahead,
+''' blk_rear and stuck_s in 90b44018 and told me, which is the only reason
+''' this still matches. Their reason for the three is worth keeping - the ray
+''' columns record the MEASUREMENT and the driver steered on something else,
+''' and the file could not show the two disagreeing; that gap cost a morning.
+''' Append-only, so an old reader still parses.
+'''
+''' THIS HEADER IS A COPY OF SOMEONE ELSE'S CONTRACT and copies drift. If
+''' TankLog's columns move again this one must move with them, or two runs
+''' stop being comparable in exactly the way a shared header exists to
+''' prevent. Noted in both files.
+'''
 ''' Two kinds of row, at different rates, exactly as they reasoned it:
 '''   EVENT  - the brain changed what it is doing. Written that frame.
 '''   SAMPLE - a heartbeat, so travel and heading have a trace between events.
@@ -63,7 +75,8 @@ Module BrainLog
             writer.WriteLine("t_s,row,tank,team,x,z,heading_deg,speed_ms," &
                              "travelled_m,why,start_id,wp_at,wp_of," &
                              "d_fl,d_fr,d_rl,d_rr,d_front,d_rear,d_right,d_left," &
-                             "s_fl,s_fr,s_rl,s_rr,s_front,s_rear,s_right,s_left")
+                             "s_fl,s_fr,s_rl,s_rr,s_front,s_rear,s_right,s_left," &
+                             "blk_ahead,blk_rear,stuck_s")
             writer.Flush()
             LogThis("brain: black box writing {0}", path_)
         Catch ex As Exception
@@ -131,7 +144,7 @@ Module BrainLog
                     Globalization.CultureInfo.InvariantCulture,
                     "{0:0.000},{1},{2},{3},{4:0.00},{5:0.00},{6:0.0},{7:0.00}," &
                     "{8:0.0},{9},{10},{11},{12}," &
-                    ",,,,,,,," & ",,,,,,,,",
+                    ",,,,,,,," & ",,,,,,,," & ",,",
                     t_s, If(changed, "EVENT", "SAMPLE"), hull.id, hull.team,
                     hull.pos.X, hull.pos.Y,
                     MathHelper.RadiansToDegrees(hull.headingRad), hull.speed,
