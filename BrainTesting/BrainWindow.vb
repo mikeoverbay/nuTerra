@@ -167,6 +167,7 @@ Public Class BrainWindow
                 ' bake yet, and the log says which one answered.
                 If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
                 BrainNav.SelfCheck()
+                If BrainNav.NAV_AUDIT Then BrainNav.MaterialAudit()
 
                 ' THE SIM STARTS AT LAUNCH - the owner's ask. What it DOES is
                 ' Tank AI's: BrainSim.Brain is NullBrain until their code sets

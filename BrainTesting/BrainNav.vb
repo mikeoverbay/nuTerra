@@ -67,6 +67,54 @@ Module BrainNav
     Public NAV_AUDIT As Boolean = False
 
     ''' <summary>
+    ''' Count the d_ / n_ material names, to check a claim rather than adopt
+    ''' it.
+    '''
+    ''' Tank AI work found the owner's crushable convention living inside
+    ''' .visual_processed as render-set material names, which is why neither
+    ''' of us saw it on a file path. They read it out of the pkg; this reads
+    ''' it from the space.bin MATERIAL TABLE, which resolves the same strings
+    ''' through cBWST and is already linked here - a second source for the
+    ''' same fact, which is the only reason to spend the code.
+    '''
+    ''' It changes nothing. A measurement that would rewrite the crushable
+    ''' rule is the owner's call, and the last time somebody read a kind off
+    ''' a remembered table it turned rock into fence.
+    ''' </summary>
+    Public Sub MaterialAudit()
+        Try
+            If cBSMA.MaterialItem Is Nothing OrElse cBSMA.MaterialItem.Length = 0 Then
+                LogThis("brain: no material table in this space")
+                Return
+            End If
+            Dim d = 0, n = 0, other = 0
+            Dim seen As New HashSet(Of String)
+            Dim sample As New List(Of String)
+            For Each m In cBSMA.MaterialItem
+                Dim id = m.identifier
+                If String.IsNullOrEmpty(id) Then Continue For
+                If Not seen.Add(id) Then Continue For
+                If id.StartsWith("d_", StringComparison.Ordinal) Then
+                    d += 1
+                    If sample.Count < 6 Then sample.Add(id)
+                ElseIf id.StartsWith("n_", StringComparison.Ordinal) Then
+                    n += 1
+                    If sample.Count < 6 Then sample.Add(id)
+                Else
+                    other += 1
+                End If
+            Next
+            LogThis("brain: material names - {0} distinct: d_ {1}, n_ {2}, neither {3}",
+                    seen.Count, d, n, other)
+            If sample.Count > 0 Then
+                LogThis("brain:   e.g. {0}", String.Join(", ", sample))
+            End If
+        Catch ex As Exception
+            LogThis("brain: material audit failed - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
     ''' THE SQUARE MAP THE PROJECT ALREADY BUILDS, in preference to anything
     ''' worked out here.
     '''

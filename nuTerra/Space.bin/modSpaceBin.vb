@@ -352,7 +352,17 @@ CleanUp:
         'cBWT2 = Nothing
         cBSMI = Nothing
         cBSMO = Nothing
-        cBSMA = Nothing
+        ' cBSMA = Nothing
+        ' KEPT, for the same reason cWGSD below is kept: something reads it
+        ' after this returns. The MATERIAL IDENTIFIERS are in it, and those
+        ' carry the owner's d_ / n_ crushable convention - Tank AI work found
+        ' them inside .visual_processed as render-set material names on
+        ' 2026-09-16, which is why neither session could see the convention on
+        ' any file path. Freeing the table here meant the only in-app route to
+        ' that name was closed before anything could ask.
+        '
+        ' Small: it is one row per distinct material in the space, and the
+        ' audit prints the count so the cost is visible rather than assumed.
         'cWGSD = Nothing
         ' Kept, like the others commented out above: MapWater.Build reads the
         ' bodies and mesh from it AFTER this function returns. Nulling it here
