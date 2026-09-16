@@ -274,13 +274,53 @@ def flood(blocked, goal_rc, cost=None, height=None):
     graph = coo_matrix((np.concatenate(vals),
                         (np.concatenate(rows), np.concatenate(cols))),
                        shape=(N, N)).tocsr()
-    src = idx[goal_rc]
-    if src < 0:
-        raise ValueError("the goal cell is blocked")
-    d = dijkstra(graph, indices=src, directed=False)
+    # A GOAL MAY BE A PATCH, NOT A POINT.
+    #
+    # "any seek to the other base is done if its inside the ring. it does not
+    # have to make it to the base position." A base is a fifty-metre disc a
+    # tank captures by standing in, so the exact centre cell is not the thing
+    # being driven to - and demanding it can fail a route that reached the
+    # base perfectly well, because the last few metres happen to be occupied
+    # by whatever is sitting on the flag.
+    #
+    # Multi-source Dijkstra does this for free: seed every free cell of the
+    # ring at zero and the field measures distance to the RING, so walking
+    # downhill stops on the edge of it.
+    if isinstance(goal_rc, np.ndarray) and goal_rc.dtype == bool:
+        seeds = idx[goal_rc & free]
+        seeds = seeds[seeds >= 0]
+        if seeds.size == 0:
+            raise ValueError("every cell of the goal area is blocked")
+        # ONE EXTRA NODE, NOT ONE DIJKSTRA PER CELL.
+        #
+        # Passing every ring cell as a source runs a separate search from each
+        # and takes the minimum - thousands of full-grid searches, and it did
+        # not finish in ten minutes. A single virtual node joined to every seed
+        # at zero cost gives the same answer, because the distance to the
+        # nearest seed IS the distance through a free edge to all of them, and
+        # it is one search.
+        sup = N
+        rows.append(np.full(seeds.shape, sup, np.int64))
+        cols.append(seeds)
+        vals.append(np.zeros(seeds.shape, np.float32))
+        graph = coo_matrix((np.concatenate(vals),
+                            (np.concatenate(rows), np.concatenate(cols))),
+                           shape=(N + 1, N + 1)).tocsr()
+        d = dijkstra(graph, indices=sup, directed=False)[:N]
+    else:
+        src = idx[goal_rc]
+        if src < 0:
+            raise ValueError("the goal cell is blocked")
+        d = dijkstra(graph, indices=src, directed=False)
     field = np.full((n, n), np.inf, np.float32)
     field[free] = d
     return field
+
+
+def ring_mask(n, rc, radius_cells):
+    """Every cell within radius_cells of rc - a base ring, as a goal."""
+    rr, cc = np.ogrid[:n, :n]
+    return ((rr - rc[0]) ** 2 + (cc - rc[1]) ** 2) <= radius_cells ** 2
 
 
 def walk_down(field, start_rc):
@@ -1025,6 +1065,7 @@ def simplify(pts, tol_m=0.35):
 
 def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
                 dedupe=0.85, standoff_m=6.0, base_ring_m=50.0,
+                stitch_base=False,
                 row_inset_m=10.0, on_route=None):
     """A lane per X: BOTH ends on that X, then hooked to the base.
 
@@ -1051,7 +1092,16 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
     # within 3 m of something, and at a 6 m standoff that is 1% for 16 m more
     # road on 846.
     cost = standoff_cost(blocked, want_m=standoff_m, cell_m=cell_m)         if standoff_m > 0 else None
-    f_goal = flood(blocked, g_rc, cost=cost, height=height)
+    # Needed by the goal flood below, so it is worked out before it and not
+    # eighty lines later where it used to sit.
+    base_ring_cells = base_ring_m / cell_m
+
+    # ARRIVING MEANS REACHING THE RING, not the flag. Every lane's second leg
+    # now ends on the edge of the enemy base rather than at its centre, which
+    # is both what a capture is and one less way for a lane to be called
+    # unfinishable because the last few metres are occupied.
+    f_goal = flood(blocked, ring_mask(n, g_rc, base_ring_cells),
+                   cost=cost, height=height)
     # AND THE WAY OUT OF OUR OWN BASE. One more flood, from the base rather
     # than to it, so every lane can be stitched back to where the tank
     # actually starts.
@@ -1089,7 +1139,6 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
         r_lo = int((g["wz1"] - box[3]) / cell_m + max(1.0, standoff_m))
         r_hi = int((g["wz1"] - box[1]) / cell_m - max(1.0, standoff_m))
         far_row = max(r_lo, min(r_hi, far_row))
-    base_ring_cells = base_ring_m / cell_m
     ring = max(1, int(ring_m / cell_m))
     step = max(1, int(round(step_m / cell_m)))
     comp = components(blocked, height)
@@ -1165,9 +1214,20 @@ def sweep_roads(g, start, goal, step_m=40.0, cell_m=CELL_M, ring_m=RING_M,
         #
         # Unless it is already inside the base ring, in which case there is
         # nothing to stitch and the lane is left alone.
+        # OFF FOR NOW, BY THE OWNER: "stop seeking base to start and end to
+        # base paths. save the code but stop adding it to the paths for now."
+        #
+        # The lead-in is what made every lane begin at the base, and with both
+        # sides doing it every road converged on the same two vertices - which
+        # is what put a base vertex at the head of one side's roads AND the
+        # tail of the other's, and made every start belong to both teams. The
+        # lanes themselves are the part being looked at; the walk home is a
+        # separate question and can come back on its own.
+        #
+        # KEPT, not deleted. stitch_base=True restores it exactly.
         d_base = np.hypot(a_rc[0] - s_rc[0], a_rc[1] - s_rc[1])
         stitched = False
-        if d_base > base_ring_cells:
+        if stitch_base and d_base > base_ring_cells:
             if not np.isfinite(f_home[a_rc]):
                 continue                  # cannot even leave the base for it
             lead = walk_down(f_home, a_rc)[::-1]     # base -> the lane's start

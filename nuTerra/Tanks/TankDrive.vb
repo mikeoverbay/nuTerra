@@ -99,6 +99,11 @@ Public Class TankDrive
     ''' destination.</summary>
     Public passS As Single = 0.0F
 
+    ''' <summary>A manoeuvre has just finished and the hull owes its path a
+    ''' re-join. Set when a skirt or go-around is started, consumed on the
+    ''' frame the hull is free again.</summary>
+    Public rejoinNext As Boolean = False
+
     ''' <summary>How far the tangent sweep opens, and in what steps. Twelve
     ''' rings of 12 degrees reaches 144 degrees either side - past square to the
     ''' obstacle, which is as far as skirting can sensibly go before the way
@@ -188,13 +193,42 @@ Public Class TankDrive
             ' is chosen and the hull turns straight back into what it was
             ' avoiding.
             If hasSimTarget AndAlso skirtS <= 0.0F AndAlso passS <= 0.0F Then
+                ' BACK ONTO THE LINE, NOT ONTO THE OLD POINT - rule 5. Done the
+                ' frame a manoeuvre ends, which is the only moment the hull has
+                ' moved off the road without meaning to.
+                If rejoinNext Then
+                    rejoinNext = False
+                    TankSim.Rejoin(inst)
+                End If
                 If Not hasGoal OrElse (goal - simTarget).Length > 0.5F Then
                     goal = simTarget
                     hasGoal = True
                 End If
             End If
-            If hasGoal AndAlso (goal - pos).Length < TankDriveTune.ARRIVE_M Then
-                arrived = True
+            ' A WIN IS THE RING, not the last waypoint - rule 3. The waypoint
+            ' is where a road happened to stop; the ring is what a capture is.
+            ' WHERE IT ENDED, AND ON WHICH PATH. The owner: "when a tank
+            ' reached a goal, write it in the log so you can find out what path
+            ' it was on and what path it ended on." Both lines name the start
+            ' it took and how far down that run it got, because "stopped at the
+            ' start" and "drove the whole way" are the same event otherwise.
+            If TankSim.InEnemyRing(inst) Then
+                If Not arrived Then
+                    arrived = True
+                    Dim p = TankSim.Progress(inst)
+                    LogThis("tank sim: WIN - {0} in the enemy ring, start {1}, point {2} of {3}",
+                            inst.label, TankSim.StartIdOf(inst), p.Item1, p.Item2)
+                End If
+            ElseIf hasGoal AndAlso (goal - pos).Length < TankDriveTune.ARRIVE_M Then
+                If Not arrived Then
+                    Dim p = TankSim.Progress(inst)
+                    If p.Item2 > 0 AndAlso p.Item1 >= p.Item2 - 1 Then
+                        arrived = True
+                        LogThis("tank sim: END OF RUN - {0} ran out of path at point {1} of {2}, start {3}, {4:0} m from ({5:0}, {6:0})",
+                                inst.label, p.Item1, p.Item2, TankSim.StartIdOf(inst),
+                                (goal - pos).Length, goal.X, goal.Y)
+                    End If
+                End If
             End If
         ElseIf skirtS <= 0.0F AndAlso
                (Not hasGoal OrElse (goal - pos).Length < TankDriveTune.ARRIVE_M OrElse
@@ -312,6 +346,7 @@ Public Class TankDrive
                         skirtSide = sgn
                         skirtS = SKIRT_HOLD_S
                         skirted = True
+                        rejoinNext = True
                         Exit For
                     End If
                 Next
@@ -390,7 +425,9 @@ Public Class TankDrive
         ' sides, and they answer the two questions this actually needs: is
         ' something in front of me, and is the side I am about to swing into
         ' clear. That is what they were made for.
-        Dim rayBlocked = TankSim.SIM_RUN AndAlso TankSim.BlockedAhead(inst, others)
+        ' AT THIS SPEED, not at any distance - rule 4.
+        Dim rayBlocked = TankSim.SIM_RUN AndAlso
+                         TankSim.BlockedAhead(inst, others, speed)
         If rayBlocked OrElse Crowded(inst, others, nxt) Then
             ' GO ROUND TO THE RIGHT rather than stand and wait.
             '
@@ -430,14 +467,27 @@ Public Class TankDrive
                     goal = spot
                     hasGoal = True
                     passS = PASS_HOLD_S
+                    rejoinNext = True
                     stopReason = StopWhy.Turning
                     speed = 0.0F
                     stuckS = 0.0F
                     Return
                 End If
             End If
+            ' BRAKE, DO NOT TELEPORT TO ZERO.
+            '
+            ' This set speed = 0 outright, so a hull at seven metres a second
+            ' stopped inside one frame - no deceleration, and the track band is
+            ' driven off distance so it stopped scrolling in the same instant.
+            ' It reads as hitting something invisible, and it contradicts
+            ' "try and make it to the end of the ray": a tank that can halt in
+            ' zero metres never needs to try.
+            '
+            ' BRAKE_MS2 is 8, which is 3.1 m from full speed - well inside the
+            ' reaction distance rule 4 asks for, so braking properly still
+            ' stops short of whatever was seen.
             stopReason = StopWhy.Traffic
-            speed = 0.0F
+            speed = Math.Max(0.0F, speed - TankDriveTune.BRAKE_MS2 * dt)
             stuckS += dt
             ' Under the sim the destination is not this hull's to change.
             If stuckS > TankDriveTune.STUCK_S AndAlso Not TankSim.SIM_RUN Then

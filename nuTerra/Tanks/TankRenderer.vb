@@ -1112,6 +1112,7 @@ Public Class MapTanks
             inst.drive.reverseS = 0.0F
             inst.drive.wantsReplan = False
             inst.drive.passS = 0.0F
+            inst.drive.rejoinNext = False
             inst.drive.skirtS = 0.0F
             inst.drive.skirtSide = 0
             inst.drive.hasSimTarget = False
@@ -1119,6 +1120,10 @@ Public Class MapTanks
         LogThis("tank sim: {0} hull(s) lined up on their bases", instances.Count)
         ' NOW, not before - the hulls have just been put on their grid and the
         ' assignment is by where they stand.
+        ' The sim cannot ask the scene where a base is, so it is told once,
+        ' here, from the same markers the line-up just used.
+        TankSim.baseOf(1) = New Vector2(-TEAM_1.X, TEAM_1.Z)
+        TankSim.baseOf(2) = New Vector2(-TEAM_2.X, TEAM_2.Z)
         TankSim.AssignStarts(instances)
     End Sub
 

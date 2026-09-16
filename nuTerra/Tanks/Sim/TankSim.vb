@@ -92,11 +92,29 @@ Public Module TankSim
     ''' avoid, not measuring one.</summary>
     Public Const OTHER_R As Single = 2.25F
 
-    ''' <summary>How close counts as reaching a waypoint. Looser than the
-    ''' drive's own ARRIVE_M so a hull that stops just short still advances -
-    ''' a run that stalls one metry short of a waypoint never finishes, and
-    ''' looks exactly like a hull that has lost its path.</summary>
-    Public Const WAYPOINT_M As Single = 8.0F
+    ''' <summary>
+    ''' The in-zone round every path point: one metre, the owner's number.
+    '''
+    ''' "each point has a 1m radius in zone" - a point is reached when the hull
+    ''' is inside it, and seeking then looks for the next one.
+    '''
+    ''' ONE METRE IS TIGHT FOR A 4.5 m HULL and that is the point: a loose zone
+    ''' lets a tank count a waypoint as reached from across the road, which is
+    ''' how a hull ends up cutting the corner it was supposed to drive round.
+    ''' It was eight metres, which is most of a hull length either side.
+    '''
+    ''' THE PASS-BY RULE IS WHAT KEEPS IT FROM STALLING. A hull that misses the
+    ''' metre still advances once the point is BEHIND it - measured against the
+    ''' leg it is driving, not against the hull's nose - so a near miss costs
+    ''' nothing and the run cannot wedge on a point it can never quite touch.
+    ''' Without that, one metre would be a trap rather than a tolerance.
+    ''' </summary>
+    Public Const WAYPOINT_M As Single = 1.0F
+
+    ''' <summary>How straight the road has to stay for the look-ahead to keep
+    ''' extending. cos(35 degrees) - past that it is a corner, and aiming
+    ''' beyond a corner is aiming off the road.</summary>
+    Public Const BEND_COS As Single = 0.819F
 
     Public Structure SimNode
         Public x As Single
@@ -363,6 +381,17 @@ Public Module TankSim
             run = RunFrom(chosen, inst.id * 3 + If(inst.team = TankTeam.Green, 0, 1))
             hullRun(inst) = run
             atOf(inst) = 0
+            startOf(inst) = chosen
+            ' WHICH PATH THIS HULL GOT, said once when it gets it. A tank that
+            ' stops early is either on a short path or failing to follow a long
+            ' one, and those need different fixes - this is the line that tells
+            ' them apart.
+            Dim L = 0.0F
+            For q = 0 To run.Count - 2
+                L += (run(q + 1) - run(q)).Length
+            Next
+            LogThis("tank sim: {0} takes start {1} at ({2:0}, {3:0}) - {4} point(s), {5:0} m",
+                    inst.label, chosen, nodes(chosen).x, nodes(chosen).z, run.Count, L)
         End If
         If run.Count = 0 Then Return New Vector2(inst.position.X, inst.position.Z)
 
@@ -371,12 +400,99 @@ Public Module TankSim
         ' ADVANCE ON ARRIVAL, one waypoint a frame at most. Skipping ahead to
         ' the furthest reached point would let a hull cut a corner it never
         ' drove, and the path drawn behind it would be a lie.
-        If i < run.Count - 1 AndAlso (run(i) - here).Length < WAYPOINT_M Then
-            atOf(inst) = i + 1
-            i += 1
+        If i < run.Count - 1 Then
+            Dim reached = (run(i) - here).Length < WAYPOINT_M
+            If Not reached Then
+                ' PASSED IT. Project the hull onto the leg it is driving: once
+                ' it is beyond the far end, the point is behind and holding the
+                ' run on it would stall the hull forever a metre off target.
+                Dim leg = run(i + 1) - run(i)
+                Dim ll = leg.Length
+                If ll > 0.001F Then
+                    Dim t = ((here.X - run(i).X) * leg.X +
+                             (here.Y - run(i).Y) * leg.Y) / (ll * ll)
+                    reached = (t >= 0.0F)
+                End If
+            End If
+            If reached Then
+                atOf(inst) = i + 1
+                i += 1
+            End If
         End If
-        Return run(i)
+
+        ' AIM AT THE END OF THE FRONT RAY, EVERY TIME - the owner's rule.
+        '
+        ' The waypoints are twelve metres apart and the forward whisker reaches
+        ' twenty, so steering at the next waypoint threw away most of what the
+        ' hull can see and made it re-decide three times over ground it could
+        ' have crossed in one go. Aiming as far down its own road as it can see
+        ' gives a straighter line, fewer decisions, and a target that is
+        ' already checked clear by the same ray.
+        '
+        ' IT STOPS AT A BEND. Extending blindly to twenty metres would cut any
+        ' corner shorter than that - the hull would leave the road and rejoin
+        ' it further on, which is the drawn path becoming a lie again. So the
+        ' reach stops the moment the next leg turns more than BEND_COS off the
+        ' first: straights get the full twenty, corners get the corner.
+        Dim tgt = run(i)
+        Dim reach = SIM_RAY_FRONT_M
+        Dim gone = (tgt - here).Length
+        Dim k = i
+        While k < run.Count - 1 AndAlso gone < reach
+            Dim leg = run(k + 1) - run(k)
+            Dim legLen = leg.Length
+            If legLen <= 0.001F Then
+                k += 1
+                Continue While
+            End If
+            If k > i Then
+                Dim prev = run(k) - run(k - 1)
+                Dim pl = prev.Length
+                If pl > 0.001F Then
+                    Dim dot = (leg.X * prev.X + leg.Y * prev.Y) / (legLen * pl)
+                    If dot < BEND_COS Then Exit While
+                End If
+            End If
+            If gone + legLen > reach Then Exit While
+            gone += legLen
+            k += 1
+            tgt = run(k)
+        End While
+        Return tgt
     End Function
+
+    ''' <summary>
+    ''' Put this hull back on its own path at the NEAREST point, wherever a
+    ''' manoeuvre left it.
+    '''
+    ''' RULE 5 - "a tank forced around another tank seeks ANY point on its path
+    ''' line, not the original point." Re-aiming at the waypoint it was heading
+    ''' for before the swerve sends it back round the obstacle it just cleared;
+    ''' the road is a line, not a sequence of gates, and rejoining it anywhere
+    ''' is rejoining it.
+    '''
+    ''' Never backwards past where it already is: the nearest point is taken
+    ''' from the current index on, so a road that doubles back near the hull
+    ''' cannot hand it a waypoint it drove through five minutes ago.
+    ''' </summary>
+    Public Sub Rejoin(inst As TankInstance)
+        Dim run As List(Of Vector2) = Nothing
+        If Not hullRun.TryGetValue(inst, run) OrElse run Is Nothing Then Return
+        If run.Count = 0 Then Return
+        Dim at = 0
+        atOf.TryGetValue(inst, at)
+        Dim here As New Vector2(inst.position.X, inst.position.Z)
+        Dim best = at
+        Dim bd = Single.MaxValue
+        For i = at To run.Count - 1
+            Dim d = (run(i) - here).LengthSquared
+            If d < bd Then
+                bd = d
+                best = i
+            End If
+        Next
+        atOf(inst) = best
+    End Sub
 
     ''' <summary>The run this hull is on, for drawing. Empty until it has been
     ''' assigned one.</summary>
@@ -393,6 +509,30 @@ Public Module TankSim
         Return i
     End Function
 
+    ''' <summary>Where each side's base is, and how big a ring counts as
+    ''' standing on it. Set by the renderer at line-up; the sim has no other
+    ''' way to know, and guessing from the paths would make arrival depend on
+    ''' where a road happened to end.</summary>
+    Public baseOf As New Dictionary(Of Integer, Vector2)
+    Public Const BASE_RING_M As Single = 50.0F
+
+    ''' <summary>
+    ''' Has this hull won - is it standing inside the ENEMY base ring.
+    '''
+    ''' Rule 3: "inside a ring = a win for that tank. it does not have to make
+    ''' it to the base position." Reaching the last waypoint is not the same
+    ''' test and can be stricter or looser than it by tens of metres depending
+    ''' where the road stopped.
+    ''' </summary>
+    Public Function InEnemyRing(inst As TankInstance) As Boolean
+        Dim foe = If(inst.team = TankTeam.Green, 2, 1)
+        Dim b As Vector2
+        If Not baseOf.TryGetValue(foe, b) Then Return False
+        Dim dx = inst.position.X - b.X
+        Dim dz = inst.position.Z - b.Y
+        Return dx * dx + dz * dz <= BASE_RING_M * BASE_RING_M
+    End Function
+
     ''' <summary>Bumped once a frame by the renderer, so the rays are cast
     ''' once and both the driving and the drawing read the same answer. Two
     ''' separate casts would be twice the work AND could disagree, which
@@ -400,7 +540,22 @@ Public Module TankSim
     Public frame As Integer = 0
 
     Private ReadOnly hitsOf As New Dictionary(Of TankInstance, Boolean())
+    Private ReadOnly distOf As New Dictionary(Of TankInstance, Single())
     Private ReadOnly hitFrame As New Dictionary(Of TankInstance, Integer)
+
+    ''' <summary>How long a hull needs to see something coming: its own length
+    ''' plus a second of travel.
+    '''
+    ''' RULE 4 - "whiskers must not stop a tank following its path when it can
+    ''' clear the distance ahead." The forward rays reach 20 m so the hull can
+    ''' SEE that far; reacting at 20 m is a different decision and a wrong one,
+    ''' because at 7 m/s a tank covers that in under three seconds and the thing
+    ''' it swerved for was never in its way. Seeing far and reacting late is
+    ''' the whole point of a long whisker.
+    '''
+    ''' Scales with speed, so a stopped tank tolerates a neighbour at four
+    ''' metres and a moving one does not.</summary>
+    Public Const REACT_S As Single = 1.0F
 
     ''' <summary>
     ''' Which of this hull's eight rays strike another tank, out to SIM_RAY_M.
@@ -419,8 +574,13 @@ Public Module TankSim
            hitsOf.TryGetValue(inst, cached) Then
             Return cached
         End If
+        ' Distances are filled by the same pass; RayDist reads them after.
 
         Dim hits(RAY_COUNT - 1) As Boolean
+        Dim dist(RAY_COUNT - 1) As Single
+        For i = 0 To RAY_COUNT - 1
+            dist(i) = Single.MaxValue
+        Next
         Dim rays = HullRays(inst)
         If others IsNot Nothing Then
             For i = 0 To Math.Min(RAY_COUNT, rays.Count) - 1
@@ -438,23 +598,50 @@ Public Module TankSim
                     Dim pz = o.Y + d.Y * along - t.position.Z
                     If px * px + pz * pz <= OTHER_R * OTHER_R Then
                         hits(i) = True
-                        Exit For
+                        ' HOW FAR, not just whether. The distance was computed
+                        ' and thrown away, and it is the whole of rule 4 - a
+                        ' hit at nineteen metres and one at four are different
+                        ' facts and were being treated as the same one.
+                        If along < dist(i) Then dist(i) = along
                     End If
                 Next
             Next
         End If
         hitsOf(inst) = hits
+        distOf(inst) = dist
         hitFrame(inst) = frame
         Return hits
     End Function
 
-    ''' <summary>Is anything in front of this hull, by the rays that look
-    ''' forward. This is what the go-around asks.</summary>
+    ''' <summary>How far down each ray the nearest hull is, MaxValue for a ray
+    ''' that hits nothing. Same frame, same pass as RayHits.</summary>
+    Public Function RayDist(inst As TankInstance,
+                            others As List(Of TankInstance)) As Single()
+        RayHits(inst, others)
+        Dim d As Single() = Nothing
+        If distOf.TryGetValue(inst, d) Then Return d
+        Dim empty(RAY_COUNT - 1) As Single
+        For i = 0 To RAY_COUNT - 1
+            empty(i) = Single.MaxValue
+        Next
+        Return empty
+    End Function
+
+    ''' <summary>
+    ''' Is anything CLOSE ENOUGH in front to be worth turning for.
+    '''
+    ''' Rule 4. Not "is anything ahead" - that fired at the full twenty metres
+    ''' and made a hull swerve for a tank it would have driven past before
+    ''' reaching. The bar is the room this hull needs at the speed it is doing:
+    ''' its own half-length plus a second of travel.
+    ''' </summary>
     Public Function BlockedAhead(inst As TankInstance,
-                                 others As List(Of TankInstance)) As Boolean
-        Dim h = RayHits(inst, others)
+                                 others As List(Of TankInstance),
+                                 Optional speed As Single = 0.0F) As Boolean
+        Dim d = RayDist(inst, others)
+        Dim need = TankDriveTune.HULL_R * 0.5F + Math.Abs(speed) * REACT_S
         For Each i In FORWARD_RAYS
-            If h(i) Then Return True
+            If d(i) <= need Then Return True
         Next
         Return False
     End Function
@@ -596,6 +783,7 @@ Public Module TankSim
         hullRun.Clear()
         atOf.Clear()
         assigned.Clear()
+        startOf.Clear()
         If all Is Nothing OrElse startIds.Count = 0 Then Return
 
         ' THE TWO FORMATION CENTRES, taken once and before anything is
@@ -679,12 +867,35 @@ Public Module TankSim
 
     Private ReadOnly assigned As New Dictionary(Of TankInstance, Integer)
 
+    ''' <summary>Which start each hull actually took, for the log.</summary>
+    Private ReadOnly startOf As New Dictionary(Of TankInstance, Integer)
+
+    ''' <summary>The start a hull began on, or -1. Read by the drive when it
+    ''' reports an arrival.</summary>
+    Public Function StartIdOf(inst As TankInstance) As Integer
+        Dim i = -1
+        startOf.TryGetValue(inst, i)
+        Return i
+    End Function
+
+    ''' <summary>How many points of its run this hull has passed, and how many
+    ''' there are.</summary>
+    Public Function Progress(inst As TankInstance) As ValueTuple(Of Integer, Integer)
+        Dim at = 0
+        atOf.TryGetValue(inst, at)
+        Dim r As List(Of Vector2) = Nothing
+        If Not hullRun.TryGetValue(inst, r) OrElse r Is Nothing Then Return (at, 0)
+        Return (at, r.Count)
+    End Function
+
     ''' <summary>Forget every assignment, so the next frame re-rolls.</summary>
     Public Sub Reroll()
         hullRun.Clear()
         atOf.Clear()
         assigned.Clear()
+        startOf.Clear()
         hitsOf.Clear()
+        distOf.Clear()
         hitFrame.Clear()
     End Sub
 
