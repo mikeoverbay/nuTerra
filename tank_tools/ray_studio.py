@@ -1453,6 +1453,53 @@ def main():
     # optimum, [t] the tactical roads - one down each side of everything the
     # affordable ground encloses.
     maze_pts, maze_roads, maze_msg = [], [], ""
+
+    # ---- THE RADAR TANK ---------------------------------------------------
+    #
+    # "one tank and different scenarios... trying to teach radar what it is
+    #  seeing... one tank on map 30 rays front and back only. zero speed."
+    #
+    # One hull, parked, that can be dropped anywhere with [F8] and turned with
+    # [,] and [.]. ZERO SPEED IS THE POINT: a radar that is wrong while
+    # standing still is wrong for a reason you can look at, and a moving tank
+    # turns every reading into a question about when it was taken.
+    radar_on = False
+    radar_hull = None
+    radar_world = None
+    radar_hits = []
+    radar_msg = ""
+    radar_blk = None
+
+    # ON AT LAUNCH, not behind a key. The point of this mode is to LOOK at
+    # what the radar reads, and a tool that shows nothing until you find the
+    # right key shows nothing.
+    try:
+        from tank_tools import brain as _b0
+        radar_blk = load_blk(map_name)
+        if radar_blk is not None:
+            _r0 = load_roads_cache(map_name)
+            if _r0 and len(_r0[0].get("pts") or ()) >= 2:
+                _p0 = _r0[0]["pts"]
+                _hx, _hz = _p0[0]
+                _nx, _nz = _p0[1]
+                _head = math.atan2(_nx - _hx, _nz - _hz)
+            else:
+                # No cached roads: park it on the team 1 base instead, which
+                # is always known and always standable.
+                _hx, _hz = start
+                _head = 0.0
+            radar_hull = _b0.Hull(_hx, _hz, _head, team=1, name="radar")
+            radar_world = _b0.world_from_blk(radar_blk, [radar_hull])
+            radar_hits = _b0.radar_scan(radar_world, radar_hull)
+            radar_on = True
+            radar_msg = ("radar at %.0f, %.0f - %d of %d rays found ground"
+                         % (_hx, _hz,
+                            sum(1 for q in radar_hits if q.what),
+                            len(radar_hits)))
+        else:
+            radar_msg = "no .blk for %s - nuTerra writes it" % map_name
+    except Exception as _exc:
+        radar_msg = "radar off: %s" % _exc
     maze_job = {}
     maze_live = []                # roads the worker has finished so far
 
@@ -2809,6 +2856,42 @@ def main():
                     ring_slot = e.key - pygame.K_F1
                 elif e.key == pygame.K_F7:
                     ring_auto = not ring_auto
+                elif e.key == pygame.K_F8:
+                    # DROP IT WHERE THE MOUSE IS. Different scenarios means
+                    # moving it to them, and a tank that can only spawn at a
+                    # road head can only ever be asked one question.
+                    from tank_tools import brain as _brain
+                    wx, wz = world_at_mouse(*pygame.mouse.get_pos(),
+                                            (w_now, h_now))
+                    if radar_blk is None:
+                        radar_blk = load_blk(map_name)
+                    if radar_blk is None:
+                        radar_msg = "no .blk for %s - nuTerra writes it" % map_name
+                    else:
+                        keep = radar_hull.heading if radar_hull else 0.0
+                        radar_hull = _brain.Hull(wx, wz, keep, team=1,
+                                                 name="radar")
+                        radar_world = _brain.world_from_blk(radar_blk,
+                                                            [radar_hull])
+                        radar_hits = _brain.radar_scan(radar_world, radar_hull)
+                        radar_on = True
+                        radar_msg = ("radar at %.0f, %.0f - %d of %d rays "
+                                     "found ground"
+                                     % (wx, wz,
+                                        sum(1 for q in radar_hits if q.what),
+                                        len(radar_hits)))
+                elif e.key in (pygame.K_COMMA, pygame.K_PERIOD) and radar_hull:
+                    from tank_tools import brain as _brain
+                    turn = math.radians(15.0)
+                    radar_hull.heading = _brain.wrap_pi(
+                        radar_hull.heading +
+                        (-turn if e.key == pygame.K_COMMA else turn))
+                    radar_hits = _brain.radar_scan(radar_world, radar_hull)
+                    radar_msg = ("radar heading %.0f deg - %d of %d rays "
+                                 "found ground"
+                                 % (math.degrees(radar_hull.heading),
+                                    sum(1 for q in radar_hits if q.what),
+                                    len(radar_hits)))
                 elif e.key in (pygame.K_1, pygame.K_2, pygame.K_3,
                                pygame.K_4, pygame.K_5):
                     block_radius = e.key - pygame.K_0
@@ -3293,6 +3376,51 @@ def main():
                 t = font.render(lab, True, C_AREA)
                 screen.blit(t, (map_ox + qx + 12, map_oy + qy - 20))
 
+        # ---- THE RADAR TANK, over everything it is looking at ---------
+        #
+        # THE HIT SQUARE IS THE POINT, not the ray. "show where the intersect
+        # a square" - a distance cannot be checked against the map by eye, and
+        # a highlighted cell can: a radar that is reading the wrong place
+        # lights the wrong square, which is obvious here and invisible in a
+        # number.
+        if radar_on and radar_hull is not None:
+            from tank_tools import brain as _brain
+            hx, hy = to_px(radar_hull.x, radar_hull.z, w)
+
+            cellpx = max(2.0, m_to_px(radar_world.grid.cell, w))
+            for q in radar_hits:
+                ex, ey = to_px(q.x, q.z, w)
+                if q.what is None:
+                    # A clean miss, drawn faint and to its full reach - so the
+                    # SHAPE of what is open is visible, not only what is shut.
+                    L((hx, hy), (ex, ey), (70, 110, 150, 90), 1)
+                    continue
+                col = ((120, 220, 255) if q.arc == "front"
+                       else (255, 190, 90))
+                L((hx, hy), (ex, ey), col, 1)
+                # The square it landed in, at its true size on the map.
+                if cellpx >= 2.0:
+                    rr = pygame.Rect(0, 0, int(cellpx) + 1, int(cellpx) + 1)
+                    rr.center = (map_ox + ex, map_oy + ey)
+                    pygame.draw.rect(screen, col, rr, 1)
+                D((ex, ey), col, 2.5)
+
+            # The hull itself, to scale, with its nose marked. Drawn last so
+            # it is never hidden by a ray that starts inside it.
+            ca, sa = math.cos(radar_hull.heading), math.sin(radar_hull.heading)
+            corners = []
+            for lx, lz in ((-_brain.HALF_WID_M, _brain.HALF_LEN_M),
+                           (_brain.HALF_WID_M, _brain.HALF_LEN_M),
+                           (_brain.HALF_WID_M, -_brain.HALF_LEN_M),
+                           (-_brain.HALF_WID_M, -_brain.HALF_LEN_M)):
+                corners.append(to_px(radar_hull.x + lx * ca + lz * sa,
+                                     radar_hull.z - lx * sa + lz * ca, w))
+            for k in range(4):
+                L(corners[k], corners[(k + 1) % 4], (255, 255, 255), 2)
+            nose = to_px(radar_hull.x + sa * (_brain.HALF_LEN_M + 2.0),
+                         radar_hull.z + ca * (_brain.HALF_LEN_M + 2.0), w)
+            L((hx, hy), nose, (255, 255, 255), 2)
+
         screen.set_clip(None)
 
         # ------------------------------------------------------------------
@@ -3594,6 +3722,9 @@ def main():
         snap_rect, ry = textbox(RX, ry, RW, "snap size m", snap_text, snap_editing)
         ry = button(RX, ry, RW, "Snap grid  [y]", pygame.K_y, show_snapgrid,
                     fam="view")
+        ry = button(RX, ry, RW,
+                    "Radar tank  [F8] at mouse, [,] [.] turn",
+                    pygame.K_F8, radar_on, (120, 220, 255), fam="run")
         ry = button(RX, ry, RW, "Pick buffer  [p]", pygame.K_p, show_pickbuf,
                     fam="view")
         ry += 4
@@ -3683,6 +3814,9 @@ def main():
         if maze_msg:
             screen.blit(font.render(maze_msg[:96], True, (150, 255, 200)),
                         (LEFT_W + 10, SH - 22))
+        if radar_msg:
+            screen.blit(font.render(radar_msg[:96], True, (120, 220, 255)),
+                        (LEFT_W + 10, SH - 58))
 
         # TWO DRAW CALLS FOR THE WHOLE MAP, then the panels as one texture over
         # the top. The overlay is uploaded every frame because its text changes
