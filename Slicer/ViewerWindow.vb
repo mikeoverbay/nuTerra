@@ -93,6 +93,14 @@ Public Class ViewerWindow
     Private lastClickRow As Integer = -1
     Private lastClickPos As Vector2 = Vector2.Zero
     Private pressedOverPanel As Boolean = False
+    Private partsClickAt As DateTime = DateTime.MinValue
+    Private partsClickRow As Integer = -1
+
+    ''' <summary>--hide: switch off every part whose identifier or source
+    ''' .model matches this wildcard, once, after the first load. Exists so a
+    ''' scripted shot can show the model without its roof, and so the panel's
+    ''' visibility path can be proven without anyone clicking.</summary>
+    Private hideQuery As String = Nothing
 
     ''' <summary>--ui: build the panel even for a --shot, so the interface
     ''' itself can be looked at in a still instead of only over someone's
@@ -200,6 +208,19 @@ Public Class ViewerWindow
 
     Private Class PbrPart
         Public Name As String
+        ''' <summary>The material `identifier` from the .visual_processed. The
+        ''' name the GAME gives this piece, which is what the parts panel shows -
+        ''' `Name` above is the primitives mesh, a different and coarser thing.</summary>
+        Public Ident As String = ""
+        ''' <summary>The .model this group came from - Roof_01,
+        ''' UpperFloorsSmall_02. The visual's identifiers repeat hard (43
+        ''' groups on the townhouse, most of them called s_nd-something), so
+        ''' this is what actually tells two rows apart.</summary>
+        Public PartName As String = ""
+        ''' <summary>Switched off in the parts panel. Checked by all three draw
+        ''' passes; it does not touch the geometry, so an export still writes
+        ''' the whole model.</summary>
+        Public Hidden As Boolean
         Public First As Integer
         Public Count As Integer
         Public Albedo As Integer
@@ -239,6 +260,7 @@ Public Class ViewerWindow
     ''' the same three manifests, so this is three uploads and not 168.</summary>
     Private ReadOnly atlasCache As New Dictionary(Of String, Integer)(StringComparer.OrdinalIgnoreCase)
     Private atlasProgram As Integer = 0
+    Private partsPanel As New PartsPanel()
     Private atlasParts As Integer = 0
 
     ''' <summary>The vestigial tile inset. 0.0 is what the data wants; 0.0625
@@ -293,7 +315,8 @@ Public Class ViewerWindow
                    Optional shotAngle As String = Nothing, Optional shotCut As Boolean = False,
                    Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
                    Optional objFile As String = Nothing, Optional uiInShot As Boolean = False,
-                   Optional findPattern As String = Nothing, Optional debugView As Integer = 0)
+                   Optional findPattern As String = Nothing, Optional debugView As Integer = 0,
+                   Optional hidePattern As String = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -313,6 +336,7 @@ Public Class ViewerWindow
         panelInShot = uiInShot
         startQuery = findPattern
         pbrDebug = Math.Max(0, debugView)
+        hideQuery = hidePattern
         If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
             ' The angle decides what the picture can prove, so it is explicit
@@ -583,10 +607,11 @@ Public Class ViewerWindow
                     matAt += 1
 
                     Dim pt As New PbrPart With {
-                        .Name = m.Name, .First = first, .Count = count,
+                        .Name = m.Name, .PartName = part.Name, .First = first, .Count = count,
                         .Albedo = whiteTex, .NormalTex = flatNrmTex, .Gmm = whiteTex}
                     If mat IsNot Nothing Then
                         pt.Fx = mat.Fx
+                        pt.Ident = mat.Identifier
                         pt.PackDxt1 = mat.Flag("g_useNormalPackDXT1", False)
                         pt.EnableAO = mat.Flag("g_enableAO", False)
                         If mat.IsAtlas Then
@@ -701,6 +726,9 @@ Public Class ViewerWindow
         GL.EnableVertexAttribArray(4) : GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, False, ST, 44)
         GL.EnableVertexAttribArray(5) : GL.VertexAttribPointer(5, 2, VertexAttribPointerType.Float, False, ST, 56)
         GL.BindVertexArray(0)
+
+        RefreshPartsPanel()
+        ApplyHideQuery()
 
         Dim withN = pbrParts.Where(Function(x) x.HasNormal).Count()
         Console.WriteLine("  pbr: {0} group(s), {1:N0} tris, {2} with a normal map, {3} texture(s) resident",
@@ -862,6 +890,7 @@ Public Class ViewerWindow
         For i = 0 To pbrParts.Count - 1
             If soloPart >= 0 AndAlso i <> soloPart Then Continue For
             Dim pt = pbrParts(i)
+            If pt.Hidden Then Continue For
             If pt.IsAtlas Then Continue For          ' drawn by DrawAtlas instead
             GL.ActiveTexture(TextureUnit.Texture0) : GL.BindTexture(TextureTarget.Texture2D, pt.Albedo)
             GL.ActiveTexture(TextureUnit.Texture1) : GL.BindTexture(TextureTarget.Texture2D, pt.NormalTex)
@@ -923,6 +952,7 @@ Public Class ViewerWindow
         For i = 0 To pbrParts.Count - 1
             If soloPart >= 0 AndAlso i <> soloPart Then Continue For
             Dim pt = pbrParts(i)
+            If pt.Hidden Then Continue For
             If Not pt.IsAtlas Then Continue For
             GL.ActiveTexture(TextureUnit.Texture0) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasAm)
             GL.ActiveTexture(TextureUnit.Texture1) : GL.BindTexture(TextureTarget.Texture2DArray, pt.AtlasNgs)
@@ -1395,7 +1425,7 @@ Public Class ViewerWindow
         ' framing decision - the `dist` a load picks, what a zoom is centred on
         ' - would be measured against a width that is not the visible one.
         Dim viewX = PanelWidth()
-        Dim viewW = Math.Max(1, ClientSize.X - viewX)
+        Dim viewW = Math.Max(1, ClientSize.X - viewX - RightPanelWidth())
         GL.Viewport(viewX, 0, viewW, Math.Max(1, ClientSize.Y))
 
         If (If(pbrOn, pbrParts.Count, parts.Count)) > 0 Then
@@ -1440,6 +1470,11 @@ Public Class ViewerWindow
             GL.PolygonMode(MaterialFace.FrontAndBack, If(wireframe, PolygonMode.Line, PolygonMode.Fill))
             For i = 0 To parts.Count - 1
                 If soloPart >= 0 AndAlso i <> soloPart Then Continue For
+                ' A MESH is hidden only when every primitive group in it is.
+                ' The panel switches groups, which is finer than this pass
+                ' can draw - so a half-hidden mesh stays visible rather than
+                ' vanishing wholesale, which would not be what was asked for.
+                If MeshFullyHidden(parts(i).Name) Then Continue For
                 Dim tc = parts(i).Tint
                 If fillDebug Then
                     ' The owner's check: bottom fill red, everything that
@@ -1477,11 +1512,12 @@ drawn:
         ' window pixels - the same space the mouse arrives in. Leaving the inset
         ' viewport here would squeeze the UI into the 3D area and put every
         ' click a panel-width out.
-        If browser IsNot Nothing AndAlso browser.Visible Then
+        If browser IsNot Nothing AndAlso (browser.Visible OrElse partsPanel.Rows.Count > 0) Then
             GL.Viewport(0, 0, Math.Max(1, ClientSize.X), Math.Max(1, ClientSize.Y))
             Dim mp = MouseState.Position
             ui.BeginFrame(ClientSize.X, ClientSize.Y)
             browser.Draw(ui, PanelWidth(), ClientSize.Y, mp.X, mp.Y)
+            partsPanel.Draw(ui, ClientSize.X, ClientSize.Y, mp.X, mp.Y)
             ui.EndFrame()
         End If
 
@@ -1588,6 +1624,7 @@ drawn:
             ReportSolo()
         End If
 
+        If k.IsKeyPressed(Keys.V) Then partsPanel.Visible = Not partsPanel.Visible
         If k.IsKeyPressed(Keys.W) Then wireframe = Not wireframe
         If k.IsKeyPressed(Keys.B) Then fillDebug = Not fillDebug
         If k.IsKeyPressed(Keys.P) Then pbrOn = Not pbrOn : ReportPbr()
@@ -1889,17 +1926,53 @@ drawn:
         End If
     End Sub
 
+    ''' <summary>Every primitive group of this mesh switched off? The flat
+    ''' pass draws whole meshes, so it can only honour the panel at that
+    ''' coarser grain.</summary>
+    Private Function MeshFullyHidden(meshName As String) As Boolean
+        Dim any = False
+        For Each pt In pbrParts
+            If Not String.Equals(pt.Name, meshName, StringComparison.OrdinalIgnoreCase) Then Continue For
+            any = True
+            If Not pt.Hidden Then Return False
+        Next
+        Return any
+    End Function
+
+    ''' <summary>Refill the parts panel from what BuildPbr just produced.
+    ''' Rebuilt rather than merged, because a new model has different parts -
+    ''' carrying hidden flags across would switch off a piece of a building
+    ''' the owner never hid.</summary>
+    Private Sub RefreshPartsPanel()
+        If partsPanel Is Nothing Then Return
+        partsPanel.Clear()
+        For i = 0 To pbrParts.Count - 1
+            Dim pt = pbrParts(i)
+            pt.Hidden = False
+            partsPanel.Add(If(String.IsNullOrEmpty(pt.Ident), pt.Name, pt.Ident),
+                           pt.PartName, pt.Fx, pt.Count \ 3, i)
+        Next
+    End Sub
+
     ''' <summary>Is the cursor over the browser panel right now? Asked by every
     ''' input path the panel has to win.</summary>
     Private Function PointerOverPanel() As Boolean
         If browser Is Nothing OrElse Not browser.Visible Then Return False
         Dim p = MouseState.Position
-        Return browser.HitsPanel(p.X, p.Y)
+        Return browser.HitsPanel(p.X, p.Y) OrElse partsPanel.HitsPanel(p.X, p.Y)
     End Function
 
     ''' <summary>Pixels the panel takes off the left of the 3D view, 0 when it
     ''' is hidden or was never built (a --shot run). This is the ONE width -
     ''' the draw and the hit tests both take it, so they cannot drift.</summary>
+    ''' <summary>Pixels the parts panel takes off the RIGHT of the 3D view.
+    ''' Zero when nothing is loaded, so an empty viewer is not framed by a
+    ''' blank strip.</summary>
+    Private Function RightPanelWidth() As Integer
+        If partsPanel Is Nothing OrElse Not partsPanel.Visible OrElse partsPanel.Rows.Count = 0 Then Return 0
+        Return Math.Min(PartsPanel.PANEL_W, Math.Max(0, ClientSize.X - 160))
+    End Function
+
     Private Function PanelWidth() As Integer
         If browser Is Nothing OrElse Not browser.Visible Then Return 0
         Return Math.Min(ModelBrowser.PANEL_W, Math.Max(0, ClientSize.X - 160))
@@ -1936,19 +2009,33 @@ drawn:
 
     Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
         MyBase.OnMouseWheel(e)
-        If browser Is Nothing OrElse Not browser.Visible Then Return
-        ' Only when the pointer is actually over the panel - otherwise the wheel
+        If browser Is Nothing Then Return
+        ' Only when the pointer is actually over a panel - otherwise the wheel
         ' belongs to the camera, which reads it in CameraMouseUpdate.
         If Not PointerOverPanel() Then Return
-        browser.ScrollBy(-CInt(Math.Sign(e.OffsetY)) * 3)
+        Dim p = MouseState.Position
+        Dim lines = -CInt(Math.Sign(e.OffsetY)) * 3
+        If partsPanel.HitsPanel(p.X, p.Y) Then
+            partsPanel.ScrollBy(lines)
+        ElseIf browser.Visible Then
+            browser.ScrollBy(lines)
+        End If
     End Sub
 
     Protected Overrides Sub OnMouseDown(e As MouseButtonEventArgs)
         MyBase.OnMouseDown(e)
-        If browser Is Nothing OrElse Not browser.Visible Then Return
+        If browser Is Nothing Then Return
         Dim p = MouseState.Position
-        pressedOverPanel = browser.HitsPanel(p.X, p.Y)
+        pressedOverPanel = browser.HitsPanel(p.X, p.Y) OrElse partsPanel.HitsPanel(p.X, p.Y)
         If Not pressedOverPanel OrElse e.Button <> MouseButton.Left Then Return
+
+        ' The right panel first, and independently of the left one - Tab
+        ' hides the model list and the parts must keep working.
+        If partsPanel.HitsPanel(p.X, p.Y) Then
+            HandlePartsClick(p)
+            Return
+        End If
+        If Not browser.Visible Then Return
 
         If browser.HitsSearch(p.X, p.Y) Then
             browser.Focused = True
@@ -1984,6 +2071,74 @@ drawn:
     Protected Overrides Sub OnMouseUp(e As MouseButtonEventArgs)
         MyBase.OnMouseUp(e)
         pressedOverPanel = False
+    End Sub
+
+
+    ''' <summary>
+    ''' A click in the parts panel.
+    '''
+    ''' Single click toggles the part under the pointer; double click SOLOS it,
+    ''' showing that one and hiding the rest. Solo earns its gesture on a model
+    ''' like the townhouse - 43 groups, and "which piece is s_nd4" is not a
+    ''' question you answer by switching off forty things one at a time.
+    '''
+    ''' Its own click clock, not the browser's. Sharing one would make a click on
+    ''' a row here and a click on a row there read as a double click, which is
+    ''' the same class of bug as testing a double click by time alone.
+    ''' </summary>
+    Private Sub HandlePartsClick(p As Vector2)
+        If partsPanel.HitsShowAll(p.X, p.Y) Then
+            partsPanel.ShowAll() : ApplyPartVisibility() : Return
+        End If
+        If partsPanel.HitsHideAll(p.X, p.Y) Then
+            partsPanel.HideAll() : ApplyPartVisibility() : Return
+        End If
+
+        Dim row = partsPanel.RowAtPixel(p.X, p.Y)
+        If row < 0 Then Return
+
+        Dim now = DateTime.UtcNow
+        Dim quick = (now - partsClickAt).TotalMilliseconds <= DOUBLE_CLICK_MS
+        If quick AndAlso row = partsClickRow Then
+            partsPanel.Solo(row)
+            partsClickAt = DateTime.MinValue
+            partsClickRow = -1
+            Console.WriteLine("  solo {0}", partsPanel.Rows(row).Ident)
+        Else
+            partsPanel.Rows(row).Hidden = Not partsPanel.Rows(row).Hidden
+            partsClickAt = now
+            partsClickRow = row
+        End If
+        ApplyPartVisibility()
+    End Sub
+
+    ''' <summary>Apply --hide, if one was given. Matched against
+    ''' "identifier partname" so either half of what the panel shows can be
+    ''' named, with the same wildcard the model list uses.</summary>
+    Private Sub ApplyHideQuery()
+        If String.IsNullOrWhiteSpace(hideQuery) Then Return
+        Dim pat = hideQuery.Trim().ToLowerInvariant()
+        If pat.IndexOf("*"c) < 0 Then pat = "*" & pat & "*"
+        Dim n = 0
+        For Each r In partsPanel.Rows
+            If ModelBrowser.WildcardMatch((r.Ident & " " & r.MeshName).ToLowerInvariant(), pat) Then
+                r.Hidden = True
+                n += 1
+            End If
+        Next
+        ApplyPartVisibility()
+        Console.WriteLine("  hide {0}: {1} of {2} part(s) switched off", hideQuery, n, partsPanel.Rows.Count)
+    End Sub
+
+    ''' <summary>Push the panel's switches onto the parts the draw passes read.
+    ''' The panel holds the intent and PbrPart holds the flag, so nothing in the
+    ''' render loop has to know a panel exists.</summary>
+    Private Sub ApplyPartVisibility()
+        For Each r In partsPanel.Rows
+            If r.Index >= 0 AndAlso r.Index < pbrParts.Count Then
+                pbrParts(r.Index).Hidden = r.Hidden
+            End If
+        Next
     End Sub
 
     ''' <summary>Editing keys, which do not arrive as text input.</summary>

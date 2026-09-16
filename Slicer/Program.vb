@@ -47,6 +47,7 @@ Module Program
         Dim uiInShot = False
         Dim findPattern As String = Nothing
         Dim debugView = 0
+        Dim hidePattern As String = Nothing
         Dim bakeDir As String = Nothing
         Dim objPath As String = Nothing
         Dim bakePx As Integer = 2048
@@ -108,6 +109,8 @@ Module Program
                     i += 1 : If i < args.Length Then findPattern = args(i)
                 Case "--debug"
                     i += 1 : If i < args.Length Then Integer.TryParse(args(i), debugView)
+                Case "--hide"
+                    i += 1 : If i < args.Length Then hidePattern = args(i)
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -313,7 +316,7 @@ Module Program
             Console.WriteLine("        be several (*eu*house*). Double-click a row to load THAT one model.")
             Console.WriteLine("        / focuses the box, Enter loads, Tab hides the panel.")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView, hidePattern)
                 win.Run()
             End Using
         End If
@@ -534,6 +537,7 @@ Module Program
         Console.WriteLine("  --obj <file.obj>     load an exported OBJ back and look at it")
         Console.WriteLine("  --find <pattern>     open on the first matching model; * wildcards, any number")
         Console.WriteLine("  --ui                 keep the browser panel in a --shot")
+        Console.WriteLine("  --hide <pattern>     switch off parts whose name or .model matches; * wildcards")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write slicer.settings (a commented template)")
         Console.WriteLine("  --set key=value      override one setting for this run")
