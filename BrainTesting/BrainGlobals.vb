@@ -61,4 +61,14 @@ Module BrainGlobals
     ''' working the day the default changes to meet it.</summary>
     Public BRAIN_ON As Boolean = False
 
+    ''' <summary>Print the per-tank hull box table once at load. Off by
+    ''' default: it is thirty lines, and it answers a question asked once.
+    ''' `hullbox` on the command line asks it.</summary>
+    Public HULL_BOX_TABLE As Boolean = False
+
+    ''' <summary>Hand back every log line the linked nuTerra files emit.
+    ''' `verbose` on the command line. Off, this app prints only its own
+    ''' "brain:" lines.</summary>
+    Public LOG_VERBOSE As Boolean = False
+
 End Module

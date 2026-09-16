@@ -99,20 +99,33 @@ Public Class BrainWindow
             Console.WriteLine("map from the command line: {0}", STARTUP_MAP)
         End If
 
-        ' THE LOG GATE COMES OFF HERE. modUtilities.LogThis is linked in from
-        ' nuTerra, where it is gated down to the tank path tags on the owner's
-        ' instruction - "remove all debug out writes for everything but the
-        ' tank path functions". That is right for nuTerra and wrong for a test
-        ' harness, whose whole job is to say what it is doing. Nothing was
-        ' deleted over there, so one Boolean restores the lot.
-        LOG_EVERYTHING = True
+        ' ONE TAG, AND ONLY ONE. The linked loaders are chatty - thirty
+        ' vehicles announce their chassis, turret, gun, aim limits and gun
+        ' timing, about 150 lines - and they carry the "tank:" tag, which
+        ' nuTerra's gate KEEPS. So opening LOG_EVERYTHING to let this app
+        ' narrate its own startup brought all of that with it.
+        '
+        ' Narrowing LOG_KEEP to "brain:" is the right lever: this app says
+        ' what it is doing, the loaders it borrowed stay quiet, and `verbose`
+        ' on the command line hands the firehose back when a load is being
+        ' debugged. "I don't want any spam in the outout debug win."
+        If LOG_VERBOSE Then
+            LOG_EVERYTHING = True
+        Else
+            LOG_KEEP = New String() {"brain:"}
+        End If
 
         BrainWorld.Init()
         If STARTUP_MAP IsNot Nothing AndAlso BrainWorld.Ready AndAlso
            Not BrainWorld.HasSpace(STARTUP_MAP) Then
             Dim near = BrainWorld.NearMisses(STARTUP_MAP, 6)
-            LogThis("no installed space called {0}{1}", STARTUP_MAP,
+            LogThis("brain: no installed space called {0}{1}", STARTUP_MAP,
                     If(near.Count = 0, "", " - did you mean: " & String.Join(", ", near)))
+        End If
+
+        If BrainWorld.Ready AndAlso STARTUP_MAP IsNot Nothing Then
+            BrainTanks.ReadArena(STARTUP_MAP)
+            BrainTanks.LoadAll(TANK_PER_TEAM)
         End If
 
         GL.Enable(EnableCap.DepthTest)

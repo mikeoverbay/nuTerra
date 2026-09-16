@@ -1271,26 +1271,16 @@ Public Module TankSim
         Dim hx = TankDriveTune.HULL_R * 0.5F
         Dim hz = TankDriveTune.HULL_R * 0.5F
 
-        ' THE HULL'S BOX, NOT THE VEHICLE'S. A TankVehicle is a list of parts
-        ' and each carries its own visual, so "the bounding box" has to say
-        ' which. The gun is the reason: a 7 m barrel would push the forward
-        ' face out past the muzzle and every front ray would start in mid-air
-        ' ahead of the tank. hull first, chassis as the fallback.
-        Dim vis As TankVisual = Nothing
-        If inst.vehicle IsNot Nothing AndAlso inst.vehicle.parts IsNot Nothing Then
-            For Each want In {"hull", "chassis"}
-                For Each pt In inst.vehicle.parts
-                    If pt.label = want AndAlso pt.visual IsNot Nothing Then
-                        vis = pt.visual
-                        Exit For
-                    End If
-                Next
-                If vis IsNot Nothing Then Exit For
-            Next
-        End If
-        If vis IsNot Nothing Then
-            hx = Math.Max(0.5F, (vis.bbMax.X - vis.bbMin.X) * 0.5F)
-            hz = Math.Max(0.5F, (vis.bbMax.Z - vis.bbMin.Z) * 0.5F)
+        ' THE HULL'S BOX, NOT THE VEHICLE'S, and the rule now lives in
+        ' TankRoster.HullHalfExtents because Brain Testing asks the same
+        ' question of the same vehicles. Two copies would be two answers about
+        ' whether the gun counts, and the gun is the whole reason the rule
+        ' exists - a 7 m barrel would push the forward face past the muzzle
+        ' and every front ray would start in mid-air ahead of the tank.
+        If TankRoster.HullVisual(inst.vehicle) IsNot Nothing Then
+            Dim he = TankRoster.HullHalfExtents(inst.vehicle)
+            hx = he.X
+            hz = he.Z
         End If
 
         Dim ca = CSng(Math.Cos(inst.headingRad))

@@ -26,7 +26,7 @@ Module BrainWorld
     Public Function Init() As Boolean
         Dim wot = GAME_PATH()
         If wot = "" Then
-            LogThis("no game path - the world cannot be opened")
+            LogThis("brain: no game path - the world cannot be opened")
             Return False
         End If
 
@@ -34,19 +34,19 @@ Module BrainWorld
         Try
             ResMgr.Init(wot)
         Catch ex As Exception
-            LogThis("packages failed to open: {0}", ex.Message)
+            LogThis("brain: packages failed to open: {0}", ex.Message)
             Return False
         End Try
 
         Spaces = ResMgr.SpaceNames()
-        LogThis("packages open in {0} ms, {1} space(s) installed",
+        LogThis("brain: packages open in {0} ms, {1} space(s) installed",
                 sw.ElapsedMilliseconds, Spaces.Count)
 
         If Spaces.Count = 0 Then
             ' Open but empty is a DIFFERENT failure from not opening, and
             ' worth its own line: it means the path is a folder with a res\ in
             ' it that is not a game, which the sidecar test cannot catch.
-            LogThis("...but no spaces were found. Is {0} really the game?", wot)
+            LogThis("brain: ...but no spaces were found. Is {0} really the game?", wot)
             Return False
         End If
 

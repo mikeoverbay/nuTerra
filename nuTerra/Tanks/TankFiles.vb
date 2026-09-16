@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports System.IO.Compression
 Imports System.Xml
 
@@ -23,7 +23,9 @@ Public Module TankFiles
     Private Sub BuildIndex()
         indexed = True
         Try
-            Dim wot = My.Settings.GamePath
+            ' GAME_PATH(), not My.Settings - see modGamePath. Brain Testing
+            ' links this file and backs the name with nuTerra's sidecar.
+            Dim wot = GAME_PATH()
             Dim xDoc As New XmlDocument
             xDoc.Load(Path.Combine(wot, "paths.xml"))
             Dim pkgs = 0, files = 0

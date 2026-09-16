@@ -70,7 +70,16 @@ Module Program
                     TANK_PER_TEAM = per_team
                 End If
 
+            ElseIf a.Equals("sim", StringComparison.OrdinalIgnoreCase) Then
+                ' START THE SIM FROM THE COMMAND LINE. The owner's ask,
+                ' 2026-09-15: "It should be able to start the sim with a arg."
+                ' `sim` is Tank AI work's word for it - their button in nuTerra
+                ' says SIM - so it is the word here too rather than a second
+                ' name for one thing.
+                BRAIN_ON = True
+
             ElseIf a.StartsWith("brain=", StringComparison.OrdinalIgnoreCase) OrElse
+                   a.StartsWith("sim=", StringComparison.OrdinalIgnoreCase) OrElse
                    a.StartsWith("ai=", StringComparison.OrdinalIgnoreCase) Then
                 ' `ai=` is kept as a synonym because that is what every
                 ' existing note and script says. `brain=` is the name this app
@@ -89,6 +98,12 @@ Module Program
 
             ElseIf a.Equals("clean", StringComparison.OrdinalIgnoreCase) Then
                 CLEAN_VIEW = True
+
+            ElseIf a.Equals("hullbox", StringComparison.OrdinalIgnoreCase) Then
+                HULL_BOX_TABLE = True
+
+            ElseIf a.Equals("verbose", StringComparison.OrdinalIgnoreCase) Then
+                LOG_VERBOSE = True
 
             ElseIf is_inert(a) Then
                 ignored.Add(a)

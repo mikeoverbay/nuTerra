@@ -57,4 +57,16 @@
     <Compile Include="../nuTerra/ResMgr/packed_section.vb" Link="linked/packed_section.vb" />
   </ItemGroup>
 
+  <!-- STAGE 4 (brought forward) - the thirty bodies and their hull boxes. -->
+  <ItemGroup>
+    <Compile Include="../nuTerra/OpenGL/GLTexture.vb" Link="linked/GLTexture.vb" />
+    <Compile Include="../nuTerra/Tanks/TankRoster.vb" Link="linked/TankRoster.vb" />
+    <Compile Include="../nuTerra/Tanks/TankBlast.vb" Link="linked/TankBlast.vb" />
+    <Compile Include="../nuTerra/Tanks/TankVisual.vb" Link="linked/TankVisual.vb" />
+    <Compile Include="../nuTerra/Tanks/TankVehicle.vb" Link="linked/TankVehicle.vb" />
+    <Compile Include="../nuTerra/Tanks/TankFiles.vb" Link="linked/TankFiles.vb" />
+    <Compile Include="../nuTerra/Tanks/TankPrimitives.vb" Link="linked/TankPrimitives.vb" />
+    <Compile Include="../nuTerra/Tanks/TankFormats.vb" Link="linked/TankFormats.vb" />
+  </ItemGroup>
+
 </Project>
