@@ -17,6 +17,10 @@ Module BrainModels
         Public ibo As Integer
         Public indexCount As Integer
         Public kind As Byte
+        ''' <summary>The asset path the kind was classified from. Kept so an
+        ''' audit can say WHICH models are blocking, not just how many -
+        ''' "198 other" is a number nobody can act on.</summary>
+        Public asset As String
         ''' <summary>Local-space bounds, for the view-space clip.</summary>
         Public bbMin As Vector3
         Public bbMax As Vector3
@@ -81,7 +85,8 @@ Module BrainModels
                 asset = If(lod.render_sets(0).verts_name, "")
             Catch
             End Try
-            m.kind = ModelKind.classify(asset.Replace("\", "/").ToLowerInvariant())
+            m.asset = asset.Replace("\", "/").ToLowerInvariant()
+            m.kind = ModelKind.classify(m.asset)
             meshes(i) = m
             tally(m.kind And 7) += 1
             built += 1
@@ -233,6 +238,7 @@ Module BrainModels
     Public Structure Footprint
         Public ok As Boolean
         Public kind As Byte
+        Public asset As String
         Public minX, maxX, minZ, maxZ As Single
         ''' <summary>The four lower corners in world XZ, IN ORDER round the
         ''' quad. The AABB above is only their extent - rasterising THIS is
@@ -273,6 +279,7 @@ Module BrainModels
         Next
         f.c0 = w(0) : f.c1 = w(1) : f.c2 = w(2) : f.c3 = w(3)
         f.kind = m.kind
+        f.asset = m.asset
         f.ok = True
         Return f
     End Function

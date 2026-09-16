@@ -160,6 +160,57 @@ Module BrainNav
             Next
         Next
 
+        ' WHAT CAN A TANK DRIVE OVER, AND WHAT STOPS IT. The owner's question,
+        ' and the grid is the only thing that can answer it - so it reports by
+        ' KIND, counting PLACEMENTS rather than models, because fifteen copies
+        ' of one fence stop a tank fifteen times.
+        Dim pl(7) As Integer
+        Dim cells(7) As Integer
+        Dim otherNames As New Dictionary(Of String, Integer)
+        For Each inst In MODEL_INDEX_LIST
+            Dim b = BrainModels.WorldFootprint(inst)
+            If Not b.ok Then Continue For
+            Dim p3 = inst.matrix.Row3
+            If p3.X < lo.X - OUTLAND_MARGIN OrElse p3.X > hi.X + OUTLAND_MARGIN OrElse
+               p3.Z < lo.Y - OUTLAND_MARGIN OrElse p3.Z > hi.Y + OUTLAND_MARGIN Then Continue For
+            Dim k = b.kind And 7
+            pl(k) += 1
+            cells(k) += CInt((b.maxX - b.minX) * (b.maxZ - b.minZ))
+            If k = ModelKind.KIND_OTHER Then
+                ' The folder is what tells a reader what a thing IS - the leaf
+                ' filename is usually a variant number.
+                Dim f = b.asset
+                If f IsNot Nothing Then
+                    Dim parts = f.Split("/"c)
+                    If parts.Length >= 2 Then f = parts(parts.Length - 2)
+                    otherNames(f) = If(otherNames.ContainsKey(f), otherNames(f), 0) + 1
+                End If
+            End If
+        Next
+
+        LogThis("brain: --- what stops a tank on this map ---")
+        For k = 0 To 7
+            If pl(k) = 0 Then Continue For
+            LogThis("brain:   {0,-9} {1,6:N0} placement(s), ~{2,7:N0} m2  {3}",
+                    ModelKind.KIND_NAMES(k), pl(k), cells(k),
+                    If(k = ModelKind.KIND_TREE, "CRUSHABLE - driven over", "blocks"))
+        Next
+        LogThis("brain:   {0,-9} {1,6:N0} placement(s), {2}  CRUSHABLE - driven over",
+                "speedtree", BrainTrees.Count, "proxy")
+
+        ' THE GREY BIN, NAMED. "other" is the classifier saying it does not
+        ' recognise the name, and everything in it currently BLOCKS - so if
+        ' something drivable is in there, the map is harder than it looks and
+        ' nobody would know which thing to blame.
+        If otherNames.Count > 0 Then
+            Dim rank = otherNames.ToList()
+            rank.Sort(Function(a, b2) b2.Value.CompareTo(a.Value))
+            LogThis("brain:   ...of which 'other' is {0} distinct folder(s), top:", rank.Count)
+            For i = 0 To Math.Min(11, rank.Count - 1)
+                LogThis("brain:     {0,5:N0} x {1}", rank(i).Value, rank(i).Key)
+            Next
+        End If
+
         ' WHICH PLACEMENTS COST THE MOST GROUND. Printed because the first
         ' two guesses at why the grid was over half blocked were both wrong,
         ' and a ranked list answers it in one run instead of three.
