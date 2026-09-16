@@ -1,4 +1,4 @@
-﻿Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 Imports OpenTK.Windowing.Common
 Imports OpenTK.Windowing.Desktop
@@ -244,26 +244,9 @@ Public Class BrainWindow
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
         MyBase.OnUpdateFrame(e)
         If KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape) Then Close()
-        BrainRender.Cam.Update(CSng(e.Time), KeyboardState)
-
-        ' RIGHT BUTTON HELD = look. The cursor is grabbed only while it is
-        ' down, so the pointer is never captured by this window against the
-        ' owner's wishes - he has several apps on one desktop.
-        Dim m = MouseState
-        If m.IsButtonDown(OpenTK.Windowing.GraphicsLibraryFramework.MouseButton.Right) Then
-            If Not CursorGrabbed Then
-                CursorGrabbed = True
-            Else
-                ' Only once the grab has been in place for a frame: the first
-                ' frame's delta carries the jump to the centre and would spin
-                ' the view hard.
-                BrainRender.Cam.MouseLook(m.X - m.PreviousX, m.Y - m.PreviousY)
-            End If
-        ElseIf CursorGrabbed Then
-            CursorGrabbed = False
-        End If
-
-        BrainRender.Cam.Scroll(m.ScrollDelta.Y)
+        ' ONE CALL, and the cursor is never grabbed. See BrainCamera - this is
+        ' nuTerra's camera_mouse_update by way of Exporter Studio.
+        BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
     End Sub
 
 End Class
