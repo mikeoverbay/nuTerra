@@ -146,6 +146,7 @@ Public Class BrainWindow
                 ' default would put the camera somewhere arbitrary on a map
                 ' whose extent is not known until the chunks are counted.
                 BrainRender.Cam.FrameMap(Math.Max(MAP_SIZE.X, MAP_SIZE.Y) * 100.0F)
+                BrainModels.Build()
             End If
             BrainTanks.ReadArena(STARTUP_MAP)
             BrainTanks.LoadAll(TANK_PER_TEAM)

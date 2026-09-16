@@ -19,7 +19,8 @@ Module BrainRender
 
     Public Sub Init()
         terrainShader = New BrainShader("terrain")
-        If terrainShader.Ready Then LogThis("brain: terrain shader ready")
+        BrainModels.Init()
+        If terrainShader.Ready Then LogThis("brain: shaders ready")
     End Sub
 
     ''' <summary>
@@ -57,6 +58,11 @@ Module BrainRender
                                      DrawElementsType.UnsignedShort,
                                      IntPtr.Zero, theMap.chunks.Length, 0)
         GL.BindBuffer(BufferTarget.DrawIndirectBuffer, 0)
+
+        ' Buildings after the terrain: both write depth and neither blends, so
+        ' the order is free - but ground first means a hill already occludes
+        ' what is behind it before a single wall is issued.
+        BrainModels.Draw(vp)
     End Sub
 
 End Module
