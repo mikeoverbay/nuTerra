@@ -238,18 +238,28 @@ def build_grid(map_name, hull_r_m):
     # texels. Testing it on fence and prop un-crushed three quarters of the
     # fences on this map.
     k_fence, k_tree, k_prop, k_water = kinds_from_meta(meta)
-    crushable = ((kind == k_fence) | (kind == k_prop) |
-                 ((kind == k_tree) & ~solid))
-    testable = ~crushable
+    trunk = (key & TRUNK_BIT).astype(bool)
 
-    # THE TRUNK DOES NOT BLOCK.
-    # A tree is crushable and a tank knocks the whole thing flat -
-    # trunk included - so re-blocking the trunk refused the very ground
-    # the crushable rule had just opened. 98.05% of trunk texels key
-    # tree; the
-    # 1.95% landing on building, rock or other carry the solid bit and stay
-    # blocked by the height test on their own. What still stops a tank in a
-    # wood is `tree AND solid` - rock or wall standing under the canopy.
+    # THE TRUNK BLOCKS. Reversed 2026-09-16 on the owner's ruling, and this
+    # expression must stay identical to MapFlightBake.Crushable(k) in the app:
+    #
+    #     crushable = fence | prop | (tree AND NOT solid AND NOT trunk)
+    #
+    # The canopy is still crushable - a tank drives through branches. The
+    # trunk is not, because a tank does not drive through a trunk, and the
+    # earlier reading here (that knocking the tree flat takes the trunk with
+    # it) was the planner's convenience rather than the game's behaviour.
+    #
+    # THIS IS THE THIRD COPY OF ONE RULE. The app had three - TankSquares,
+    # TankNav and MapTankRays - and the nuTerra session has just collapsed
+    # them into MapFlightBake.Crushable. This one is in a different language
+    # so it cannot call that, which makes it the copy most likely to drift:
+    # it drifted for exactly as long as it took to be told. If the app's
+    # version changes, this line changes in the same hour or Ray Studio
+    # sweeps roads the tanks cannot drive.
+    crushable = ((kind == k_fence) | (kind == k_prop) |
+                 ((kind == k_tree) & ~solid & ~trunk))
+    testable = ~crushable
     #
     # Measured on monastery: after the half-hull growth the planner saw
     # 26.78% of the bake blocked with trunks in, 24.00% with them out.
