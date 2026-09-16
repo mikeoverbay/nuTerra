@@ -91,10 +91,22 @@ Public Class BrainCamera
         PitchRad = -0.5F
     End Sub
 
-    ''' <summary>Look at one spot from `dist` away.</summary>
-    Public Sub LookAt(x As Single, z As Single, ground As Single, dist As Single)
+    ''' <summary>
+    ''' Look at one spot from `standoff` metres away.
+    '''
+    ''' THE PARAMETER IS NOT CALLED `dist`, AND THAT IS NOT STYLE. VB is case
+    ''' insensitive, so a parameter named `dist` IS the field `Dist` - and
+    ''' `Dist = Math.Max(5.0F, dist)` then assigns the parameter to itself and
+    ''' leaves the field untouched. It cost most of an hour: `at=` placed the
+    ''' camera correctly, the log printed the right number (it was reading the
+    ''' parameter too), and the view stayed framed on the whole map. Every
+    ''' piece of evidence agreed and all of it was about the parameter.
+    '''
+    ''' Second time today in this file - `speed` shadowed `Speed` the same way.
+    ''' </summary>
+    Public Sub LookAt(x As Single, z As Single, ground As Single, standoff As Single)
         Target = New Vector3(x, ground, z)
-        Dist = Math.Max(5.0F, dist)
+        Dist = Math.Max(5.0F, standoff)
         ' STAND OUTSIDE AND LOOK IN. A fixed yaw puts the eye on whichever side
         ' the number happened to pick, and for a base at the south edge that is
         ' off the map looking further off it. Placing the eye on the far side
@@ -102,6 +114,8 @@ Public Class BrainCamera
         ' the spot sits on.
         YawRad = CSng(Math.Atan2(x, z))
         PitchRad = -0.45F
+        LogThis("brain: camera at ({0:0.0}, {1:0.0}) ground {2:0.0}, dist {3:0.0}",
+                x, z, ground, Dist)
     End Sub
 
     ''' <summary>
@@ -124,17 +138,27 @@ Public Class BrainCamera
         Dim rightDown = m.IsButtonDown(MouseButton.Right)
         Dim ctrl = k.IsKeyDown(Keys.LeftControl) OrElse k.IsKeyDown(Keys.RightControl)
         Dim shiftHeld = k.IsKeyDown(Keys.LeftShift) OrElse k.IsKeyDown(Keys.RightShift)
-        Dim held = leftDown OrElse midDown
-
         ' IGNORE THE FRAME A BUTTON GOES DOWN. Delta carries the travel since
         ' the last update, which can be a long way if the cursor was moved
         ' elsewhere first, and that arrives as one jump.
-        If held AndAlso Not dragging Then
+        '
+        ' THE GUARD COVERS THE RIGHT BUTTON TOO, and leaving it out was a real
+        ' bug: orbit and pan were protected, zoom was not, so the first frame's
+        ' jump went straight into the zoom pool. `at=` looked broken because of
+        ' it - the camera was placed correctly at 60 m and had zoomed itself to
+        ' 1,040 by the third frame, which reads as "the argument was ignored".
+        ' By hand it is a right-drag that leaps on first press.
+        Dim anyDown = leftDown OrElse midDown OrElse rightDown
+        If anyDown AndAlso Not dragging Then
             dragging = True
             dx = 0 : dy = 0
-        ElseIf Not held Then
+        ElseIf Not anyDown Then
             dragging = False
         End If
+
+        ' Orbit and pan are the LEFT and MIDDLE buttons only - right belongs to
+        ' zoom below, so it must not be in here or a right-drag would orbit.
+        Dim held = leftDown OrElse midDown
 
         If held Then
             If shiftHeld Then
