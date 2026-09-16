@@ -510,16 +510,9 @@ Public Class MapTankRays
                         Dim h = bake.top_m(i) - fl
                         If h <= bestH Then Continue For
 
-                        ' Match TankNav.Build's crushable rule. Fence/prop do not
-                        ' block by height; a tree blocks by height only when the
-                        ' bake says solid geometry exists under the canopy.
-                        Dim k = bake.kind_b(i)
-                        Dim k7 = k And MapFlightBake.KIND_MASK
-                        Dim crushable =
-                            (k7 = MapFlightBake.KIND_FENCE OrElse
-                             k7 = MapFlightBake.KIND_PROP) OrElse
-                            (k7 = MapFlightBake.KIND_TREE AndAlso
-                             (k And MapFlightBake.SOLID_BIT) = 0)
+                        ' The one crushable rule, so a ray and the grid it is
+                        ' cast over cannot disagree about what stops a hull.
+                        Dim crushable = MapFlightBake.Crushable(bake.kind_b(i))
 
                         If crushable Then Continue For
 

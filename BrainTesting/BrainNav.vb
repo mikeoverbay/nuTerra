@@ -17,10 +17,16 @@
 ''' resolution the path graph and the flight bake already use - a third
 ''' resolution would be a third answer.
 '''
-''' CRUSHABLE GROUND IS NOT BLOCKED. A tank drives through a hedge. The rule is
-''' the bake's: kind TREE is crushable, everything else standing is not. That
-''' is why the grid is built from ModelKind and not from geometry alone - and
-''' it is the same rule the vineyard fix turned on.
+''' CRUSHABLE GROUND IS NOT BLOCKED. A tank drives through a hedge. The rule
+''' is the bake's, and it now splits a tree in two: canopy is crushable, the
+''' TRUNK IS NOT. The owner, 2026-09-16: "if it has a trunk, we can't drive
+''' there. if no trunk we can."
+'''
+''' THE FALLBACK IN THIS FILE CANNOT MAKE THAT SPLIT. It rasterises model
+''' bounding boxes and has no trunk bit, so it treats every tree as fully
+''' crushable and under-blocks a wood. The square map from the bake is the
+''' one that knows, which is another reason it is preferred over anything
+''' worked out here.
 '''
 ''' Added 2026-09-16 by nuTerra work, stage 6 of docs/brain_testing_plan.md.
 ''' </summary>
@@ -163,9 +169,9 @@ Module BrainNav
     '''
     '''     outland and water always block;
     '''     fence and prop are crushable whatever their height;
-    '''     TREE is crushable INCLUDING ITS TRUNK, because a tank knocks the
-    '''       whole thing flat - unless the texel also carries the solid bit,
-    '''       which means rock or wall standing under the canopy;
+    '''     TREE is crushable as CANOPY only - a texel carrying the trunk
+    '''       bit blocks, and so does one carrying the solid bit, which is
+    '''       rock or wall standing under the canopy;
     '''     everything else blocks if it stands over the obstacle height.
     '''
     ''' READING IT RATHER THAN RE-DERIVING IT IS THE WHOLE POINT. It comes
@@ -322,8 +328,9 @@ Module BrainNav
                 Continue For
             End If
 
-            ' THE CRUSHABLE RULE, the bake's own: a tank drives through trees
-            ' and hedges. Anything else standing stops it.
+            ' THE CRUSHABLE RULE, as far as a bounding box can carry it: a
+            ' tank drives through trees and hedges. A trunk stops it, and
+            ' this path cannot see trunks - see the note at the top.
             If box.kind = ModelKind.KIND_TREE Then
                 skippedCrushable += 1
                 Continue For
@@ -385,9 +392,9 @@ Module BrainNav
             If pl(k) = 0 Then Continue For
             LogThis("brain:   {0,-9} {1,6:N0} placement(s), ~{2,7:N0} m2  {3}",
                     ModelKind.KIND_NAMES(k), pl(k), cells(k),
-                    If(k = ModelKind.KIND_TREE, "CRUSHABLE - driven over", "blocks"))
+                    If(k = ModelKind.KIND_TREE, "canopy crushable, trunk blocks", "blocks"))
         Next
-        LogThis("brain:   {0,-9} {1,6:N0} placement(s), {2}  CRUSHABLE - driven over",
+        LogThis("brain:   {0,-9} {1,6:N0} placement(s), {2}  canopy crushable, trunk blocks",
                 "speedtree", BrainTrees.Count, "proxy")
 
         ' THE GREY BIN, NAMED. "other" is the classifier saying it does not

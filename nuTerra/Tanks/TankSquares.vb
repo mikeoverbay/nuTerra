@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 
 ''' <summary>
 ''' The one-metre square map: can a tank stand in this square, yes or no.
@@ -85,52 +85,19 @@ Public Class TankSquares
                         Dim k = b.kind_b(i)
 
                         ' The two that always stop a hull whatever their
-                        ' height: the ring outside the arena, and water.
-                        ' THE TRUNK USED TO BE A THIRD.
-                        ' A tree is crushable and a tank knocks the whole thing flat -
-                        ' trunk included - so re-blocking the trunk refused the very ground
-                        ' the crushable rule had just opened. 98.05% of trunk texels key
-                        ' tree; the
-                        ' 1.95% landing on building, rock or other carry the solid bit and stay
-                        ' blocked by the height test on their own. What still stops a tank in a
-                        ' wood is `tree AND solid` - rock or wall standing under the canopy.
+                        ' height: the ring outside the arena, and water. They
+                        ' are asked first because MapFlightBake.Crushable does
+                        ' not ask them - it answers about the thing standing
+                        ' here, and these two are the ground itself.
                         If (k And MapFlightBake.OUTLAND_BIT) <> 0 OrElse
                            (k And MapFlightBake.KIND_MASK) = MapFlightBake.KIND_WATER Then
                             hit = True
                             Exit For
                         End If
 
-                        ' CRUSHABLE ONLY IF IT IS NOT ALSO SOLID. "remove all
-                        ' items from the zones we can drive over like fences
-                        ' and bushes" - but a texel that keys tree and carries
-                        ' the solid bit is rock or wall standing under a
-                        ' canopy, and it is not driven over by anything.
-                        ' THE SOLID BIT QUALIFIES TREES, AND ONLY TREES.
-                        '
-                        ' It is read from the depth buffer BETWEEN the model
-                        ' pass and the tree pass, so any MODEL sets it for
-                        ' itself: measured on monastery it is set on 75.6% of
-                        ' fence texels and 63.3% of prop texels, and on just
-                        ' 7.0% of tree texels. Only for a tree does it carry
-                        ' information - that something else is standing under
-                        ' the canopy.
-                        '
-                        ' Testing it on fence and prop as well, which is what
-                        ' this did first, un-crushed three quarters of the
-                        ' fences on the map and drove a tank round them. The
-                        ' owner's rule is the other way: "A fence or curb is
-                        ' not going to stop a tank."
-                        '
-                        ' What this CANNOT see is a fence standing in front of
-                        ' a wall, where the fence wins the depth test and the
-                        ' wall is invisible to us. That risk existed before the
-                        ' bit did and this data cannot settle it.
-                        Dim k7 = k And MapFlightBake.KIND_MASK
-                        Dim crushable =
-                            (k7 = MapFlightBake.KIND_FENCE OrElse
-                             k7 = MapFlightBake.KIND_PROP) OrElse
-                            (k7 = MapFlightBake.KIND_TREE AndAlso
-                             (k And MapFlightBake.SOLID_BIT) = 0)
+                        ' The one crushable rule. Its reasoning, and the
+                        ' measurements behind it, live with it.
+                        Dim crushable = MapFlightBake.Crushable(k)
                         If Not crushable Then
                             If b.top_m(i) - b.floor_m(i) > TankNavLimits.MAX_OBSTACLE Then
                                 hit = True
@@ -161,8 +128,9 @@ Public Class TankSquares
                 " own row order, and the label used to say wz_min which is the" &
                 " opposite and cost a reader an hour" & vbLf &
                 "value=1 solid or used, 0 open" & vbLf &
-                "rule=outland|trunk|water always; height over {5:0.##} m unless" &
-                " the kind is tree, fence or prop AND the solid bit is clear" & vbLf,
+                "rule=outland|water always; height over {5:0.##} m unless the" &
+                " kind is fence or prop, or is tree with neither the solid nor" &
+                " the trunk bit set" & vbLf,
                 map, CELL_M, n, wx0, b.wz_max, TankNavLimits.MAX_OBSTACLE))
 
         LogThis("tank squares: {0}x{0} of {1:0.#} m, {2:N0} solid ({3:0.0}%), wrote {4}",

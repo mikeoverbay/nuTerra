@@ -20,12 +20,15 @@ Imports OpenTK.Mathematics
 ''' INSTANCED, because monastery places tens of thousands of plants from a
 ''' couple of dozen species. One draw call, one mat4 per tree.
 '''
-''' THEY DO NOT BLOCK. The crushable rule is the bake's: kind TREE is
-''' crushable, and a tank drives through a hedge and knocks a tree down. So
-''' the nav grid leaves them open and this file is about what the owner SEES,
-''' not about what stops a hull. If a species ever needs to block - a trunk
-''' thick enough to stop a tier 10 - that is a trunk radius per species, and
-''' it belongs beside the crushable rule in BrainNav, not here.
+''' THE TRUNKS BLOCK; THIS PROXY STILL DOES NOT. Since 2026-09-16 the nav
+''' grid stops a hull on a trunk - the owner's rule - but it gets that from
+''' the bake's trunk bit, which is real bark geometry, not from these twenty
+''' triangles. So this file remains about what the owner SEES, and nothing
+''' here is consulted about what stops a tank.
+'''
+''' The proxy's own 0.22 m trunk is a DRAWING dimension that happens to land
+''' in the range BrainTrunks measures. Worth knowing, but they are not a
+''' shared constant and neither reads the other.
 '''
 ''' Added 2026-09-16 by nuTerra work, on the owner's ask.
 ''' </summary>
@@ -97,7 +100,8 @@ Module BrainTrees
         Next
         GL.BindVertexArray(0)
 
-        LogThis("brain: {0:N0} tree(s) in {1} ms, {2} triangles each - crushable, not blocking",
+        LogThis("brain: {0:N0} tree(s) in {1} ms, {2} triangles each - drawn only; " &
+                "the bake's trunk bit is what blocks",
                 kept, sw.ElapsedMilliseconds, indexCount \ 3)
     End Sub
 

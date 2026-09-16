@@ -382,6 +382,52 @@ Public Class MapFlightBake
     ''' </summary>
     Public Shared TRUNK_RADIUS As Single = 0.6F
 
+    ''' <summary>
+    ''' Can a hull drive through whatever stands on this texel?
+    '''
+    ''' ONE COPY. This rule lived in three - TankSquares, TankNav and
+    ''' MapTankRays - and one of the three carried a comment telling the
+    ''' reader to keep it matching the others. A rule that holds only while
+    ''' someone remembers to copy it is a rule that drifts, and all three
+    ''' decide whether a tank is stopped.
+    '''
+    ''' THE TRUNK BLOCKS. The owner, 2026-09-16: "lets assume if it has a
+    ''' trunk, we can't drive there. if no trunk we can." So a tree texel is
+    ''' crushable canopy unless it carries the trunk bit.
+    '''
+    ''' This was tried once before and reverted, on the argument that a tank
+    ''' knocks the whole tree flat. Measured against the cached bake before
+    ''' putting it back: it blocks 8,307 more square metres on monastery, 0.42
+    ''' points of the map, because the trunk bit is real bark geometry within
+    ''' TRUNK_RADIUS of the axis rather than a stamped disc.
+    '''
+    ''' The solid bit still disqualifies a tree on its own: rock or wall
+    ''' standing under a canopy. Fence and prop are crushable at any height -
+    ''' "A fence or curb is not going to stop a tank."
+    '''
+    ''' THE SOLID BIT QUALIFIES TREES, AND ONLY TREES. It is read from the
+    ''' depth buffer BETWEEN the model pass and the tree pass, so any MODEL
+    ''' sets it for itself: on monastery it is set on 75.6% of fence texels
+    ''' and 63.3% of prop texels, and on just 7.0% of tree texels. Only for a
+    ''' tree does it carry information - that something else stands under the
+    ''' canopy. Testing it on fence and prop as well, which this did first,
+    ''' un-crushed three quarters of the fences on the map and drove a tank
+    ''' round them.
+    '''
+    ''' WHAT THIS CANNOT SEE is a fence standing in front of a wall, where the
+    ''' fence wins the depth test and the wall is invisible to the bake. That
+    ''' risk predates the bit and this data cannot settle it.
+    '''
+    ''' OUTLAND AND WATER ARE NOT ASKED HERE. Those block whatever their
+    ''' height, so they are the caller's first test and never reach this one.
+    ''' </summary>
+    Public Shared Function Crushable(k As Byte) As Boolean
+        Dim k7 = k And KIND_MASK
+        If k7 = KIND_FENCE OrElse k7 = KIND_PROP Then Return True
+        If k7 <> KIND_TREE Then Return False
+        Return (k And (SOLID_BIT Or TRUNK_BIT)) = 0
+    End Function
+
     Public Shared kind_map() As Byte
 
     Public Sub Bake()

@@ -77,13 +77,15 @@ Public Class TankNav
     ''' <summary>Everything that stops a tank. Kept as one constant so no
     ''' caller assembles its own idea of impassable.</summary>
     ''' <remarks>
-    ''' TRUNK IS NOT IN HERE. A tree is crushable and a tank knocks the whole
-    ''' thing flat - trunk included - so re-blocking the trunk refused the very
-    ''' ground the crushable rule had just opened. 98.05% of trunk texels key
-    ''' tree; the
-    ''' 1.95% landing on building, rock or other carry the solid bit and stay
-    ''' blocked by the height test on their own. What still stops a tank in a
-    ''' wood is `tree AND solid` - rock or wall standing under the canopy.
+    ''' TRUNK IS NOT IN HERE, and it does not need to be. A trunk texel now
+    ''' stops a hull through BLOCKED, because MapFlightBake.Crushable refuses
+    ''' to call a trunk crushable and the height test then blocks it like any
+    ''' other standing thing. The TRUNK flag stays what it always was: a
+    ''' label saying which texels are trunk rather than canopy.
+    '''
+    ''' Adding it here as well would block the 1.23% of trunk texels that key
+    ''' terrain - bark overhanging open ground with nothing under it - which
+    ''' the height test correctly leaves open.
     ''' </remarks>
     Public Const IMPASSABLE As Byte =
         BLOCKED Or STEEP Or OUTLAND Or WATER Or OFFMAP
@@ -227,12 +229,7 @@ Public Class TankNav
                         ' a wall, where the fence wins the depth test and the
                         ' wall is invisible to us. That risk existed before the
                         ' bit did and this data cannot settle it.
-                        Dim k7 = k And MapFlightBake.KIND_MASK
-                        Dim crushable =
-                            (k7 = MapFlightBake.KIND_FENCE OrElse
-                             k7 = MapFlightBake.KIND_PROP) OrElse
-                            (k7 = MapFlightBake.KIND_TREE AndAlso
-                             (k And MapFlightBake.SOLID_BIT) = 0)
+                        Dim crushable = MapFlightBake.Crushable(k)
                         If Not crushable Then
                             If b.top_m(i) - fl > TankNavLimits.MAX_OBSTACLE Then f = f Or BLOCKED
                         End If
