@@ -130,7 +130,20 @@ def check_against_squares(g, map_name):
             k, v = line.split("=", 1)
             meta[k.strip()] = v.strip()
     n, cell = int(meta["n"]), float(meta["cell_m"])
-    sq = np.fromfile(sq_path, np.uint8).reshape(n, n).astype(bool)
+    # BIT 0 IS THE BLOCK. Not "the byte is non-zero".
+    #
+    # The square byte is becoming a bitmask - "bit 0 is our block and bit 2-7
+    # is open for data", the owner - and the moment it carries kind in its
+    # upper bits, every reader that asks "is this byte non-zero" starts
+    # calling OPEN ground blocked, because open ground with a kind stamped on
+    # it is a non-zero byte.
+    #
+    # That failure is silent and it is inverted: the map fills in rather than
+    # emptying, so it looks like a bake problem rather than a decode problem.
+    # Masking now costs nothing while the byte is still 0 or 1, and means this
+    # reader does not have to be found and fixed on the day the format lands.
+    SQ_BLOCK_BIT = 0x01
+    sq = (np.fromfile(sq_path, np.uint8).reshape(n, n) & SQ_BLOCK_BIT) != 0
 
     cp, W = g["collide"], g["W"]
     tex = (g["wx1"] - g["wx0"]) / W
