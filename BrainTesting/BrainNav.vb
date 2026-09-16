@@ -106,6 +106,28 @@ Module BrainNav
             Next
             LogThis("brain: material names - {0} distinct: d_ {1}, n_ {2}, neither {3}",
                     seen.Count, d, n, other)
+
+            ' DRAWN OR NOT, CROSSED WITH THE PREFIX. apply_material_for_pgroup
+            ' sets no_draw when a material has no shader properties or no
+            ' effect - that is the COLLISION geometry, and it is already
+            ' excluded everywhere. The question this answers is the owner's:
+            ' whether d_ sets are also excluded, or whether they are real
+            ' drawable geometry being drawn on top of the intact model.
+            Dim dDraw = 0, dSkip = 0, nDraw = 0, nSkip = 0, oDraw = 0, oSkip = 0
+            For Each m In cBSMA.MaterialItem
+                Dim id = If(m.identifier, "")
+                Dim skip = (m.shaderPropBegin = &HFFFFFFFFUI) OrElse
+                           (m.effectIndex = &HFFFFFFFFUI)
+                If id.StartsWith("d_", StringComparison.Ordinal) Then
+                    If skip Then dSkip += 1 Else dDraw += 1
+                ElseIf id.StartsWith("n_", StringComparison.Ordinal) Then
+                    If skip Then nSkip += 1 Else nDraw += 1
+                Else
+                    If skip Then oSkip += 1 Else oDraw += 1
+                End If
+            Next
+            LogThis("brain:   drawable / no_draw   d_ {0}/{1}   n_ {2}/{3}   neither {4}/{5}",
+                    dDraw, dSkip, nDraw, nSkip, oDraw, oSkip)
             If sample.Count > 0 Then
                 LogThis("brain:   e.g. {0}", String.Join(", ", sample))
             End If
