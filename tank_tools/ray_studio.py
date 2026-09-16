@@ -209,10 +209,10 @@ MAX_OBSTACLE_M = 1.0
 # 0.6 m after the app had moved to per-species radii. The bake looked fine.
 # Every file was present and well formed; only its MEANING had moved.
 #
-# 6 is the per-species trunk bake (app 5ec21daa/ee0c5c8a). Raise this in the
+# 7 is the ceiling-layer bake (app c051def9). Raise this in the
 # same hour the app raises BAKE_VERSION, for the same reason the crushable
 # rule has to be matched in the same hour: this file cannot call theirs.
-BAKE_VERSION_MIN = 6
+BAKE_VERSION_MIN = 7
 MAX_SLOPE = 0.8391              # tan(40 deg), mirrors TankNavLimits.MAX_SLOPE
 KIND_MASK, OUTLAND_BIT, TRUNK_BIT = 7, 16, 128
 
@@ -367,7 +367,27 @@ def build_grid(map_name, hull_r_m):
     fl16 = np.fromfile(os.path.join(FLIGHT, f"{map_name}_floor.r16"),
                        dtype="<u2").reshape(W, W).astype(np.int32)
 
+    # THE CEILING LAYER, bake_version 7: the underside of the lowest BUILT
+    # thing over each texel, same uint16 encoding as the floor. It exists
+    # because top_m over a doorway is the LINTEL, so an arch, a gate and a
+    # solid wall all read the same height and all read blocked.
+    #
+    # Optional, because a v6 bake has no such file and should still open. The
+    # BAKE_VERSION_MIN check above has already said so loudly by this point.
+    ceil_path = os.path.join(FLIGHT, f"{map_name}_ceiling.r16")
+    ce16 = None
+    if os.path.exists(ceil_path):
+        ce16 = np.fromfile(ceil_path, dtype="<u2").reshape(W, W).astype(np.int32)
+
     bits = bits_from_meta(meta, map_name)
+
+    # FROM THE BAKE. 3.5 m is the tallest tier-10 hull plus room for a turret,
+    # and it is the writer's number, not this reader's, for the same reason
+    # the bits are.
+    try:
+        min_clearance_m = float(meta.get("min_clearance", 3.5))
+    except ValueError:
+        min_clearance_m = 3.5
 
     key = top[:, :, 0]
     t16 = (top[:, :, 1].astype(np.int32) << 8) | top[:, :, 2]
@@ -413,7 +433,28 @@ def build_grid(map_name, hull_r_m):
     #
     # Measured on monastery: after the half-hull growth the planner saw
     # 26.78% of the bake blocked with trunks in, 24.00% with them out.
-    collide = (over & testable)         | (key & bits["outland_bit"]).astype(bool)         | (kind == k_water)
+    # PASS UNDER IT. A tall, non-crushable texel stops blocking when
+    # something built stands over it leaving min_clearance to drive through -
+    # a doorway, an arch, a gate. Outland and water still always block.
+    #
+    # THE TRAP, and the spec leads with it: where nothing is overhead the
+    # layer holds the TOP OF THE BAKE VOLUME, so clearance there is hundreds
+    # of metres. A tree trunk has open sky above it. Asking "is the gap big
+    # enough" without first asking "is there anything up there at all" stops
+    # every trunk on the map from blocking - which is the rule we spent this
+    # morning putting back.
+    #
+    # So: open sky is the sentinel, one constant value across the layer, and
+    # it is tested FIRST. A negative clearance is normal, not a bug - a
+    # building's foundations sit below the terrain - and those texels block,
+    # which the >= comparison gives for free.
+    under = np.zeros_like(over)
+    if ce16 is not None:
+        open_sky = ce16 >= ce16.max()
+        gap16 = ce16 - fl16
+        under = (~open_sky) & (gap16 >= int(min_clearance_m * scale))
+
+    collide = (over & testable & ~under)         | (key & bits["outland_bit"]).astype(bool)         | (kind == k_water)
 
     # GROW IT BY THE HULL, ONCE, AT FULL RESOLUTION.
     #
@@ -483,7 +524,8 @@ def build_grid(map_name, hull_r_m):
                 kinds=dict(fence=k_fence, tree=k_tree, prop=k_prop,
                            water=k_water),
                 map_name=map_name,
-                floor=fl16, hscale=scale,
+                floor=fl16, hscale=scale, ceiling=ce16,
+                min_clearance=min_clearance_m,
                 wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
 
 
