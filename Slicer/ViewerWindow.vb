@@ -278,6 +278,9 @@ Public Class ViewerWindow
     Private pbrIdxData As Integer() = Array.Empty(Of Integer)()
     Private exportFormat As String = Nothing
     Private lastExport As String = ""
+    ''' <summary>Where the last save actually went, so the next dialog opens
+    ''' there instead of sending you back to Documents every time.</summary>
+    Private lastSaveDir As String = Nothing
     Private atlasParts As Integer = 0
 
     ''' <summary>The vestigial tile inset. 0.0 is what the data wants; 0.0625
@@ -2158,10 +2161,10 @@ drawn:
             Return
         End If
         If partsPanel.HitsExportVisible(p.X, p.Y) Then
-            ExportFromViewer(visibleOnly:=True) : Return
+            ExportFromViewer(visibleOnly:=True, askWhere:=True) : Return
         End If
         If partsPanel.HitsExportAll(p.X, p.Y) Then
-            ExportFromViewer(visibleOnly:=False) : Return
+            ExportFromViewer(visibleOnly:=False, askWhere:=True) : Return
         End If
         If partsPanel.HitsShowAll(p.X, p.Y) Then
             partsPanel.ShowAll() : ApplyPartVisibility() : Return
@@ -2209,7 +2212,73 @@ drawn:
     ''' the unwrap that matches a baked texture. UV1 is the tile coordinate and
     ''' repeats many times over a wall, which is not a thing you can bake into.
     ''' </summary>
-    Private Sub ExportFromViewer(visibleOnly As Boolean)
+
+    ''' <summary>
+    ''' Ask where to put it.
+    '''
+    ''' The button opens a real Save As dialog; the command line does not. A
+    ''' scripted --export-now that popped a modal would hang a shot forever, so
+    ''' the two paths differ deliberately and the flag says which is which.
+    '''
+    ''' WHERE IT STARTS matters more than it looks. `out.dir` defaults to
+    ''' `slices`, a RELATIVE path, resolved against the working directory - which
+    ''' for this app is its own bin folder. Every export so far has landed in
+    ''' bin\Debug\net8.0-windows\slices, which any clean rebuild deletes without
+    ''' asking. So the dialog starts at the last folder actually used, then an
+    ''' out.dir only if it is ABSOLUTE, and falls back to Documents rather than
+    ''' offering to write into the build output again.
+    ''' </summary>
+    Private Function AskSavePath(stem As String, fmt As String) As String
+        Dim filt As String
+        Select Case fmt
+            Case "glb" : filt = "glTF binary (*.glb)|*.glb"
+            Case "stl" : filt = "Stereolithography (*.stl)|*.stl"
+            Case Else : filt = "Wavefront OBJ (*.obj)|*.obj"
+        End Select
+
+        Dim start = lastSaveDir
+        If String.IsNullOrWhiteSpace(start) Then
+            Dim od = If(settings.OutDir, "")
+            If od.Length > 0 AndAlso IO.Path.IsPathRooted(od) Then start = od
+        End If
+        If String.IsNullOrWhiteSpace(start) OrElse Not IO.Directory.Exists(start) Then
+            start = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        End If
+
+        Try
+            Using dlg As New System.Windows.Forms.SaveFileDialog()
+                dlg.Title = "Export " & fmt.ToUpperInvariant()
+                dlg.FileName = MakeSafeName(stem) & "." & fmt
+                dlg.DefaultExt = fmt
+                dlg.Filter = filt & "|All files (*.*)|*.*"
+                dlg.InitialDirectory = start
+                dlg.OverwritePrompt = True
+                dlg.RestoreDirectory = False
+                If dlg.ShowDialog() <> System.Windows.Forms.DialogResult.OK Then Return Nothing
+                lastSaveDir = IO.Path.GetDirectoryName(IO.Path.GetFullPath(dlg.FileName))
+                Return dlg.FileName
+            End Using
+        Catch ex As Exception
+            ' A dialog that will not open must not lose the export. Fall through
+            ' to the settings path and say so, rather than silently doing nothing.
+            Console.WriteLine("save dialog unavailable ({0}) - using out.dir", ex.Message)
+            Return Nothing
+        End Try
+    End Function
+
+    ''' <summary>Strip what Windows will not accept in a file name. A material
+    ''' identifier is tame, but a part name is whatever the artist typed.</summary>
+    Private Shared Function MakeSafeName(s As String) As String
+        Dim bad = IO.Path.GetInvalidFileNameChars()
+        Dim sb As New Text.StringBuilder()
+        For Each c In If(s, "model")
+            sb.Append(If(Array.IndexOf(bad, c) >= 0, "_"c, c))
+        Next
+        Dim outp = sb.ToString().Trim()
+        Return If(outp.Length = 0, "model", outp)
+    End Function
+
+    Private Sub ExportFromViewer(visibleOnly As Boolean, Optional askWhere As Boolean = False)
         If pbrParts.Count = 0 OrElse pbrVertData.Length = 0 Then
             lastExport = "nothing loaded"
             Return
@@ -2280,8 +2349,21 @@ drawn:
         Dim stem = assets(assetIndex).Name
         If soloModel IsNot Nothing Then stem = soloModel.Name
         If visibleOnly AndAlso partsPanel.HiddenCount > 0 Then stem &= "_visible"
-        Dim dir = If(String.IsNullOrWhiteSpace(settings.OutDir), "exported", settings.OutDir)
-        Dim path = IO.Path.Combine(dir, stem & "." & exportFormat)
+        Dim path As String = Nothing
+        If askWhere Then path = AskSavePath(stem, exportFormat)
+        If path Is Nothing Then
+            If askWhere Then
+                lastExport = "cancelled"
+                Return
+            End If
+            Dim dir = If(String.IsNullOrWhiteSpace(settings.OutDir), "exported", settings.OutDir)
+            path = IO.Path.Combine(dir, MakeSafeName(stem) & "." & exportFormat)
+        Else
+            ' The dialog's extension wins - picking "Export GLB" and typing
+            ' a .obj name should write the thing the name says.
+            Dim ext = IO.Path.GetExtension(path).TrimStart("."c).ToLowerInvariant()
+            If ext = "obj" OrElse ext = "stl" OrElse ext = "glb" Then exportFormat = ext
+        End If
 
         Dim zUp = String.Equals(EffectiveAxis(), "z", StringComparison.OrdinalIgnoreCase)
         Try

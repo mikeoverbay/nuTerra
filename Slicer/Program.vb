@@ -32,6 +32,11 @@ Module Program
         Return Nothing
     End Function
 
+    ' STA because the export button opens a Windows Save As dialog, and the
+    ' common file dialogs are COM single-threaded-apartment. Without this the
+    ' first click throws instead of opening anything. GLFW does not care
+    ' which apartment it is in.
+    <STAThread>
     Sub Main(args As String())
         Dim gameArg As String = Nothing
         Dim filter As String = Nothing
