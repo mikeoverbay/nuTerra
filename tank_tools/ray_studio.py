@@ -167,13 +167,21 @@ def check_against_squares(g, map_name):
 # every launch, and it carries what a pooled bit never could - WHAT is in the
 # cell, not merely that something is.
 #
-# The bits, from his spec:
-#     0      blocked
-#     1      reserved
-#     2-4    kind, the meta's own numbering
+# The bits, settled by the owner 2026-09-16: "bit 0 is our block flag. all
+# others are for what it is."
+#
+#     0      blocked          our flag, and the ONLY one that is
+#     1-3    kind 0-7         the meta's numbering
+#     4      outland
 #     5      solid
 #     6      trunk
-#     7      crushable, precomputed by the writer
+#     7      crushable        precomputed by the writer
+#
+# Kind sits at 1-3, not 2-4: bit 1 is data like every bit above 0. And the
+# TRUNK BIT IS NOT THE BAKE'S. The bake keys trunk at 0x80; here 0x80 is
+# crushable and trunk is 0x40. Reusing TRUNK_BIT on a .blk byte would read
+# every crushable cell as a trunk, so these constants stay separate from the
+# bake's on purpose.
 #
 # READ THE HEADER, DO NOT ASSUME IT. nuTerra writes this file and may settle on
 # a different layout than the one proposed; a reader that trusts a remembered
@@ -184,11 +192,17 @@ BLK_MAGIC = b"nBLK"
 BLK_VERSION = 1
 
 BLK_BLOCK = 0x01
-BLK_KIND_SHIFT = 2
-BLK_KIND_MASK = 0x07 << BLK_KIND_SHIFT
+BLK_KIND_SHIFT = 1
+BLK_KIND_MASK = 0x07 << BLK_KIND_SHIFT      # bits 1-3
+BLK_OUTLAND = 0x10
 BLK_SOLID = 0x20
 BLK_TRUNK = 0x40
 BLK_CRUSHABLE = 0x80
+
+
+def blk_kind(mask):
+    """The kind number out of a .blk byte or array of them."""
+    return (mask & BLK_KIND_MASK) >> BLK_KIND_SHIFT
 
 
 def blk_path(map_name):
@@ -243,9 +257,10 @@ def blk_describe(b):
     m = b["mask"]
     blocked = (m & BLK_BLOCK) != 0
     return ("%d x %d at %.2f m, %.1f%% blocked, %.1f%% crushable, "
-            "height %.1f..%.1f m"
+            "%.1f%% outland, height %.1f..%.1f m"
             % (b["n"], b["n"], b["cell_m"], 100.0 * blocked.mean(),
                100.0 * ((m & BLK_CRUSHABLE) != 0).mean(),
+               100.0 * ((m & BLK_OUTLAND) != 0).mean(),
                float(b["height"].min()), float(b["height"].max())))
 
 
