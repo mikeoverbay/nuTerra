@@ -53,9 +53,114 @@ Module BrainNav
     ''' grid that will call the whole map drivable.</summary>
     Public Marked As Integer = 0
 
+    ''' <summary>True when the grid came from nuTerra's bake rather than from
+    ''' this file's own footprint rasteriser. Said out loud at load.</summary>
+    Public FromBake As Boolean = False
+
+    ''' <summary>Metres a cell as the loaded map states it, and the world Z of
+    ''' row 0. The bake's rows run DOWNWARD from wz_max.</summary>
+    Private sq_cell As Single = CELL_M
+    Private z_top As Single = 0.0F
+
     ''' <summary>Rank the placements by how much ground they claim. A
     ''' diagnostic, off unless `navaudit` is on the command line.</summary>
     Public NAV_AUDIT As Boolean = False
+
+    ''' <summary>
+    ''' THE SQUARE MAP THE PROJECT ALREADY BUILDS, in preference to anything
+    ''' worked out here.
+    '''
+    ''' nuTerra cuts <map>_squares.u8 out of the flight bake - one byte a
+    ''' metre, 1 for solid, 0 for open - and its rule is the owner's, settled
+    ''' over several rounds and written into TankSquares:
+    '''
+    '''     outland and water always block;
+    '''     fence and prop are crushable whatever their height;
+    '''     TREE is crushable INCLUDING ITS TRUNK, because a tank knocks the
+    '''       whole thing flat - unless the texel also carries the solid bit,
+    '''       which means rock or wall standing under the canopy;
+    '''     everything else blocks if it stands over the obstacle height.
+    '''
+    ''' READING IT RATHER THAN RE-DERIVING IT IS THE WHOLE POINT. It comes
+    ''' from the RENDERED DEPTH, not from bounding boxes, so it does not have
+    ''' the over-claim this file's own rasteriser does - measured, rock alone
+    ''' claimed 1.16 million square metres on a map with 1.00 million. And it
+    ''' is the same array the tank driving reads, which is Tank AI work's one
+    ''' condition on the seam: a brain that traces an obstacle boundary and a
+    ''' hull that stops on it must not be consulting two different maps.
+    '''
+    ''' The fallback stays for a map with no bake yet, and it says which one
+    ''' is in use - guessing which grid answered a question is not something
+    ''' anyone should have to do from the outside.
+    ''' </summary>
+    Public Function LoadSquares(map As String) As Boolean
+        Ready = False
+        Marked = 0
+        FromBake = False
+        Try
+            Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "flight")
+            Dim u8 = IO.Path.Combine(dir, map & "_squares.u8")
+            Dim txt = IO.Path.Combine(dir, map & "_squares.txt")
+            If Not IO.File.Exists(u8) OrElse Not IO.File.Exists(txt) Then
+                LogThis("brain: no square map for {0} - falling back to footprints", map)
+                Return False
+            End If
+
+            Dim meta As New Dictionary(Of String, String)
+            For Each line In IO.File.ReadAllLines(txt)
+                Dim eq = line.IndexOf("="c)
+                If eq > 0 Then meta(line.Substring(0, eq).Trim()) = line.Substring(eq + 1).Trim()
+            Next
+
+            Dim nn = CInt(dbl(meta, "n", 0))
+            Dim cell = CSng(dbl(meta, "cell_m", 1.0))
+            Dim wxmin = CSng(dbl(meta, "wx_min", 0))
+            Dim wzmax = CSng(dbl(meta, "wz_max", 0))
+            If nn < 8 Then
+                LogThis("brain: square map meta has no usable n - falling back")
+                Return False
+            End If
+
+            Dim bytes = IO.File.ReadAllBytes(u8)
+            If bytes.Length <> nn * nn Then
+                ' Size is the only cheap check that the meta and the data are
+                ' the same bake. A mismatched pair would index happily and
+                ' answer about the wrong map.
+                LogThis("brain: square map is {0:N0} bytes, meta says {1}x{1}={2:N0} - falling back",
+                        bytes.Length, nn, CLng(nn) * nn)
+                Return False
+            End If
+
+            occ = bytes
+            w = nn : h = nn
+            sq_cell = cell
+            x0 = wxmin
+            ' ROW 0 IS wz_MAX AND ROWS GO DOWNWARD - the meta says so, and it
+            ' also says the label used to claim wz_min, "which is the opposite
+            ' and cost a reader an hour". Worth reading twice.
+            z_top = wzmax
+            For Each b In bytes
+                If b <> 0 Then Marked += 1
+            Next
+            Ready = True
+            FromBake = True
+            LogThis("brain: square map {0}x{0} at {1} m from the bake - {2:N0} solid ({3:0.0}%)",
+                    nn, cell, Marked, 100.0 * Marked / (CLng(nn) * nn))
+            Return True
+        Catch ex As Exception
+            LogThis("brain: square map would not load - {0}", ex.Message)
+            Return False
+        End Try
+    End Function
+
+    Private Function dbl(m As Dictionary(Of String, String), k As String, dflt As Double) As Double
+        Dim v = ""
+        If Not m.TryGetValue(k, v) Then Return dflt
+        Dim d As Double
+        If Double.TryParse(v, Globalization.NumberStyles.Float,
+                           Globalization.CultureInfo.InvariantCulture, d) Then Return d
+        Return dflt
+    End Function
 
     ''' <summary>
     ''' Rasterise every placement's footprint into the grid.
@@ -330,10 +435,21 @@ Module BrainNav
         If Not Ready Then Return True          ' nothing known: refuse nothing
 
         Dim r = Math.Max(radius, 0.0F)
-        Dim cx0 = CInt(Math.Floor((x - r - x0) / CELL_M))
-        Dim cx1 = CInt(Math.Floor((x + r - x0) / CELL_M))
-        Dim cz0 = CInt(Math.Floor((z - r - z0) / CELL_M))
-        Dim cz1 = CInt(Math.Floor((z + r - z0) / CELL_M))
+        Dim cell = If(FromBake, sq_cell, CELL_M)
+        Dim cx0 = CInt(Math.Floor((x - r - x0) / cell))
+        Dim cx1 = CInt(Math.Floor((x + r - x0) / cell))
+        Dim cz0 As Integer, cz1 As Integer
+        If FromBake Then
+            ' ROWS RUN DOWNWARD FROM wz_max, so a LARGER z is a SMALLER row.
+            ' Indexing it the other way answers about a point mirrored through
+            ' the middle of the map, which is the sort of wrong that still
+            ' looks like a working grid.
+            cz0 = CInt(Math.Floor((z_top - (z + r)) / cell))
+            cz1 = CInt(Math.Floor((z_top - (z - r)) / cell))
+        Else
+            cz0 = CInt(Math.Floor((z - r - z0) / cell))
+            cz1 = CInt(Math.Floor((z + r - z0) / cell))
+        End If
 
         ' Off the grid is off the map, which is not standable - a hull that
         ' leaves the arena box has left the test.

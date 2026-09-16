@@ -160,7 +160,12 @@ Public Class BrainWindow
                 ' The nav grid AFTER the models, because it is rasterised from
                 ' their footprints, and after the terrain, because it samples
                 ' slope. Both are up by here.
-                BrainNav.Build()
+                ' THE PROJECT'S OWN ANSWER FIRST. nuTerra cuts a 1 m square map
+                ' out of the flight bake and the tank driving reads it; this
+                ' app reading anything else would be two maps for one question.
+                ' The footprint rasteriser is the fallback for a map with no
+                ' bake yet, and the log says which one answered.
+                If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
                 BrainNav.SelfCheck()
 
                 ' THE SIM STARTS AT LAUNCH - the owner's ask. What it DOES is
