@@ -62,6 +62,7 @@ Module Program
         Dim exportCount As Integer = -1
         Dim openPath As String = Nothing
         Dim matCount As Integer = -1
+        Dim identPattern As String = Nothing
         Dim showSettings = False, saveSettings = False
         Dim setArgs As New List(Of String)
 
@@ -97,6 +98,8 @@ Module Program
                 Case "--mat"
                     matCount = 0
                     If i + 1 < args.Length AndAlso Integer.TryParse(args(i + 1), matCount) Then i += 1 Else matCount = 0
+                Case "--idents"
+                    i += 1 : If i < args.Length Then identPattern = args(i)
                 Case "--open"
                     i += 1 : If i < args.Length Then openPath = args(i)
                 Case "--export"
@@ -352,6 +355,7 @@ Module Program
         If checkCount >= 0 Then MeshCheck.RunSweep(pkg, library, settings, checkCount, filter)
 
         If matCount >= 0 Then VisualFile.Report(pkg, library, If(assetArg, filter), matCount)
+        If identPattern IsNot Nothing Then VisualFile.ReportIdentifiers(pkg, library, identPattern)
 
         If exportCount >= 0 Then
             MeshExport.ExportAssets(pkg, library, settings, If(assetArg, filter), exportCount)
@@ -599,6 +603,7 @@ Module Program
         Console.WriteLine("  --find <pattern>     open on the first matching model; * wildcards, any number")
         Console.WriteLine("  --ui                 keep the browser panel in a --shot")
         Console.WriteLine("  --hide <pattern>     switch off parts whose name or .model matches; * wildcards")
+        Console.WriteLine("  --idents <pattern>   every material identifier matching, with counts and kinds")
         Console.WriteLine("  --export-now <vis|all>  press the viewer''s export button once on load")
         Console.WriteLine("  --show-settings      print the slice settings and exit")
         Console.WriteLine("  --save-settings      write exporter_studio.settings (a commented template)")

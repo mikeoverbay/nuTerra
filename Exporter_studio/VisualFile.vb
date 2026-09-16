@@ -274,4 +274,105 @@ Public NotInheritable Class VisualFile
         Next
         Return m
     End Function
+
+    ''' <summary>
+    ''' Every distinct material IDENTIFIER matching a pattern, across the whole
+    ''' building library, with how often each appears and what materialKind it
+    ''' carries.
+    '''
+    ''' The identifier is the name the VISUAL gives a primitive group - s_nd0,
+    ''' n_wood0_1, d_stone2_2 - and the prefix is a destruction state: s_ static,
+    ''' n_ intact, d_ destroyed. Answering "what is in the n_ category" needs a
+    ''' sweep of every visual, because no one file lists them.
+    '''
+    ''' THE KIND IS REPORTED PER NAME, not assumed from the prefix, and that is
+    ''' the point of showing it. The n_ band is 73-85 for 99.1% of them and the
+    ''' exceptions are real: n_stone0 and n_stone1 each appear with BOTH an
+    ''' in-band kind and a static 108/111 on different assets, so the name alone
+    ''' does not tell you whether a thing is destructible.
+    ''' </summary>
+    Public Shared Sub ReportIdentifiers(pkg As PkgIndex, shelf As BuildingLibrary, pattern As String)
+        Dim pat = If(pattern, "*").Trim().ToLowerInvariant()
+        If pat.Length = 0 Then pat = "*"
+        If pat.IndexOf("*"c) < 0 Then pat &= "*"
+
+        ' name -> (count, kinds, assets)
+        Dim count As New Dictionary(Of String, Integer)(StringComparer.Ordinal)
+        Dim kinds As New Dictionary(Of String, SortedSet(Of Integer))(StringComparer.Ordinal)
+        Dim assets As New Dictionary(Of String, SortedSet(Of String))(StringComparer.Ordinal)
+        Dim seen = 0, visuals = 0
+
+        For Each a In shelf.Assets.Values
+            Dim done As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+            For Each p In a.Parts
+                Dim stem = If(Not String.IsNullOrEmpty(p.Visual),
+                              p.Visual.Replace("\"c, "/"c).ToLowerInvariant(),
+                              p.Path.Substring(0, p.Path.Length - ".model".Length))
+                If Not done.Add(stem) Then Continue For
+                Dim raw = pkg.ReadPath(stem & ".visual_processed")
+                If raw Is Nothing Then Continue For
+                Dim vf As VisualFile
+                Try
+                    vf = VisualFile.Parse(raw)
+                Catch
+                    Continue For
+                End Try
+                visuals += 1
+                For Each m In vf.Materials
+                    seen += 1
+                    Dim id = If(m.Identifier, "")
+                    If id.Length = 0 Then Continue For
+                    If Not ModelBrowser.WildcardMatch(id.ToLowerInvariant(), pat) Then Continue For
+                    count(id) = count.GetValueOrDefault(id) + 1
+                    If Not kinds.ContainsKey(id) Then kinds(id) = New SortedSet(Of Integer)
+                    kinds(id).Add(m.MaterialKind)
+                    If Not assets.ContainsKey(id) Then assets(id) = New SortedSet(Of String)
+                    assets(id).Add(a.Name)
+                Next
+            Next
+        Next
+
+        Console.WriteLine()
+        Console.WriteLine("IDENTIFIERS matching {0}", pat)
+        Console.WriteLine("  {0:N0} distinct name(s), {1:N0} material(s) of {2:N0} seen, across {3:N0} visual(s)",
+                          count.Count, count.Values.Sum(), seen, visuals)
+        If count.Count = 0 Then Return
+
+        ' Families, for a pattern that spans several - n_wood against n_stone is
+        ' the shape of the answer before any individual name is.
+        Dim fam As New SortedDictionary(Of String, Integer)(StringComparer.Ordinal)
+        For Each kv In count
+            Dim f = FamilyOf(kv.Key)
+            fam(f) = fam.GetValueOrDefault(f) + kv.Value
+        Next
+        If fam.Count > 1 Then
+            Console.WriteLine()
+            For Each kv In fam.OrderByDescending(Function(x) x.Value)
+                Console.WriteLine("    {0,-14} {1,6:N0}", kv.Key, kv.Value)
+            Next
+        End If
+
+        Console.WriteLine()
+        Console.WriteLine("  {0,-22} {1,6}  {2,7}  {3}", "name", "count", "assets", "materialKind(s)")
+        For Each kv In count.OrderByDescending(Function(x) x.Value).ThenBy(Function(x) x.Key, StringComparer.Ordinal)
+            Dim ks = kinds(kv.Key)
+            Console.WriteLine("  {0,-22} {1,6:N0}  {2,7:N0}  {3}{4}",
+                              kv.Key, kv.Value, assets(kv.Key).Count,
+                              String.Join(",", ks),
+                              If(ks.Count > 1, "   <- more than one", ""))
+        Next
+    End Sub
+
+    ''' <summary>`n_wood0_1` -> `n_wood`. The letters after the state prefix, with
+    ''' the digits dropped, which is what groups a family.</summary>
+    Private Shared Function FamilyOf(id As String) As String
+        Dim sb As New Text.StringBuilder()
+        For Each c In id
+            If Char.IsDigit(c) Then Exit For
+            sb.Append(c)
+        Next
+        Dim f = sb.ToString().TrimEnd("_"c)
+        Return If(f.Length = 0, id, f)
+    End Function
+
 End Class
