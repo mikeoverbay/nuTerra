@@ -229,6 +229,54 @@ Module BrainModels
         GL.BindVertexArray(0)
     End Sub
 
+    ''' <summary>One placement's world-space footprint and what it is.</summary>
+    Public Structure Footprint
+        Public ok As Boolean
+        Public kind As Byte
+        Public minX, maxX, minZ, maxZ As Single
+        ''' <summary>The four lower corners in world XZ, IN ORDER round the
+        ''' quad. The AABB above is only their extent - rasterising THIS is
+        ''' what stops a rotated fence claiming its bounding square.</summary>
+        Public c0, c1, c2, c3 As Vector2
+    End Structure
+
+    ''' <summary>
+    ''' The world XZ box a placement covers, for the nav grid.
+    '''
+    ''' All four lower corners are transformed and their extent taken, not
+    ''' the min and max: a rotated box's min/max are not the transform of its
+    ''' min/max, and on a WoT map most placements carry a rotation. Only the
+    ''' lower corners, because a footprint is what the ground sees - an
+    ''' overhanging roof is not something a tank drives into.
+    ''' </summary>
+    Public Function WorldFootprint(inst As MODEL_INDEX_LIST_) As Footprint
+        Dim f As New Footprint
+        If meshes Is Nothing Then Return f
+        If inst.model_index < 0 OrElse inst.model_index >= meshes.Length Then Return f
+        Dim m = meshes(inst.model_index)
+        If Not m.ok Then Return f
+
+        Dim mat = inst.matrix
+        Dim lo = m.bbMin, hi = m.bbMax
+        f.minX = Single.MaxValue : f.maxX = Single.MinValue
+        f.minZ = Single.MaxValue : f.maxZ = Single.MinValue
+        ' ROUND the quad, not across it: 00, 10, 11, 01. A diagonal ordering
+        ' makes a bow-tie, and every inside test against it fails.
+        Dim corners = {New Vector3(lo.X, lo.Y, lo.Z), New Vector3(hi.X, lo.Y, lo.Z),
+                       New Vector3(hi.X, lo.Y, hi.Z), New Vector3(lo.X, lo.Y, hi.Z)}
+        Dim w(3) As Vector2
+        For i = 0 To 3
+            Dim r = New Vector4(corners(i), 1.0F) * mat
+            w(i) = New Vector2(r.X, r.Z)
+            f.minX = Math.Min(f.minX, r.X) : f.maxX = Math.Max(f.maxX, r.X)
+            f.minZ = Math.Min(f.minZ, r.Z) : f.maxZ = Math.Max(f.maxZ, r.Z)
+        Next
+        f.c0 = w(0) : f.c1 = w(1) : f.c2 = w(2) : f.c3 = w(3)
+        f.kind = m.kind
+        f.ok = True
+        Return f
+    End Function
+
     ''' <summary>The kind's colour, 0..1. ModelKind.KIND_RGB is the one table -
     ''' it is Path Studio's legend and the owner has been reading it since
     ''' before this app existed. Index 0 is terrain and unused there, so a
