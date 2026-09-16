@@ -148,7 +148,7 @@ def roads_cache_path(map_name):
     return os.path.join(ROADS_DIR, "%s_roads.json" % map_name)
 
 
-def save_roads_cache(map_name, roads):
+def save_roads_cache(map_name, roads, bake_version_of=0):
     """Keep a completed sweep so the next launch does not have to redo it.
 
     THREE FIELDS, NAMED. A road record comes back from the solver carrying its
@@ -167,10 +167,16 @@ def save_roads_cache(map_name, roads):
                  "team": 2 if r.get("team") == 2 else 1,
                  "length": float(r.get("length", 0.0))}
                 for r in roads if len(r.get("pts") or ()) >= 2]
+        # WHICH BAKE MADE THESE. A cached sweep outlives the grid it was swept
+        # on, and the whole point of caching it is that nobody re-runs the
+        # sweep to find out. Without this the cache is a set of coordinates
+        # with no way to know the ground moved under them.
+        bake_version = int(bake_version_of or 0)
         p = roads_cache_path(map_name)
         with open(p, "w", encoding="utf-8") as fh:
             json.dump({"map": map_name,
                        "saved": time.strftime("%Y-%m-%d %H:%M:%S"),
+                       "bake_version": bake_version,
                        "roads": keep}, fh)
         return p
     except Exception as exc:
@@ -193,6 +199,20 @@ def load_roads_cache(map_name):
 # TankNav's own numbers, so this tool and the app agree about the ground.
 CELL_TEXELS = 8
 MAX_OBSTACLE_M = 1.0
+
+# THE OLDEST BAKE THIS READER TRUSTS.
+#
+# The app self-invalidates: MapFlightBake bumps BAKE_VERSION when the meaning
+# of the bake changes, and refuses anything older. Ray Studio never read the
+# field at all - it mentioned it in five comments and checked it nowhere - so
+# it went on sweeping roads against a bake whose trunks were drawn at a flat
+# 0.6 m after the app had moved to per-species radii. The bake looked fine.
+# Every file was present and well formed; only its MEANING had moved.
+#
+# 6 is the per-species trunk bake (app 5ec21daa/ee0c5c8a). Raise this in the
+# same hour the app raises BAKE_VERSION, for the same reason the crushable
+# rule has to be matched in the same hour: this file cannot call theirs.
+BAKE_VERSION_MIN = 6
 MAX_SLOPE = 0.8391              # tan(40 deg), mirrors TankNavLimits.MAX_SLOPE
 KIND_MASK, OUTLAND_BIT, TRUNK_BIT = 7, 16, 128
 
@@ -269,6 +289,20 @@ def build_grid(map_name, hull_r_m):
     over a curb. Height alone would stop every ray at the first hedge.
     """
     meta = read_meta(os.path.join(FLIGHT, f"{map_name}_meta.txt"))
+
+    # LOUD, NOT FATAL. A stale bake still opens and still draws, because
+    # refusing to start would strand the owner behind an app run he may not
+    # want right now - but a sweep taken from it is not comparable with
+    # anything the tanks do, and that has to be said where it cannot be
+    # missed rather than left for someone to notice in the numbers.
+    bake_version = int(float(meta.get("bake_version", 0) or 0))
+    if bake_version < BAKE_VERSION_MIN:
+        print("=" * 68)
+        print(" STALE BAKE: %s is bake_version %d, this reader wants %d."
+              % (map_name, bake_version, BAKE_VERSION_MIN))
+        print(" Run nuTerra on this map to re-cut it. Roads swept from this")
+        print(" grid will not match what the tanks drive.")
+        print("=" * 68)
     W = int(meta["width"])
     wx0, wx1 = float(meta["wx_min"]), float(meta["wx_max"])
     wz0, wz1 = float(meta["wz_min"]), float(meta["wz_max"])
@@ -386,6 +420,7 @@ def build_grid(map_name, hull_r_m):
     return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide,
                 collide_hull=collide_hull, used=None,
                 kind=kind, trunk=(key & TRUNK_BIT).astype(bool),
+                bake_version=bake_version,
                 solid=solid, ids=ids, id_names=id_names, palette=palette,
                 kinds=dict(fence=k_fence, tree=k_tree, prop=k_prop,
                            water=k_water),
@@ -1782,7 +1817,8 @@ def main():
                 maze_roads = d["roads"]
                 # CACHE IT NOW, while it is known good. A sweep is minutes of
                 # work and it was being thrown away on exit.
-                save_roads_cache(map_name, maze_roads)
+                save_roads_cache(map_name, maze_roads,
+                                 g.get("bake_version", 0))
                 # STRAIGHT INTO THE EDITOR, so the path that just appeared can
                 # be picked without a second step. Skipped once the graph has
                 # been touched by hand - reloading would throw that away - and
