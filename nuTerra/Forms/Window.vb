@@ -4774,7 +4774,13 @@ try_again:
     End Sub
 
     ''' <summary>
-    ''' The Exporter Studio app's folder and executable, which share a name.
+    ''' THE FOLDER AND THE EXECUTABLE SHARE THIS NAME AND MUST MOVE TOGETHER.
+    '''
+    ''' Stated as what is true rather than as an instruction, on Exporter
+    ''' Studio work's formulation - the comment this replaces said "do not fix
+    ''' these two strings", which stopped being true the day the app was
+    ''' renamed and then read as an instruction to leave the button broken. An
+    ''' invariant survives a rename; an order does not. DIRECTIVES rule 12.
     '''
     ''' ONE CONSTANT, TWO USES. It was written out twice - "Slicer" for the
     ''' folder and "Slicer.exe" for the file - and when the owner renamed the
