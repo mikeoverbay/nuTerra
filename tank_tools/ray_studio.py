@@ -66,6 +66,10 @@ import numpy as np
 
 FLIGHT = os.path.join(os.environ.get("TEMP", "."), "nuTerra", "flight")
 
+# WHERE HAND-DRAWN PATHS LIVE. Not %TEMP% - see save_paths. Outside both
+# checkouts, so the Studio and whichever nuTerra.exe is running agree.
+PATHS_DIR = r"C:\nuTerra_shared\tank_paths"
+
 # TankNav's own numbers, so this tool and the app agree about the ground.
 CELL_TEXELS = 8
 MAX_OBSTACLE_M = 1.0
@@ -849,6 +853,31 @@ def main():
         pass                                          # a 1400x900 window is fine
     LEFT_W, RIGHT_W = 250, 330
     PANEL_BG, PANEL_LINE = (24, 26, 32), (58, 62, 72)
+
+    # WHAT A CONTROL DOES, BY COLOUR.
+    #
+    # Six families, and the test for each is "what happens if I press this by
+    # accident": nothing (view), a wait (run), a file on disk (save), a
+    # different mode (tool), a changed graph (edit), something gone (danger).
+    # That is the distinction worth seeing before the click, and it is the one
+    # a label cannot make at a glance on a panel of twenty-odd controls.
+    #
+    # DRAWN AS A BAR DOWN THE LEFT EDGE, not as the button's fill. Colouring
+    # the whole control fights the text for contrast and turns the panel into
+    # confetti - six saturated rectangles are harder to read than one, not
+    # easier. A four-pixel rail carries the same information and leaves the
+    # body neutral.
+    FAM = {
+        "run":    (120, 200, 255),   # takes time and does work
+        "save":   (120, 230, 150),   # writes a file
+        "view":   (168, 160, 214),   # changes only what is drawn
+        "tool":   (255, 190, 90),    # arms a mode, changes nothing yet
+        "edit":   (100, 220, 200),   # changes the graph
+        "danger": (255, 110, 110),   # destroys something
+    }
+    FAM_WHAT = [("run", "runs / loads"), ("save", "writes a file"),
+                ("tool", "arms a tool"), ("edit", "edits the path"),
+                ("view", "view only"), ("danger", "destroys")]
     # WHOSE TOOL THIS IS. Three sessions run their own windows on this desktop
     # and the owner has asked before which one he is looking at, so the name
     # goes in the caption AND is drawn inside the window - a title bar can end
@@ -1377,18 +1406,35 @@ def main():
     def save_paths():
         """Write the graph where the SIM can read it.
 
-        INTO THE FLIGHT FOLDER, beside the bake, as <map>_paths.json. That is
-        where nuTerra already looks for everything else about this map, and it
-        means the sim reads whatever was saved LAST rather than whatever
-        happened to be baked - which is the point, because the graph is edited
-        by hand between runs.
+        INTO THE SHARED FOLDER: C:/nuTerra_shared/tank_paths, with a copy
+        left in the flight folder. The owner: "I cant reach the ray studio's
+        path file."
+
+        It lived only under %TEMP%/nuTerra/flight, which expands to
+        C:/Users/<you>/AppData/Local/Temp - awkward to browse to, and emptied
+        by Disk Cleanup and Storage Sense without asking. That is the right
+        home for the BAKE, which is derived and costs seconds to rebuild. It
+        is the wrong home for a graph somebody drew by hand.
+
+        The shared folder is outside both checkouts on purpose: Ray Studio
+        runs out of one and nuTerra.exe may be run from the other, and a path
+        relative to either would hand the two of them different files without
+        ever saying so.
+
+        The flight copy is still written so an older build, or the other
+        checkout's app, keeps working. New readers should prefer the shared
+        one.
 
         The file is PathEdit.to_dict verbatim: every point with its id, x, z,
         team, start flag and message fields. TankSim reads the start flags and
         ignores the rest; the rest is there for whatever drives a tank along a
         path after that.
         """
-        path = os.path.join(FLIGHT, "%s_paths.json" % map_name)
+        path = os.path.join(PATHS_DIR, "%s_paths.json" % map_name)
+        try:
+            os.makedirs(PATHS_DIR, exist_ok=True)
+        except Exception:
+            pass
 
         # HARD INVARIANT: never save a graph in which team 1 and team 2 are
         # connected, even through one or more neutral hand-drawn points. The
@@ -1424,6 +1470,15 @@ def main():
 
         with io.open(path, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(d, fh, indent=1)
+        # THE COPY IS WRITTEN, not just described. A comment claiming a
+        # fallback that does not exist is worse than no fallback, because
+        # the next reader trusts it.
+        try:
+            with io.open(os.path.join(FLIGHT, "%s_paths.json" % map_name),
+                         "w", encoding="utf-8", newline="\n") as fh:
+                json.dump(d, fh, indent=1)
+        except Exception:
+            pass                      # the shared copy is the one that counts
         return path, len(d["nodes"]), len(edit.starts())
 
     def fit_play():
@@ -2718,14 +2773,35 @@ def main():
             pygame.draw.line(screen, PANEL_LINE, (x, y + 18), (x + wide, y + 18))
             return y + 26
 
-        def button(x, y, wpx, label, key, on=False, col=None):
+        def rail(r, fam, on=False):
+            """The family bar down a control's left edge.
+
+            Brighter when the control is ON, so the rail carries both facts at
+            once - what this does, and whether it is doing it.
+            """
+            if not fam:
+                return
+            c = FAM.get(fam)
+            if not c:
+                return
+            if not on:
+                c = tuple(int(v * 0.72) for v in c)
+            pygame.draw.rect(screen, c, pygame.Rect(r.x + 1, r.y + 1, 4,
+                                                    r.h - 2),
+                             border_radius=2)
+
+        def button(x, y, wpx, label, key, on=False, col=None, fam=None):
             r = pygame.Rect(x, y, wpx, 22)
             hov = r.collidepoint(pygame.mouse.get_pos())
             bg = (62, 96, 66) if on else ((52, 56, 66) if hov else (38, 41, 49))
             pygame.draw.rect(screen, bg, r, border_radius=3)
-            pygame.draw.rect(screen, PANEL_LINE, r, 1, border_radius=3)
+            # THE BORDER TAKES THE FAMILY WHEN HOVERED, so the thing under the
+            # pointer says what it is without having to look away at the rail.
+            edge = FAM.get(fam, PANEL_LINE) if (hov and fam) else PANEL_LINE
+            pygame.draw.rect(screen, edge, r, 1, border_radius=3)
+            rail(r, fam, on)
             screen.blit(font.render(label, True, col or (225, 228, 235)),
-                        (x + 7, y + 3))
+                        (x + 11, y + 3))
             buttons.append((r, label, key, on))
             return y + 26
 
@@ -2757,13 +2833,15 @@ def main():
             slider_rects[name] = (tr, lo, hi)
             return y + 38
 
-        def checkbox(x, y, wpx, label, key, on):
+        def checkbox(x, y, wpx, label, key, on, fam="view"):
             r = pygame.Rect(x, y, wpx, 22)
             hov = r.collidepoint(pygame.mouse.get_pos())
             pygame.draw.rect(screen, (52, 56, 66) if hov else (38, 41, 49), r,
                              border_radius=3)
-            pygame.draw.rect(screen, PANEL_LINE, r, 1, border_radius=3)
-            bx = pygame.Rect(x + 5, y + 5, 12, 12)
+            edge = FAM.get(fam, PANEL_LINE) if (hov and fam) else PANEL_LINE
+            pygame.draw.rect(screen, edge, r, 1, border_radius=3)
+            rail(r, fam, on)
+            bx = pygame.Rect(x + 9, y + 5, 12, 12)
             pygame.draw.rect(screen, (20, 22, 28), bx)
             pygame.draw.rect(screen, PANEL_LINE, bx, 1)
             if on:
@@ -2771,11 +2849,11 @@ def main():
                                  (bx.x + 5, bx.y + 9), 2)
                 pygame.draw.line(screen, (120, 255, 170), (bx.x + 5, bx.y + 9),
                                  (bx.x + 10, bx.y + 3), 2)
-            screen.blit(font.render(label, True, (225, 228, 235)), (x + 23, y + 3))
+            screen.blit(font.render(label, True, (225, 228, 235)), (x + 27, y + 3))
             buttons.append((r, label, key, on))
             return y + 26
 
-        def radio(x, y, wpx, items, current):
+        def radio(x, y, wpx, items, current, fam="tool"):
             """One of a set, laid out down the panel.
 
             A radio and a button differ only in what the caller does with the
@@ -2789,9 +2867,10 @@ def main():
                 pygame.draw.rect(screen, (45, 74, 99) if on else
                                  ((52, 56, 66) if hov else (38, 41, 49)), r,
                                  border_radius=3)
-                pygame.draw.rect(screen, (120, 200, 255) if on else PANEL_LINE,
-                                 r, 1, border_radius=3)
-                dot = pygame.Rect(x + 6, y + 7, 8, 8)
+                pygame.draw.rect(screen, FAM.get(fam, (120, 200, 255)) if on
+                                 else PANEL_LINE, r, 1, border_radius=3)
+                rail(r, fam, on)
+                dot = pygame.Rect(x + 10, y + 7, 8, 8)
                 pygame.draw.ellipse(screen, (20, 22, 28), dot)
                 if on:
                     pygame.draw.ellipse(screen, (150, 220, 255),
@@ -2799,7 +2878,7 @@ def main():
                 pygame.draw.ellipse(screen, PANEL_LINE, dot, 1)
                 screen.blit(font.render(label, True,
                                         (223, 240, 255) if on else (225, 228, 235)),
-                            (x + 22, y + 3))
+                            (x + 26, y + 3))
                 buttons.append((r, label, key, on))
                 y += 24
             return y
@@ -2835,16 +2914,18 @@ def main():
         screen.blit(font.render(map_name, True, (135, 140, 152)), (LX, y))
         y += 24
         y = header(LX, y, "SEARCH", LW)
-        y = button(LX, y, LW, "Run  [g]", pygame.K_g, bool(maze_pts),
+        y = button(LX, y, LW, "Run  [g]", pygame.K_g, bool(maze_pts), fam="run",
+                   col=
                    (150, 255, 200))
         y = button(LX, y, LW,
                    "Reloading the bake..." if reload_job.get("busy")
                    else "Clear + reload bake  [z]", pygame.K_z,
-                   bool(reload_job.get("busy")), (255, 210, 150))
+                   bool(reload_job.get("busy")), (255, 210, 150),
+                   fam="danger")
         y = button(LX, y, LW, "Roads round obstacles  [t]", pygame.K_t,
-                   bool(maze_roads), (150, 255, 200))
+                   bool(maze_roads), (150, 255, 200), fam="run")
         y = button(LX, y, LW, "A* catalogue  [a]", pygame.K_a,
-                   bool(astar_paths))
+                   bool(astar_paths), fam="run")
         y += 4
         # THE ONE NUMBER THE MAZE ACTUALLY HAS.
         #
@@ -2866,14 +2947,26 @@ def main():
                    "%.0f m")
         y = slider(LX, y, LW, "inset", "Row inset", row_inset, 0, 100, "%.0f m")
         y = header(LX, y, "VIEW", LW)
-        y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]",
+        y = button(LX, y, LW, "Ground: " + MODE_NAME[base_mode] + "  [v]", fam="view",
+                   key=
                    pygame.K_v)
         y = checkbox(LX, y, LW, "Block layer  [o]", pygame.K_o, show_blocks)
         y = checkbox(LX, y, LW, "Dead ground  [d]", pygame.K_d, show_dead)
-        y = button(LX, y, LW, "Landmarks  [m]", pygame.K_m, show_marks)
-        y = button(LX, y, LW, "Fit map  [f]", pygame.K_f)
+        y = button(LX, y, LW, "Landmarks  [m]", pygame.K_m, show_marks, fam="view")
+        y = button(LX, y, LW, "Fit map  [f]", pygame.K_f, fam="view")
         y += 8
-        y = button(LX, y, LW, "QUIT  [q]", pygame.K_q, False, (255, 170, 170))
+        y = button(LX, y, LW, "QUIT  [q]", pygame.K_q, False, (255, 170, 170),
+                   fam="danger")
+
+        # THE KEY TO THE RAILS. Four words a family, once, at the bottom of the
+        # panel where it is out of the way of the controls it explains.
+        y += 8
+        y = header(LX, y, "WHAT THE COLOURS MEAN", LW)
+        for fam_, what in FAM_WHAT:
+            pygame.draw.rect(screen, FAM[fam_], pygame.Rect(LX, y + 3, 4, 11),
+                             border_radius=2)
+            screen.blit(font.render(what, True, (150, 155, 168)), (LX + 12, y))
+            y += 16
         screen.blit(font.render("wheel zooms, drag pans", True, (110, 115, 128)),
                     (LX, SH - 24))
 
@@ -2893,7 +2986,7 @@ def main():
                      (150, 255, 200))
         if play_bb is not None:
             ry = button(RX, ry, RW, "Frame the play field  [h]", pygame.K_h,
-                        False, (255, 120, 120))
+                        False, (255, 120, 120), fam="view")
             ry = readout(RX, ry, "play field",
                          "%.0f x %.0f m" % (play_bb[2] - play_bb[0],
                                             play_bb[3] - play_bb[1]),
@@ -2918,17 +3011,19 @@ def main():
                                 ("Zone - pick area  [8]", pygame.K_8, "zone")],
                    tool)
         ry = button(RX, ry, RW, "Off - pan the map  [9]", pygame.K_9,
-                    tool is None)
+                    tool is None, fam="tool")
         screen.blit(font.render("click picks   shift+click adds", True,
                                 (135, 140, 152)), (RX, ry + 2))
         ry += 20
         ry = button(RX, ry, RW, "Load the swept roads  [l]", pygame.K_l,
-                    False, (150, 255, 200) if maze_roads else (135, 140, 152))
+                    False, (150, 255, 200) if maze_roads else (135, 140, 152),
+                    fam="run")
         ry = button(RX, ry, RW, "Save paths for SIM  [F5]", pygame.K_F5,
-                    False, TEAM_RING[1] if edit.starts() else (135, 140, 152))
+                    False, TEAM_RING[1] if edit.starts() else (135, 140, 152),
+                    fam="save")
         if roads_loaded:
             ry = button(RX, ry, RW, "Raw sweep underneath  [r]", pygame.K_r,
-                        show_raw)
+                        show_raw, fam="view")
             if show_raw:
                 screen.blit(font.render("raw lines are NOT pickable", True,
                                         (255, 176, 60)), (RX, ry + 2))
@@ -2939,10 +3034,13 @@ def main():
             ry += 18
         ry += 4
         ry = button(RX, ry, RW, "Snap  %s  [s]" %
-                    ("on" if edit.snap_on else "off"), pygame.K_s, edit.snap_on)
+                    ("on" if edit.snap_on else "off"), pygame.K_s, edit.snap_on,
+                    fam="tool")
         snap_rect, ry = textbox(RX, ry, RW, "snap size m", snap_text, snap_editing)
-        ry = button(RX, ry, RW, "Snap grid  [y]", pygame.K_y, show_snapgrid)
-        ry = button(RX, ry, RW, "Pick buffer  [p]", pygame.K_p, show_pickbuf)
+        ry = button(RX, ry, RW, "Snap grid  [y]", pygame.K_y, show_snapgrid,
+                    fam="view")
+        ry = button(RX, ry, RW, "Pick buffer  [p]", pygame.K_p, show_pickbuf,
+                    fam="view")
         ry += 4
         ry = readout(RX, ry, "verts", "%d" % len(edit.nodes))
         ry = readout(RX, ry, "paths", "%d" % len(edit.paths))
@@ -3006,21 +3104,22 @@ def main():
                              (255, 176, 60))
         if sel:
             ry += 2
-            ry = button(RX, ry, RW, "Start point  [w] toggles", pygame.K_w,
+            ry = button(RX, ry, RW, "Start point  [w] toggles", pygame.K_w, fam="edit",
+                        on=
                         any(edit.nodes[i].get("start")
                             for i in sel if i in edit.nodes))
-            ry = button(RX, ry, RW, "Message  [n] cycles", pygame.K_n)
-            ry = button(RX, ry, RW, "Speed cap  [u] cycles", pygame.K_u)
+            ry = button(RX, ry, RW, "Message  [n] cycles", pygame.K_n, fam="edit")
+            ry = button(RX, ry, RW, "Speed cap  [u] cycles", pygame.K_u, fam="edit")
             ry = button(RX, ry, RW,
                         ("Break this line  [b]" if sel_edge is not None else
                          "Break at %d point%s  [b]" %
                          (len(sel), "s" if len(sel) > 1 else "")),
-                        pygame.K_b, False, (255, 176, 60))
+                        pygame.K_b, False, (255, 176, 60), fam="edit")
             ry = button(RX, ry, RW,
                         ("Delete line  [del]" if sel_edge is not None else
                          "Delete  %d vert%s  [del]" %
                          (len(sel), "s" if len(sel) > 1 else "")),
-                        pygame.K_DELETE, False, (255, 120, 120))
+                        pygame.K_DELETE, False, (255, 120, 120), fam="danger")
         ry += 10
 
         if edit_msg:

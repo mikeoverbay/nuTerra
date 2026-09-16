@@ -811,6 +811,31 @@ Public Class TankDrive
         ' has just been blocked.
         Dim aligned = Math.Abs(dh) < TankDriveTune.DRIVE_CONE_RAD
         Dim wanted = If(aligned, TankDriveTune.SPEED_MS, 0.0F)
+
+        ' EASE OFF THROUGH THE CAUTION BAND.
+        '
+        ' The band between CLEAR_M and STOP_M existed and nothing read it - a
+        ' hull ran at full speed until the stop limit and then braked hard.
+        ' That is what makes a faster tank feel dangerous rather than fast, and
+        ' it wastes the measurement: the rays have been reporting the distance
+        ' all along.
+        '
+        ' Scaled linearly across the band, floored at a quarter speed so a hull
+        ' still closes on the thing ahead rather than creeping behind it
+        ' forever. At the stop limit the go-around takes over.
+        If TankSim.SIM_RUN AndAlso wanted > 0.0F Then
+            Dim fd = TankSim.RayHitDistances(inst, others)
+            Dim near = Math.Min(fd(TankSim.R_FRONT),
+                                Math.Min(fd(TankSim.R_FL), fd(TankSim.R_FR)))
+            Dim stopAt = TankSim.STOP_M(TankSim.R_FRONT)
+            Dim clearAt = TankSim.CLEAR_M(TankSim.R_FRONT)
+            If near < clearAt AndAlso clearAt > stopAt Then
+                Dim f = (near - stopAt) / (clearAt - stopAt)
+                If f < 0.25F Then f = 0.25F
+                If f > 1.0F Then f = 1.0F
+                wanted *= f
+            End If
+        End If
         Dim rate = If(wanted > speed, TankDriveTune.ACCEL_MS2, TankDriveTune.BRAKE_MS2) * dt
         speed += Math.Max(-rate, Math.Min(rate, wanted - speed))
         If speed < 0.0F Then speed = 0.0F
@@ -1321,9 +1346,25 @@ Public Module TankDriveTune
     ''' 14 m/s; this is deliberately under that because the map is 1000 m
     ''' across and a tank crossing it in seventy seconds reads as a car.
     ''' </summary>
-    Public SPEED_MS As Single = 7.0F
+    ' TOP SPEED IS SET BY THE RAYS, not by taste. Stopping distance is
+    ' v^2 / (2 * BRAKE_MS2), and a hull must be able to stop inside the
+    ' distance its front ray calls STOP or the measurement is decoration:
+    '
+    '     FRONT stop  9 m  ->  12.0 m/s ceiling
+    '     FRONT clear 18 m ->  17.0 m/s
+    '     ray reach   20 m ->  17.9 m/s, past which it cannot stop inside
+    '                          what it can see at all
+    '
+    ' 11 m/s is 40 km/h, which is a real medium, and leaves 1.4 m of margin
+    ' against the 9 m stop limit. Raising it further means raising STOP_M for
+    ' the front ray in the same edit - they are one number in two places.
+    Public SPEED_MS As Single = 11.0F
 
-    Public ACCEL_MS2 As Single = 3.0F
+    ' "I would ramp up the tanks speed much faster." 3 m/s^2 took 3.3 s to
+    ' reach 10 m/s, which reads as a barge. 7 gets there in 1.6 s and is still
+    ' below BRAKE_MS2 - a tank should always stop harder than it starts, or the
+    ' stopping-distance arithmetic above stops holding.
+    Public ACCEL_MS2 As Single = 7.0F
     Public BRAKE_MS2 As Single = 8.0F
 
     ''' <summary>Radians a second of hull yaw, about 57 degrees. A tracked

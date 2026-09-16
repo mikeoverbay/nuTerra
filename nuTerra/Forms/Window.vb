@@ -2055,6 +2055,7 @@ try_again:
                             TankSim.SIM_PAUSED = False
                             TankSim.Reroll()
                             map_scene.tanks.sim_line_up()
+                            TankLog.Close()
                             LogThis("tank sim: reset")
                         End If
                         If ImGui.IsItemHovered() Then
@@ -2097,8 +2098,13 @@ try_again:
                                 Else
                                     TankSim.Reroll()
                                     map_scene.tanks.sim_line_up()
+                                    ' A FILE PER RUN, named for when it started.
+                                    ' Two runs in one stream cannot be compared,
+                                    ' and comparing runs is the point.
+                                    TankLog.StartRun(MAP_NAME_NO_PATH)
                                 End If
                             End If
+                            If Not TankSim.SIM_RUN Then TankLog.Close()
                             LogThis("tank sim: {0}", If(TankSim.SIM_RUN, "running", "stopped"))
                         End If
                         If ImGui.IsItemHovered() Then

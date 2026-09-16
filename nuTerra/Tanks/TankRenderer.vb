@@ -1050,7 +1050,11 @@ Public Class MapTanks
                     inst.drive.pathAt = 0
                 End If
                 inst.drive.Advance(inst, nav, instances, ANIM_DELTA)
+                ' AFTER Advance, so the row records what the hull decided this
+                ' frame rather than what it was about to decide.
+                TankLog.Note(inst, instances)
             Next
+            TankLog.Tick()
             report_fleet()
             ' No reversal to volley on - the guns run on their own cadence and
             ' on whatever the AI gives them later.
