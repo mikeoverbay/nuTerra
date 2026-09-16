@@ -4753,7 +4753,8 @@ try_again:
         Try
             Dim exe = find_exporter_studio()
             If exe Is Nothing Then
-                LogThis("Exporter Studio: Slicer.exe not found beside nuTerra or in the solution")
+                LogThis("Exporter Studio: {0}.exe not found beside nuTerra or in the solution",
+                        EXPORTER_STUDIO)
                 Return
             End If
             Dim psi As New Diagnostics.ProcessStartInfo(exe) With {
@@ -4773,24 +4774,42 @@ try_again:
     End Sub
 
     ''' <summary>
-    ''' Slicer.exe, the Exporter Studio app. Same search as find_path_studio and
-    ''' for the same reasons - project build first, hand copy beside the exe
-    ''' last - but net8.0-windows, which is what that project targets.
+    ''' The Exporter Studio app's folder and executable, which share a name.
     '''
-    ''' The FOLDER and the EXE are still called Slicer; only the session and the
-    ''' app's job were renamed. Do not "fix" these two strings.
+    ''' ONE CONSTANT, TWO USES. It was written out twice - "Slicer" for the
+    ''' folder and "Slicer.exe" for the file - and when the owner renamed the
+    ''' app to Exporter_studio on 2026-09-16 both had to move together or the
+    ''' search silently found nothing. Naming it once is what stops the next
+    ''' rename being a bug instead of an edit.
+    ''' </summary>
+    Private Const EXPORTER_STUDIO As String = "Exporter_studio"
+
+    ''' <summary>
+    ''' Exporter_studio.exe. Same search as find_path_studio and for the same
+    ''' reasons - project build first, hand copy beside the exe last - but
+    ''' net8.0-windows, which is what that project targets.
+    '''
+    ''' RENAMED FROM Slicer 2026-09-16 (72d08ae1). The comment that used to sit
+    ''' here said the folder and exe were "still called Slicer" and told the
+    ''' next reader not to touch them; it was true when written and became the
+    ''' thing defending the bug. Exporter Studio spotted the break and left the
+    ''' fix here because the file is this one's.
+    '''
+    ''' The failure was SOFT, which is why it needed telling: the search
+    ''' returned Nothing, the button logged and did nothing, and it read as a
+    ''' button that was never wired up rather than a path that had moved.
     ''' </summary>
     Private Function find_exporter_studio() As String
         Dim dir = New IO.DirectoryInfo(AppContext.BaseDirectory)
         While dir IsNot Nothing
             For Each cfg In {"Debug", "Release"}
-                Dim built = IO.Path.Combine(dir.FullName, "Slicer", "bin", cfg,
-                                            "net8.0-windows", "Slicer.exe")
+                Dim built = IO.Path.Combine(dir.FullName, EXPORTER_STUDIO, "bin", cfg,
+                                            "net8.0-windows", EXPORTER_STUDIO & ".exe")
                 If IO.File.Exists(built) Then Return built
             Next
             dir = dir.Parent
         End While
-        Dim here = IO.Path.Combine(AppContext.BaseDirectory, "Slicer.exe")
+        Dim here = IO.Path.Combine(AppContext.BaseDirectory, EXPORTER_STUDIO & ".exe")
         If IO.File.Exists(here) Then Return here
         Return Nothing
     End Function

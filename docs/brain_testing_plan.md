@@ -1,6 +1,7 @@
 # Brain Testing - the plan
 
-A second app in the repo root, beside `nuTerra/`, `PathStudio/` and `Slicer/`:
+A second app in the repo root, beside `nuTerra/`, `PathStudio/` and
+`Exporter_studio/` (renamed from `Slicer/` 2026-09-16):
 the smallest thing that can open a WoT map and drive tanks on it, so the AI can
 be worked on without the renderer in the way.
 
