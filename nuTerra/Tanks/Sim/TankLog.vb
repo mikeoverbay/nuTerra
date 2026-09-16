@@ -85,10 +85,23 @@ Public Module TankLog
                                                         mapName, started))
             writer = New StreamWriter(path_, False, Encoding.UTF8)
             ' A header, because the next reader is not necessarily us.
+            ' blk_ahead / blk_rear / stuck_s ADDED 2026-09-16, and they are
+            ' the three columns that would have saved a morning.
+            '
+            ' The ray columns record the MEASUREMENT, through RayState and the
+            ' STOP_M table. The drive does not steer on that: it steers on
+            ' BlockedAhead and RearBlocked, which were asking a different
+            ' question at a different range. So the log drew eight clear rays
+            ' while the hull sat still, and the file contained no way to tell
+            ' that the code disagreed with it. Recording what the drive was
+            ' actually told closes that gap - if the decision and the
+            ' measurement ever diverge again it is one column subtraction, not
+            ' an afternoon in the source.
             writer.WriteLine("t_s,row,tank,team,x,z,heading_deg,speed_ms," &
                              "travelled_m,why,start_id,wp_at,wp_of," &
                              "d_fl,d_fr,d_rl,d_rr,d_front,d_rear,d_right,d_left," &
-                             "s_fl,s_fr,s_rl,s_rr,s_front,s_rear,s_right,s_left")
+                             "s_fl,s_fr,s_rl,s_rr,s_front,s_rear,s_right,s_left," &
+                             "blk_ahead,blk_rear,stuck_s")
             writer.Flush()
             LogThis("tank log: writing {0}", path_)
         Catch ex As Exception
@@ -130,6 +143,13 @@ Public Module TankLog
             st(i) = TankSim.RayState(i, d(i))
             key.Append(st(i))
         Next
+        ' The two decisions, not the eight measurements. Both are cached per
+        ' frame inside TankSim, so asking costs a dictionary lookup.
+        Dim blkAhead = TankSim.BlockedAhead(inst, others)
+        Dim blkRear = TankSim.RearBlocked(inst, others)
+        key.Append(If(blkAhead, "A"c, "-"c))
+        key.Append(If(blkRear, "R"c, "-"c))
+
         Dim stateKey = key.ToString()
         Dim why = CInt(inst.drive.stopReason)
 
@@ -167,7 +187,8 @@ Public Module TankLog
                 "{0:0.000},{1},{2},{3},{4:0.0},{5:0.0},{6:0.0},{7:0.00},{8:0.00}," &
                 "{9},{10},{11},{12}," &
                 "{13:0.0},{14:0.0},{15:0.0},{16:0.0},{17:0.0},{18:0.0},{19:0.0},{20:0.0}," &
-                "{21},{22},{23},{24},{25},{26},{27},{28}",
+                "{21},{22},{23},{24},{25},{26},{27},{28}," &
+                "{29},{30},{31:0.00}",
                 now_, If(changed, "EVENT", "SAMPLE"), inst.label,
                 If(inst.team = TankTeam.Green, 1, 2),
                 inst.position.X, inst.position.Z, heading, inst.drive.speed, moved,
@@ -179,7 +200,8 @@ Public Module TankLog
                 Cap(d(TankSim.R_RIGHT)), Cap(d(TankSim.R_LEFT)),
                 st(TankSim.R_FL), st(TankSim.R_FR), st(TankSim.R_RL),
                 st(TankSim.R_RR), st(TankSim.R_FRONT), st(TankSim.R_REAR),
-                st(TankSim.R_RIGHT), st(TankSim.R_LEFT)))
+                st(TankSim.R_RIGHT), st(TankSim.R_LEFT),
+                If(blkAhead, 1, 0), If(blkRear, 1, 0), inst.drive.stuckS))
         Catch
             ' A failed write must not take the sim with it.
         End Try

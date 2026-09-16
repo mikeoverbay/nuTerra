@@ -671,6 +671,14 @@ Public Class TankDrive
             ' start reverse. Next frame checks the same rays again.
             reverseS = 0.0F
             stopReason = If(rearTraffic, StopWhy.Traffic, StopWhy.Ground)
+            ' COUNT THE WAIT. This branch returned without touching any timer,
+            ' so a hull boxed here had no clock running at all: WEDGED_S could
+            ' never arrive, and the stuck_s column read zero for a tank that
+            ' had not moved in twenty minutes. A wait nothing measures is how
+            ' a deadlock hides. Nothing in THIS branch reads stuckS, so the
+            ' only effect is that recovery starts from the right number once
+            ' the front opens enough to reach a branch that does.
+            stuckS += dt
             Return True
         End If
 
@@ -1188,6 +1196,27 @@ Public Class TankDrive
             ' Under the sim the destination is not this hull's to change.
             If stuckS > TankDriveTune.STUCK_S AndAlso Not TankSim.SIM_RUN Then
                 PickGoal(inst, nav, pos)
+            ElseIf TankSim.SIM_RUN AndAlso stuckS > TankDriveTune.JAMMED_S Then
+                ' NOTHING HERE EVER ESCALATED, and that is the second half of
+                ' the permanent jam.
+                '
+                ' Under the sim this branch counted stuckS up and did nothing
+                ' with it, because the one escalation on offer - PickGoal -
+                ' changes the destination, and the destination belongs to the
+                ' sim. So a hull that found no way round waited, and waiting
+                ' was the whole strategy: 31 jams of ten seconds or more in
+                ' the 2026-09-15 capture, 11,130 seconds of standing still in
+                ' a 1,509 second run.
+                '
+                ' Backing out does NOT touch the destination - it is the same
+                ' recovery the terrain path already uses, and after the
+                ' RearBlocked fix above the rear rays can actually say when it
+                ' is safe. If the rear is genuinely occupied the hull still
+                ' waits, which is correct: that is a queue, not a deadlock.
+                stuckS = 0.0F
+                If Not TankSim.RearBlocked(inst, others) Then
+                    reverseS = TankDriveTune.REVERSE_S
+                End If
             End If
             Return
         End If
@@ -1405,6 +1434,16 @@ Public Module TankDriveTune
     ''' This no longer creates or records any map obstacle.
     ''' </summary>
     Public WEDGED_S As Single = 5.0F
+
+    ''' <summary>
+    ''' Seconds jammed behind other traffic before the hull backs out.
+    '''
+    ''' Longer than STUCK_S because traffic genuinely does clear on its own and
+    ''' reversing out of a queue that was about to move is worse than waiting a
+    ''' beat. Shorter than WEDGED_S because a hull nose to nose with another is
+    ''' not going to be freed by patience - both of them are waiting.
+    ''' </summary>
+    Public JAMMED_S As Single = 3.0F
 
     ''' <summary>How long, and how fast, a wedged tank backs out.</summary>
     Public REVERSE_S As Single = 1.5F
