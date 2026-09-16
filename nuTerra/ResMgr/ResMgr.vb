@@ -119,6 +119,11 @@ NotInheritable Class ResMgr
     ''' an override that silently replaces a game asset is exactly the thing you
     ''' want named when a model comes out wrong.
     ''' </summary>
+    ''' <summary>Name every override, not just count them. Off by default:
+    ''' this is a debugging question, asked rarely, and answering it unasked
+    ''' costs every startup forty lines.</summary>
+    Public Shared RES_MODS_LIST As Boolean = False
+
     Private Shared Sub scan_res_mods()
         RES_MODS_FILES.Clear()
         If String.IsNullOrEmpty(RES_MODS_PATH) OrElse Not Directory.Exists(RES_MODS_PATH) Then
@@ -149,8 +154,17 @@ NotInheritable Class ResMgr
         LogThis("res_mods: {0} override(s) in {1} ({2} other file(s) ignored) in {3} ms",
                 RES_MODS_FILES.Count, root, skipped, clock.ElapsedMilliseconds)
 
-        ' Named, up to a point. A handful of overrides is the normal case and
-        ' worth reading in full; a mod pack with thousands is not.
+        ' OFF BY DEFAULT, and the count above is what a startup actually
+        ' needs. Forty lines of .dds names is not a diagnostic, it is forty
+        ' lines between the reader and the next real message - "I don't want
+        ' any spam in the outout debug win", the owner, 2026-09-15.
+        '
+        ' It was invisible in nuTerra only because LogThis is gated there and
+        ' "res_mods:" is not a kept tag - so the VOLUME was hidden rather than
+        ' fixed, and it came straight back the moment a second app opened the
+        ' gate. Fixed at the source instead: the list is now asked for.
+        If Not RES_MODS_LIST Then Return
+
         Dim shown = 0
         For Each r In RES_MODS_FILES
             If shown >= 40 Then
