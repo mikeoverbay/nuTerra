@@ -49,6 +49,7 @@ Module Program
         Dim debugView = 0
         Dim hidePattern As String = Nothing
         Dim exportNow As String = Nothing
+        Dim glbCheck As String = Nothing
         Dim bakeDir As String = Nothing
         Dim objPath As String = Nothing
         Dim bakePx As Integer = 2048
@@ -114,6 +115,8 @@ Module Program
                     i += 1 : If i < args.Length Then hidePattern = args(i)
                 Case "--export-now"
                     i += 1 : If i < args.Length Then exportNow = args(i)
+                Case "--glb-check"
+                    i += 1 : If i < args.Length Then glbCheck = args(i)
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -130,6 +133,33 @@ Module Program
             End Select
             i += 1
         End While
+
+        ' --glb-check reads a .glb back and reports what is in it. The round
+        ' trip is the only check that catches a writer and a reader agreeing
+        ' on something wrong, and it needs no game install - so it runs before
+        ' anything else and exits.
+        If glbCheck IsNot Nothing Then
+            Try
+                Dim gm = GlbFile.Read(glbCheck)
+                Console.WriteLine("glb  {0}", IO.Path.GetFullPath(glbCheck))
+                Console.WriteLine("  generator {0}", gm.Generator)
+                Console.WriteLine("  {0}", gm.Describe())
+                Dim maxIdx = 0
+                For Each v In gm.Indices
+                    If v > maxIdx Then maxIdx = v
+                Next
+                Console.WriteLine("  highest index {0:N0} against {1:N0} verts -> {2}",
+                                  maxIdx, gm.Positions.Count,
+                                  If(maxIdx < gm.Positions.Count, "in range", "OUT OF RANGE"))
+                For Each g In gm.Groups.Take(4)
+                    Console.WriteLine("    {0,-28} {1:N0} tris", g.Material, g.IndexCount \ 3)
+                Next
+            Catch ex As Exception
+                Console.WriteLine("glb-check failed: {0}", ex.Message)
+                Environment.ExitCode = 2
+            End Try
+            Return
+        End If
 
         ' ---- settings -----------------------------------------------------
         ' Loaded before anything else so --show-settings costs nothing: the

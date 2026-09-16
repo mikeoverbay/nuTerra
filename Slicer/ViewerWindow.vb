@@ -2114,9 +2114,13 @@ drawn:
     ''' </summary>
     Private Sub HandlePartsClick(p As Vector2)
         If partsPanel.HitsExportFormat(p.X, p.Y) Then
-            ' Only the two the writer actually has. Adding glb here before
-            ' MeshExport can write one would offer a button that fails.
-            exportFormat = If(exportFormat = "obj", "stl", "obj")
+            ' glb first in the cycle after obj: it is the one that carries
+            ' normals, tangents and both uv sets, which the other two cannot.
+            Select Case exportFormat
+                Case "obj" : exportFormat = "glb"
+                Case "glb" : exportFormat = "stl"
+                Case Else : exportFormat = "obj"
+            End Select
             Console.WriteLine("export format: {0}", exportFormat)
             Return
         End If
@@ -2182,8 +2186,12 @@ drawn:
         Dim remap As New Dictionary(Of Integer, Integer)
         Dim pos As New List(Of Vector3)
         Dim uv As New List(Of Vector2)
+        Dim nrm As New List(Of Vector3)
+        Dim tan As New List(Of Vector4)
+        Dim uvTile As New List(Of Vector2)
         Dim tri As New List(Of Integer)
         Dim groups As New List(Of ObjGroup)
+        Dim glbGroups As New List(Of GlbGroup)
         Dim used = 0
 
         For Each pt In pbrParts
@@ -2198,17 +2206,34 @@ drawn:
                     remap(vi) = mapped
                     Dim b = vi * FL
                     If b + FL > pbrVertData.Length Then Continue For
+                    ' Layout, from BuildPbr: pos 0-2, normal 3-5, uv1 6-7,
+                    ' tangent 8-10, binormal 11-13, uv2 14-15.
                     pos.Add(New Vector3(pbrVertData(b), pbrVertData(b + 1), pbrVertData(b + 2)))
-                    ' +56 is uv2; +24 is uv1. See the note above for why.
                     uv.Add(New Vector2(pbrVertData(b + 14), pbrVertData(b + 15)))
+                    uvTile.Add(New Vector2(pbrVertData(b + 6), pbrVertData(b + 7)))
+                    Dim nv As New Vector3(pbrVertData(b + 3), pbrVertData(b + 4), pbrVertData(b + 5))
+                    Dim tv As New Vector3(pbrVertData(b + 8), pbrVertData(b + 9), pbrVertData(b + 10))
+                    Dim bv As New Vector3(pbrVertData(b + 11), pbrVertData(b + 12), pbrVertData(b + 13))
+                    nrm.Add(nv)
+                    ' glTF wants the bitangent as a HANDEDNESS SIGN rather than
+                    ' a third vector: w = sign(dot(cross(N,T), B)). Writing the
+                    ' binormal itself is not an option the format offers, and
+                    ' guessing +1 mirrors the normal map on every mirrored
+                    ' island - which is most of a building.
+                    Dim hand = If(Vector3.Dot(Vector3.Cross(nv, tv), bv) < 0.0F, -1.0F, 1.0F)
+                    tan.Add(New Vector4(tv.X, tv.Y, tv.Z, hand))
                 End If
                 tri.Add(mapped)
             Next
             If tri.Count > first Then
                 used += 1
+                Dim gname = If(String.IsNullOrEmpty(pt.PartName), pt.Name, pt.PartName) & "_" & pt.Ident
+                Dim gmat = If(String.IsNullOrEmpty(pt.Ident), "part", pt.Ident)
                 groups.Add(New ObjGroup With {
-                    .Name = If(String.IsNullOrEmpty(pt.PartName), pt.Name, pt.PartName) & "_" & pt.Ident,
-                    .Material = If(String.IsNullOrEmpty(pt.Ident), "part", pt.Ident),
+                    .Name = gname, .Material = gmat,
+                    .FirstIndex = first, .IndexCount = tri.Count - first})
+                glbGroups.Add(New GlbGroup With {
+                    .Name = gname, .Material = gmat,
                     .FirstIndex = first, .IndexCount = tri.Count - first})
             End If
         Next
@@ -2225,13 +2250,29 @@ drawn:
         Dim dir = If(String.IsNullOrWhiteSpace(settings.OutDir), "exported", settings.OutDir)
         Dim path = IO.Path.Combine(dir, stem & "." & exportFormat)
 
+        Dim zUp = String.Equals(EffectiveAxis(), "z", StringComparison.OrdinalIgnoreCase)
         Try
-            Dim r = MeshExport.Write(path, exportFormat, pos.ToArray(), tri.ToArray(),
-                                     String.Equals(EffectiveAxis(), "z", StringComparison.OrdinalIgnoreCase),
-                                     settings.OutScale, uv.ToArray(), groups, Nothing)
+            Dim writtenPath = path
+            Dim writtenTris = tri.Count \ 3
+            Dim writtenBytes As Long
+            If exportFormat = "glb" Then
+                ' TEXCOORD_0 is UV2 and TEXCOORD_1 is UV1, deliberately. UV2 is
+                ' the per-object unwrap a baked map matches, so it is the one a
+                ' reader should treat as primary; UV1 is the tile coordinate and
+                ' runs far outside 0..1.
+                writtenBytes = GlbFile.Write(path, pos.ToArray(), tri.ToArray(), glbGroups,
+                                             nrm.ToArray(), tan.ToArray(),
+                                             uv.ToArray(), uvTile.ToArray(),
+                                             zUp, settings.OutScale)
+                writtenPath = IO.Path.GetFullPath(path)
+            Else
+                Dim r = MeshExport.Write(path, exportFormat, pos.ToArray(), tri.ToArray(),
+                                         zUp, settings.OutScale, uv.ToArray(), groups, Nothing)
+                writtenPath = r.Path : writtenTris = r.Triangles : writtenBytes = r.Bytes
+            End If
             lastExport = String.Format("{0}  {1:N0} tris  {2:N0} KB",
-                                       IO.Path.GetFileName(r.Path), r.Triangles, r.Bytes \ 1024)
-            Console.WriteLine("export: {0}", IO.Path.GetFullPath(r.Path))
+                                       IO.Path.GetFileName(writtenPath), writtenTris, writtenBytes \ 1024)
+            Console.WriteLine("export: {0}", writtenPath)
             Console.WriteLine("        {0} group(s) of {1}, {2:N0} verts, {3:N0} tris",
                               used, pbrParts.Count, pos.Count, tri.Count \ 3)
         Catch ex As Exception

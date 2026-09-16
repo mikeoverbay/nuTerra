@@ -212,7 +212,13 @@ Public Class SliceSettings
         If SupportSpacing <= 0.0F Then bad.Add("support.spacing must be greater than 0")
         If SupportRadius <= 0.0F Then bad.Add("support.radius must be greater than 0")
         Dim fmt = If(OutFormat, "").Trim().ToLowerInvariant()
-        If fmt <> "stl" AndAlso fmt <> "obj" Then bad.Add("out.format must be stl or obj (got """ & OutFormat & """)")
+        ' glb joins the two, and the validator has to know or it rejects the
+        ' format before the writer is ever asked. A check that lists the
+        ' allowed values has to be edited every time one is added; the cost of
+        ' forgetting is a flag that silently does nothing.
+        If fmt <> "stl" AndAlso fmt <> "obj" AndAlso fmt <> "glb" Then
+            bad.Add("out.format must be stl, obj or glb (got """ & OutFormat & """)")
+        End If
         Dim ua = If(OutUpAxis, "").Trim().ToLowerInvariant()
         If ua <> "z" AndAlso ua <> "y" Then bad.Add("out.upAxis must be z or y (got """ & OutUpAxis & """)")
         If OutScale = 0.0F Then bad.Add("out.scale cannot be zero")
