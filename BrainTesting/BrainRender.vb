@@ -21,6 +21,7 @@ Module BrainRender
         terrainShader = New BrainShader("terrain")
         BrainModels.Init()
         BrainTankDraw.Init()
+        BrainRings.Init()
         If terrainShader.Ready Then LogThis("brain: shaders ready")
     End Sub
 
@@ -68,6 +69,7 @@ Module BrainRender
         ' Hulls last. They are small, they sit on ground already drawn, and
         ' anything that goes wrong with them is easiest to see against a world
         ' that is known to be right.
+        BrainRings.Draw(vp)
         BrainTankDraw.Draw(vp)
     End Sub
 

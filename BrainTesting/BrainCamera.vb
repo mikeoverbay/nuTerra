@@ -75,6 +75,41 @@ Public Class BrainCamera
         PitchRad = CSng(-Math.Atan2(h, dist))
     End Sub
 
+    ''' <summary>Radians of look per pixel of mouse travel.</summary>
+    Private Const MOUSE_RATE As Single = 0.0032F
+
+    ''' <summary>
+    ''' Mouse look, and the wheel for speed.
+    '''
+    ''' ONLY WHILE THE RIGHT BUTTON IS HELD, and the window grabs the cursor
+    ''' for exactly that long. Always-on mouse look would trap the pointer in
+    ''' this window, and several apps share this desktop with the owner -
+    ''' losing the cursor into a test harness is a worse day than holding a
+    ''' button. Release and the pointer is his again.
+    '''
+    ''' The wheel changes SPEED rather than dollying the camera: on a 1.4 km
+    ''' map the useful range runs from inspecting one hull to crossing the
+    ''' whole field, and a fixed speed makes one of those two unbearable.
+    ''' </summary>
+    Public Sub MouseLook(dx As Single, dy As Single)
+        YawRad += dx * MOUSE_RATE
+        PitchRad -= dy * MOUSE_RATE
+        Dim lim = CSng(Math.PI / 2.0 - 0.01)
+        PitchRad = Math.Max(-lim, Math.Min(lim, PitchRad))
+    End Sub
+
+    ''' <summary>Metres a second, moved by the wheel. Clamped so it cannot
+    ''' reach zero (the camera would look broken) or so large that one tap
+    ''' of W leaves the map.</summary>
+    Public Speed As Single = WALK_MS
+
+    Public Sub Scroll(notches As Single)
+        If notches = 0.0F Then Return
+        ' Multiplicative, so a notch means the same thing at 5 m/s and 500.
+        Speed *= CSng(Math.Pow(1.25, notches))
+        Speed = Math.Max(2.0F, Math.Min(1200.0F, Speed))
+    End Sub
+
     Public Sub Update(dt As Single, k As KeyboardState)
         Dim look = LOOK_RATE * dt
         If k.IsKeyDown(Keys.Left) Then YawRad -= look
@@ -89,17 +124,17 @@ Public Class BrainCamera
         Dim lim = CSng(Math.PI / 2.0 - 0.01)
         PitchRad = Math.Max(-lim, Math.Min(lim, PitchRad))
 
-        Dim speed = WALK_MS * dt
+        Dim step_m = Speed * dt
         If k.IsKeyDown(Keys.LeftShift) OrElse k.IsKeyDown(Keys.RightShift) Then
-            speed *= RUN_MULT
+            step_m *= RUN_MULT
         End If
 
-        If k.IsKeyDown(Keys.W) Then Position += Forward * speed
-        If k.IsKeyDown(Keys.S) Then Position -= Forward * speed
-        If k.IsKeyDown(Keys.A) Then Position -= Right * speed
-        If k.IsKeyDown(Keys.D) Then Position += Right * speed
-        If k.IsKeyDown(Keys.E) Then Position += Vector3.UnitY * speed
-        If k.IsKeyDown(Keys.Q) Then Position -= Vector3.UnitY * speed
+        If k.IsKeyDown(Keys.W) Then Position += Forward * step_m
+        If k.IsKeyDown(Keys.S) Then Position -= Forward * step_m
+        If k.IsKeyDown(Keys.A) Then Position -= Right * step_m
+        If k.IsKeyDown(Keys.D) Then Position += Right * step_m
+        If k.IsKeyDown(Keys.E) Then Position += Vector3.UnitY * step_m
+        If k.IsKeyDown(Keys.Q) Then Position -= Vector3.UnitY * step_m
     End Sub
 
 End Class
