@@ -70,6 +70,9 @@ Module BrainGlobals
     ''' "brain:" lines.</summary>
     Public LOG_VERBOSE As Boolean = False
 
+    ''' <summary>Write one frame here and quit. Empty means run normally.</summary>
+    Public SHOT_PATH As String = ""
+
 
     ''' <summary>Heightmap edge in samples. nuTerra keeps this in MapLoader.vb,
     ''' a 112 KB file this app does not link; the value is the same 64 and the

@@ -138,7 +138,15 @@ Public Class BrainWindow
                     If(near.Count = 0, "", " - did you mean: " & String.Join(", ", near)))
         End If
 
+        BrainRender.Init()
+
         If BrainWorld.Ready AndAlso STARTUP_MAP IsNot Nothing Then
+            If BrainWorld.LoadMap(STARTUP_MAP) Then
+                ' AFTER the terrain, so MAP_SIZE is real. Framing against the
+                ' default would put the camera somewhere arbitrary on a map
+                ' whose extent is not known until the chunks are counted.
+                BrainRender.Cam.FrameMap(Math.Max(MAP_SIZE.X, MAP_SIZE.Y) * 100.0F)
+            End If
             BrainTanks.ReadArena(STARTUP_MAP)
             BrainTanks.LoadAll(TANK_PER_TEAM)
         End If
@@ -160,16 +168,77 @@ Public Class BrainWindow
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
         DrawWorld()
         SwapBuffers()
+
+        ' A COUPLE OF FRAMES IN, not the first. The first frame can land before
+        ' the driver has the buffers it was promised, and a black capture would
+        ' read as "nothing draws" when the truth is "nothing drew YET".
+        frames += 1
+        If SHOT_PATH <> "" AndAlso frames = 3 Then
+            Capture(SHOT_PATH)
+            Close()
+        End If
+    End Sub
+
+    Private frames As Integer = 0
+
+    ''' <summary>
+    ''' The back buffer to a PNG, and a COUNT of how much of it is not the
+    ''' clear colour.
+    '''
+    ''' The count is the point for an agent: a picture proves nothing to a
+    ''' session that cannot look at it, and "94% of pixels differ from the
+    ''' background" is a measurement that does. The owner gets the picture;
+    ''' the log gets the number.
+    ''' </summary>
+    Private Sub Capture(path As String)
+        Dim w = ClientSize.X, h = ClientSize.Y
+        Dim px(w * h * 4 - 1) As Byte
+        GL.ReadBuffer(ReadBufferMode.Back)
+        GL.ReadPixels(0, 0, w, h, PixelFormat.Bgra, PixelType.UnsignedByte, px)
+
+        ' The clear colour, as bytes, to measure coverage against.
+        Dim cr = CByte(0.16F * 255), cg = CByte(0.17F * 255), cb = CByte(0.19F * 255)
+        Dim drawn = 0
+        For i = 0 To w * h - 1
+            Dim b = px(i * 4), g2 = px(i * 4 + 1), r = px(i * 4 + 2)
+            If Math.Abs(CInt(r) - cr) > 6 OrElse Math.Abs(CInt(g2) - cg) > 6 OrElse
+               Math.Abs(CInt(b) - cb) > 6 Then drawn += 1
+        Next
+
+        Try
+            Using bmp As New Bitmap(w, h, Imaging.PixelFormat.Format32bppArgb)
+                Dim d = bmp.LockBits(New Rectangle(0, 0, w, h),
+                                     Imaging.ImageLockMode.WriteOnly,
+                                     Imaging.PixelFormat.Format32bppArgb)
+                ' GL reads bottom-up; a bitmap is top-down. Copy row by row in
+                ' reverse rather than flipping afterwards.
+                For y = 0 To h - 1
+                    Runtime.InteropServices.Marshal.Copy(
+                        px, (h - 1 - y) * w * 4,
+                        IntPtr.Add(d.Scan0, y * d.Stride), w * 4)
+                Next
+                bmp.UnlockBits(d)
+                IO.Directory.CreateDirectory(IO.Path.GetDirectoryName(IO.Path.GetFullPath(path)))
+                bmp.Save(path, Imaging.ImageFormat.Png)
+            End Using
+            LogThis("brain: shot {0} ({1}x{2}), {3:0.0}% of pixels drawn",
+                    path, w, h, 100.0 * drawn / (w * h))
+        Catch ex As Exception
+            LogThis("brain: could not write {0} - {1}", path, ex.Message)
+        End Try
     End Sub
 
     ''' <summary>Everything the frame draws, in ONE place so the normal frame
     ''' and ForceRender cannot drift apart.</summary>
     Private Sub DrawWorld()
+        Dim aspect = CSng(Math.Max(SCR_WIDTH, 1)) / CSng(Math.Max(SCR_HEIGHT, 1))
+        BrainRender.DrawTerrain(aspect)
     End Sub
 
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
         MyBase.OnUpdateFrame(e)
         If KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape) Then Close()
+        BrainRender.Cam.Update(CSng(e.Time), KeyboardState)
     End Sub
 
 End Class

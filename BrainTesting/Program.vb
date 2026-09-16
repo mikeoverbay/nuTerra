@@ -105,6 +105,12 @@ Module Program
             ElseIf a.Equals("verbose", StringComparison.OrdinalIgnoreCase) Then
                 LOG_VERBOSE = True
 
+            ElseIf a.StartsWith("shot=", StringComparison.OrdinalIgnoreCase) Then
+                ' One frame to a PNG, then quit. How a session proves the app
+                ' DRAWS rather than merely loads, and how a picture gets in
+                ' front of the owner without a window taking his screen.
+                SHOT_PATH = a.Substring(5)
+
             ElseIf is_inert(a) Then
                 ignored.Add(a)
 

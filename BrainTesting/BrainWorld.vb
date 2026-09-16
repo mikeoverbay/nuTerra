@@ -55,6 +55,61 @@ Module BrainWorld
     End Function
 
     ''' <summary>
+    ''' Open a map: space.bin, the environment, the arena box, the terrain.
+    '''
+    ''' THE SAME ORDER nuTerra's load_map uses, and the order matters. space.bin
+    ''' first because it carries the model table and the terrain's own config;
+    ''' the arena bounding box before the terrain, because the terrain reads it
+    ''' to tell map content from outland scenery.
+    '''
+    ''' What is NOT here, next to load_map: decals, water, trees, particles,
+    ''' the flight bake, every texture. That is the point of this app.
+    ''' </summary>
+    Public Function LoadMap(map As String) As Boolean
+        If Not Ready Then Return False
+        If Not HasSpace(map) Then
+            Dim near = NearMisses(map, 6)
+            LogThis("brain: no installed space called {0}{1}", map,
+                    If(near.Count = 0, "", " - did you mean: " & String.Join(", ", near)))
+            Return False
+        End If
+
+        Dim sw = Stopwatch.StartNew()
+        MAP_NAME_NO_PATH = map
+        map_scene = New MapScene()
+
+        Dim entry = ResMgr.Lookup(String.Format("spaces/{0}/space.bin", map))
+        If entry Is Nothing Then
+            LogThis("brain: {0} has no space.bin", map)
+            Return False
+        End If
+        Using ms As New IO.MemoryStream()
+            entry.Extract(ms)
+            If Not ReadSpaceBinData(ms) Then
+                LogThis("brain: space.bin for {0} did not decode", map)
+                Return False
+            End If
+        End Using
+        Dim t_space = sw.ElapsedMilliseconds
+
+        get_environment_info(map)
+        read_arena_bb()
+        Dim t_env = sw.ElapsedMilliseconds
+
+        Create_Terrain()
+        map_scene.TERRAIN_LOADED = True
+        MAP_LOADED = True
+
+        LogThis("brain: {0} loaded in {1} ms - space.bin {2} ms, environment {3} ms, " &
+                "terrain {4} ms, {5} chunk(s), {6} model(s)",
+                map, sw.ElapsedMilliseconds, t_space, t_env - t_space,
+                sw.ElapsedMilliseconds - t_env,
+                If(theMap.chunks Is Nothing, 0, theMap.chunks.Length),
+                If(MAP_MODELS Is Nothing, 0, MAP_MODELS.Length))
+        Return True
+    End Function
+
+    ''' <summary>
     ''' Is this the name of an installed space?
     '''
     ''' EXACT, not a prefix and not a substring. "19_monastery" must not be
