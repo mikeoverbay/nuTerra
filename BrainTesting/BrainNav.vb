@@ -87,7 +87,14 @@ Module BrainNav
                 LogThis("brain: no material table in this space")
                 Return
             End If
-            Dim d = 0, n = 0, other = 0
+            ' EVERY PREFIX, not just the two we were told about. The havok
+            ' files name bodies n_ / c_ / s_ - undamaged, broken and static -
+            ' so counting only d_ and n_ put the other two in a bin called
+            ' "neither" and hid them.
+            Dim d = 0, n = 0, cc = 0, ss = 0, other = 0
+            Dim csample As New List(Of String)
+            Dim ssample As New List(Of String)
+            Dim osample As New List(Of String)
             Dim seen As New HashSet(Of String)
             Dim sample As New List(Of String)
             For Each m In cBSMA.MaterialItem
@@ -100,12 +107,22 @@ Module BrainNav
                 ElseIf id.StartsWith("n_", StringComparison.Ordinal) Then
                     n += 1
                     If sample.Count < 6 Then sample.Add(id)
+                ElseIf id.StartsWith("c_", StringComparison.Ordinal) Then
+                    cc += 1
+                    If csample.Count < 4 Then csample.Add(id)
+                ElseIf id.StartsWith("s_", StringComparison.Ordinal) Then
+                    ss += 1
+                    If ssample.Count < 4 Then ssample.Add(id)
                 Else
                     other += 1
+                    If osample.Count < 4 Then osample.Add(id)
                 End If
             Next
-            LogThis("brain: material names - {0} distinct: d_ {1}, n_ {2}, neither {3}",
-                    seen.Count, d, n, other)
+            LogThis("brain: material names - {0} distinct: n_ {1}, d_ {2}, c_ {3}, s_ {4}, other {5}",
+                    seen.Count, n, d, cc, ss, other)
+            If csample.Count > 0 Then LogThis("brain:   c_ e.g. {0}", String.Join(", ", csample))
+            If ssample.Count > 0 Then LogThis("brain:   s_ e.g. {0}", String.Join(", ", ssample))
+            If osample.Count > 0 Then LogThis("brain:   other e.g. {0}", String.Join(", ", osample))
 
             ' DRAWN OR NOT, CROSSED WITH THE PREFIX. apply_material_for_pgroup
             ' sets no_draw when a material has no shader properties or no
