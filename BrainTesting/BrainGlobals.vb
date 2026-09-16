@@ -58,7 +58,11 @@ Module BrainGlobals
     ''' from the command line (`brain=1` / `brain=0`) rather than a bare flag
     ''' that can only switch it on - a switch that cannot say "off" stops
     ''' working the day the default changes to meet it.</summary>
-    Public BRAIN_ON As Boolean = False
+    ''' <summary>ON BY DEFAULT, 2026-09-16: "We need to just start the sim at
+    ''' start but that need to be under Tank AI's control." The sim running is
+    ''' this app's normal state; what it does is the installed brain's, and the
+    ''' shipped one parks everything. `sim=0` turns it off.</summary>
+    Public BRAIN_ON As Boolean = True
 
     ''' <summary>Print the per-tank hull box table once at load. Off by
     ''' default: it is thirty lines, and it answers a question asked once.

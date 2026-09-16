@@ -105,6 +105,9 @@ Module Program
             ElseIf a.Equals("verbose", StringComparison.OrdinalIgnoreCase) Then
                 LOG_VERBOSE = True
 
+            ElseIf a.Equals("navaudit", StringComparison.OrdinalIgnoreCase) Then
+                BrainNav.NAV_AUDIT = True
+
             ElseIf a.StartsWith("at=", StringComparison.OrdinalIgnoreCase) Then
                 ' at=x,z[,distance] - stand off and look at a world point.
                 ' cam= is nuTerra's six-number orbit form and means nothing

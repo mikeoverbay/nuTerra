@@ -154,11 +154,31 @@ Public Class BrainWindow
             End If
             BrainTanks.ReadArena(STARTUP_MAP)
             BrainTanks.LoadAll(TANK_PER_TEAM)
+            BrainRings.Build()
+
+                ' The nav grid AFTER the models, because it is rasterised from
+                ' their footprints, and after the terrain, because it samples
+                ' slope. Both are up by here.
+                BrainNav.Build()
+                BrainNav.SelfCheck()
+
+                ' THE SIM STARTS AT LAUNCH - the owner's ask. What it DOES is
+                ' Tank AI's: BrainSim.Brain is NullBrain until their code sets
+                ' it, and NullBrain parks everything. `sim=0` holds it back for
+                ' a run where the world is the thing being looked at.
+                If BRAIN_ON Then BrainSim.Start()
         End If
 
         GL.Enable(EnableCap.DepthTest)
         GL.DepthFunc(DepthFunction.Less)
         GL.ClearColor(0.16F, 0.17F, 0.19F, 1.0F)
+    End Sub
+
+    Protected Overrides Sub OnUnload()
+        ' Flush the black box. A CSV cut off mid-row is a run nobody can read,
+        ' and the last rows are the ones that say how it ended.
+        BrainSim.Halt()
+        MyBase.OnUnload()
     End Sub
 
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
@@ -243,7 +263,10 @@ Public Class BrainWindow
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
         MyBase.OnUpdateFrame(e)
         If KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape) Then Close()
-        BrainRender.Cam.Update(CSng(e.Time), KeyboardState)
+        ' ONE CALL, and the cursor is never grabbed. See BrainCamera - this is
+        ' nuTerra's camera_mouse_update by way of Exporter Studio.
+        BrainSim.Tick(CSng(e.Time))
+        BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
     End Sub
 
 End Class
