@@ -39,6 +39,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tank_tools import ray_studio as rs
 
+# A METRE. Half was tried on 2026-09-16 and the owner settled on a metre:
+# "1m res is fine". Kept the reasoning below because the trade is real and
+# will come back the first time a doorway matters more than a road does.
+#
+# A cell is blocked if ANY texel in it is, so the false thickness at every
+# obstacle edge is up to one cell in each axis. At a metre that cost 30% of
+# the doorway ground the ceiling clause had just opened; at 0.5 m the same
+# ground keeps 8,529 distinct open cells instead of 1,804.
+#
+# The grid is 4x the cells - 2800 square on monastery against 1400 - so the
+# flood costs about 4x. Measured rather than assumed before this landed.
 CELL_M = 1.0
 
 # THE CLIMB LIMIT, AND IT IS ONE NUMBER NOW.
