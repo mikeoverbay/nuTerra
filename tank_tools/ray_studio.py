@@ -86,6 +86,64 @@ PATHS_DIR = r"C:\nuTerra_shared\tank_paths"
 ROADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "roads")
 
 
+def check_against_squares(g, map_name):
+    """Does Ray Studio's crushable rule still agree with the app's?
+
+    THE FOURTH COPY PROBLEM. The app collapsed its three copies of the
+    crushable rule into MapFlightBake.Crushable; this one is in Python and
+    cannot call it, so it is a copy by necessity and it WILL drift - it
+    already did, silently, from the moment a tree trunk started blocking
+    until somebody sent a message saying so.
+
+    A prose `rule=` string sits in the squares meta and could be matched, but
+    matching prose only proves the sentence did not change. The .u8 itself is
+    the app's ANSWER, cell by cell, so comparing against it proves the rules
+    agree rather than that their descriptions do.
+
+    TWO TRAPS, both of which produced a confident wrong number before this
+    function existed:
+
+    1. The squares run row major from wz_MAX downward - z DECREASES as the row
+       index rises. Their own meta says the label used to read wz_min and cost
+       a reader an hour; it cost this one an hour too, via a hand-rolled
+       mapping with the row inverted. Both grids share that order, so no flip
+       is needed here - and none is applied. Do not add one.
+    2. A 1 m square covers about 34 of the bake's 0.171 m texels. Sampling the
+       CENTRE texel under-reports solid, and only ever downward, which reads
+       exactly like "Ray Studio is more permissive than the app". It is not;
+       it is the wrong reduction. A square is solid if ANY texel in it is.
+
+    Returns (agreement, app_only, mine_only). A healthy result is agreement
+    above about 99.5% with the two counts ROUGHLY EQUAL - that is resampling
+    noise at obstacle edges. A one-sided disagreement is a real rule drift,
+    and the sign says which way.
+    """
+    meta_path = os.path.join(FLIGHT, "%s_squares.txt" % map_name)
+    sq_path = os.path.join(FLIGHT, "%s_squares.u8" % map_name)
+    if not (os.path.exists(meta_path) and os.path.exists(sq_path)):
+        return None
+
+    meta = {}
+    for line in open(meta_path, encoding="utf-8"):
+        if "=" in line:
+            k, v = line.split("=", 1)
+            meta[k.strip()] = v.strip()
+    n, cell = int(meta["n"]), float(meta["cell_m"])
+    sq = np.fromfile(sq_path, np.uint8).reshape(n, n).astype(bool)
+
+    cp, W = g["collide"], g["W"]
+    tex = (g["wx1"] - g["wx0"]) / W
+    i = np.arange(W)
+    cell_of = np.clip(np.floor((i + 0.5) * tex / cell).astype(np.int64), 0, n - 1)
+    starts = np.searchsorted(cell_of, np.arange(n), side="left")
+    mine = np.maximum.reduceat(
+        np.maximum.reduceat(cp, starts, axis=0), starts, axis=1).astype(bool)
+
+    app_only = int((sq & ~mine).sum())
+    mine_only = int((mine & ~sq).sum())
+    return (mine == sq).mean(), app_only, mine_only
+
+
 def roads_cache_path(map_name):
     return os.path.join(ROADS_DIR, "%s_roads.json" % map_name)
 
