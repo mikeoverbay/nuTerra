@@ -76,7 +76,7 @@ Public Class MapFlightBake
     ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
     ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 5
+    Public Const BAKE_VERSION As Integer = 6
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
@@ -373,12 +373,15 @@ Public Class MapFlightBake
     Public Const TRUNK_BIT As Byte = &H80
 
     ''' <summary>
-    ''' Metres from a tree's axis still counted as its trunk.
+    ''' Metres from a tree's axis still counted as its trunk, WHEN THE SPECIES
+    ''' CANNOT SAY. Bark is trunk AND limbs on every species in the corpus, so
+    ''' the bark flag alone cannot isolate a trunk and a radius is what does.
     '''
-    ''' Bark is trunk AND limbs on every species in the corpus, so the bark
-    ''' flag alone cannot isolate a trunk and this radius is what does. 0.6 m
-    ''' clears the thickest trunks on the roster while cutting the limbs, which
-    ''' fan out well past it.
+    ''' NO LONGER THE VALUE THE BAKE USES. Since 2026-09-16 the trunk pass
+    ''' takes each species' own measured radius - see TreeTrunks - and reaches
+    ''' for this only where the .srt has no trunk to measure. 0.6 m is kept
+    ''' because its original justification still holds for that case: it clears
+    ''' the thickest trunks on the roster while cutting the limbs.
     ''' </summary>
     Public Shared TRUNK_RADIUS As Single = TreeTrunks.FALLBACK_RADIUS
 
@@ -739,7 +742,7 @@ Public Class MapFlightBake
                 why = "the map extent moved"
             ElseIf Not near(num(meta, "height_scale"), HEIGHT_SCALE) OrElse
                    Not near(num(meta, "obstacle_min_h"), OBSTACLE_MIN_H) OrElse
-                   Not near(num(meta, "trunk_radius"), TRUNK_RADIUS) Then
+                   Not near(num(meta, "trunk_radius_fallback"), TRUNK_RADIUS) Then
                 why = "a bake constant changed"
             ElseIf num(meta, "kind_mask") <> KIND_MASK OrElse num(meta, "outland_bit") <> OUTLAND_BIT OrElse
                    num(meta, "trunk_bit") <> TRUNK_BIT OrElse num(meta, "solid_bit") <> SOLID_BIT Then
@@ -1780,7 +1783,20 @@ Public Class MapFlightBake
         sb.AppendLine(String.Format(inv, "outland_bit={0}", OUTLAND_BIT))
         sb.AppendLine(String.Format(inv, "trunk_bit={0}", TRUNK_BIT))
         sb.AppendLine(String.Format(inv, "solid_bit={0}", SOLID_BIT))
-        sb.AppendLine(String.Format(inv, "trunk_radius={0:0.00}", TRUNK_RADIUS))
+        ' NOT `trunk_radius`. That key meant "the radius used for every
+        ' species" and it was true until 2026-09-16; it now holds only what a
+        ' species falls back to, and a reader that saw 0.60 under the old name
+        ' concluded the whole map was baked at 0.60. One did, the same day.
+        '
+        ' Renaming it also invalidates every bake written under the old key,
+        ' which is the correct outcome: those were baked at a flat radius.
+        sb.AppendLine(String.Format(inv, "trunk_radius_fallback={0:0.00}", TRUNK_RADIUS))
+        Dim measured = 0
+        For Each t In TreeTrunks.Measured
+            If t.trunkKnown Then measured += 1
+        Next
+        sb.AppendLine(String.Format(inv, "trunk_radius_measured_species={0} of {1}",
+                                    measured, TreeTrunks.Measured.Count))
 
         ' The id layer and where its two halves join. Written on the loaded path
         ' too: both counts come from the model and tree tables the map load
