@@ -1867,7 +1867,7 @@ try_again:
             ' submitted, and this line used to sit two buttons further down and
             ' bind to the wrong one, so Shader IDE had no tooltip at all.
             If ImGui.IsItemHovered() Then ImGui.SetTooltip("Edit and recompile any shader in place - Tools\ShaderIDE.vb")
-            If ImGui.Button("Path Studio") Then
+            If ImGui.Button("Flight Studio") Then
                 start_path_studio()
             End If
             If ImGui.IsItemHovered() Then ImGui.SetTooltip("F9")
@@ -1972,7 +1972,7 @@ try_again:
 
                     ' Re-read the file when FLY is switched ON.
                     '
-                    ' The path is loaded once at map load, and Path Studio is a
+                    ' The path is loaded once at map load, and Flight Studio is a
                     ' separate program writing the same file - so without this
                     ' the only way to fly a route just saved next door was to
                     ' reload the whole map. Load also rewinds travelled, so it
@@ -2005,7 +2005,7 @@ try_again:
                         End If
                     End If
                     If ImGui.IsItemHovered() Then
-                        ImGui.SetTooltip("The lights placed in Path Studio, drawn at their range." & vbLf &
+                        ImGui.SetTooltip("The lights placed in Flight Studio, drawn at their range." & vbLf &
                                          "Nothing is lit by them yet - this is what was authored.")
                     End If
                 End If
@@ -2111,7 +2111,7 @@ try_again:
                             ImGui.SetTooltip("Send every tank to a start point" & vbLf &
                                              "the path editor marked." & vbLf &
                                              "SPACE holds and resumes." & vbLf &
-                                             "Starts come from Ray Studio - save" & vbLf &
+                                             "Starts come from Tank Path Studio - save" & vbLf &
                                              "the paths there first.")
                         End If
                         If TankSim.SIM_RUN Then
@@ -2161,7 +2161,7 @@ try_again:
                         End If
                         If ImGui.IsItemHovered() Then
                             ImGui.SetTooltip("The run each hull is following," & vbLf &
-                                             "from Ray Studio's saved graph." & vbLf &
+                                             "from Tank Path Studio's saved graph." & vbLf &
                                              "Brighter ahead of the tank, dim" & vbLf &
                                              "behind it.")
                         End If
@@ -2531,7 +2531,7 @@ try_again:
                     ImGui.Checkbox("Path lights", PATH_LIGHTS_ON)
                     If ImGui.IsItemHovered() Then
                         ImGui.SetTooltip("The .campath file's own lights, placed in" & vbLf &
-                                         "Path Studio - NOT the bulbs." & vbLf &
+                                         "Flight Studio - NOT the bulbs." & vbLf &
                                          "These are the ones the shadow cubes are baked" & vbLf &
                                          "for. Same deal: left out of the upload, not" & vbLf &
                                          "destroyed.")
@@ -2905,10 +2905,10 @@ try_again:
                         End If
                         ' The falloff slider is gone: the shape is a per-light
                         ' CURVE now (VM_FOG_Curve_<n>.png beside the .campath),
-                        ' authored in Path Studio's curve editor and re-read by
+                        ' authored in Flight Studio's curve editor and re-read by
                         ' Reload Cam Path. One number could not lengthen a shaft
                         ' without brightening its core.
-                        ImGui.TextDisabled("  falloff: per-light curve, edited in Path Studio")
+                        ImGui.TextDisabled("  falloff: per-light curve, edited in Flight Studio")
                         Dim v_fd = LAMP_FOG_DENSITY
                         If ImGui.SliderFloat("  air density", v_fd, 0.0, 0.3) Then
                             LAMP_FOG_DENSITY = v_fd
@@ -2950,7 +2950,7 @@ try_again:
                         ImGui.SetTooltip("Without this a lamp has no visibility term at all" & vbLf &
                                          "and lights through walls - measured, a range 50 lamp" & vbLf &
                                          "lit 65% of the frame. Baked once per lamp at load," & vbLf &
-                                         "re-baked when Path Studio saves a new placement.")
+                                         "re-baked when Flight Studio saves a new placement.")
                     End If
                     If LAMP_SHADOW_ENABLED AndAlso MAP_LOADED AndAlso map_scene IsNot Nothing AndAlso
                        map_scene.lamp_shadow.ready Then
@@ -3697,7 +3697,7 @@ try_again:
 
                 ' Re-read the .campath from disk.
                 '
-                ' Path Studio is a separate program writing the same file, so
+                ' Flight Studio is a separate program writing the same file, so
                 ' picking up a save meant ticking one of the campath checkboxes
                 ' over in Overlays and knowing which of them happens to re-read.
                 ' This is the explicit version, next to the panel that flies it.
@@ -3710,7 +3710,7 @@ try_again:
                     End If
                 End If
                 If ImGui.IsItemHovered() Then
-                    ImGui.SetTooltip("Re-read the route and its lamps after a Path Studio save." & vbLf &
+                    ImGui.SetTooltip("Re-read the route and its lamps after a Flight Studio save." & vbLf &
                                      "Rewinds to the start of the route, so mid-flight this" & vbLf &
                                      "puts the camera back at the beginning." & vbLf &
                                      "Lamp shadows re-bake on the next frame.")
@@ -4689,13 +4689,13 @@ try_again:
     End Sub
 
     ' <summary>
-    ''' Start Path Studio - F9, or the button on the menu bar.
+    ''' Start Flight Studio - F9, or the button on the menu bar.
     '''
-    ''' One of only two things nuTerra and Path Studio share; the other is the
-    ''' .campath file Path Studio writes and MapCamPath reads. Deliberately no
+    ''' One of only two things nuTerra and Flight Studio share; the other is the
+    ''' .campath file Flight Studio writes and MapCamPath reads. Deliberately no
     ''' deeper coupling than launching an exe.
     '''
-    ''' Nothing is redirected and nothing is waited on. Path Studio owns its own
+    ''' Nothing is redirected and nothing is waited on. Flight Studio owns its own
     ''' window and reports its own errors - including a missing Python, which is
     ''' its launcher's job to explain, not this one's.
     ''' </summary>
@@ -4824,15 +4824,15 @@ try_again:
         Try
             Dim exe = find_path_studio()
             If exe Is Nothing Then
-                LogThis("Path Studio: PathStudio.exe not found beside nuTerra or in the solution")
+                LogThis("Flight Studio: PathStudio.exe not found beside nuTerra or in the solution")
                 Return
             End If
             Diagnostics.Process.Start(New Diagnostics.ProcessStartInfo(exe) With {
                 .UseShellExecute = False,
                 .WorkingDirectory = IO.Path.GetDirectoryName(exe)})
-            LogThis("Path Studio: started {0}", exe)
+            LogThis("Flight Studio: started {0}", exe)
         Catch ex As Exception
-            LogThis("Path Studio: could not start - {0}", ex.Message)
+            LogThis("Flight Studio: could not start - {0}", ex.Message)
         End Try
     End Sub
 
@@ -4847,7 +4847,7 @@ try_again:
     Private Function find_path_studio() As String
         ' The PROJECT build first, the copy beside nuTerra.exe last. A copy
         ' beside the exe is a hand deploy that nothing refreshes; from a
-        ' development tree it opened a Path Studio hours behind the source,
+        ' development tree it opened a Flight Studio hours behind the source,
         ' with its own stale tools folder. The project build is rebuilt with
         ' the solution and its launcher runs the repo tools.
         Dim dir = New IO.DirectoryInfo(AppContext.BaseDirectory)

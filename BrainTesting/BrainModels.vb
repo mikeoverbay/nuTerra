@@ -422,7 +422,7 @@ Module BrainModels
     End Sub
 
     ''' <summary>The kind's colour, 0..1. ModelKind.KIND_RGB is the one table -
-    ''' it is Path Studio's legend and the owner has been reading it since
+    ''' it is Flight Studio's legend and the owner has been reading it since
     ''' before this app existed. Index 0 is terrain and unused there, so a
     ''' model that somehow classifies as terrain gets "other".</summary>
     Private Function kind_colour(k As Byte) As Vector3

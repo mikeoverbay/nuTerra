@@ -213,7 +213,7 @@ Public Class MapCamera
                                         CSng(Math.Cos(ft) * Math.Cos(fh)))
                 CAM_POSITION = fpos
                 CAM_TARGET = fpos + look * 50.0F
-                ' Verbatim. Path Studio owns the bank end to end - MAX_BANK,
+                ' Verbatim. Flight Studio owns the bank end to end - MAX_BANK,
                 ' BANK_GAIN, BANK_LEAD, BANK_SMOOTH and the two flattening
                 ' lengths - and a multiplier here was a second place to get it
                 ' wrong, and the one nobody would think to look at.

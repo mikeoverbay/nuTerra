@@ -223,7 +223,7 @@ Public Module TankSim
         ' WHICH SIDE SPAWNS HERE, and it is NOT `team`. A base vertex is the
         ' first point of its own side's roads and the LAST point of the other
         ' side's, so its team mask is 1|2 = 3 at both bases - it matches
-        ' everybody and can never say who starts there. Ray Studio writes this
+        ' everybody and can never say who starts there. Tank Path Studio writes this
         ' one where the side is still known. Same bitmask, different question.
         Public startTeam As Integer
         Public msg As String
@@ -253,7 +253,7 @@ Public Module TankSim
     '''
     ''' ON SCREEN, because a stale file is invisible otherwise. The tanks
     ''' drove a graph nobody in the room had saved - it was correct, it was
-    ''' Ray Studio's format, and it was an hour old - and the only way to
+    ''' Tank Path Studio's format, and it was an hour old - and the only way to
     ''' tell was to notice the paths went base to base and reason backwards.
     ''' A timestamp beside the vert count makes that a glance.</summary>
     Public pathsStamp As String = ""
@@ -273,7 +273,7 @@ Public Module TankSim
 
     ' DEBUG ONE TANK ONLY. The first hull that ACTUALLY REACHES its assigned
     ' start becomes DEBUG_TANK. Keep BOTH representations of its route:
-    '   hullRunNodeIds = the ORIGINAL Ray Studio graph nodes, in route order.
+    '   hullRunNodeIds = the ORIGINAL Tank Path Studio graph nodes, in route order.
     '   hullRunNodeAt  = one entry per subdivided drive waypoint; -1 means the
     '                    waypoint is synthetic, otherwise it is the real node id.
     ' This preserves point identity all the way to the reached-point test.
@@ -283,7 +283,7 @@ Public Module TankSim
     Private debugTankDumped As Boolean = False
     Private debugTankLastNodeId As Integer = -1
 
-    ' Detailed route progress is useful when debugging Ray Studio identity, but
+    ' Detailed route progress is useful when debugging Tank Path Studio identity, but
     ' it buries TankComms during a live fleet run. Keep it available, quiet by
     ' default. Errors and one-shot load/warning messages still print.
     Private ReadOnly VERBOSE_PATH_LOG As Boolean = False
@@ -291,7 +291,7 @@ Public Module TankSim
     ''' <summary>
     ''' Read the editor's saved graph - every node, every edge.
     '''
-    ''' The file is Ray Studio's PathEdit.to_dict: a nodes array carrying id,
+    ''' The file is Tank Path Studio's PathEdit.to_dict: a nodes array carrying id,
     ''' x, z, team, start and the message fields, and an edges array of id
     ''' pairs. Both are needed - the starts alone say where to send a tank and
     ''' nothing about where it goes next.
@@ -306,7 +306,7 @@ Public Module TankSim
     ''' asking. A graph somebody drew by hand does not belong in a temp
     ''' directory; the bake does, because the bake can be rebuilt.
     '''
-    ''' Both are checked, newest wins, so a file saved by an older Ray Studio
+    ''' Both are checked, newest wins, so a file saved by an older Tank Path Studio
     ''' still drives and nothing has to be moved by hand.
     ''' </summary>
     Public Function PathsFileFor(mapName As String) As String
@@ -343,7 +343,7 @@ uTerra_shared", "tank_paths",
 
         Dim p = PathsFileFor(mapName)
         If Not File.Exists(p) Then
-            startsMsg = "NO PATHS SAVED - press [F5] in Ray Studio"
+            startsMsg = "NO PATHS SAVED - press [F5] in Tank Path Studio"
             pathsStamp = ""
             LogThis("tank sim: {0} (looked for {1})", startsMsg, p)
             Return 0
@@ -394,7 +394,7 @@ uTerra_shared", "tank_paths",
                 ' THE ORDERED MAZE ROADS ARE THE DRIVING TRUTH. Nodes+edges are
                 ' an undirected merged editor graph; at a fork they cannot tell
                 ' which outgoing edge belonged to the road that arrived there.
-                ' Ray Studio saves each solved road as an ordered node-id chain.
+                ' Tank Path Studio saves each solved road as an ordered node-id chain.
                 Dim rv As JsonElement = Nothing
                 savedRoadsValid = doc.RootElement.TryGetProperty("roads_valid", rv) AndAlso
                                   rv.ValueKind = JsonValueKind.True
@@ -458,7 +458,7 @@ uTerra_shared", "tank_paths",
         pathsStamp = String.Format("saved {0:HH:mm:ss} ({1})", wrote, howLong)
         BuildDrawLists()
         If savedRoadsValid Then
-            LogThis("tank sim: {0} from {1}_paths.json, {2} - driving ordered Ray Studio roads",
+            LogThis("tank sim: {0} from {1}_paths.json, {2} - driving ordered Tank Path Studio roads",
                     startsMsg, mapName, pathsStamp)
         Else
             LogThis("tank sim: {0} from {1}_paths.json, {2} - WARNING no valid ordered roads; graph-walk fallback",
@@ -468,7 +468,7 @@ uTerra_shared", "tank_paths",
     End Function
 
     ''' <summary>
-    ''' Build one run from the exact ordered road Ray Studio saved. No graph
+    ''' Build one run from the exact ordered road Tank Path Studio saved. No graph
     ''' walking and no fork choice happens here. Multiple roads may share one
     ''' start; `pick` deterministically selects one for this hull.
     ''' </summary>
@@ -530,7 +530,7 @@ uTerra_shared", "tank_paths",
     End Function
 
     ''' <summary>
-    ''' Walk the graph and preserve the ORIGINAL Ray Studio node IDs in the exact
+    ''' Walk the graph and preserve the ORIGINAL Tank Path Studio node IDs in the exact
     ''' order chosen. It also builds a parallel id list for the subdivided drive
     ''' waypoints: a real saved point carries its node id, while an inserted
     ''' STEP_M point carries -1. That mapping is what lets TargetFor know which
@@ -611,11 +611,11 @@ uTerra_shared", "tank_paths",
 
     ''' <summary>
     ''' Print one readable tank's ORIGINAL saved path once, exactly when it
-    ''' reaches its assigned start. These are Ray Studio graph nodes, not the
+    ''' reaches its assigned start. These are Tank Path Studio graph nodes, not the
     ''' synthetic STEP_M points inserted for driving.
     ''' </summary>
     Private Function DebugPathPointType(nodeId As Integer) As String
-        ' EXACTLY Ray Studio / PathEdit.kind():
+        ' EXACTLY Tank Path Studio / PathEdit.kind():
         '   degree >= 3 = fork
         '   degree = 1  = end
         '   degree = 2  = through
@@ -702,7 +702,7 @@ uTerra_shared", "tank_paths",
     End Sub
 
     ''' <summary>
-    ''' Output the REAL Ray Studio point that has just been reached. Synthetic
+    ''' Output the REAL Tank Path Studio point that has just been reached. Synthetic
     ''' subdivision waypoints never call this routine because their mapped id is
     ''' -1. Node IDs are unique in BuildRunFrom (the walk keeps a seen set), so
     ''' debugTankLastNodeId also prevents the final point from printing every
@@ -756,7 +756,7 @@ uTerra_shared", "tank_paths",
     ''' Cut every long leg into steps, so a hull FOLLOWS the road instead of
     ''' aiming across it.
     '''
-    ''' Ray Studio simplifies before it saves - a straight lane keeps its corners
+    ''' Tank Path Studio simplifies before it saves - a straight lane keeps its corners
     ''' and loses everything between - so two consecutive verts on one of these
     ''' roads can be 234 m apart. Measured on the saved file: a hull standing on
     ''' its start advanced to waypoint 1 and had a goal 234 m away, which it then
@@ -788,14 +788,14 @@ uTerra_shared", "tank_paths",
             Dim d = (b - a).Length
             Dim steps = CInt(Math.Floor(d / STEP_M))
 
-            ' Inserted steering points are geometry only, not Ray Studio points.
+            ' Inserted steering points are geometry only, not Tank Path Studio points.
             For k = 1 To steps
                 Dim f = CSng(k) / CSng(steps + 1)
                 outp.Add(New Vector2(a.X + (b.X - a.X) * f, a.Y + (b.Y - a.Y) * f))
                 driveNodeIds.Add(-1)
             Next
 
-            ' The end of each leg IS the next original Ray Studio node.
+            ' The end of each leg IS the next original Tank Path Studio node.
             outp.Add(b)
             driveNodeIds.Add(If(rawIds IsNot Nothing AndAlso i + 1 < rawIds.Count,
                                 rawIds(i + 1), -1))
@@ -843,7 +843,7 @@ uTerra_shared", "tank_paths",
 
             If savedRoadsValid Then
                 ' EXACT SAVED ROAD. Do not walk the merged graph and do not
-                ' choose at forks: Ray Studio already told us the node order.
+                ' choose at forks: Tank Path Studio already told us the node order.
                 run = BuildSavedRoad(chosen, sideBit, roadPick,
                                      rawIds, builtDriveNodeIds)
                 If run.Count = 0 Then
@@ -866,7 +866,7 @@ uTerra_shared", "tank_paths",
         Dim here As New Vector2(inst.position.X, inst.position.Z)
 
         ' WALK THE IDENTITY FIRST. The arrival radius depends on WHAT this drive
-        ' point is. Synthetic STEP_M points are -1; real Ray Studio points keep
+        ' point is. Synthetic STEP_M points are -1; real Tank Path Studio points keep
         ' their node id all the way from BuildRunFrom to here.
         Dim driveNodeIds As List(Of Integer) = Nothing
         Dim reachedNodeId As Integer = -1
@@ -889,7 +889,7 @@ uTerra_shared", "tank_paths",
 
         If reached Then
             ' AUTHORITATIVE START-ARRIVAL EVENT.
-            ' The first tank to reach any real Ray Studio node marked start=True
+            ' The first tank to reach any real Tank Path Studio node marked start=True
             ' becomes the debug tank. Dump its entire saved road once, then let
             ' normal waypoint advancement continue without pausing the simulation.
             ' Do not assume that means a global start 0 or depend on drive index 0.
@@ -912,7 +912,7 @@ uTerra_shared", "tank_paths",
             End If
 
             ' Point output comes from the SAME reached event and the SAME preserved
-            ' Ray Studio node identity. Synthetic subdivision points stay silent.
+            ' Tank Path Studio node identity. Synthetic subdivision points stay silent.
             If inst.id = debugTankId Then
                 If reachedNodeId >= 0 Then
                     LogReachedPathPoint(inst, reachedNodeId)
@@ -1303,7 +1303,7 @@ uTerra_shared", "tank_paths",
     ''' <summary>
     ''' Re-read the file if it has changed on disk since we last looked.
     '''
-    ''' So pressing [F5] in Ray Studio shows up here without pressing anything
+    ''' So pressing [F5] in Tank Path Studio shows up here without pressing anything
     ''' in nuTerra. Checked at most once a second and only against the file's
     ''' write time, which is a directory read, not a parse.
     ''' </summary>
@@ -1392,7 +1392,7 @@ uTerra_shared", "tank_paths",
             ' along with its own. It is the bug the owner reported - "it is
             ' assigning both teams to start points".
             '
-            ' Re-sweeping and re-saving in Ray Studio writes the real field
+            ' Re-sweeping and re-saving in Tank Path Studio writes the real field
             ' and this never fires. Until then, fall back to the one thing
             ' still true on the ground: a side spawns at the base it is
             ' STANDING on. Hulls are on their formation at this moment - the

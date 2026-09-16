@@ -1,7 +1,7 @@
 #version 450 core
 
 // SHADED BY TYPE, on the owner's ask. The colour is the kind's, from
-// ModelKind.KIND_RGB - the same legend the flight bake writes and Path Studio
+// ModelKind.KIND_RGB - the same legend the flight bake writes and Flight Studio
 // reads, so a building is the same ochre in all three.
 
 in vec3 worldNormal;

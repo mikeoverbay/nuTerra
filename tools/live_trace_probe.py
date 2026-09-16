@@ -3,7 +3,7 @@
     python live_trace_probe.py [map] [--ms 90] [--gif live_trace.gif]
                                [--frames-dir <dir>] [--every 0.35]
 
-Runs the REAL Path Studio - the same Studio class, the same trace_live, the
+Runs the REAL Flight Studio - the same Studio class, the same trace_live, the
 same repaint - on a Tk root parked off-screen, and records the exact images it
 hands to its canvas. Nothing is clicked, nothing is scrolled, no window is
 brought to the front, so it can run while the machine is being used for

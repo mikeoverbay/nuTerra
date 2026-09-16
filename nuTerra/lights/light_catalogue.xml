@@ -28,7 +28,7 @@
                 Ignored for point.
     cone        full cone angle in degrees. 360 on a point, for readability.
     blend       0..1, how much of the cone is soft edge. 0 is a hard circle.
-    color       sRGB as authored, same convention Path Studio writes
+    color       sRGB as authored, same convention Flight Studio writes
     level       0..1, the fraction of the global Light Gain this emits
     range       metres. A light with no radius lights nothing.
     bulb        metres above the model ORIGIN - not the bounding box floor,

@@ -2,13 +2,13 @@
 
 A BULB is a light attached to a MODEL: a bulb in a street lamp's hood, a flame
 on a brazier. It is placed once, in the model's own space, and nuTerra puts one
-light at every instance of that model on the map. The lamps Path Studio places
+light at every instance of that model on the map. The lamps Flight Studio places
 on the 2D map are a different thing - those are placed on the terrain - and both
 end up in the same lamp path: the surface lighting, the shafts and the overlay.
 
 Everything lives in the map's `.campath`. `tools/cam_path.py` documents the
 record ("Bulb record"); `MapCamPath.vb` reads it and `SaveBulbs` rewrites only
-that block. Path Studio never edits bulbs but always carries them through - its
+that block. Flight Studio never edits bulbs but always carries them through - its
 `copy_with_lights` keeps the destination's bulb block on a route regenerate or a
 light save. A file from before bulbs has zeros in the header and reads as none.
 
@@ -113,7 +113,7 @@ the light going up, the post blocks it going down, and what escapes is a ring.
 Band width is `ang1 - ang0`, and `blend` softens both of its edges.
 
 `ang0 = ang1 = 0` means "derive the shape from `cone` and `blend`" - what every
-bulb authored before these fields carries, and what a Path Studio map light
+bulb authored before these fields carries, and what a Flight Studio map light
 always carries. Those render exactly as they did.
 
 **`MapCamPath.cone_cosines` is the one place that resolves the pair**, on the
@@ -153,7 +153,7 @@ existing file would have been destroyed rather than upgraded:
   bulbs. It now guards on `BULB_STRIDE_MIN` (224) and reads the two angles only
   when the stride covers them.
 - `cam_path.py` `_bulb_block` refused an older stride and reported "no bulbs",
-  so a Path Studio route regenerate would have **silently wiped placed bulbs**.
+  so a Flight Studio route regenerate would have **silently wiped placed bulbs**.
   It now accepts anything from `BULB_STRIDE_MIN` up.
 - `copy_with_lights` stamped the CURRENT stride onto a block copied at the
   file's own stride. It now carries the source stride through, so 224-byte
@@ -175,10 +175,10 @@ future field follows the same rule.
 
 ## Map lights carry the same shape (2026-09-09)
 
-The lights Path Studio places on the 2D map now carry the same shape fields a
+The lights Flight Studio places on the 2D map now carry the same shape fields a
 bulb does - kind, aim, the two half angles, blend, fog mix - in a 72-byte
 light record (`tools/cam_path.py`, "Light record"; 36 bytes before, 32 before
-`curve`). Path Studio shows them in a per-light editor window with the same
+`curve`). Flight Studio shows them in a per-light editor window with the same
 controls this panel has, a "Show shape" side view, and the fog curve editor.
 The aim is stored as an OFFSET from the light in metres, not a point, so a
 light can be moved without re-aiming it; a reader normalises it.

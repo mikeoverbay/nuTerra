@@ -5,7 +5,7 @@ highest thing standing there, how high it is, what kind of thing it is, and wher
 the bare terrain underneath sits.
 
 It is produced by `nuTerra/Scene/MapFlightBake.vb` at map load and written to
-disk. **Three sessions read it** - the camera flight planner, Path Studio's
+disk. **Three sessions read it** - the camera flight planner, Flight Studio's
 viewer and the tank AI's route resolver - and they read the FILES, not the code,
 so what follows is a contract rather than an implementation detail.
 
@@ -167,7 +167,7 @@ tree-keyed texel anywhere carries `outland_bit`. Do not read "inland" off it.
 **`solid_bit = 32` had an earlier, different meaning agreed and never shipped.**
 On 2026-09-11 the same bit value was agreed as a *trunk* stamp - a tree stem that
 survived a size threshold, `stem_min_m` - and that is what
-`HANDOFF_2026-09-11_tank_ai.md` and the 09-11 Path Studio handoff still describe.
+`HANDOFF_2026-09-11_tank_ai.md` and the 09-11 Flight Studio handoff still describe.
 No bake on disk ever carried that meaning, so there is no ambiguity in the DATA;
 the collision was in a reader written against the agreement rather than against
 the file. `stem_min_m` does not exist and is not coming. **This document and the
@@ -439,7 +439,7 @@ everything" button sets the same flag and reloads the map.
 **The meta is refreshed on the loaded path too, and written only if it would
 differ.** `export()` does not run on a cache hit, so without the refresh a saved
 bake would keep its original meta for ever and a reader waiting on a new key
-would wait for a rebake that has no reason to happen. And Path Studio stamps
+would wait for a rebake that has no reason to happen. And Flight Studio stamps
 these files every two seconds and reloads on a change that holds still, so
 rewriting an identical meta each launch would cost it a reload carrying nothing.
 

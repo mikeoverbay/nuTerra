@@ -16,7 +16,7 @@ Imports OpenTK.Mathematics
 ''' still shine through walls. There is no cone wide enough - it is the whole
 ''' sphere or nothing.
 '''
-''' Baked once because nothing here moves. The lamps are authored in Path Studio
+''' Baked once because nothing here moves. The lamps are authored in Flight Studio
 ''' and the geometry is static, so the per-frame shadow re-render a normal
 ''' engine needs is not needed here; the cost is at load. Re-baking is per lamp,
 ''' so nudging one lamp costs one lamp's worth of work, not all of them.
@@ -221,7 +221,7 @@ Public Class MapLampShadow
 
     ''' <summary>
     ''' The lamp in WORLD space. The file stores Y as metres ABOVE THE TERRAIN -
-    ''' Path Studio places on a 2D map and cannot know the ground - so it is
+    ''' Flight Studio places on a 2D map and cannot know the ground - so it is
     ''' resolved here, and it MUST be resolved the same way modRender does for
     ''' the light itself. A bake at one height and a light at another shadows
     ''' the scene from a lamp that is not there.
@@ -293,7 +293,7 @@ Public Class MapLampShadow
         Dim denom = far_m - z * (far_m - NEAR_M)
         Dim measured = If(Math.Abs(denom) < 0.0001F, -1.0F, far_m * NEAR_M / denom)
         ' Height ABOVE THE TERRAIN, resolved the same way for both kinds of
-        ' light. A Path Studio light stores its Y as exactly that, so this read
+        ' light. A Flight Studio light stores its Y as exactly that, so this read
         ' pos.Y straight - but a bulb light is ABSOLUTE, already transformed
         ' through its model instance, so on a map made entirely of bulbs that
         ' compared a distance against a world Y and reported the mismatch as a
@@ -310,7 +310,7 @@ Public Class MapLampShadow
     ''' How much of a lamp's own sky is taken up by whatever sits within a metre
     ''' of it - which for a bulb is its own fixture.
     '''
-    ''' A Path Studio lamp is a point floating in the air with nothing near it to
+    ''' A Flight Studio lamp is a point floating in the air with nothing near it to
     ''' occlude. A bulb is authored INSIDE a light model, and that model draws
     ''' into the cube like any other, so it shadows the light it is carrying.
     ''' This is the number that says whether that is happening, and it is not
@@ -380,7 +380,7 @@ Public Class MapLampShadow
     ''' skip_instance is the model instance carrying THIS lamp, left out of its
     ''' own cube - or -1 to draw everything, which is what the sun bake wants.
     '''
-    ''' A bulb is authored INSIDE a light fixture, which a Path Studio lamp
+    ''' A bulb is authored INSIDE a light fixture, which a Flight Studio lamp
     ''' floating in the air never was, and the fixture draws into the cube like
     ''' any other model - so it sealed its own bulb in. Measured on 19_monastery
     ''' before this: one street lamp saw an occluder across 100% of its cube at

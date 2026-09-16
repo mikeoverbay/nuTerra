@@ -148,7 +148,7 @@ NotInheritable Class MapMenuScreen
         Return ok
     End Function
 
-    ''' <summary>Write the split under TEMP so Path Studio uses the same answer
+    ''' <summary>Write the split under TEMP so Flight Studio uses the same answer
     ''' rather than carrying its own packed-XML reader.</summary>
     Private Shared Sub ExportSplit()
         Try

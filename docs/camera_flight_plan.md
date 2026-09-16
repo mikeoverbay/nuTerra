@@ -108,7 +108,7 @@ it (the depth shaders emit the kind as colour from a per-draw key, so the
 depth test leaves the topmost kind); `flight_plan.Bake` and
 `radar_commit.Bake` read either format, carry the kind through the 2048
 downsample as the kind of the tallest texel, and offer `kind_at(x, z)`;
-Path Studio colours the mask and the 3D boxes by kind with a legend. The
+Flight Studio colours the mask and the 3D boxes by kind with a legend. The
 palette is nuTerra's (the colour type is its job, 2026-09-12): when the meta
 carries `kind_N_rgb=r,g,b` beside `kind_N=`, both readers parse it into
 `bake.kind_rgb` and `path_studio.bake_kind_rgb(bake)` uses it for the mask,
@@ -143,7 +143,7 @@ stamp. `radar_commit.foliage_state(bake)` classes every tree-kind BLOB
 only a thin one (rose, grapevine), BUSH if neither (wild bush, ivy, a
 sapling). `gated_obstacle` keeps a TREE blob at every height - its low skirt
 blocks like the rest of it - and gates the other two by `KIND_MIN_H` as
-before. Path Studio paints the three states and the stamp cells over the
+before. Flight Studio paints the three states and the stamp cells over the
 tree colour, with a legend. A bake without `solid_bit` in its meta reads
 `solid = None`: the single tree colour and the height gate, exactly as
 today - never "everything solid" and never "nothing solid".
@@ -161,7 +161,7 @@ measured in `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` and untouched.
 The owner's idea: "draw rings and find areas as large as we can that the
 ring fits without hitting something; that whole area is safe; only zone
 radius checks, ten times faster." The Tank AI session cut it in nuTerra
-(distance transform, maximal discs, walked links) and Path Studio read the
+(distance transform, maximal discs, walked links) and Flight Studio read the
 file. Measured, it did not aid either consumer. Camera: as a fast accept
 in `bearing_ok` the shipped monastery route went 4571 -> 4903 m with four
 times the backups - a disc says the ground around a step is free, not that
@@ -370,7 +370,7 @@ that comparison needs. The switch is in and OFF.
 The loop is symmetric; the flight is not. Which side the navigator commits
 to, whether a lane is entered from its wide end or its narrow end, whether
 the corner after the start is a hairpin or a merge - all depend on the
-direction of travel. So Path Studio can fly the same loop both ways.
+direction of travel. So Flight Studio can fly the same loop both ways.
 
 - **Direction: auto / forward / reverse** on the left panel, behind the Edit
   path lock. auto flies both (the points in click order, then in reverse

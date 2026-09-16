@@ -400,7 +400,7 @@ per-light falloff curves and tuned monastery; the lights session before it is
 - Audit items unverified: depth bias growing as t^2 (~1 m at a 20 m rim), the
   cube baked from LOD 1.
 - `fog_noise_m` makes cells 32x smaller than its number says. Rename/rescale.
-- Path Studio's left column is 952 px tall; the notes block should move.
+- Flight Studio's left column is 952 px tall; the notes block should move.
 
 ## 10. The bloom chain - what is still open after 2026-09-08
 

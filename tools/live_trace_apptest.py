@@ -2,7 +2,7 @@
 
     python live_trace_apptest.py [map] [--ms 120] [--gif app_trace.gif]
 
-This is the app: a normal Path Studio window at a normal size and place. It is
+This is the app: a normal Flight Studio window at a normal size and place. It is
 driven the way a person drives it - a real <Button-1> on the map row, a real
 <Button-1> on Trace live - through `event_generate`, which enters at the same
 class bindings a physical click does. No pointer is moved and nothing is typed.

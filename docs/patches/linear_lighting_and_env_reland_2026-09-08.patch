@@ -338,7 +338,7 @@ index b4ead9f9..9fecfa45 100644
 +uniform int linear_lighting;
 +
  // --------------------------------------------------------------------------
- // Point lights loaded from the map's .campath, placed in Path Studio.
+ // Point lights loaded from the map's .campath, placed in Flight Studio.
  // --------------------------------------------------------------------------
 @@ -394,6 +421,12 @@ uniform vec3 LightPos;
  vec4 correct(in vec4 hdrColor, in float exposure, in float gamma_level){

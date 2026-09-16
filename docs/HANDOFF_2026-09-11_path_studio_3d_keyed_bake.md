@@ -1,7 +1,7 @@
-# Handoff — Path Studio: both directions, the 3D view, the 8K bake, the keyed bake
+# Handoff — Flight Studio: both directions, the 3D view, the 8K bake, the keyed bake
 
-2026-09-10/11, on `master`. Written by Fable, the Path Studio session
-(`Path Studio Work`). Follows `HANDOFF_2026-09-09_path_studio.md`, whose
+2026-09-10/11, on `master`. Written by Fable, the Flight Studio session
+(`Flight Studio Work`). Follows `HANDOFF_2026-09-09_path_studio.md`, whose
 section 8 this supersedes. A second session (`nuTerra work`) works the same
 checkout on Tanks and owns `nuTerra/`; the two now talk by the desktop app's
 session-to-session messages and keep to a file split (section 7).
@@ -123,7 +123,7 @@ its model came from, 8 kinds at most, one colour each.
 
 **Reading side, done (`a22944c4`):** both `Bake` classes take either format
 (`_load_layers`), carry the kind through the 2048 downsample as the kind of
-the tallest texel in each block, and offer `kind_at(x, z)`. Path Studio
+the tallest texel in each block, and offer `kind_at(x, z)`. Flight Studio
 colours the obstacle cells of the 2D mask and the 3D boxes by kind, names
 from the meta, legend bottom-left of the canvas. **VERIFIED** on a synthetic
 keyed bake re-encoded from the real 8192 monastery: heights back within
@@ -148,7 +148,7 @@ hence section 7.
 
 | session | owns |
 |---|---|
-| Path Studio | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, `docs/*path_studio*`, `docs/camera_flight_plan.md`, `docs/bulb_placer.md`, `CLAUDE.md` |
+| Flight Studio | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, `docs/*path_studio*`, `docs/camera_flight_plan.md`, `docs/bulb_placer.md`, `CLAUDE.md` |
 | nuTerra | everything under `nuTerra/` except `cam_paths/`, the rest of `docs/` |
 
 `MapFlightBake.vb` is theirs from here; my one edit is `61fcecb2`. Crossing
@@ -408,7 +408,7 @@ Controls: `tank_mat`, `gmm_curve` (0 raw / 1 Tank Exporter / 2 game),
 as we can that the ring fits without hitting something; that whole area is
 safe; no collision checks, only zone radius checks." The Tank AI session
 builds the machinery (distance transform of the free mask, maximal discs
-greedily largest-first, overlap graph, A* on the graph) and Path Studio
+greedily largest-first, overlap graph, A* on the graph) and Flight Studio
 READS its zone map, the way it reads the bake - the owner: "wait for path
 AI to kick out the zone map". The contract asked for: one file per MASK
 beside the bake (tank and camera masks are deliberately separate - a camera
@@ -521,7 +521,7 @@ number - is that session's to show the owner.
 
 ## 13. The height map watcher (evening)
 
-The owner: "keep Path Studio open but put a file watcher on our height
+The owner: "keep Path Studio open but put a file watcher on our height  [Path Studio is now Flight Studio]
 map." Every two seconds (`Studio.WATCH_MS`) the Studio stamps the loaded
 map's bake files (`_meta.txt`, `_top.rgba`/`_floor.r16` or the `.r32` pair)
 and compares them with what it loaded; a change that then holds still for
@@ -538,7 +538,7 @@ and the 3D camera kept.
 
 ## 14. Point-to-point routing, measured for the Tank AI session (night)
 
-The owner, to both sessions: "look at how Path Studio searches paths; it is
+The owner, to both sessions: "look at how Path Studio searches paths; it is  [Path Studio is now Flight Studio]
 point to point; we have 2; the algo should still apply." `radar_tangent.py`
 (direct / acceptance rings / fan tangents / bounded A*) measured tonight on
 the monastery: on the shipped 1,068-waypoint plan the deciding layer is

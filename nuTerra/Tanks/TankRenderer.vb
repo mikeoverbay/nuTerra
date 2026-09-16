@@ -1012,7 +1012,7 @@ Public Class MapTanks
                 ' turning, the braking and the backing out; the sim only says
                 ' which point. One goal assignment, then out of the way.
                 If TankSim.SIM_RUN AndAlso TankSim.HasPaths() Then
-                    ' TargetFor walks the hull along Ray Studio's run and
+                    ' TargetFor walks the hull along Tank Path Studio's run and
                     ' advances it on arrival - the first target is the start
                     ' point, and after that it is the path leaving it.
                     inst.drive.simTarget = TankSim.TargetFor(inst)

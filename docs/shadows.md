@@ -10,7 +10,7 @@ Three casters live in this renderer. Two are baked and current; one is parked.
 
 Both bakes exist for the same reason: **nothing they shadow moves.** Terrain and
 static models are fixed, the sun is fixed per map, and the lamps are authored in
-Path Studio. The per-frame shadow re-render a general engine needs is wasted
+Flight Studio. The per-frame shadow re-render a general engine needs is wasted
 work here, so the cost is paid once at load and the per-frame cost is the taps.
 
 ---
@@ -276,7 +276,7 @@ places that re-read the file (`FLY`, `Show Path`, `Show Lights`, `Reload Cam
 Path`) — those are UI code, a bake binds its own framebuffer and rewrites global
 depth state, and the fifth caller that forgets is only a matter of time.
 
-Re-baking is per lamp, so nudging one lamp in Path Studio costs one lamp's work.
+Re-baking is per lamp, so nudging one lamp in Flight Studio costs one lamp's work.
 
 ### The light volume that nothing reads
 
@@ -354,7 +354,7 @@ instead of six.
 | ↳ lamp penumbra (texels) | blur radius in shadow-map texels at the receiver; 0 is one fetch and a hard edge |
 
 **Menu → Flight Recorder → Reload Cam Path** re-reads the route and its lamps
-after a Path Studio save, and the cubes re-bake on the next frame.
+after a Flight Studio save, and the cubes re-bake on the next frame.
 
 **Headless** (see `Program.vb`)
 

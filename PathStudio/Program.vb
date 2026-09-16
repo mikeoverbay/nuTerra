@@ -2,7 +2,7 @@ Imports System.IO
 Imports System.Text
 
 ''' <summary>
-''' Launcher for Path Studio.
+''' Launcher for Flight Studio.
 '''
 ''' The application itself is the Python in tools\ - the planner, the radar
 ''' navigator, the smoother and the .campath writer, all of it tuned against
@@ -62,7 +62,7 @@ Module Program
             Launch(py, script, args)
 
         Catch ex As Exception
-            Fail("Path Studio could not start." & vbCrLf & vbCrLf & ex.ToString())
+            Fail("Flight Studio could not start." & vbCrLf & vbCrLf & ex.ToString())
         End Try
     End Sub
 
@@ -77,7 +77,7 @@ Module Program
     Private Function FindScript() As String
         ' SOURCE FIRST. The copy beside the exe is refreshed only when this
         ' project is rebuilt, so from a development tree it lags every edit to
-        ' tools\*.py - the button opened a Path Studio without the curve editor,
+        ' tools\*.py - the button opened a Flight Studio without the curve editor,
         ' the Bake button or the global_AM underlay hours after they landed.
         ' Walk up from the folder ABOVE the exe and take the first tools\ found:
         ' that is the repo when the exe sits in bin\Debug\..., and nothing when
@@ -182,7 +182,7 @@ Module Program
     ''' <summary>
     ''' Start it and get out of the way.
     '''
-    ''' Nothing is redirected here on purpose. Path Studio prints progress for
+    ''' Nothing is redirected here on purpose. Flight Studio prints progress for
     ''' its whole run, and a redirected pipe that nobody drains fills up and
     ''' blocks the writer - the app would hang part way through a route. The
     ''' preflight above is where errors get caught, precisely because its output
@@ -201,7 +201,7 @@ Module Program
     End Sub
 
     Private Sub Fail(message As String)
-        Windows.Forms.MessageBox.Show(message, "Path Studio",
+        Windows.Forms.MessageBox.Show(message, "Flight Studio",
                                       Windows.Forms.MessageBoxButtons.OK,
                                       Windows.Forms.MessageBoxIcon.Error)
     End Sub

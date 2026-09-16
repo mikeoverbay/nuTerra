@@ -287,7 +287,7 @@ structural fix, and it is not done.
 ## 7a. The gun flashes are in the lamps' array
 
 A tank firing puts a real point light at the muzzle, in the SAME array the map's
-lamps and the Path Studio lights use - `pl_pos` / `pl_color_level` / `pl_dir` /
+lamps and the Flight Studio lights use - `pl_pos` / `pl_color_level` / `pl_dir` /
 `pl_kind_blend`, uploaded by `upload_path_lights` in `modRender.vb`. There is one
 light loop in `deferred.frag` and a second one would be a second set of falloff,
 gain and shadow packing, drifting apart from the first.

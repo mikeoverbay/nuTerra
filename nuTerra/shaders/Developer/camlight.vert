@@ -5,7 +5,7 @@
 #define USE_PERVIEW_UBO
 #include "common.h" //! #include "../common.h"
 
-// A light placed in Path Studio, drawn as a translucent sphere the size of its
+// A light placed in Flight Studio, drawn as a translucent sphere the size of its
 // range. One unit sphere is uploaded once and every light reuses it - the
 // centre and the radius arrive as uniforms, so the buffer never changes and
 // there is nothing to rebuild when a path is reloaded.

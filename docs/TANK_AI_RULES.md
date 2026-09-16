@@ -23,7 +23,7 @@ on the owner, **OPEN** not started. "Verified" means seen driving, by the owner.
 - A* is parked. One planner: the flood-fill distance field (Lee / Dijkstra on
   the metre grid, `tank_tools/maze.py`). Re-planning after a go-around is a
   downhill walk from the new position, not a second algorithm.
-- Path Studio is on hold, not dead. Nothing here touches camera flight or its
+- Flight Studio is on hold, not dead. Nothing here touches camera flight or its
   path creation (`tools/`, `PathStudio/`, `nuTerra/cam_paths/`).
 
 ## Log

@@ -123,7 +123,7 @@ uniform float tank_env;
 uniform int   env_pmrem;
 
 // --------------------------------------------------------------------------
-// Point lights loaded from the map's .campath, placed in Path Studio.
+// Point lights loaded from the map's .campath, placed in Flight Studio.
 // --------------------------------------------------------------------------
 // WORLD space, exactly as the file stores them plus the terrain height the CPU
 // resolved. Not view space: the loop below already has to build a world normal
@@ -1778,7 +1778,7 @@ void main (void)
                 // gColor is Rgba8: everything over 1 clips, and it clips one
                 // channel at a time. A lamp authored (1.00, 0.85, 0.63) drives
                 // red past 1 first, then green, then blue - so a pool bright
-                // enough to see arrives WHITE, and the picker in Path Studio
+                // enough to see arrives WHITE, and the picker in Flight Studio
                 // is deciding nothing but the colour of the fringe. Scaling
                 // all three by a single factor cannot do that: the ratio
                 // between the channels is preserved exactly, at every

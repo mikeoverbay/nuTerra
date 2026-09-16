@@ -31,7 +31,7 @@
 ''' measured and removed: it cost 770 ms to build to save 33 ms of routing, and
 ''' its per-step test was 9x faster than CanStand while rejecting 44% of
 ''' genuinely drivable ground - a point in a disc's outer ring fails the radius
-''' test while a hull stands there perfectly well. The Path Studio session
+''' test while a hull stands there perfectly well. The Flight Studio session
 ''' measured the same failure from the camera end, where it made the shipped
 ''' route longer with four times the backups.
 '''

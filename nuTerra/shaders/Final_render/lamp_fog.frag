@@ -99,7 +99,7 @@ uniform float fog_density;
 // falloff decides how fast the pool fades across the ground; in the air it
 // decides how much of the sphere is worth seeing at all. One analytic shape
 // could not lengthen a shaft without brightening its core, which is what the
-// curve is for. Authored in Path Studio's curve editor, one 256-sample row per
+// curve is for. Authored in Flight Studio's curve editor, one 256-sample row per
 // curve in VM_FOG_Curve_<n>.png beside the .campath; each lamp picks a row.
 // Sampled by s = dist / range, 0 at the bulb, 1 at the edge of the range.
 layout(binding = 2) uniform sampler2D fog_curve;   // 256 x N_CURVES, R8

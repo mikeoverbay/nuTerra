@@ -41,7 +41,7 @@ Header - 128 bytes, little endian
    72  uint32   seed_count    number of seed records, may be 0
    76  uint32   seed_stride   bytes per seed record, 12
    80  float32  -             DEAD. Was seed_heading, the departure angle a
-                              drag used to set. Path Studio has no heading:
+                              drag used to set. Flight Studio has no heading:
                               a click starts the path and the points decide
                               the direction. Written as 0.0 and read by
                               nothing.
@@ -55,7 +55,7 @@ Header - 128 bytes, little endian
                               bytes; a shifted header costs every file.
    84  float32  seed_radius   loop radius asked for, metres
    88  uint32   seed_points   waypoints asked for around the ring
-   92  int32    seed_side     the turn direction verbatim as Path Studio
+   92  int32    seed_side     the turn direction verbatim as Flight Studio
                               carries it: +1 left, -1 right. SIGNED, and
                               stored without translation - mapping it to
                               0/1 lost the distinction, because -1 is
@@ -109,7 +109,7 @@ intent was in the operator's head.
 Bulb record - 232 bytes, after the lights. A BULB is a light attached to a
 MODEL: it is placed once, in the model's own space, by the Light Bulb Placer,
 and nuTerra puts one at every instance of that model on the map. The lights
-above are placed on the map by Path Studio; these are placed on a model. Both
+above are placed on the map by Flight Studio; these are placed on a model. Both
 end up in the same lamp path.
 
   off  type       field
@@ -157,7 +157,7 @@ Light record - 72 bytes, at header_size + count * stride + seed_count * seed_str
               (36 before the shape fields, 32 before `curve`)
 --------------------------------------------------------------------------
     0  x, y, z   world metres. y is metres ABOVE THE TERRAIN, not absolute -
-                 Path Studio places lights on a 2D map and has no height
+                 Flight Studio places lights on a 2D map and has no height
                  control, so it writes 0 and nuTerra resolves the ground.
                  This is the one field here that does NOT match the point
                  record's convention, and it is deliberate.
@@ -216,7 +216,7 @@ def campath_dir():
     "nuTerra/cam_paths", which is right in the repo and wrong everywhere else -
     running from the copy PathStudio deploys, it resolved to
     PathStudio\\bin\\Debug\\net6.0-windows\\nuTerra\\cam_paths, a folder that
-    does not exist. Path Studio then found no saved path to draw, and the
+    does not exist. Flight Studio then found no saved path to draw, and the
     exporter would have written new ones into bin.
 
     Walk up from this file and take the first that exists:
@@ -309,7 +309,7 @@ def pack_light(x, z, color="#ffffff", level=1.0, rng=12.0, y=0.0, curve=0,
                ang0=0.0, ang1=0.0, vol_mix=1.0):
     """One light, in the tuple order the record is written in.
 
-    `color` may be "#rrggbb" or an (r, g, b) triple of 0..1 floats. Path Studio
+    `color` may be "#rrggbb" or an (r, g, b) triple of 0..1 floats. Flight Studio
     holds the hex form because that is what a colour picker speaks. The shape
     arguments default to what every light was before they existed: a point,
     aimed down, fully in the fog.
@@ -465,7 +465,7 @@ def read_path(path):
     if magic == MAGIC_V1:
         raise ValueError(
             "this is a version 1 .campath, which carried no seed points. "
-            "Regenerate it in Path Studio.")
+            "Regenerate it in Flight Studio.")
     if magic != MAGIC:
         raise ValueError(f"bad magic {magic!r}, expected {MAGIC!r}")
     if len(raw) < HEADER_SIZE:
@@ -562,7 +562,7 @@ def read_path(path):
         # read_path keeps working unchanged.
         "lights": lights,
         # Model-attached lights, see the bulb record above. Placed by the Light
-        # Bulb Placer in nuTerra; Path Studio only carries them through.
+        # Bulb Placer in nuTerra; Flight Studio only carries them through.
         "bulbs": bulbs,
     }
     return meta, pts
@@ -604,7 +604,7 @@ def copy_with_lights(src, dst, lights=(), bulbs=None):
     risk losing one; this replaces only the light block and patches the two
     header words that describe it. Everything else is copied byte for byte.
 
-    BULBS ARE KEPT. Path Studio does not edit them - the Light Bulb Placer in
+    BULBS ARE KEPT. Flight Studio does not edit them - the Light Bulb Placer in
     nuTerra does - so unless a list is passed, the bulb block already in the
     DESTINATION survives a route regenerate or a light save, and a fresh
     generated source with none cannot wipe them. Pass bulbs=() to drop them

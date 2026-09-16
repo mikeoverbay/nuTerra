@@ -33,7 +33,7 @@ Public Class MapFlightBake
 
     ''' <summary>Texels a side. 8192 over a 1200 m map is 0.15 m per texel.
     ''' It was 2048 (0.59 m), and 1024 before that (1.17 m, a 3 m wall two
-    ''' cells wide). Path Studio reads width and height from the meta and
+    ''' cells wide). Flight Studio reads width and height from the meta and
     ''' works at 2048 whatever the bake is - block MAX for the top, so
     ''' anything a finer bake caught survives the downsample - so this can
     ''' move without breaking bakes already on disk. What it costs: two
@@ -253,7 +253,7 @@ Public Class MapFlightBake
     ''' first would swallow the railings. The order below is the one that
     ''' puts each of those where it belongs.
     '''
-    ''' Eight keys at most, agreed with Path Studio, who colours them.
+    ''' Eight keys at most, agreed with Flight Studio, who colours them.
     ''' </summary>
     ''' <summary>
     ''' Every name kind_of was asked about, and what it answered. Only collected
@@ -1430,7 +1430,7 @@ Public Class MapFlightBake
 
         ' The count comes from the SUN SHADOW cull, which was run for the sun's
         ' frustum rather than for this top-down ortho. If it is 0 here the bake
-        ' has no buildings in it at all and Path Studio cannot see them.
+        ' has no buildings in it at all and Flight Studio cannot see them.
         LogThis("flight bake: models drawn from the shadow indirect buffer, {0} draw(s)",
                 scene.static_models.indirectShadowMappingDrawCount)
 
@@ -1621,7 +1621,7 @@ Public Class MapFlightBake
     ''' </summary>
     ''' <summary>
     ''' The arena's playable box, for readers that need to know where the map
-    ''' ends - agreed with Path Studio and previously only inferable.
+    ''' ends - agreed with Flight Studio and previously only inferable.
     '''
     ''' NOT THE BAKE BOX. wx_min..wz_max is the terrain CHUNK footprint; this is
     ''' the box scripts/arena_defs declares, and the two are independently
@@ -1904,7 +1904,7 @@ Public Class MapFlightBake
     ''' <summary>
     ''' Write the meta ONLY IF IT WOULD DIFFER.
     '''
-    ''' Path Studio stamps the bake files every two seconds and reloads on a
+    ''' Flight Studio stamps the bake files every two seconds and reloads on a
     ''' change that holds still. Rewriting an identical meta every launch would
     ''' move its timestamp and cost them a reload that carries no new
     ''' information - so an unchanged meta is left alone, and "reloads on a real
@@ -1932,7 +1932,7 @@ Public Class MapFlightBake
         sb.AppendLine("bake_version=" & BAKE_VERSION)
         sb.AppendLine("game_version=" & game_version())
 
-        ' Provenance, asked for by Path Studio so its status line can say where a
+        ' Provenance, asked for by Flight Studio so its status line can say where a
         ' bake came from. `written` is when the BYTES were baked, not when this
         ' file was last touched - see meta_written.
         ' THE FULL PATH, not the file name. Three checkouts build this app on this

@@ -13,10 +13,10 @@ handoff's status banner before trusting it.
 |---|---|
 | **what is still open** | `open_threads.md` |
 | **the newest handoff: Tank AI - the navigation grid, the driver, the four deadlocks and what to measure** | `HANDOFF_2026-09-11_tank_ai.md` |
-| **the newest Path Studio handoff - START HERE for that lane: what is new and in flight since 09-11, plus `tools/route_sig.py`, route identity by what was passed and on which side (unwired)** | `HANDOFF_2026-09-12_path_studio.md` |
-| the Path Studio session before it: the keyed bake and its bits, foliage states, the sun shadow tiles, the tree/bush and olive findings, the tank-material switch, zoning measured and tossed, the height-map watcher, point-to-point routing | `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` |
+| **the newest Flight Studio handoff - START HERE for that lane: what is new and in flight since 09-11, plus `tools/route_sig.py`, route identity by what was passed and on which side (unwired)** | `HANDOFF_2026-09-12_path_studio.md` |
+| the Flight Studio session before it: the keyed bake and its bits, foliage states, the sun shadow tiles, the tree/bush and olive findings, the tank-material switch, zoning measured and tossed, the height-map watcher, point-to-point routing | `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md` |
 | **who works where: the three-session areas table and the owner's two standing rules** | `..\CLAUDE.md` (repo root, not in docs\) |
-| Path Studio the session before: the lane navigator, the Edit path lock, street-lamp light controls, the 72-byte light record | `HANDOFF_2026-09-09_path_studio.md` |
+| Flight Studio the session before: the lane navigator, the Edit path lock, street-lamp light controls, the 72-byte light record | `HANDOFF_2026-09-09_path_studio.md` |
 | the shading pass built, measured and REVERTED - environment specular, energy conservation, the Tank Exporter gloss/metal curves, Fresnel and wet-spec sliders; the diff is `patches/shading_pass_2026-09-08.patch`; read its section 3 before touching the resolve | `HANDOFF_2026-09-08_shading_pass.md` |
 | bulb sprites, emissive panes, the bloom chain, what the banding on smoke turned out to be, the lit smoke cards | `HANDOFF_2026-09-08_bloom_and_bulbs.md` |
 | the automated camera flight design | `camera_flight_plan.md` |
@@ -54,7 +54,7 @@ one is the specification, this one is what we actually do with it.
 | `shadows.md` | all three casters: the baked sun map, the baked lamp cubes, the parked cascades - and the traps they share |
 | `volumetric_fog.md` | froxel grids, per-light marching and analytic airlight against `lamp_fog.frag`; ranked changes, with sources |
 | `volumetric_fog_audit.md` | read-only audit of the shafts, the cube and both global fogs: 6 defects, 6 model errors, nits, perf, with line cites and how to confirm each; status banner says what is fixed |
-| `tk_event_traps.md` | Path Studio's Tk pickers: why a click loaded the wrong map, six times over - write-back, a threaded rebuild, a modal inside the handler, a discarded click, a key the widget class had already eaten, and a two-pixel drag walking the selection down the list - the trace that found them and `tools/picker_click_test.py` that clicks badly on purpose |
+| `tk_event_traps.md` | Flight Studio's Tk pickers: why a click loaded the wrong map, six times over - write-back, a threaded rebuild, a modal inside the handler, a discarded click, a key the widget class had already eaten, and a two-pixel drag walking the selection down the list - the trace that found them and `tools/picker_click_test.py` that clicks badly on purpose |
 | `ui_panels.md` | ImGui panels: where they live, the placement helpers, and why `imgui.ini` beats `FirstUseEver` |
 | `shader_ide.md` | the in-app shader IDE: a tab per stage, the trial-compile that keeps a broken shader out of the frame, the revert guard, the editor widget with compile errors on their lines, the BOM and window-placement traps |
 | `Tank Docs\` | the tank module - a vehicle loaded straight from the packages, kept out of the core: design paper, loader notes, verified formats |

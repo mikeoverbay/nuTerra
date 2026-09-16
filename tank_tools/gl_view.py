@@ -15,7 +15,7 @@ changed. On the GPU that is a texture and a quad, and it costs nothing until
 the data itself changes.
 
 WebGL is a browser thing; the equivalent here is OpenGL through PyOpenGL,
-which is already a dependency because Path Studio's GLView uses it. This
+which is already a dependency because Flight Studio's GLView uses it. This
 follows that file's pattern deliberately - GL 3.3 core, compileProgram, a HUD
 program that draws a texture in pixel space - so there is one way of doing
 this in the project rather than two.

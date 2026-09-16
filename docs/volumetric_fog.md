@@ -125,7 +125,7 @@ The shaft's radial falloff is no longer the one analytic shape scaled by
   made it are in the PNG's text metadata (`nuTerra.handles`) so the editor
   re-opens them. `tools/fog_curve.py` holds the math (monotone cubic through
   five handles: start at s = 0, two transitions, falloff start, end at s = 1
-  defaulting to 0) and the Tk editor Path Studio opens from **Curve editor...**.
+  defaulting to 0) and the Tk editor Flight Studio opens from **Curve editor...**.
 - **Record**: the campath light record grew 32 -> 36 bytes with a `uint32
   curve`; readers go by `light_stride`, so old files read as curve 0.
 - **Why**: one number moved the whole curve, so a longer shaft was always a

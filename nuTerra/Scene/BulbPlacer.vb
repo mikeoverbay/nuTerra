@@ -799,7 +799,7 @@ Public Class BulbPlacer
         If ImGui.IsItemHovered() Then
             ImGui.SetTooltip("Writes this model's lights into the bulb table of" & vbLf &
                              MAP_NAME_NO_PATH & ".campath. Other models' bulbs, the route" & vbLf &
-                             "and Path Studio's lights are copied through untouched.")
+                             "and Flight Studio's lights are copied through untouched.")
         End If
         If ImGui.Button("Reload from campath", New System.Numerics.Vector2(-1, 0)) Then pull_edits() : status = "reloaded"
         If status <> "" Then ImGui.TextWrapped(status)

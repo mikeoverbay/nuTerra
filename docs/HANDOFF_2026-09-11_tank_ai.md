@@ -270,13 +270,13 @@ one extra `read_heights` between `draw_models` and `draw_trees` in
 nuTerra Work session's, so the call is theirs to put to him - the Tank AI
 lane measured it and cannot fix it.
 
-**The solid bit** is designed, measured and agreed with the Path Studio
+**The solid bit** is designed, measured and agreed with the Flight Studio
 session but **not written**. It would label the connected components of the
 trunk mask and set bit `0x20` on those spanning `stem_min_m` 0.25 m or more,
 so a rose stem and a grapevine stop being obstacles while a real trunk does
 not. Contract: `solid_bit=32` and `stem_min_m` in the meta, bit `0x80`
 left as the raw stamp, readers never applying the threshold themselves.
-Path Studio's readers already handle it and treat an absent key as "no solid
+Flight Studio's readers already handle it and treat an absent key as "no solid
 information", falling back to the height gate. The component distribution
 was bimodal on the *old* bake — 41% single-texel stems against a mode at
 7–8 texels — and that measurement should be **redone on the new bake**
@@ -300,8 +300,8 @@ a path is the only kind that survives a busy day.
 | job | owns |
 |---|---|
 | **nuTerra Work** - engine, main UI, and producing the HEIGHT MAP and COLOUR TYPE | everything under `nuTerra/` except `Tanks/` and `cam_paths/` |
-| **Tank AI** - develop the AI path creation, and work with Path Studio to get it rendered | `nuTerra/Tanks/*`, `tank_tools/*` |
-| **Path Studio** - code Path Studio, work with Tank AI on the rendering | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, their docs, `CLAUDE.md` |
+| **Tank AI** - develop the AI path creation, and work with Flight Studio to get it rendered | `nuTerra/Tanks/*`, `tank_tools/*` |
+| **Flight Studio** - code Flight Studio, work with Tank AI on the rendering | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, their docs, `CLAUDE.md` |
 
 `nuTerra/Modules/modGlobalVars.vb` is SHARED: name the change and tell the
 others first. That has already caught a duplicate declaration.
@@ -312,11 +312,11 @@ ever written `RouteFilm.pixels` on either branch: it was a surface waiting for
 a producer, and `ray_studio.py` went its own way with a pygame window instead.
 The owner stopped an earlier removal of it with "we are not removing the fly
 path!", then settled it directly: "resolve path is not part of the path flying
-/ that can go". The fly path — `cam_paths`, the flight, Path Studio — was never
+/ that can go". The fly path — `cam_paths`, the flight, Flight Studio — was never
 involved.
 
 Still unsettled: `nuTerra/Scene/MapTankRays.vb`. It draws route CONTENT, which
-is the Tank AI lane, but it lives in nuTerra's tree. Tank AI and Path Studio both argued ONE AUTHOR PER
+is the Tank AI lane, but it lives in nuTerra's tree. Tank AI and Flight Studio both argued ONE AUTHOR PER
 FILE rather than splitting GL maintenance from content decisions inside one
 file - that split is exactly what the directory rule exists to prevent.
 
@@ -367,7 +367,7 @@ rather than asking him to measure something you could have measured.
 
 ## 10. Foliage, for whoever writes the navigator
 
-Added after the first draft, from the Path Studio session, who measured most
+Added after the first draft, from the Flight Studio session, who measured most
 of it. Attribution matters here because §8 tells you to re-measure two
 numbers and these are not among them — these hold.
 
@@ -404,7 +404,7 @@ solid bit thresholds a measured component size rather than a species.
 **The gate in `tools/` is the CAMERA's, not a tank's.** `KIND_MIN_H` /
 `TREE_MIN_H` 3.0 means "fly over foliage under 3 m". A tank's rule is a
 different question — what its hull hits — and should not reuse those
-constants. Path Studio offers `radar_commit.foliage_state(bake)` and
+constants. Flight Studio offers `radar_commit.foliage_state(bake)` and
 `bake.trunk` / `bake.solid` as the inputs for a drivable mask and will keep
 those signatures stable; ask them rather than reimplementing the read.
 
@@ -422,7 +422,7 @@ those signatures stable; ask them rather than reimplementing the read.
   vertex and index counts, mean `|ny|` and the share of near-vertical
   vertices, and the texture named. The facing columns are what ruled out
   "the foliage is edge-on to a top-down pass" as an explanation.
-- Path Studio has `verify_bake.py`, which joins those CSVs to a bake and
+- Flight Studio has `verify_bake.py`, which joins those CSVs to a bake and
   prints per-species height and footprint ratios. Ask them for a committed
   copy in `tools/` if you are going to iterate on the bake.
 
@@ -496,7 +496,7 @@ cast a short ray; if it is clear, move; if it hits, draw a ring at the hit
 point, expand it in 0.5 m steps until a tangent clears the obstacle, anchor
 there and carry on; sweep the opening bearing from left round to east.
 
-That is TangentBug (Kamon, Rimon, Rivlin, IJRR 17(9), 1998) - Path Studio
+That is TangentBug (Kamon, Rimon, Rivlin, IJRR 17(9), 1998) - Flight Studio
 identified it, and the same paper covers their fan silhouette and our
 expanding ring, which are two different objects that had both been called
 "rings" in conversation. Both exist because a ROBOT CANNOT SEE THE MAP.
@@ -544,8 +544,8 @@ known-good route: 6 m 100%, 12 m 100%, 25 m 100%, 50 m 96.9%, 90 m 89.2%.
 
 ### The joint recommendation
 
-Agreed between the Tank AI and Path Studio sessions: **the search plans the
-route, the short rays drive it.** Path Studio's own layer hit rates say the
+Agreed between the Tank AI and Flight Studio sessions: **the search plans the
+route, the short rays drive it.** Flight Studio's own layer hit rates say the
 same from the air: on their shipped monastery plan, direct 93%, ring 7%,
 search 0.3%, tangent **0 of 313 moves**; treated as two far-apart points,
 search 92-100% and their walker never arrived. The ray family is the DRIVER
@@ -577,7 +577,7 @@ ask a question the planner never asked** - that is the actual lesson. It was
 a net gain, not a cost: winning chains went 80 of 121 to 100, because erosion
 also deletes the narrow false passages that were luring chains into traps.
 
-Path Studio checked their side and are clean: `radar_commit` dilates the
+Flight Studio checked their side and are clean: `radar_commit` dilates the
 blocked set by `BODY_R` and the ground-reach set by `TERRAIN_R` in
 `build_world` before any ray is cast. **If any validator in nuTerra core
 derives from the same mask as the thing it validates, it has this hole.**

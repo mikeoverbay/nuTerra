@@ -15,8 +15,8 @@ capture or a code read, and the code reads say so.
 | `59e162ad` | menu bar no longer drawn over the map picker |
 | `f6da9047` `3a1fc537` | `volumetric_fog.md` (literature) and `volumetric_fog_audit.md` (what the shaft code got wrong) |
 | `c7382c36` | shaft fixes: extinction on every step; shaft honours the Lamp Shadows box; FrontFace set, not assumed; ClearColor restored by the Bulb Placer; fog box culling |
-| `3eecc170` | per-light falloff CURVES, `VM_FOG_Curve_0..2.png`, editor in Path Studio, campath light record 32 → 36 bytes |
-| `a845322a` | Path Studio light controls in their own right-hand panel |
+| `3eecc170` | per-light falloff CURVES, `VM_FOG_Curve_0..2.png`, editor in Flight Studio, campath light record 32 → 36 bytes |
+| `a845322a` | Flight Studio light controls in their own right-hand panel |
 | `251a27c1` | **global fog rebuilt**: distance + height from gPosition, tint / density / height / floor / noise settings |
 | `0b511ca3` | shaft gain, density, phase, steps, light gain, lamp shadows persisted per map |
 | `f4b9d644` `19a16aee` | 19_monastery tuned to the reference |
@@ -71,7 +71,7 @@ not move. Rename or rescale when convenient; both shaders use the same mapping.
 One analytic falloff could not lengthen a shaft without brightening its core.
 Each lamp now names curve 0, 1 or 2 — a 256-sample row in
 `nuTerra/cam_paths/VM_FOG_Curve_<n>.png` — and the shader samples it by
-`s = dist / range`. Path Studio has the editor (five draggable handles: start,
+`s = dist / range`. Flight Studio has the editor (five draggable handles: start,
 two transitions, falloff start, end pinned to zero; monotone cubic between).
 Handles live in the PNG's text metadata so the editor re-opens them. The
 campath light record grew to 36 bytes with a `uint32 curve`; both readers go by
@@ -130,7 +130,7 @@ blown-out sunset to the reference.
   runs before the tonemap when `fog_level > 0`. Weak, pre-tonemap, and
   redundant now; remove or fold in.
 - `fog_noise_m` is 32× the cell it makes. Rename or rescale.
-- Path Studio's left column is 952 px tall; the notes block is next to move.
+- Flight Studio's left column is 952 px tall; the notes block is next to move.
 - The owner's uncommitted `19_monastery.campath` and edited `VM_FOG_Curve_0.png`
   are theirs; `docs/fog-cube-01.jpg` is an untracked reference image.
 
@@ -166,7 +166,7 @@ request. `nuTerra.exe 19_monastery cam=<snapshot line>`.
 
 ---
 
-## 5. Later the same day: Path Studio bakes and shows the map
+## 5. Later the same day: Flight Studio bakes and shows the map
 
 Two additions to `tools/path_studio.py`, both pure Python, no nuTerra involved.
 

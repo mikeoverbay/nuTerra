@@ -32,7 +32,7 @@ Public Class MapCamPath
     Private Const HEADER_SIZE As Integer = 128
     Private Const POINT_STRIDE As Integer = 32
     Private Const SEED_STRIDE As Integer = 12
-    ''' <summary>What Path Studio emits: the 36 below plus kind, aim, cone,
+    ''' <summary>What Flight Studio emits: the 36 below plus kind, aim, cone,
     ''' blend, the two angles and vol_mix.</summary>
     Private Const LIGHT_STRIDE As Integer = 72
     ''' <summary>What a reader must ACCEPT - a light from before `curve` is 32
@@ -62,7 +62,7 @@ Public Class MapCamPath
     End Structure
 
     ''' <summary>
-    ''' A point that was CLICKED in Path Studio, as opposed to flown.
+    ''' A point that was CLICKED in Flight Studio, as opposed to flown.
     '''
     ''' nuTerra does not need these to fly - the route is the route - but they
     ''' are what the path was planned from, and having them here means the
@@ -78,7 +78,7 @@ Public Class MapCamPath
     Public seeds() As SeedPoint
 
     ''' <summary>
-    ''' A light placed in Path Studio, read from the tail of the .campath.
+    ''' A light placed in Flight Studio, read from the tail of the .campath.
     '''
     ''' Every field here reaches the deferred shader - position and range as
     ''' pl_pos_range, colour and level as pl_color_level - via
@@ -88,7 +88,7 @@ Public Class MapCamPath
     ''' </summary>
     Public Structure CamLight
         ''' <summary>World position. Y is metres ABOVE THE TERRAIN, not
-        ''' absolute - Path Studio places lights on a 2D map and writes 0, so
+        ''' absolute - Flight Studio places lights on a 2D map and writes 0, so
         ''' the ground height has to be resolved here. This is the one field
         ''' that does not follow the point record's convention.</summary>
         Public pos As Vector3
@@ -150,7 +150,7 @@ Public Class MapCamPath
     ''' A BULB: a light attached to a MODEL, placed once in the model's own
     ''' space by the Light Bulb Placer. At load nuTerra puts one at every
     ''' instance of that model on the map. The CamLights above are placed on
-    ''' the map by Path Studio; these are placed on a model. Both feed the same
+    ''' the map by Flight Studio; these are placed on a model. Both feed the same
     ''' lamp path. Record layout: tools/cam_path.py, "Bulb record".
     ''' </summary>
     Public Structure CamBulb
@@ -222,7 +222,7 @@ Public Class MapCamPath
     ''' matching its own pool of light.
     '''
     ''' With ang0 / ang1 unset - every bulb authored before those fields, and
-    ''' every Path Studio map light - a cone falls back to the shipped
+    ''' every Flight Studio map light - a cone falls back to the shipped
     ''' cone-plus-blend pair and renders exactly as it did.
     ''' </summary>
     Public Shared Sub cone_cosines(kind As Integer, cone As Single, blend As Single,
@@ -324,7 +324,7 @@ Public Class MapCamPath
     '''
     ''' TWO places can hold one and they are routinely different. The build
     ''' copies cam_paths beside the exe, which is also where an install puts it -
-    ''' but Path Studio writes to the PROJECT folder the build copies FROM. So
+    ''' but Flight Studio writes to the PROJECT folder the build copies FROM. So
     ''' the file saved next door and the file played here were not the same file,
     ''' re-reading found the same stale copy every time, and the only thing that
     ''' appeared to help was restarting after a build had quietly copied one over
@@ -336,7 +336,7 @@ Public Class MapCamPath
     ''' plain newest-wins walk therefore picks the copy MSBuild just dropped
     ''' beside the exe. That copy is gitignored and is replaced by the next
     ''' PreserveNewest copy, so a bulb table saved into it is invisible to git
-    ''' and one Path Studio regenerate away from being gone. A build output
+    ''' and one Flight Studio regenerate away from being gone. A build output
     ''' copy is a COPY; the master lives in the source tree.
     '''
     ''' Installed, there is no source tree - the only copy sits beside the exe
@@ -381,7 +381,7 @@ Public Class MapCamPath
     ''' <summary>
     ''' Set by every Load, cleared by whoever re-bakes off the back of it.
     '''
-    ''' The lamp shadow cubes are baked from these lights, so a Path Studio save
+    ''' The lamp shadow cubes are baked from these lights, so a Flight Studio save
     ''' picked up through the FLY / Show Path / Show Lights checkboxes moves the
     ''' lamps and leaves the cubes describing where they used to be. A flag
     ''' rather than a call from each of those three: they are UI code, a bake
@@ -394,7 +394,7 @@ Public Class MapCamPath
     ''' called from each of the UI paths that re-read the route.</summary>
     Public load_gen As Integer
     ''' <summary>Folder the .campath was read from. VM_FOG_Curve_&lt;n&gt;.png
-    ''' live beside it, so a Path Studio save of a curve is picked up by the
+    ''' live beside it, so a Flight Studio save of a curve is picked up by the
     ''' same Reload Cam Path that picks up the lamps.</summary>
     Public curve_dir As String
 
@@ -403,7 +403,7 @@ Public Class MapCamPath
     ''' Write the bulb block of the loaded .campath and nothing else. The
     ''' points, seeds and lights are copied byte for byte; the two header words
     ''' at 104 and 108 are patched; the bulb records follow. Same surgery as
-    ''' Path Studio's copy_with_lights, from the other side: Path Studio owns
+    ''' Flight Studio's copy_with_lights, from the other side: Flight Studio owns
     ''' the route and the map lights, nuTerra owns the bulbs, and each rewrites
     ''' only its own block.
     '''
@@ -477,7 +477,7 @@ Public Class MapCamPath
     ''' <summary>
     ''' The world position of light i, resolved ONE way for every consumer -
     ''' the surface lighting, the shadow bake, the shafts and the overlay. A
-    ''' Path Studio light stores Y as metres above the terrain; a bulb light
+    ''' Flight Studio light stores Y as metres above the terrain; a bulb light
     ''' is already absolute, transformed through its instance.
     ''' </summary>
     Public Function world_pos(i As Integer) As Vector3
@@ -620,9 +620,9 @@ Public Class MapCamPath
             Dim magic = BitConverter.ToUInt32(raw, 0)
             If magic = MAGIC_V1 Then
                 ' Named rather than lumped in with "bad magic", because this one
-                ' has a fix: it is an old file, and Path Studio writes the new
+                ' has a fix: it is an old file, and Flight Studio writes the new
                 ' one. A version 1 file carries no seed and cannot be upgraded.
-                LogThis("cam path: {0} is version 1 - regenerate it in Path Studio", path)
+                LogThis("cam path: {0} is version 1 - regenerate it in Flight Studio", path)
                 Return
             End If
             If magic <> MAGIC Then
@@ -739,7 +739,7 @@ Public Class MapCamPath
                 ' The shape fields came after the 36-byte record, and the
                 ' same rule again: by the stride the file declares. Until this
                 ' read existed every map light was a point aimed straight down
-                ' no matter what Path Studio had authored, so a file from
+                ' no matter what Flight Studio had authored, so a file from
                 ' before them takes exactly the values nuTerra used to assume
                 ' and nothing already on a map changes.
                 If light_stride >= LIGHT_STRIDE Then
@@ -1001,7 +1001,7 @@ Public Class MapCamPath
     ''' <summary>
     ''' Draw each light as a translucent sphere the size of its range.
     '''
-    ''' Nothing is LIT by these - they show what was authored in Path Studio,
+    ''' Nothing is LIT by these - they show what was authored in Flight Studio,
     ''' at the size it was authored at, which is the only way to judge whether
     ''' a range is sensible before there is any lighting to look at.
     ''' </summary>
@@ -1034,7 +1034,7 @@ Public Class MapCamPath
         GL.Disable(EnableCap.CullFace)
 
         For i = 0 To lights.Length - 1
-            ' y in the file is metres ABOVE THE TERRAIN - Path Studio places on
+            ' y in the file is metres ABOVE THE TERRAIN - Flight Studio places on
             ' a 2D map and writes 0 - so the ground is resolved here. Without
             ' this every light sits at world zero, which on most maps is under
             ' the landscape and invisible.

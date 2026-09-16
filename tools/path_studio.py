@@ -1,5 +1,5 @@
 """
-Path Studio - pick a map, click a start, click the points, generate a flight.
+Flight Studio - pick a map, click a start, click the points, generate a flight.
 
     python path_studio.py
 
@@ -918,7 +918,7 @@ class LightEditor:
 
         r = self.slider(f, r, "Level", "level", 0.0, 1.0, "%.2f")
         r = self.slider(f, r, "Range (m)", "range", 0.1, 50.0, "%.1f")
-        # Metres ABOVE THE TERRAIN. Path Studio is a 2D map and has no idea
+        # Metres ABOVE THE TERRAIN. Flight Studio is a 2D map and has no idea
         # what the ground does under a click, so the height is an offset and
         # nuTerra resolves the ground when it places the light.
         r = self.slider(f, r, "Height over ground (m)", "height", 0.0, 30.0, "%.1f")
@@ -2430,7 +2430,7 @@ void main() { o_rgb = texture(u_tex, v_uv); }
 class Studio:
     def __init__(self, root):
         self.root = root
-        root.title("nuTerra Path Studio")
+        root.title("nuTerra Flight Studio")
         # Before any widget is built - a style set afterwards leaves whatever
         # was created first wearing the old one.
         apply_dark(root)
@@ -4573,7 +4573,7 @@ class Studio:
                 except Exception:
                     pass
             self._locked = True
-            self.root.title("nuTerra Path Studio - LOCKED, a test has it")
+            self.root.title("nuTerra Flight Studio - LOCKED, a test has it")
             try:
                 self.status_lbl.configure(foreground="#ff9a6a")
             except Exception:
@@ -4588,7 +4588,7 @@ class Studio:
                     pass
             self._saved_tags = {}
             self._locked = False
-            self.root.title("nuTerra Path Studio")
+            self.root.title("nuTerra Flight Studio")
             try:
                 self.status_lbl.configure(foreground="")
             except Exception:

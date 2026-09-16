@@ -1,4 +1,4 @@
-# Tk event traps in Path Studio
+# Tk event traps in Flight Studio
 
 Six ways the map picker was made to load the wrong map, all found on
 2026-09-09 and all fixed. They are written down because none of them is
@@ -107,7 +107,7 @@ FIXED:   space on the list fired []               selection is now 04_himmelsdor
 ```
 
 One press of space loaded `01_karelia` over the `04_himmelsdorf` that had been
-clicked - trap #1 all over again, and no line of Path Studio does it.
+clicked - trap #1 all over again, and no line of Flight Studio does it.
 
 The fix has to replace the class script, not fight it:
 

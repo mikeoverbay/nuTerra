@@ -14,7 +14,7 @@ Y over 1.0 m solid, trees + fences + props exempt (a tank crushes them).
 Every route below was re-sampled at a quarter texel and none has a single
 sample inside solid ground.
 
-Written 2026-09-12 after the owner asked the Tank AI and Path Studio
+Written 2026-09-12 after the owner asked the Tank AI and Flight Studio
 sessions to settle the algorithm between them.
 
 ## The two answers, side by side
@@ -31,7 +31,7 @@ sessions to settle the algorithm between them.
 
 ## Why the ray family struggles HERE
 
-Path Studio's `tools/radar_tangent.py` solves this problem in the air and
+Flight Studio's `tools/radar_tangent.py` solves this problem in the air and
 its layer-3 docstring names our failure exactly:
 
 > A ring fitted round the blocker would be hopeless here; a circle round a
@@ -60,7 +60,7 @@ fan just reports blocked everywhere. Short looks are what work here.
 
 ## Why the search wins
 
-Path Studio's own reasoning for their layer 4:
+Flight Studio's own reasoning for their layer 4:
 
 > Wall-following exists because a robot cannot see the map. This one can -
 > the whole occupancy grid is in memory - so the way round is a search, not
@@ -102,7 +102,7 @@ walk, not of the map.
 
 ## Which planner: measured, not argued
 
-Path Studio's recommendation was Theta* (Nash, Daniel, Koenig, Felner,
+Flight Studio's recommendation was Theta* (Nash, Daniel, Koenig, Felner,
 JAIR 2010) - A* whose parent pointer skips to the furthest ancestor still in
 line of sight, so the path is taut through corners instead of zig-zagging on
 grid edges - with the note that grid A* plus a string-pull gets most of the
@@ -128,14 +128,14 @@ we cant find a way there, we are done" as an actual proof.
 
 ## Plan with the search, drive with the rays
 
-Path Studio's framing, and it is the one that reconciles the measurements
+Flight Studio's framing, and it is the one that reconciles the measurements
 with the owner's instruction: *the short ray is right for driving and wrong
 for planning, and those are two jobs.* The catalogue is built by search and
 held in memory; the tank then DRIVES that polyline and uses its 3 m rays for
 the local dodge - a shell hole, another tank, something the bake never knew
 about. The rays were never the wrong idea, they were the wrong layer.
 
-Also worth recording, from Path Studio's own instrumentation: on their
+Also worth recording, from Flight Studio's own instrumentation: on their
 shipped monastery plan their tangent layer fired 0 of 313 moves, and their
 point-to-point walker base-to-base never arrived at all - 438 m short one
 way, 357 m the other. Neither of their bug-walk layers is the workhorse.
@@ -156,7 +156,7 @@ crossing anything. No radius, no tolerance, no similarity score.
 **One dial, and it is in square metres of ground:** how big a thing has to be
 before going round its far side counts as a different route. `LANDMARK_M2`,
 default 100 m2, about ten metres across - a building, a walled yard. It is a
-FLOOR and never a ceiling (Path Studio's catch): a route going round the cliff
+FLOOR and never a ceiling (Flight Studio's catch): a route going round the cliff
 band the other way encloses a 54,000 m2 object, and a ceiling would delete
 exactly the case worth detecting.
 
@@ -214,13 +214,13 @@ replaced the proxy rather than being tuned better.
 
 ## The joint recommendation
 
-Agreed between the Tank AI and Path Studio sessions on 2026-09-12, put as
+Agreed between the Tank AI and Flight Studio sessions on 2026-09-12, put as
 one recommendation rather than two half-arguments:
 
 > **The search plans the route. The short rays drive it.**
 > In the air and on the ground alike.
 
-Path Studio's layer hit rates say the same thing from the other end. On
+Flight Studio's layer hit rates say the same thing from the other end. On
 their shipped monastery plan, where waypoints are close together: direct
 93%, ring 7%, search 0.3%, tangent **0 of 313 moves**. Treated as two far
 apart points, base to base: search 92-100%, and their walker never arrived.
@@ -241,7 +241,7 @@ rather than a longer ray.
 ## Which ring he meant
 
 Settled, and not the way it first looked. Two different objects share the
-name: Path Studio's acceptance ring is a tolerance around the TARGET; ours
+name: Flight Studio's acceptance ring is a tolerance around the TARGET; ours
 is an obstacle-rounding circle at the HIT POINT. The worry was that the
 owner had pictured theirs from watching the Studio, which would have meant
 a day spent building the wrong thing.

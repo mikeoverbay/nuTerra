@@ -117,7 +117,7 @@ Module modRender
             GL.Viewport(0, 0, MainFBO.width, MainFBO.height)
         End If
 
-        ' A Path Studio save, re-read through any of the campath checkboxes,
+        ' A Flight Studio save, re-read through any of the campath checkboxes,
         ' leaves the lamp cubes describing where the lamps used to be.
         '
         ' Checked HERE, at the top of the frame, and not inside the deferred
@@ -1796,7 +1796,7 @@ Module modRender
             ' The map lights first, then the bulb lights nearest the camera,
             ' until the 32 slots are full. The position comes from world_pos,
             ' the ONE place that knows whether a light's Y is above the terrain
-            ' (a Path Studio light) or absolute (a bulb on an instance).
+            ' (a Flight Studio light) or absolute (a bulb on an instance).
             Dim vis = cp.visible_lights(map_scene.camera.CAM_POSITION,
                                        MAX_PATH_LIGHTS - guns)
             n = vis.Length

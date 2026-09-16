@@ -21,7 +21,7 @@ the same time, with the owner.
 - `nuTerra/cam_paths/*.campath` are committed with the work that made them;
   never hand-edit one.
 - No subagent fan-out or Workflow runs on this repo.
-- Three sessions as of 2026-09-11 evening: Path Studio (this file's owner)
+- Three sessions as of 2026-09-11 evening: Flight Studio (this file's owner)
   and nuTerra work (Tanks, render, bake) share THIS checkout on `master`;
   Tank AI (`docs/HANDOFF_2026-09-11_tank_ai.md`) works by the owner's
   decision in its OWN clone, `C:
@@ -40,7 +40,7 @@ uTerralight` (per USER, `MapFlightBake.vb:753`)
   its write time against the run that made it; provenance keys in the meta
   (exe, built, written) are requested from the writer.
   Every nuTerra a session launches carries its name in the title bar:
-  pass `"owner=Path Studio"` (QUOTED - unquoted it splits into two arguments)
+  pass `"owner=Flight Studio"` (QUOTED - unquoted it splits into two arguments)
   on the command line; the tag reads straight off
   `Environment.GetCommandLineArgs()` and shows as `nuTerra - <map>   [tag]`.
   The owner asked for this with three identical windows on one desktop
@@ -51,10 +51,10 @@ uTerralight` (per USER, `MapFlightBake.vb:753`)
   fixes in the engine, the main nuTerra UI, offering up knowledge, and
   producing the HEIGHT MAP and the COLOUR TYPE (the bake, the kind
   classification, the palette: a data product the other two ask for). Tank
-  AI - develop the AI path creation, and work with Path Studio to get it
-  rendered. Path Studio - code Path Studio, and work with Tank AI to
+  AI - develop the AI path creation, and work with Flight Studio to get it
+  rendered. Flight Studio - code Flight Studio, and work with Tank AI to
   develop the rendering. Route CONTENT - what is drawn, to the base, in
-  what colours - is Tank AI's and Path Studio's even when the panel lives
+  what colours - is Tank AI's and Flight Studio's even when the panel lives
   in nuTerra's UI (the Route resolver panel is plumbing only). Standing
   rules, his words: "If I ask something that isn't in your job list, ask me
   first" and "auto hand off the work if I ask the wrong session and let me
@@ -66,7 +66,7 @@ uTerralight` (per USER, `MapFlightBake.vb:753`)
   flight bake's contract lives in `<map>_meta.txt` (kind_mask, outland_bit,
   trunk_bit, trunk_radius; solid_bit and stem_min_m once written) and the
   readers in `tools/` take every bit from there - the writer must not move a
-  bit without telling the Path Studio session. The 0.25 m stem threshold was
+  bit without telling the Flight Studio session. The 0.25 m stem threshold was
   measured on the pre-alpha-fix bake and must be re-measured on the current
   one before it is fixed.
 - Building from the agent shell WORKS, despite what older notes say:
@@ -95,7 +95,7 @@ tree is split, and a session stays on its side.
 
 | session | owns |
 |---|---|
-| **Path Studio** | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, `docs/*path_studio*`, `docs/camera_flight_plan.md`, `docs/bulb_placer.md`, `CLAUDE.md` |
+| **Flight Studio** | `tools/`, `PathStudio/`, `nuTerra/cam_paths/`, `docs/*path_studio*`, `docs/camera_flight_plan.md`, `docs/bulb_placer.md`, `CLAUDE.md` |
 | **Tank AI** | `nuTerra/Tanks/`, `tank_tools/` (in its own clone until the owner merges) |
 | **nuTerra Work** | everything else under `nuTerra/`, and the rest of `docs/` |
 | shared | `nuTerra/Modules/modGlobalVars.vb` - name the change, tell the others |
@@ -103,7 +103,7 @@ tree is split, and a session stays on its side.
 Agreed between the three sessions 2026-09-12 at the owner's instruction
 ("talk to the sessions and decide on what areas each will handle"). ONE
 AUTHOR PER FILE - a two-author file is what this table exists to prevent.
-Path Studio owns no VB file: what it draws of a route it draws in Python on
+Flight Studio owns no VB file: what it draws of a route it draws in Python on
 its own canvas; route content in nuTerra's window is Tank AI's. The bake:
 reading it as data and deriving geometry from it is the reader's; what a
 kind MEANS, what is in a bin, the palette and the writer are nuTerra Work's
@@ -117,7 +117,7 @@ by name), and wait for it. Never edit a file that shows as modified in
 
 ## Always start the thing you just built
 
-- **Path Studio** (`tools/*.py`): when an edit is done, kill every
+- **Flight Studio** (`tools/*.py`): when an edit is done, kill every
   `python.exe` running `path_studio.py` and start a fresh one from
   `C:\nuTerra\tools` (`python path_studio.py`, detached). No question - the
   Studio imports the tools once at launch and the edit is invisible until
@@ -127,7 +127,7 @@ by name), and wait for it. Never edit a file that shows as modified in
 - The owner's own running nuTerra instance is his: ask before stopping it
   unless he has handed the helm.
 
-## Path Studio
+## Flight Studio
 
 The app is the Python in `tools/`; `PathStudio/Program.vb` only launches it.
 `radar_commit.py` is the navigator and its docstring is the authority on the

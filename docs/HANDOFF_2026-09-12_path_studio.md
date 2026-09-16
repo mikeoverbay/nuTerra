@@ -1,4 +1,4 @@
-# Handoff - Path Studio session, 2026-09-12 (to a new session)
+# Handoff - Flight Studio session, 2026-09-12 (to a new session)
 
 Written at the end of the Fable session's budget. Read `CLAUDE.md` first: it
 carries the three-session areas table, the two standing rules, the build
@@ -9,7 +9,7 @@ IN FLIGHT since that one.
 
 ## Who you are
 
-The **Path Studio** session: `tools/`, `PathStudio/`, `nuTerra/cam_paths/`,
+The **Flight Studio** session: `tools/`, `PathStudio/`, `nuTerra/cam_paths/`,
 `docs/*path_studio*`, `docs/camera_flight_plan.md`, `docs/bulb_placer.md`,
 `CLAUDE.md`. No VB file is yours. The other two sessions are **nuTerra Work**
 (engine, UI, the height map and the colour type - id
@@ -23,7 +23,7 @@ and engine fixes and owns `docs/README.md`.
 The owner's rules, his words: "If I ask something that isn't in your job
 list, ask me first" and "auto hand off the work if I ask the wrong session
 and let me know." "Close the app when you finished" - and relaunch the
-Studio after every tools edit. Launch nuTerra with `"owner=Path Studio"`
+Studio after every tools edit. Launch nuTerra with `"owner=Flight Studio"`
 (quoted) and stop it by exe PATH, never by name. Never `git add .`; commit
 by explicit path. Measure; hand visual judgement to the owner. Write into
 `C:\nuTerra` with Bash/python (the Write tool refuses the base checkout
@@ -33,7 +33,7 @@ scratchpad - see the 09-11 handoff for the pattern and the CRLF/`'''` traps).
 ## State of the tree (master, `C:\nuTerra`)
 
 Everything of ours is committed through `69b0c34e` except the module below.
-Path Studio is open on 19_monastery (pythonw 32480) with the height-map
+Flight Studio is open on 19_monastery (pythonw 32480) with the height-map
 watcher. No nuTerra of ours is running.
 
 Landed today: the height-map watcher (a re-baked map reloads in place, route

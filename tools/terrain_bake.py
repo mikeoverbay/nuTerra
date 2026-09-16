@@ -2,7 +2,7 @@
 """Terrain-only flight bake from the game pkg, and the map's global_AM.
 
 WHAT THIS IS
-    Path Studio needs a bake - top.r32, floor.r32, mask.png, meta.txt in
+    Flight Studio needs a bake - top.r32, floor.r32, mask.png, meta.txt in
     %TEMP%\\nuTerra\\flight - before it can show a map or plan a route. nuTerra
     writes one on map load (MapFlightBake: two depth renders of the loaded map,
     terrain + models + trees). This is the Python stand-in for maps that have
@@ -311,7 +311,7 @@ def bake_is_python(folder, map_name):
         # "source=python-boxes" now that it records model boxes, and this
         # still looked for "source=python-terrain" - so every python bake
         # reported as a nuTerra one, and the "replace the real bake?" guard
-        # in Path Studio warned about overwriting something it had written
+        # in Flight Studio warned about overwriting something it had written
         # itself while giving no warning for the case it exists to catch.
         return "source=python" in open(p, encoding="utf-8", errors="replace").read()
     except OSError:

@@ -1028,7 +1028,7 @@ Module modGlobalVars
     '''
     ''' Sits with SHOW_CAM_PATH rather than with the Overlays group: both are
     ''' overlays of the SAME FILE, and both have to re-read it when switched on
-    ''' because a Save in Path Studio is what changes it.
+    ''' because a Save in Flight Studio is what changes it.
     ''' </summary>
     Public SHOW_CAM_LIGHTS As Boolean = False
 
@@ -1052,7 +1052,7 @@ Module modGlobalVars
     Public STREET_LIGHTS_ON As Boolean = True
 
     ''' <summary>
-    ''' The .campath file's OWN lights - the ones placed in Path Studio, which
+    ''' The .campath file's OWN lights - the ones placed in Flight Studio, which
     ''' come first in lights() and are what the shadow cubes are baked for.
     ''' Same deal: left out of the upload, nothing destroyed.
     ''' </summary>

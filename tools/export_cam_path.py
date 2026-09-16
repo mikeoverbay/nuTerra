@@ -673,7 +673,7 @@ def _max_dev(pts, nx, nz):
 def main(out_dir=None, seed=None, on_step=None, average_n=0, diag_dir=None):
     """Raises RuntimeError on a bad export, NOT SystemExit.
 
-    out_dir overrides where the .campath lands. Path Studio passes a scratch
+    out_dir overrides where the .campath lands. Flight Studio passes a scratch
     folder so that generating a route does not publish it - the file in
     cam_paths is what nuTerra flies, and replacing it should be a decision,
     not a side effect of pressing Generate.
@@ -697,7 +697,7 @@ def main(out_dir=None, seed=None, on_step=None, average_n=0, diag_dir=None):
     # into the build output, so a debug PNG left there would ship. The CSV and
     # the bank picture join the rest of the diagnostics in TEMP - or in
     # diag_dir when the caller flies the same map more than once and needs
-    # each run kept apart, which Path Studio does for the two directions.
+    # each run kept apart, which Flight Studio does for the two directions.
     diag = diag_dir or nav.FOLDER
     os.makedirs(diag, exist_ok=True)
     binp = os.path.join(out_dir, map_name + ".campath")

@@ -45,7 +45,7 @@ layout(location = 1) out vec4 bake_key;
 //
 // Location 2, the third attachment: WHICH object is on top, where the key
 // channel says only what KIND it is. The owner's ask - "render ids so we know
-// what is what on the map, colors is not enough" - and the reason Path Studio's
+// what is what on the map, colors is not enough" - and the reason Flight Studio's
 // route signature has to split a kind mask into components today: two adjacent
 // buildings are one blob of key 1 and it cannot tell them apart.
 //

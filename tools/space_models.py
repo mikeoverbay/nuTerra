@@ -1,6 +1,6 @@
 """Model instances and their bounding boxes, straight out of a map's space.bin.
 
-Path Studio's Python bake used to write `top` equal to `floor` - terrain only,
+Flight Studio's Python bake used to write `top` equal to `floor` - terrain only,
 nothing standing on it - so the router saw a map with no obstacles at all and
 would happily fly a course through a town. nuTerra's own GPU bake draws the
 models, but only after you have opened the map in it once, and the Python bake

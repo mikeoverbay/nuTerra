@@ -1,4 +1,4 @@
-"""Ray Studio - watch the tank route resolver hunt, live.
+"""Tank Path Studio - watch the tank route resolver hunt, live.
 
 The owner, after closing two nuTerra windows full of tanks doing things:
 
@@ -14,7 +14,7 @@ except the search.
 WHY IT IS PYTHON AND NOT IN THE APP. An algorithm you are still designing wants
 a loop you can go round in a second. The VB version takes forty seconds to
 build and run before a single pixel appears, which is why the resolver spent an
-afternoon being wrong in ways nobody could see. Path Studio exists for the same
+afternoon being wrong in ways nobody could see. Flight Studio exists for the same
 reason and this is deliberately its sibling: same idea, different space - it
 resolves ground routes where that one resolves camera flights.
 
@@ -87,7 +87,7 @@ ROADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "roads")
 
 
 def check_against_squares(g, map_name):
-    """Does Ray Studio's crushable rule still agree with the app's?
+    """Does Tank Path Studio's crushable rule still agree with the app's?
 
     THE FOURTH COPY PROBLEM. The app collapsed its three copies of the
     crushable rule into MapFlightBake.Crushable; this one is in Python and
@@ -110,7 +110,7 @@ def check_against_squares(g, map_name):
        is needed here - and none is applied. Do not add one.
     2. A 1 m square covers about 34 of the bake's 0.171 m texels. Sampling the
        CENTRE texel under-reports solid, and only ever downward, which reads
-       exactly like "Ray Studio is more permissive than the app". It is not;
+       exactly like "Tank Path Studio is more permissive than the app". It is not;
        it is the wrong reduction. A square is solid if ANY texel in it is.
 
     Returns (agreement, app_only, mine_only). A healthy result is agreement
@@ -203,7 +203,7 @@ MAX_OBSTACLE_M = 1.0
 # THE OLDEST BAKE THIS READER TRUSTS.
 #
 # The app self-invalidates: MapFlightBake bumps BAKE_VERSION when the meaning
-# of the bake changes, and refuses anything older. Ray Studio never read the
+# of the bake changes, and refuses anything older. Tank Path Studio never read the
 # field at all - it mentioned it in five comments and checked it nowhere - so
 # it went on sweeping roads against a bake whose trunks were drawn at a flat
 # 0.6 m after the app had moved to per-species radii. The bake looked fine.
@@ -246,7 +246,7 @@ def bits_from_meta(meta, map_name=""):
     CLAUDE.md: "the flight bake's contract lives in <map>_meta.txt (kind_mask,
     outland_bit, trunk_bit, trunk_radius; solid_bit and stem_min_m once
     written) and the readers in tools/ take every bit from there - the writer
-    must not move a bit without telling the Path Studio session."
+    must not move a bit without telling the Flight Studio session."
 
     This reader did not. kinds_from_meta has always read the kind NUMBERS out
     of the meta, but the four bits beside them were module constants - 7, 16,
@@ -425,7 +425,7 @@ def build_grid(map_name, hull_r_m):
     # them into MapFlightBake.Crushable. This one is in a different language
     # so it cannot call that, which makes it the copy most likely to drift:
     # it drifted for exactly as long as it took to be told. If the app's
-    # version changes, this line changes in the same hour or Ray Studio
+    # version changes, this line changes in the same hour or Tank Path Studio
     # sweeps roads the tanks cannot drive.
     crushable = ((kind == k_fence) | (kind == k_prop) |
                  ((kind == k_tree) & ~solid & ~trunk))
@@ -515,7 +515,7 @@ def build_grid(map_name, hull_r_m):
     # of bare geometry is not an object - a wall that touches a cliff is one
     # blob - but the key byte already says which is which per texel, so the
     # blob can be split where the KIND changes without waiting for render ids.
-    # Path Studio's suggestion, and it costs nothing because the data is here.
+    # Flight Studio's suggestion, and it costs nothing because the data is here.
     return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide,
                 collide_hull=collide_hull, used=None,
                 kind=kind, trunk=trunk,
@@ -667,7 +667,7 @@ REACH_M = 12.0
 # view already draws round each base rather than a number invented here.
 #
 # REACH_M is 12 m and is about a ray noticing the flag; this is about a tank
-# having ARRIVED. Aim at the disc, not the mark - Path Studio measured team 2's
+# having ARRIVED. Aim at the disc, not the mark - Flight Studio measured team 2's
 # mark at 2.39 m of clearance against a 2.25 m hull radius, so the mark itself
 # is very nearly not standable and is the wrong thing to require.
 BASE_RING_M = 50.0
@@ -1057,7 +1057,7 @@ def main():
     # whichever one SDL felt like and gets clamped: I asked for 1920x993 at
     # (0,31) and got 974x1039 at (953,0).
     #
-    # Path Studio has had this right all along and the owner sent me to look:
+    # Flight Studio has had this right all along and the owner sent me to look:
     # tools/path_studio.py sets NO window position, takes a plain fixed SIZE
     # with RESIZABLE, and lets the window manager place it. So does this now -
     # and then asks Windows to MAXIMISE it, which is what "windowed fill
@@ -1148,7 +1148,7 @@ def main():
     # goes in the caption AND is drawn inside the window - a title bar can end
     # up off the screen, as this one just did.
     OWNER_NAME = "Tank AI work"
-    pygame.display.set_caption(f"Ray Studio - {OWNER_NAME} - {map_name}")
+    pygame.display.set_caption(f"Tank Path Studio - {OWNER_NAME} - {map_name}")
     font = pygame.font.SysFont("consolas", 16)
 
     # The map, once. Everything else is drawn over it each frame.
@@ -1243,7 +1243,7 @@ def main():
                     sweep_roads also solves two hookup legs: base -> first road
                     point and last road point -> opposite base. Those are useful
                     to prove the lane can be reached, but they are NOT part of
-                    the road Ray Studio edits or saves. The solver gives us the
+                    the road Tank Path Studio edits or saves. The solver gives us the
                     two real lane endpoints as `start` and `via`; cut the point
                     list to those two markers, inclusive.
                     """
@@ -1611,7 +1611,7 @@ def main():
         lines = 0
         for road_index, road in enumerate(maze_roads):
             # WHICH SIDE THIS ROAD SERVES, kept as a BITMASK - 1, 2, or 3.
-            # It stays a mask because the file format uses one, but Ray Studio
+            # It stays a mask because the file format uses one, but Tank Path Studio
             # NEVER joins team 1 and team 2 networks. Dragging, line joins and
             # merges are all guarded below, so a new team=3 point is not a legal
             # editing result. The team key in vert() also keeps automatic route
@@ -1681,7 +1681,7 @@ def main():
         home for the BAKE, which is derived and costs seconds to rebuild. It
         is the wrong home for a graph somebody drew by hand.
 
-        The shared folder is outside both checkouts on purpose: Ray Studio
+        The shared folder is outside both checkouts on purpose: Tank Path Studio
         runs out of one and nuTerra.exe may be run from the other, and a path
         relative to either would hand the two of them different files without
         ever saying so.
@@ -1711,7 +1711,7 @@ def main():
 
         d = edit.to_dict()
 
-        # Save the SAME point kind Ray Studio shows in the selection panel.
+        # Save the SAME point kind Tank Path Studio shows in the selection panel.
         # It is derived from the graph (fork/end/through/loose), so writing it
         # here is diagnostic convenience, not a second source of truth.
         for rec in d.get("nodes", ()):
@@ -3794,7 +3794,7 @@ def catalogue(g, start, goal, max_routes=8, cell_m=1.37):
 # ANY-ANGLE: Lazy Theta*
 # --------------------------------------------------------------------------
 #
-# Path Studio's recommendation, and the published answer for a grid we can see
+# Flight Studio's recommendation, and the published answer for a grid we can see
 # all of: Theta* (Nash, Daniel, Koenig, Felner, JAIR 2010) is A* whose parent
 # pointer skips to the furthest ancestor still in line of sight, so the path
 # comes out taut through the corners instead of zig-zagging along grid edges.
@@ -3952,7 +3952,7 @@ def theta_route(g, start, goal, cell_m=1.37):
 def sig_radius(g):
     """How far either side of the path counts as having passed something.
 
-    DERIVED, not chosen. Path Studio caught this: a free constant here lets a
+    DERIVED, not chosen. Flight Studio caught this: a free constant here lets a
     threshold back in through the side door, which is the exact thing the
     signature was built to get rid of. The obstacle map is already grown by the
     hull radius, so an obstacle at zero distance is one the hull touches; one
@@ -3976,7 +3976,7 @@ def object_map(g):
     of one meaningless blob. Trunks are labelled separately again: a stamped
     tree is an object whatever canopy it stands in.
 
-    Path Studio's suggestion. Their third option - watershed on the distance
+    Flight Studio's suggestion. Their third option - watershed on the distance
     transform of the solid, split at its necks - is deliberately NOT done here:
     it is a guess at what render ids will say outright, so it waits for them.
     """
@@ -4215,7 +4215,7 @@ def landmark_index(g, min_area_m2=LANDMARK_M2):
     lab, n = object_map(g)
     idx = np.arange(1, n + 1)
     area = np.array(ndsum(lab > 0, lab, idx)) * g["texel_m"] ** 2
-    # A FLOOR, NEVER A CEILING. Path Studio's catch: a route that goes round
+    # A FLOOR, NEVER A CEILING. Flight Studio's catch: a route that goes round
     # the cliff band the other way encloses a 54,000 m2 object, and excluding
     # the big ones would delete exactly the case worth detecting.
     keep = np.zeros(n + 1, dtype=bool)

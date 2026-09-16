@@ -1,4 +1,4 @@
-# Handoff — Path Studio: the lane navigator, the lock, the lamp-shaped lights
+# Handoff — Flight Studio: the lane navigator, the lock, the lamp-shaped lights
 
 **Superseded in part.** `HANDOFF_2026-09-11_path_studio_3d_keyed_bake.md`
 carries the two days after this one - both directions, the GPU 3D view, the
@@ -6,7 +6,7 @@ carries the two days after this one - both directions, the GPU 3D view, the
 2-5 here still describe the code as it is.
 
 2026-09-09, on `master`. Written by Fable (Opus started the day). Scope was
-**Path Studio only** — `tools/*.py` — on the owner's instruction; nothing in
+**Flight Studio only** — `tools/*.py` — on the owner's instruction; nothing in
 `nuTerra/` was touched by this work. Fable's other session landed the Tanks
 and Shader IDE commits alongside.
 
@@ -21,7 +21,7 @@ Three commits on top of `48ec2f78`:
 
 1. **Navigator** — `tools/radar_commit.py`, `tools/lane_test.py`,
    `docs/camera_flight_plan.md` (step 4b).
-2. **Path Studio + light record** — `tools/path_studio.py`,
+2. **Flight Studio + light record** — `tools/path_studio.py`,
    `tools/cam_path.py`, `docs/bulb_placer.md`, the owner's regenerated
    `nuTerra/cam_paths/19_monastery.campath` and his `VM_FOG_Curve_0.png`.
 3. **`CLAUDE.md`** — the repo had none; the rules the owner gave across
@@ -82,7 +82,7 @@ comes round. Sweep of `TURN_STEP_DEG` × `LOOKAHEAD` (8/10/12 × 14/20/26):
 combination. Constants left at 8/14. A route drawn without a hairpin does
 not show it. Not re-tuned against the owner's eye.
 
-## 3. Path Studio (`tools/path_studio.py`)
+## 3. Flight Studio (`tools/path_studio.py`)
 
 All on the owner's instructions, in this order:
 
@@ -166,7 +166,7 @@ the keeper is his call.
 
 ## 7. Etiquette carried forward (now in `CLAUDE.md`)
 
-- Path Studio only, when told so — and kill/relaunch the Studio after every
+- Flight Studio only, when told so — and kill/relaunch the Studio after every
   edit without asking.
 - Two sessions on one checkout: check state before acting, never stage the
   other's files, pull before push.

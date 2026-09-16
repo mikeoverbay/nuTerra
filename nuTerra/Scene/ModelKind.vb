@@ -9,7 +9,7 @@
 ''' Brain Testing shades buildings by kind: "shade models by type", the
 ''' owner, 2026-09-16. It uses THIS table, not one of its own - two palettes
 ''' for one set of kinds is two legends to learn, and he has been reading
-''' this one since Path Studio.
+''' this one since Flight Studio.
 '''
 ''' MapFlightBake.kind_of still wraps this with its dump bookkeeping; the
 ''' classification itself is here and there is one of it.
@@ -36,11 +36,11 @@ Public NotInheritable Class ModelKind
     ''' The colour each kind is drawn in, written into the meta so every renderer
     ''' reads ONE table.
     '''
-    ''' These values are Path Studio's BAKE_KIND_RGB verbatim, because that is
+    ''' These values are Flight Studio's BAKE_KIND_RGB verbatim, because that is
     ''' the legend the owner has been reading all along and a palette that
     ''' changed appearance the day it moved would be a bug dressed as a feature.
     ''' Ownership moved here - "your job is also to produce the height map and
-    ''' colour type" - and Path Studio reads the meta with its own table as the
+    ''' colour type" - and Flight Studio reads the meta with its own table as the
     ''' fallback for a bake written before the keys existed.
     '''
     ''' INDEX 0 IS DELIBERATELY UNUSED. Terrain is the ground, not a thing
