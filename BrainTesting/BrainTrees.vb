@@ -54,8 +54,23 @@ Module BrainTrees
         ' every placement the map made is a thing standing on the ground.
         Dim mats(n * 16 - 1) As Single
         Dim kept = 0
+        ' MIRRORED IN X, exactly as MapTrees.vb:155 does it:
+        '     inst.transform * Matrix4.CreateScale(-1, 1, 1)
+        '
+        ' The tree section of space.bin is in a frame whose X runs opposite to
+        ' the one everything else here draws in. The MODEL placements need no
+        ' such mirror - MODEL_INDEX_LIST is used raw and the buildings land
+        ' correctly - so this is not a global convention, it is this section's,
+        ' and that is why only the trees came out wrong. The owner spotted it
+        ' on screen: "their locations are flipped in X Y or both".
+        '
+        ' Post-multiplied, so the mirror applies in WORLD space and moves the
+        ' placement as well as the geometry. Pre-multiplying would mirror each
+        ' tree about its own trunk and leave every one of them in the wrong
+        ' place, which looks almost right and is not.
+        Dim mirrorX = Matrix4.CreateScale(-1.0F, 1.0F, 1.0F)
         For i = 0 To n - 1
-            Dim m = cSpTr.trees.data(i).transform
+            Dim m = cSpTr.trees.data(i).transform * mirrorX
             Dim b = kept * 16
             mats(b + 0) = m.M11 : mats(b + 1) = m.M12 : mats(b + 2) = m.M13 : mats(b + 3) = m.M14
             mats(b + 4) = m.M21 : mats(b + 5) = m.M22 : mats(b + 6) = m.M23 : mats(b + 7) = m.M24
