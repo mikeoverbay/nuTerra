@@ -17,6 +17,10 @@ Module BrainTanks
         Public tag As String              ' e.g. "R110_Object_260"
         Public vehicle As TankVehicle
         Public spawn As Vector2           ' world XZ, fixed
+        ''' <summary>Ground height at the spawn, sampled AFTER the terrain is
+        ''' up. 0 when there is no terrain - the hull then sits at sea level
+        ''' rather than vanishing, which is easier to diagnose than absence.</summary>
+        Public y As Single
         Public headingRad As Single
         ''' <summary>Half-extents of the HULL in metres: X across, Y up, Z
         ''' along. The game's own boundingBox, via TankRoster.</summary>
@@ -173,12 +177,26 @@ Module BrainTanks
                 .tag = r.Item2,
                 .vehicle = v,
                 .spawn = SpawnOf(team, k),
+                .y = ground_at(SpawnOf(team, k)),
                 .headingRad = If(team = 1, 0.0F, CSng(Math.PI)),
                 .half = TankRoster.HullHalfExtents(v)})
         Next
 
         report(sw.ElapsedMilliseconds, failed)
         Return Bodies.Count
+    End Function
+
+    ''' <summary>Terrain height under a spawn. get_Y_at_XZ is ChunkFunctions'
+    ''' own sampler, linked in - so the hull stands on exactly the surface the
+    ''' brain will be asked about, with no second height source to disagree
+    ''' with it.</summary>
+    Private Function ground_at(p As Vector2) As Single
+        If map_scene Is Nothing OrElse Not map_scene.TERRAIN_LOADED Then Return 0.0F
+        Try
+            Return get_Y_at_XZ(p.X, p.Y)
+        Catch
+            Return 0.0F
+        End Try
     End Function
 
     ''' <summary>

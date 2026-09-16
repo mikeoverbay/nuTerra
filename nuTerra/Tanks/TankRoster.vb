@@ -70,6 +70,24 @@ Public NotInheritable Class TankRoster
         Tuple.Create("sweden", "S28_UDES_15_16")
     }
 
+    ''' <summary>
+    ''' HOW A HULL IS POSED, and both apps must agree or their tanks face
+    ''' different ways on the same map.
+    '''
+    ''' MirrorX: BigWorld's X runs opposite to the world frame every consumer
+    ''' here uses, so a vehicle is drawn mirrored on X. The arena file's base
+    ''' positions carry the same negation - see BrainTanks.world_xz.
+    '''
+    ''' FlipSkinnedZ: a SKINNED part - one with bone indices - additionally
+    ''' flips on Z. Only skinned parts, which is why the test is on the
+    ''' layout's bone offset and not on the part's name.
+    '''
+    ''' Moved here from MapTanks 2026-09-16 so Brain Testing links the same
+    ''' two values rather than keeping a second pair that could drift.
+    ''' </summary>
+    Public Shared MirrorX As Boolean = True
+    Public Shared FlipSkinnedZ As Boolean = True
+
     ''' <summary>Fifteen a side, which is what ALL holds two of.</summary>
     Public Shared ReadOnly Property PerTeamMax As Integer
         Get

@@ -20,6 +20,7 @@ Module BrainRender
     Public Sub Init()
         terrainShader = New BrainShader("terrain")
         BrainModels.Init()
+        BrainTankDraw.Init()
         If terrainShader.Ready Then LogThis("brain: shaders ready")
     End Sub
 
@@ -63,6 +64,11 @@ Module BrainRender
         ' the order is free - but ground first means a hill already occludes
         ' what is behind it before a single wall is issued.
         BrainModels.Draw(vp)
+
+        ' Hulls last. They are small, they sit on ground already drawn, and
+        ' anything that goes wrong with them is easiest to see against a world
+        ' that is known to be right.
+        BrainTankDraw.Draw(vp)
     End Sub
 
 End Module

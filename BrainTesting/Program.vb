@@ -105,6 +105,25 @@ Module Program
             ElseIf a.Equals("verbose", StringComparison.OrdinalIgnoreCase) Then
                 LOG_VERBOSE = True
 
+            ElseIf a.StartsWith("at=", StringComparison.OrdinalIgnoreCase) Then
+                ' at=x,z[,distance] - stand off and look at a world point.
+                ' cam= is nuTerra's six-number orbit form and means nothing
+                ' here; this is the thing actually wanted, which is "show me
+                ' that spot" - a base, a junction, wherever a hull stopped.
+                Dim f = a.Substring(3).Split(","c)
+                Dim x As Single, z As Single, dist As Single = 90.0F
+                If f.Length >= 2 AndAlso
+                   Single.TryParse(f(0), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, x) AndAlso
+                   Single.TryParse(f(1), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, z) Then
+                    If f.Length >= 3 Then
+                        Single.TryParse(f(2), Globalization.NumberStyles.Float,
+                                        Globalization.CultureInfo.InvariantCulture, dist)
+                    End If
+                    LOOK_AT = New Single() {x, z, dist}
+                End If
+
             ElseIf a.StartsWith("shot=", StringComparison.OrdinalIgnoreCase) Then
                 ' One frame to a PNG, then quit. How a session proves the app
                 ' DRAWS rather than merely loads, and how a picture gets in
