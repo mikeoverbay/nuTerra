@@ -55,17 +55,29 @@ Public Module TankSim
     ''' waypoint, so the ray is a short piece of the path already drawn.</summary>
     Public SIM_SHOW_GOAL As Boolean = False
 
-    ''' <summary>How far a hull looks to the SIDES and BEHIND. Short, because
-    ''' a neighbour alongside is either touching or it is not.</summary>
-    Public SIM_RAY_M As Single = 2.0F
-
-    ''' <summary>How far a hull looks AHEAD - ten metres.
+    ''' <summary>
+    ''' DERIVED NOW, NOT SET. These two were the old reaches - 2 m to the sides
+    ''' and behind, 10 m ahead - and when every ray went to RAY_LEN_M they were
+    ''' left behind as plain variables that nothing read except the TANKS
+    ''' tooltip. So the app went on telling the owner the rays were 10 m and
+    ''' 2 m while they were 20, which is worse than not saying: a number on
+    ''' screen is taken as measurement.
     '''
-    ''' Long, and only forward, because forward is the one direction with time
-    ''' in it: at 7 m/s ten metres is about 1.4 seconds of warning, which is
-    ''' enough to react. Ten metres out of the sides would just report every
-    ''' tank in the column beside it, permanently.</summary>
-    Public SIM_RAY_FRONT_M As Single = 10.0F
+    ''' Kept rather than deleted because Window.vb reads them, and that file
+    ''' belongs to the nuTerra session. Pointing them at the real value fixes
+    ''' what it displays without editing across the line.
+    ''' </summary>
+    Public ReadOnly Property SIM_RAY_M As Single
+        Get
+            Return RAY_LEN_M
+        End Get
+    End Property
+
+    Public ReadOnly Property SIM_RAY_FRONT_M As Single
+        Get
+            Return RAY_LEN_M
+        End Get
+    End Property
 
     ''' <summary>How far ray i reaches. ONLY the centre-front ray gets the long
     ''' warning range. The corner, side and rear rays are contact sensors: if
@@ -1090,19 +1102,23 @@ uTerra_shared", "tank_paths",
     Public Function RightIsClear(inst As TankInstance,
                                  others As List(Of TankInstance),
                                  nav As TankNav) As Boolean
-        Dim h = RayHits(inst, others)
+        ' Same limit-not-reach correction as RearBlocked. This function has
+        ' no caller today, but it is the obvious one to reach for when the
+        ' radar idea lands, and leaving the 20 m test in it means the bug is
+        ' waiting rather than fixed.
+        Dim dist = RayHitDistances(inst, others)
         Dim rays = HullRays(inst)
 
-        If h(R_RIGHT) OrElse h(R_FR) Then Return False
+        If dist(R_RIGHT) <= STOP_M(R_RIGHT) OrElse dist(R_FR) <= STOP_M(R_FR) Then Return False
 
         If R_RIGHT < rays.Count Then
             Dim o = rays(R_RIGHT).Item1, d = rays(R_RIGHT).Item2
-            If RayHitsNav(nav, o, d, RayLen(R_RIGHT)) Then Return False
+            If RayHitsNav(nav, o, d, STOP_M(R_RIGHT)) Then Return False
         End If
 
         If R_FR < rays.Count Then
             Dim o = rays(R_FR).Item1, d = rays(R_FR).Item2
-            If RayHitsNav(nav, o, d, RayLen(R_FR)) Then Return False
+            If RayHitsNav(nav, o, d, STOP_M(R_FR)) Then Return False
         End If
 
         Return True
@@ -1116,8 +1132,24 @@ uTerra_shared", "tank_paths",
     ''' concertinas.</summary>
     Public Function RearBlocked(inst As TankInstance,
                                 others As List(Of TankInstance)) As Boolean
-        Dim h = RayHits(inst, others)
-        Return h(R_REAR) OrElse h(R_RL) OrElse h(R_RR)
+        ' THE LIMIT, NOT THE REACH.
+        '
+        ' RayHits answers "did this ray touch a hull anywhere along its
+        ' length", and its length is now RAY_LEN_M - twenty metres on every
+        ' ray. Before the rays were lengthened the rear three were 2 m, so
+        ' this function meant "something is up against my back". At 20 m it
+        ' means "somebody is anywhere in the back half of a forty metre
+        ' circle", which on a thirty hull map is nearly always true.
+        '
+        ' Every caller reads the answer as "do not reverse", so this is what
+        ' killed reverse recovery: a wedged hull asked whether it could back
+        ' out, was told no by a tank twenty metres away, and stood still with
+        ' stopReason Traffic for the rest of the run. Five hulls in the
+        ' 2026-09-15 capture never moved again after t=600 s.
+        Dim d = RayHitDistances(inst, others)
+        Return d(R_REAR) <= STOP_M(R_REAR) OrElse
+               d(R_RL) <= STOP_M(R_RL) OrElse
+               d(R_RR) <= STOP_M(R_RR)
     End Function
 
     ''' <summary>
@@ -1206,11 +1238,19 @@ uTerra_shared", "tank_paths",
                                 others As List(Of TankInstance),
                                 nav As TankNav) As Boolean()
         Dim blocked(RAY_COUNT - 1) As Boolean
-        Dim tankHits = RayHits(inst, others)
+        ' SEEING IS NOT BLOCKING - the whole point of measuring instead of
+        ' asking "did we hit something". This feeds the turn table, which
+        ' decides which way a hull swings, and at the full twenty metre reach
+        ' nearly every ray on a real map reports a block: the corner and side
+        ' rays used to be 2 m, so "blocked" meant a wall against the flank and
+        ' now it means a wall somewhere in the next twenty metres. With every
+        ' ray blocked the table falls through to "all three front blocked",
+        ' the escape search finds no way out, and the hull waits.
+        Dim tankDist = RayHitDistances(inst, others)
         Dim rays = HullRays(inst)
 
         For i = 0 To RAY_COUNT - 1
-            If i < tankHits.Length AndAlso tankHits(i) Then
+            If i < tankDist.Length AndAlso tankDist(i) <= STOP_M(i) Then
                 blocked(i) = True
                 Continue For
             End If
@@ -1219,7 +1259,9 @@ uTerra_shared", "tank_paths",
 
             Dim o = rays(i).Item1
             Dim d = rays(i).Item2
-            blocked(i) = RayHitsNav(nav, o, d, RayLen(i))
+            ' Terrain answers to the same limit. A wall nineteen metres down a
+            ' ray is a thing to plan around, not a reason to refuse the turn.
+            blocked(i) = RayHitsNav(nav, o, d, STOP_M(i))
         Next
 
         Return blocked

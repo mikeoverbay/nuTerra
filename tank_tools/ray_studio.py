@@ -70,6 +70,68 @@ FLIGHT = os.path.join(os.environ.get("TEMP", "."), "nuTerra", "flight")
 # checkouts, so the Studio and whichever nuTerra.exe is running agree.
 PATHS_DIR = r"C:\nuTerra_shared\tank_paths"
 
+# WHERE THE SWEPT ROADS ARE KEPT BETWEEN SESSIONS.
+#
+# They were not kept at all. The sweep lives in maze_roads, a local of the
+# frame loop, and [l] refuses with "no roads yet - press [g] to sweep first"
+# whenever that local is empty - which it is at every launch. So the roads
+# could only be loaded, and the paths file could only be saved valid, inside
+# the one session that had just run the sweep. Any later launch saved
+# roads_valid: False without saying anything was missing, and the app read
+# that file and drove the graph-walk fallback instead.
+#
+# The owner's rule for exactly this: "its suppose to check if the files are
+# there and create them if not. we have a button to force a rebuild." Run [g]
+# is that button. This is the check.
+ROADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "roads")
+
+
+def roads_cache_path(map_name):
+    return os.path.join(ROADS_DIR, "%s_roads.json" % map_name)
+
+
+def save_roads_cache(map_name, roads):
+    """Keep a completed sweep so the next launch does not have to redo it.
+
+    THREE FIELDS, NAMED. A road record comes back from the solver carrying its
+    working state as well as its answer - reachability sets, ring indices, the
+    markers the base-hook trim used - and the first attempt at this just dumped
+    the record, which failed on a set. Listing what the cache holds is the
+    better fix anyway: load_routes reads `pts` and `team`, the status line
+    reads `length`, and nothing else is anybody's business. A cache that
+    carries solver internals goes stale the first time the solver changes.
+    """
+    if not roads:
+        return ""
+    try:
+        os.makedirs(ROADS_DIR, exist_ok=True)
+        keep = [{"pts": [[float(q[0]), float(q[1])] for q in r["pts"]],
+                 "team": 2 if r.get("team") == 2 else 1,
+                 "length": float(r.get("length", 0.0))}
+                for r in roads if len(r.get("pts") or ()) >= 2]
+        p = roads_cache_path(map_name)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump({"map": map_name,
+                       "saved": time.strftime("%Y-%m-%d %H:%M:%S"),
+                       "roads": keep}, fh)
+        return p
+    except Exception as exc:
+        print("roads cache: could not write - %s" % exc)
+        return ""
+
+
+def load_roads_cache(map_name):
+    """The sweep from a previous session, or [] if there is none."""
+    try:
+        p = roads_cache_path(map_name)
+        if not os.path.exists(p):
+            return []
+        with open(p, "r", encoding="utf-8") as fh:
+            return json.load(fh).get("roads", []) or []
+    except Exception as exc:
+        print("roads cache: could not read - %s" % exc)
+        return []
+
 # TankNav's own numbers, so this tool and the app agree about the ground.
 CELL_TEXELS = 8
 MAX_OBSTACLE_M = 1.0
@@ -1650,6 +1712,9 @@ def main():
                 maze_pts = d["pts"]
             if "roads" in d:
                 maze_roads = d["roads"]
+                # CACHE IT NOW, while it is known good. A sweep is minutes of
+                # work and it was being thrown away on exit.
+                save_roads_cache(map_name, maze_roads)
                 # STRAIGHT INTO THE EDITOR, so the path that just appeared can
                 # be picked without a second step. Skipped once the graph has
                 # been touched by hand - reloading would throw that away - and
@@ -1938,8 +2003,25 @@ def main():
                     moved = edit_drag.get("moved", False)
                     drag_base = list(edit_drag.get("base", ()))
                     if moved:
+                        # STILL HAND WORK, so stop auto-reloading routes over
+                        # it - but do NOT throw the roads away here.
+                        #
+                        # save_paths says it plainly: "If the graph was
+                        # STRUCTURALLY edited after load, do not lie by saving
+                        # stale road ids." A drag is not a structural edit. The
+                        # chains are lists of node ids, and moving a point
+                        # changes its x and z and nothing else - same ids, same
+                        # adjacency, same roads, with one point now where the
+                        # owner wants it. That is the entire purpose of the
+                        # editor.
+                        #
+                        # Invalidating here is why the saved file has a
+                        # 1,076 node graph and zero roads: the routes were
+                        # loaded, one point was dragged, and every ordered road
+                        # was discarded by the drag. Everything since has run
+                        # the graph-walk fallback. The two merges below ARE
+                        # structural and invalidate for themselves.
                         edit_auto = False
-                        saved_roads_valid[0] = False
                     edit_drag = None
 
                     def restore_drag():
@@ -1961,7 +2043,11 @@ def main():
                                             (component_team(me),
                                              component_team(onto)))
                             else:
+                                # STRUCTURAL: two ids become one, so a chain
+                                # naming the loser now names a node that is
+                                # gone.
                                 edit.merge(me, onto)
+                                saved_roads_valid[0] = False
                                 sel = [onto]
                                 edit_msg = ("fork at %d" % onto
                                             if edit.degree(onto) >= 3 else "merged")
@@ -1979,9 +2065,13 @@ def main():
                                                 (component_team(me),
                                                  component_team(ed[0])))
                                 else:
+                                    # STRUCTURAL: a line is cut in two and
+                                    # the dragged point is folded into the new
+                                    # middle. Both halves change the graph.
                                     mid = edit.add(*edit.snap(ed[2], ed[3]))
                                     edit.split_edge(ed[0], ed[1], mid)
                                     edit.merge(me, mid)
+                                    saved_roads_valid[0] = False
                                     sel = [mid]
                                     edit_msg = "fork at %d - the line was split" % mid
                     edit.rebuild()
@@ -2057,6 +2147,14 @@ def main():
                                 "line - click vert to vert" if tool == "line" else
                                 "zone - click inside an area to select its verts")
                 elif e.key == pygame.K_l:
+                    if not maze_roads:
+                        # THE CACHE IS THE ANSWER TO THIS, not a refusal. The
+                        # roads on disk are the last completed sweep of this
+                        # map; [g] is still there to rebuild them on purpose.
+                        maze_roads = load_roads_cache(map_name)
+                        if maze_roads:
+                            maze_msg = ("%d road(s) from the cached sweep - "
+                                        "[g] re-sweeps" % len(maze_roads))
                     if not maze_roads:
                         edit_msg = "no roads yet - press [g] to sweep first"
                     else:
