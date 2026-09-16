@@ -3,7 +3,7 @@
   <!--
     Brain Testing - the smallest thing that can open a WoT map and stand tanks
     on it, so a NEW brain can be written against it. See
-    docs\brain_testing_plan.md.
+    docs/brain_testing_plan.md.
 
     LINKED SOURCE, NOT A PROJECT REFERENCE. nuTerra's types are Friend -
     `Shader` is, because ShaderLoader is a Module - and Friend is assembly
@@ -12,10 +12,13 @@
     one copy of every loader on disk and lets a fix over there arrive here on
     the next build.
 
-    The <Compile Include="..\nuTerra\..."> list below is therefore the honest
-    statement of what this app is: everything absent is absent on purpose.
-    Stage 0 links NOTHING - it exists to prove the skeleton stands up before
-    the dependency closure starts.
+    The linked list below is therefore the honest statement of what this app
+    is: everything absent is absent on purpose.
+
+    FORWARD SLASHES. MSBuild accepts them on Windows, and they survive being
+    written by a shell heredoc or a Python string without a backslash being
+    eaten on the way through. A path that lost one produced a broken project
+    file once already.
   -->
 
   <PropertyGroup>
@@ -34,12 +37,24 @@
 
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.7.1" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="5.0.0" />
   </ItemGroup>
 
   <!--
     ===================== LINKED nuTerra SOURCE =====================
-    Empty at stage 0. Each stage of the plan adds the files it needs and
-    NOTHING ELSE, so this list stays readable and the exclusions stay visible.
+    Each stage adds the files it needs and NOTHING ELSE, so this list stays
+    readable and the exclusions stay visible.
+
+    STAGE 1 - reading the game's packages, and saying so.
   -->
+  <ItemGroup>
+    <Compile Include="../nuTerra/ModelLoaders/modUtilities.vb" Link="linked/modUtilities.vb" />
+    <Compile Include="../nuTerra/OpenGL/modOpenGLAliases.vb" Link="linked/modOpenGLAliases.vb" />
+    <Compile Include="../nuTerra/OpenGL/GLBuffer.vb" Link="linked/GLBuffer.vb" />
+    <Compile Include="../nuTerra/OpenGL/GLVertexArray.vb" Link="linked/GLVertexArray.vb" />
+    <Compile Include="../nuTerra/ResMgr/PkgEntry.vb" Link="linked/PkgEntry.vb" />
+    <Compile Include="../nuTerra/ResMgr/ResMgr.vb" Link="linked/ResMgr.vb" />
+    <Compile Include="../nuTerra/ResMgr/packed_section.vb" Link="linked/packed_section.vb" />
+  </ItemGroup>
 
 </Project>

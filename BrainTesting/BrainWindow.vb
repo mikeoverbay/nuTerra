@@ -99,6 +99,22 @@ Public Class BrainWindow
             Console.WriteLine("map from the command line: {0}", STARTUP_MAP)
         End If
 
+        ' THE LOG GATE COMES OFF HERE. modUtilities.LogThis is linked in from
+        ' nuTerra, where it is gated down to the tank path tags on the owner's
+        ' instruction - "remove all debug out writes for everything but the
+        ' tank path functions". That is right for nuTerra and wrong for a test
+        ' harness, whose whole job is to say what it is doing. Nothing was
+        ' deleted over there, so one Boolean restores the lot.
+        LOG_EVERYTHING = True
+
+        BrainWorld.Init()
+        If STARTUP_MAP IsNot Nothing AndAlso BrainWorld.Ready AndAlso
+           Not BrainWorld.HasSpace(STARTUP_MAP) Then
+            Dim near = BrainWorld.NearMisses(STARTUP_MAP, 6)
+            LogThis("no installed space called {0}{1}", STARTUP_MAP,
+                    If(near.Count = 0, "", " - did you mean: " & String.Join(", ", near)))
+        End If
+
         GL.Enable(EnableCap.DepthTest)
         GL.DepthFunc(DepthFunction.Less)
         GL.ClearColor(0.16F, 0.17F, 0.19F, 1.0F)
