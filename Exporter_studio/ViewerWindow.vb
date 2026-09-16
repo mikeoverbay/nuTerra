@@ -100,7 +100,12 @@ Public Class ViewerWindow
     ''' .model matches this wildcard, once, after the first load. Exists so a
     ''' scripted shot can show the model without its roof, and so the panel's
     ''' visibility path can be proven without anyone clicking.</summary>
-    Private hideQuery As String = Nothing
+    ''' <summary>--hide, which may be given more than once. Several patterns
+    ''' rather than one because the obvious asks need alternation that a glob
+    ''' does not have: "everything that is d_ or s_" cannot be written as a
+    ''' single * pattern, and inventing a syntax for it would be a worse
+    ''' answer than accepting the flag twice.</summary>
+    Private hideQueries As List(Of String) = Nothing
 
     ''' <summary>--export-now visible|all: press the panel's export button
     ''' once, after the first load, then carry on. Same code path the button
@@ -342,7 +347,7 @@ Public Class ViewerWindow
                    Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
                    Optional objFile As String = Nothing, Optional uiInShot As Boolean = False,
                    Optional findPattern As String = Nothing, Optional debugView As Integer = 0,
-                   Optional hidePattern As String = Nothing, Optional exportNow As String = Nothing,
+                   Optional hidePatterns As List(Of String) = Nothing, Optional exportNow As String = Nothing,
                    Optional startSize As Vector2i = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
@@ -364,7 +369,7 @@ Public Class ViewerWindow
         panelInShot = uiInShot
         startQuery = findPattern
         pbrDebug = Math.Max(0, debugView)
-        hideQuery = hidePattern
+        hideQueries = hidePatterns
         exportNowMode = exportNow
         If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
@@ -2473,18 +2478,33 @@ drawn:
     ''' "identifier partname" so either half of what the panel shows can be
     ''' named, with the same wildcard the model list uses.</summary>
     Private Sub ApplyHideQuery()
-        If String.IsNullOrWhiteSpace(hideQuery) Then Return
-        Dim pat = hideQuery.Trim().ToLowerInvariant()
-        If pat.IndexOf("*"c) < 0 Then pat = "*" & pat & "*"
+        If hideQueries Is Nothing OrElse hideQueries.Count = 0 Then Return
+        Dim pats As New List(Of String)
+        For Each q In hideQueries
+            If String.IsNullOrWhiteSpace(q) Then Continue For
+            Dim pat = q.Trim().ToLowerInvariant()
+            If pat.IndexOf("*"c) < 0 Then pat = "*" & pat & "*"
+            pats.Add(pat)
+        Next
+        If pats.Count = 0 Then Return
+
         Dim n = 0
         For Each r In partsPanel.Rows
-            If ModelBrowser.WildcardMatch((r.Ident & " " & r.MeshName).ToLowerInvariant(), pat) Then
-                r.Hidden = True
-                n += 1
-            End If
+            Dim key = (r.Ident & " " & r.MeshName).ToLowerInvariant()
+            For Each pat In pats
+                If ModelBrowser.WildcardMatch(key, pat) Then
+                    ' A part matched by two patterns is hidden once, not
+                    ' counted twice - the number has to be parts, not matches.
+                    r.Hidden = True
+                    n += 1
+                    Exit For
+                End If
+            Next
         Next
         ApplyPartVisibility()
-        Console.WriteLine("  hide {0}: {1} of {2} part(s) switched off", hideQuery, n, partsPanel.Rows.Count)
+        Console.WriteLine("  hide {0}: {1} of {2} part(s) switched off, {3} left",
+                          String.Join(" ", hideQueries), n, partsPanel.Rows.Count,
+                          partsPanel.Rows.Count - n)
     End Sub
 
     ''' <summary>Push the panel's switches onto the parts the draw passes read.
