@@ -38,7 +38,13 @@ End Class
 Public Class ModelBrowser
 
     Public Const PANEL_W As Integer = 340
+    ''' <summary>The narrowest this is still worth showing. Shared with the
+    ''' parts panel through the viewer's width budget - the two used to clamp
+    ''' independently against the whole window and between them left the 3D
+    ''' view nothing at all.</summary>
+    Public Const MIN_W As Integer = 200
     Private Const PAD As Integer = 8
+    Private Const GAP As Integer = 3
 
     Public Property Visible As Boolean = True
     ''' <summary>True when the search box owns the keyboard. The viewer's
@@ -132,8 +138,18 @@ Public Class ModelBrowser
         Return j = pattern.Length
     End Function
 
+    ''' <summary>Y of the count line at the bottom. One function, so the list
+    ''' and the footer cannot disagree about where the footer starts - the
+    ''' parts panel had exactly that bug and the list ran underneath.</summary>
+    Public Function FooterY(panelH As Integer) As Integer
+        Return panelH - rowH - PAD
+    End Function
+
     Public Function VisibleRows(panelH As Integer) As Integer
-        Return Math.Max(1, (panelH - listTop - PAD - rowH) \ Math.Max(1, rowH))
+        ' Whatever fits between the search box and the footer, and possibly
+        ' nothing. A forced minimum of one row is what lets a list overrun a
+        ' footer on a short window.
+        Return Math.Max(0, (FooterY(panelH) - GAP - listTop) \ Math.Max(1, rowH))
     End Function
 
     Public Sub ClampScroll()
@@ -214,7 +230,7 @@ Public Class ModelBrowser
     Public Sub Draw(ui As UiOverlay, widthPx As Integer, panelH As Integer,
                     mouseX As Single, mouseY As Single)
         If Not Visible Then Return
-        panelW = Math.Max(40, widthPx)
+        panelW = Math.Max(MIN_W, widthPx)
         lastPanelH = panelH
         rowH = ui.Font.CellH + 4
         listTop = PAD + rowH + 6 + PAD
@@ -253,6 +269,7 @@ Public Class ModelBrowser
         Dim y = listTop
         For i = Scroll To Math.Min(Shown.Count, Scroll + vis) - 1
             Dim r = Shown(i)
+            If y + rowH > FooterY(panelH) - GAP Then Exit For
             Dim over = (mouseX >= 0 AndAlso mouseX < panelW AndAlso
                         mouseY >= y AndAlso mouseY < y + rowH)
             If i = Selected Then
@@ -277,9 +294,9 @@ Public Class ModelBrowser
         End If
 
         ' count, and what a pick would load
-        Dim foot = panelH - ui.Font.CellH - 4
-        ui.Rect(0, foot - 4, panelW - 1, ui.Font.CellH + 8, New Vector4(0.10F, 0.11F, 0.13F, 1.0F))
+        Dim foot = FooterY(panelH)
+        ui.Rect(0, foot - GAP, panelW - 1, panelH - foot + GAP, New Vector4(0.10F, 0.11F, 0.13F, 1.0F))
         Dim label = String.Format("{0:N0} of {1:N0} models  lod0", Shown.Count, Rows.Count)
-        ui.TextClipped(PAD, foot, label, panelW - PAD * 2, dim_)
+        ui.TextClipped(PAD, foot + 2, label, panelW - PAD * 2, dim_)
     End Sub
 End Class

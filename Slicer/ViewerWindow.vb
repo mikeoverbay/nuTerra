@@ -333,10 +333,11 @@ Public Class ViewerWindow
                    Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
                    Optional objFile As String = Nothing, Optional uiInShot As Boolean = False,
                    Optional findPattern As String = Nothing, Optional debugView As Integer = 0,
-                   Optional hidePattern As String = Nothing, Optional exportNow As String = Nothing)
+                   Optional hidePattern As String = Nothing, Optional exportNow As String = Nothing,
+                   Optional startSize As Vector2i = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
-                       .Size = New Vector2i(1280, 800),
+                       .Size = If(startSize.X > 200 AndAlso startSize.Y > 150, startSize, New Vector2i(1280, 800)),
                        .Title = "Slicer",
                        .APIVersion = New Version(3, 3),
                        .Profile = ContextProfile.Core,
@@ -1543,7 +1544,9 @@ drawn:
             browser.Draw(ui, PanelWidth(), ClientSize.Y, mp.X, mp.Y)
             partsPanel.ExportFormat = exportFormat
             partsPanel.LastExport = lastExport
-            partsPanel.Draw(ui, ClientSize.X, ClientSize.Y, mp.X, mp.Y)
+            Dim lw = 0, rw = 0
+            PanelWidths(lw, rw)
+            partsPanel.Draw(ui, ClientSize.X - rw, ClientSize.Y, rw, mp.X, mp.Y)
             ui.EndFrame()
         End If
 
@@ -1991,17 +1994,47 @@ drawn:
     ''' <summary>Pixels the panel takes off the left of the 3D view, 0 when it
     ''' is hidden or was never built (a --shot run). This is the ONE width -
     ''' the draw and the hit tests both take it, so they cannot drift.</summary>
-    ''' <summary>Pixels the parts panel takes off the RIGHT of the 3D view.
-    ''' Zero when nothing is loaded, so an empty viewer is not framed by a
-    ''' blank strip.</summary>
+    ''' <summary>The 3D view never gets less than this. Two panels that each
+    ''' clamp against the FULL window width can between them leave nothing -
+    ''' at 640x360 they took all 640 px and the model vanished - so the
+    ''' budget has to be shared rather than taken twice.</summary>
+    Private Const MIN_VIEW_W As Integer = 220
+
+    ''' <summary>Decide both panel widths together. The LIST keeps its width
+    ''' longest, because it is how you get to a model at all; the parts panel
+    ''' gives ground first and disappears below the width where its labels
+    ''' would be pure ellipsis.</summary>
+    Private Sub PanelWidths(ByRef leftW As Integer, ByRef rightW As Integer)
+        leftW = 0 : rightW = 0
+        Dim wantLeft = If(browser IsNot Nothing AndAlso browser.Visible, ModelBrowser.PANEL_W, 0)
+        Dim wantRight = If(partsPanel IsNot Nothing AndAlso partsPanel.Visible AndAlso
+                           partsPanel.Rows.Count > 0, PartsPanel.PANEL_W, 0)
+        Dim budget = Math.Max(0, ClientSize.X - MIN_VIEW_W)
+
+        If wantLeft + wantRight <= budget Then
+            leftW = wantLeft : rightW = wantRight
+            Return
+        End If
+
+        ' Not enough room for both. Give the parts panel what is left after
+        ' the list has had its minimum, and drop it entirely rather than show
+        ' a strip too narrow to read.
+        leftW = Math.Min(wantLeft, Math.Max(0, budget - If(wantRight > 0, PartsPanel.MIN_W, 0)))
+        If leftW < ModelBrowser.MIN_W Then leftW = Math.Min(wantLeft, budget)
+        rightW = Math.Max(0, Math.Min(wantRight, budget - leftW))
+        If rightW < PartsPanel.MIN_W Then rightW = 0
+    End Sub
+
     Private Function RightPanelWidth() As Integer
-        If partsPanel Is Nothing OrElse Not partsPanel.Visible OrElse partsPanel.Rows.Count = 0 Then Return 0
-        Return Math.Min(PartsPanel.PANEL_W, Math.Max(0, ClientSize.X - 160))
+        Dim l = 0, r = 0
+        PanelWidths(l, r)
+        Return r
     End Function
 
     Private Function PanelWidth() As Integer
-        If browser Is Nothing OrElse Not browser.Visible Then Return 0
-        Return Math.Min(ModelBrowser.PANEL_W, Math.Max(0, ClientSize.X - 160))
+        Dim l = 0, r = 0
+        PanelWidths(l, r)
+        Return l
     End Function
 
     ''' <summary>

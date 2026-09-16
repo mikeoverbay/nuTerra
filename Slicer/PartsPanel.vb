@@ -4,12 +4,11 @@ Imports OpenTK.Mathematics
 Public Class PartRow
     ''' <summary>The material `identifier` out of the .visual_processed -
     ''' `s_nd0`, `s_wall_0`, `n_wood0_1`. This is the name the game gives the
-    ''' piece, which is what the owner asked to see, rather than anything this
-    ''' app invents.</summary>
+    ''' piece, rather than anything this app invents.</summary>
     Public Property Ident As String = ""
-    ''' <summary>The .model this group came from. Shown beside the
-    ''' identifier because the identifiers repeat and are not, on their own,
-    ''' enough to tell one row from another.</summary>
+    ''' <summary>The .model this group came from. Shown beside the identifier
+    ''' because the identifiers repeat and are not, on their own, enough to tell
+    ''' one row from another.</summary>
     Public Property MeshName As String = ""
     Public Property Fx As String = ""
     Public Property Tris As Integer
@@ -20,60 +19,53 @@ Public Class PartRow
 End Class
 
 ''' <summary>
-''' The right-hand panel: every part of the loaded model, and a switch to hide
-''' each one.
+''' The right-hand panel: every part of the loaded model, a switch to hide each
+''' one, and the export block.
 '''
-''' A SECOND PANEL RATHER THAN A TAB on the first. The left panel picks WHICH
-''' model, this one picks what you see OF it, and they are used together - you
-''' find a wall, then hide the roof that is covering it. Putting them in one
-''' panel would mean losing the list every time you wanted the parts.
+''' ONE ROW PER PRIMITIVE GROUP, NOT PER MESH. A visual carries one material per
+''' primitive group, so a single mesh is routinely several materials:
+''' hd_bld_eu_049_thouse is 9 meshes but 43 groups, and its roof alone is three
+''' groups across two shaders. A per-mesh list would hide the whole roof in one
+''' click and never let you look at the tiles apart.
 '''
-''' ONE ROW PER PRIMITIVE GROUP, NOT PER MESH, and the distinction is the whole
-''' reason this is useful. A .visual_processed carries one material per
-''' primitive group, and a group is a contiguous run of the index buffer - so a
-''' single mesh is routinely several materials. hd_bld_eu_049_thouse is 9 meshes
-''' and 43 groups; its roof alone is three groups across two different shaders.
-''' A per-mesh list would hide the roof in one click and never let you look at
-''' the tiles separately, which is the thing worth looking at.
+''' EVERYTHING IS LAID OUT FROM THE BOTTOM UP, in one place. The controls anchor
+''' to the bottom edge and the LIST takes whatever is left over; when the window
+''' is short the list shrinks to nothing and the buttons still fit, because a
+''' list you cannot scroll is a nuisance and a button you cannot reach is a
+''' broken feature.
 '''
-''' The label is the material's own `identifier`. Those repeat across a model -
-''' s_nd0 appears on most buildings and often several times on one - so the mesh
-''' name and the triangle count ride alongside to tell two rows apart. Renaming
-''' them to something friendlier was considered and rejected: the owner asked
-''' for the name the visual gives, and an invented name cannot be matched
-''' against the file when something looks wrong.
+''' The first version computed the footer positions in the hit tests and AGAIN in
+''' the draw, with a magic row count for the list. All three disagreed: `export
+''' all` was painted over `show all`, the list ran under the footer, and at
+''' 760x420 the bottom row fell off the window entirely. `Layout` is now the only
+''' place any Y is decided and every caller asks it.
 ''' </summary>
 Public Class PartsPanel
 
     Public Const PANEL_W As Integer = 300
+    ''' <summary>Below this the panel is not worth showing, and the viewer hides
+    ''' it rather than squeezing every label into an ellipsis.</summary>
+    Public Const MIN_W As Integer = 170
     Private Const PAD As Integer = 8
+    Private Const GAP As Integer = 3
+    Private Const BOX_X As Integer = PAD
+    Private Const BOX_W As Integer = 13
 
     Public Property Visible As Boolean = True
     Public Property Scroll As Integer = 0
-    ''' <summary>Shown on the format row; the viewer owns the value.</summary>
     Public Property ExportFormat As String = "obj"
-    ''' <summary>One line of result under the buttons - the viewer writes it
-    ''' after an export so the answer appears where the button was, not only
-    ''' in a console nobody is looking at.</summary>
+    ''' <summary>One line of result under the buttons, so the answer appears
+    ''' where the button was and not only in a console nobody is watching.</summary>
     Public Property LastExport As String = ""
     Public ReadOnly Rows As New List(Of PartRow)
 
+    ' ---- layout, every one of these set by Layout() ----
     Private rowH As Integer = 18
-    Private listTop As Integer = 0
-    Private lastPanelH As Integer = 0
-
-    ''' <summary>Left edge in window pixels, set every draw. The panel is
-    ''' RIGHT-ALIGNED, so this moves whenever the window is resized - a hit test
-    ''' against a remembered value answers for a panel that is no longer
-    ''' there.</summary>
     Private panelX As Integer = 0
     Private panelW As Integer = PANEL_W
-
-    ''' <summary>Row rect of the eye toggle, relative to the panel's left edge.
-    ''' Clicking the NAME does something different from clicking the box, so the
-    ''' two have to be told apart.</summary>
-    Private Const BOX_X As Integer = PAD
-    Private Const BOX_W As Integer = 13
+    Private lastPanelH As Integer = 0
+    Private listTop, listBottom As Integer
+    Private hiddenY, bulkY, fmtY, expVisY, expAllY, statusY As Integer
 
     Public ReadOnly Property HiddenCount As Integer
         Get
@@ -108,7 +100,7 @@ Public Class PartsPanel
         Next
     End Sub
 
-    ''' <summary>Show only this row. The quickest way to answer "what IS that
+    ''' <summary>Show only this row - the quickest way to answer "what IS that
     ''' piece" on a model with forty of them.</summary>
     Public Sub Solo(i As Integer)
         If i < 0 OrElse i >= Rows.Count Then Return
@@ -117,10 +109,37 @@ Public Class PartsPanel
         Next
     End Sub
 
+    ''' <summary>
+    ''' Decide every Y, bottom up. The ONLY place layout happens; the draw and
+    ''' all six hit tests read what this sets.
+    ''' </summary>
+    Private Sub Layout(leftEdge As Integer, panelH As Integer, widthPx As Integer)
+        panelW = Math.Max(MIN_W, widthPx)
+        panelX = Math.Max(0, leftEdge)
+        lastPanelH = panelH
+
+        listTop = PAD + rowH + 6
+        statusY = panelH - PAD - rowH
+        expAllY = statusY - rowH - GAP
+        expVisY = expAllY - rowH - GAP
+        fmtY = expVisY - rowH - GAP
+        bulkY = fmtY - rowH - PAD
+        hiddenY = bulkY - rowH
+        ' Whatever is left, and possibly nothing. NOT Math.Max(1, ...) - forcing
+        ' one row back into a panel with no room for it is what put the list
+        ' under the footer in the first place.
+        listBottom = hiddenY - GAP
+    End Sub
+
+    ''' <summary>Re-derive the layout for a click, from the geometry of the last
+    ''' draw. A hit test that used remembered Y values would answer for a
+    ''' different window size than the one on screen.</summary>
+    Private Sub LayoutForHitTest()
+        Layout(panelX, lastPanelH, panelW)
+    End Sub
+
     Public Function VisibleRows(panelH As Integer) As Integer
-        ' Four rows of chrome below the list - show/hide, format, and the two
-        ' export buttons - plus the hidden-count line and the padding.
-        Return Math.Max(1, (panelH - listTop - PAD * 3 - rowH * 5) \ Math.Max(1, rowH))
+        Return Math.Max(0, (listBottom - listTop) \ Math.Max(1, rowH))
     End Function
 
     Public Sub ClampScroll()
@@ -139,46 +158,49 @@ Public Class PartsPanel
     ''' <summary>Row under this pixel, or -1.</summary>
     Public Function RowAtPixel(x As Single, y As Single) As Integer
         If Not HitsPanel(x, y) Then Return -1
-        If y < listTop Then Return -1
+        LayoutForHitTest()
+        If y < listTop OrElse y >= listBottom Then Return -1
         Dim i = Scroll + CInt(Math.Floor((y - listTop) / rowH))
         If i < 0 OrElse i >= Rows.Count Then Return -1
         If i >= Scroll + VisibleRows(lastPanelH) Then Return -1
         Return i
     End Function
 
-    ''' <summary>True when the click landed on the toggle box rather than on the
-    ''' name beside it.</summary>
-    Public Function HitsBox(x As Single) As Boolean
-        Dim lx = x - panelX
-        Return lx >= BOX_X - 2 AndAlso lx <= BOX_X + BOX_W + 2
-    End Function
-
-    ''' <summary>Y of the show all / hide all row. Everything below it is the
-    ''' export block, so this is computed from the bottom up and the two must
-    ''' agree - a hit test and a draw that disagree by one row is a button
-    ''' that looks right and fires the one beneath it.</summary>
-    Public Function BulkRowY(panelH As Integer) As Integer
-        Return ExportRowY(panelH, 0) - rowH - PAD
-    End Function
-
-    ''' <summary>The two footer buttons: all on, all off.</summary>
-    Public Function HitsShowAll(x As Single, y As Single) As Boolean
+    ''' <summary>half: 0 whole row, 1 left button, 2 right button.</summary>
+    Private Function HitsRow(x As Single, y As Single, rowY As Integer, half As Integer) As Boolean
         If Not Visible OrElse Rows.Count = 0 Then Return False
-        Dim by = BulkRowY(lastPanelH)
-        Return y >= by AndAlso y < by + rowH AndAlso
-               x >= panelX + PAD AndAlso x < panelX + panelW \ 2 - 2
+        LayoutForHitTest()
+        If y < rowY OrElse y >= rowY + rowH Then Return False
+        Select Case half
+            Case 1 : Return x >= panelX + PAD AndAlso x < panelX + panelW \ 2 - 2
+            Case 2 : Return x >= panelX + panelW \ 2 + 2 AndAlso x < panelX + panelW - PAD
+            Case Else : Return x >= panelX + PAD AndAlso x < panelX + panelW - PAD
+        End Select
+    End Function
+
+    Public Function HitsShowAll(x As Single, y As Single) As Boolean
+        Return HitsRow(x, y, bulkY, 1)
     End Function
 
     Public Function HitsHideAll(x As Single, y As Single) As Boolean
-        If Not Visible OrElse Rows.Count = 0 Then Return False
-        Dim by = BulkRowY(lastPanelH)
-        Return y >= by AndAlso y < by + rowH AndAlso
-               x >= panelX + panelW \ 2 + 2 AndAlso x < panelX + panelW - PAD
+        Return HitsRow(x, y, bulkY, 2)
+    End Function
+
+    Public Function HitsExportFormat(x As Single, y As Single) As Boolean
+        Return HitsRow(x, y, fmtY, 0)
+    End Function
+
+    Public Function HitsExportVisible(x As Single, y As Single) As Boolean
+        Return HitsRow(x, y, expVisY, 0)
+    End Function
+
+    Public Function HitsExportAll(x As Single, y As Single) As Boolean
+        Return HitsRow(x, y, expAllY, 0)
     End Function
 
     ''' <summary>The part name with the shared asset prefix dropped:
-    ''' `hd_bld_eu_049_thouse_roof_01` becomes `roof_01`. Every row carries
-    ''' the same prefix, so it distinguishes nothing and costs the width that
+    ''' `hd_bld_eu_049_thouse_roof_01` becomes `roof_01`. Every row carries the
+    ''' same prefix, so it distinguishes nothing and costs the width that
     ''' does.</summary>
     Private Function ShortPart(nm As String) As String
         If String.IsNullOrEmpty(nm) Then Return ""
@@ -202,47 +224,11 @@ Public Class PartsPanel
         Return a.Substring(0, i)
     End Function
 
-
-    ' ---- the export menu, under show all / hide all ----
-    '
-    ' Three stacked rows at the very bottom, so the visibility switches and the
-    ' thing that consumes them are one block: you hide what you do not want and
-    ' write the rest without moving the mouse across the window.
-
-    Public Function ExportRowY(panelH As Integer, which As Integer) As Integer
-        ' 0 = format, 1 = export visible, 2 = export all
-        Return panelH - PAD - rowH * (3 - which) - EXPORT_GAP * (2 - which)
-    End Function
-
-    Private Const EXPORT_GAP As Integer = 3
-
-    Public Function HitsExportFormat(x As Single, y As Single) As Boolean
-        Return HitsExportRow(x, y, 0)
-    End Function
-
-    Public Function HitsExportVisible(x As Single, y As Single) As Boolean
-        Return HitsExportRow(x, y, 1)
-    End Function
-
-    Public Function HitsExportAll(x As Single, y As Single) As Boolean
-        Return HitsExportRow(x, y, 2)
-    End Function
-
-    Private Function HitsExportRow(x As Single, y As Single, which As Integer) As Boolean
-        If Not Visible OrElse Rows.Count = 0 Then Return False
-        Dim ry = ExportRowY(lastPanelH, which)
-        Return y >= ry AndAlso y < ry + rowH AndAlso
-               x >= panelX + PAD AndAlso x < panelX + panelW - PAD
-    End Function
-
-    Public Sub Draw(ui As UiOverlay, windowW As Integer, panelH As Integer,
+    Public Sub Draw(ui As UiOverlay, leftEdge As Integer, panelH As Integer, widthPx As Integer,
                     mouseX As Single, mouseY As Single)
-        If Not Visible OrElse Rows.Count = 0 Then Return
+        If Not Visible OrElse Rows.Count = 0 OrElse widthPx < MIN_W Then Return
         rowH = ui.Font.CellH + 4
-        panelW = Math.Min(PANEL_W, Math.Max(80, windowW - 160))
-        panelX = windowW - panelW
-        lastPanelH = panelH
-        listTop = PAD + rowH + 6
+        Layout(leftEdge, panelH, widthPx)
 
         Dim bg As New Vector4(0.07F, 0.08F, 0.1F, 0.94F)
         Dim edge As New Vector4(0.28F, 0.3F, 0.34F, 1.0F)
@@ -254,37 +240,34 @@ Public Class PartsPanel
 
         ui.Rect(panelX, 0, panelW, panelH, bg)
         ui.Rect(panelX, 0, 1, panelH, edge)
-
         ui.TextClipped(panelX + PAD, PAD + 3,
                        String.Format("PARTS  {0}", Rows.Count), panelW - PAD * 2, dim_)
 
+        ' ---- the list, in whatever is left over ----
         Dim vis = VisibleRows(panelH)
         Dim y = listTop
         For i = Scroll To Math.Min(Rows.Count, Scroll + vis) - 1
             Dim r = Rows(i)
-            Dim over = (mouseX >= panelX AndAlso mouseY >= y AndAlso mouseY < y + rowH)
-            If over Then ui.Rect(panelX, y, panelW, rowH, hoverBg)
+            If y + rowH > listBottom Then Exit For
+            If mouseX >= panelX AndAlso mouseY >= y AndAlso mouseY < y + rowH Then
+                ui.Rect(panelX, y, panelW, rowH, hoverBg)
+            End If
 
-            ' The toggle. Filled when the part is on screen, hollow when it is
-            ' not - readable at a glance down a column of forty.
             Dim bx = panelX + BOX_X
             Dim by = y + 3
             If r.Hidden Then
                 ui.Frame(bx, by, BOX_W, BOX_W, off)
             Else
                 ui.Rect(bx, by, BOX_W, BOX_W, accent)
-                ui.Frame(bx, by, BOX_W, BOX_W, accent)
             End If
 
             Dim tx = panelX + BOX_X + BOX_W + 6
             Dim room = panelW - (BOX_X + BOX_W + 6) - PAD
-
-            ' The source .model, right-aligned and dim, with the asset's own
-            ' name trimmed off the front - every row on a building repeats it
-            ' and it would eat the width that tells the rows apart.
             Dim tail = ShortPart(r.MeshName)
             Dim tailW = ui.Font.Width(tail)
-            If tail.Length > 0 AndAlso tailW < room - ui.Font.CellW * 6 Then
+            ' The source .model only earns its place while the identifier still
+            ' has room to be read. On a narrow panel the name wins.
+            If tail.Length > 0 AndAlso tailW < room - ui.Font.CellW * 8 Then
                 ui.Text(panelX + panelW - PAD - tailW, y + 2, tail, If(r.Hidden, off, dim_))
                 room -= tailW + ui.Font.CellW
             End If
@@ -292,58 +275,47 @@ Public Class PartsPanel
             y += rowH
         Next
 
-        If Rows.Count > vis Then
-            Dim trackY = listTop
+        If Rows.Count > vis AndAlso vis > 0 Then
             Dim trackH = vis * rowH
-            Dim thumbH = Math.Max(18, CInt(trackH * (vis / CDbl(Rows.Count))))
+            Dim thumbH = Math.Max(14, CInt(trackH * (vis / CDbl(Rows.Count))))
             Dim maxScroll = Math.Max(1, Rows.Count - vis)
-            Dim thumbY = trackY + CInt((trackH - thumbH) * (Scroll / CDbl(maxScroll)))
-            ui.Rect(panelX + panelW - 5, trackY, 3, trackH, New Vector4(0.16F, 0.17F, 0.2F, 1.0F))
+            Dim thumbY = listTop + CInt((trackH - thumbH) * (Scroll / CDbl(maxScroll)))
+            ui.Rect(panelX + panelW - 5, listTop, 3, trackH, New Vector4(0.16F, 0.17F, 0.2F, 1.0F))
             ui.Rect(panelX + panelW - 5, thumbY, 3, thumbH, New Vector4(0.45F, 0.48F, 0.54F, 1.0F))
         End If
 
-        ' Footer: the two bulk actions, and what is hidden right now.
-        '
-        ' BulkRowY, the SAME call the hit tests make. This was written once as
-        ' `panelH - rowH - PAD` here while the hit tests had already moved up
-        ' to make room for the export block, and the result drew `export all`
-        ' straight over `show all` - two labels in one row of pixels. One
-        ' function, both callers.
-        Dim fy = BulkRowY(panelH)
-        ui.Rect(panelX, fy - rowH - PAD, panelW, panelH - fy + rowH + PAD,
+        ' ---- the anchored block ----
+        ui.Rect(panelX, hiddenY - GAP, panelW, panelH - hiddenY + GAP,
                 New Vector4(0.1F, 0.11F, 0.13F, 1.0F))
-        Dim halfW = panelW \ 2 - PAD - 2
-        ui.Frame(panelX + PAD, fy, halfW, rowH, edge)
-        ui.TextClipped(panelX + PAD + 6, fy + 2, "show all", halfW - 10, fg)
-        ui.Frame(panelX + panelW \ 2 + 2, fy, halfW, rowH, edge)
-        ui.TextClipped(panelX + panelW \ 2 + 8, fy + 2, "hide all", halfW - 10, fg)
 
         Dim hid = HiddenCount
         If hid > 0 Then
-            ui.TextClipped(panelX + PAD, fy - rowH,
+            ui.TextClipped(panelX + PAD, hiddenY + 2,
                            String.Format("{0} hidden", hid), panelW - PAD * 2, accent)
         End If
 
-        ' ---- export ----
-        Dim ey0 = ExportRowY(panelH, 0)
+        Dim halfW = panelW \ 2 - PAD - 2
+        ui.Frame(panelX + PAD, bulkY, halfW, rowH, edge)
+        ui.TextClipped(panelX + PAD + 5, bulkY + 2, "show all", halfW - 8, fg)
+        ui.Frame(panelX + panelW \ 2 + 2, bulkY, halfW, rowH, edge)
+        ui.TextClipped(panelX + panelW \ 2 + 7, bulkY + 2, "hide all", halfW - 8, fg)
+
         Dim fullW = panelW - PAD * 2
-        ui.Frame(panelX + PAD, ey0, fullW, rowH, edge)
-        ui.TextClipped(panelX + PAD + 6, ey0 + 2, "format: " & ExportFormat, fullW - 10, dim_)
+        ui.Frame(panelX + PAD, fmtY, fullW, rowH, edge)
+        ui.TextClipped(panelX + PAD + 5, fmtY + 2, "format: " & ExportFormat, fullW - 8, dim_)
 
-        Dim ey1 = ExportRowY(panelH, 1)
-        ui.Rect(panelX + PAD, ey1, fullW, rowH, New Vector4(0.17F, 0.2F, 0.26F, 1.0F))
-        ui.Frame(panelX + PAD, ey1, fullW, rowH, accent)
-        ui.TextClipped(panelX + PAD + 6, ey1 + 2,
+        ui.Rect(panelX + PAD, expVisY, fullW, rowH, New Vector4(0.17F, 0.2F, 0.26F, 1.0F))
+        ui.Frame(panelX + PAD, expVisY, fullW, rowH, accent)
+        ui.TextClipped(panelX + PAD + 5, expVisY + 2,
                        If(hid > 0, String.Format("export visible ({0})", Rows.Count - hid), "export visible"),
-                       fullW - 10, fg)
+                       fullW - 8, fg)
 
-        Dim ey2 = ExportRowY(panelH, 2)
-        ui.Frame(panelX + PAD, ey2, fullW, rowH, edge)
-        ui.TextClipped(panelX + PAD + 6, ey2 + 2,
-                       String.Format("export all ({0})", Rows.Count), fullW - 10, fg)
+        ui.Frame(panelX + PAD, expAllY, fullW, rowH, edge)
+        ui.TextClipped(panelX + PAD + 5, expAllY + 2,
+                       String.Format("export all ({0})", Rows.Count), fullW - 8, fg)
 
         If Not String.IsNullOrEmpty(LastExport) Then
-            ui.TextClipped(panelX + PAD, ey2 + rowH + 3, LastExport, fullW, dim_)
+            ui.TextClipped(panelX + PAD, statusY + 2, LastExport, fullW, dim_)
         End If
     End Sub
 End Class

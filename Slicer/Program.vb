@@ -50,6 +50,7 @@ Module Program
         Dim hidePattern As String = Nothing
         Dim exportNow As String = Nothing
         Dim glbCheck As String = Nothing
+        Dim startSize As New Vector2i(0, 0)
         Dim bakeDir As String = Nothing
         Dim objPath As String = Nothing
         Dim bakePx As Integer = 2048
@@ -117,6 +118,17 @@ Module Program
                     i += 1 : If i < args.Length Then exportNow = args(i)
                 Case "--glb-check"
                     i += 1 : If i < args.Length Then glbCheck = args(i)
+                Case "--size"
+                    ' WxH, so a layout can be checked at sizes other than the
+                    ' one it was written at. Anchoring bugs only show up small.
+                    i += 1
+                    If i < args.Length Then
+                        Dim wh = args(i).ToLowerInvariant().Split("x"c)
+                        Dim ww = 0, hh = 0
+                        If wh.Length = 2 AndAlso Integer.TryParse(wh(0), ww) AndAlso Integer.TryParse(wh(1), hh) Then
+                            startSize = New Vector2i(ww, hh)
+                        End If
+                    End If
                 Case "--view"
                     doView = True
                 Case "--list"
@@ -349,7 +361,7 @@ Module Program
             Console.WriteLine("        be several (*eu*house*). Double-click a row to load THAT one model.")
             Console.WriteLine("        / focuses the box, Enter loads, Tab hides the panel.")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView, hidePattern, exportNow)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView, hidePattern, exportNow, startSize)
                 win.Run()
             End Using
         End If
