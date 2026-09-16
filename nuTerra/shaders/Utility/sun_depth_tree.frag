@@ -63,6 +63,9 @@ layout(location = 2) out uvec4 bake_id;
 // ordering entirely: the bit records that a trunk stands at this texel no
 // matter what else won the surface.
 uniform bool u_trunk_only = false;
+// Set PER DRAW CALL by MapTrees.sun_depth_pass, from that species' measured
+// collision radius. The default is the old global ceiling and applies only to
+// a caller that forgets - the shadow bakes never take this branch.
 uniform float u_trunk_radius = 0.6;
 
 // 0x80. Deliberately above the key's own 0..7 so one byte carries both: the

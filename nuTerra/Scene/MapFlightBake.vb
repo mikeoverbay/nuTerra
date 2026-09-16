@@ -380,7 +380,7 @@ Public Class MapFlightBake
     ''' clears the thickest trunks on the roster while cutting the limbs, which
     ''' fan out well past it.
     ''' </summary>
-    Public Shared TRUNK_RADIUS As Single = 0.6F
+    Public Shared TRUNK_RADIUS As Single = TreeTrunks.FALLBACK_RADIUS
 
     ''' <summary>
     ''' Can a hull drive through whatever stands on this texel?

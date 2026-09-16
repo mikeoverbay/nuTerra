@@ -767,6 +767,9 @@ Public Class MapTrees
         sunDepthTreeShader.Use()
         GL.UniformMatrix4(sunDepthTreeShader("sunViewProj"), False, sun_view_proj)
         GL.Uniform1(sunDepthTreeShader("u_trunk_only"), If(trunk_only, 1, 0))
+        ' The radius is set PER PART below, because one Part is one species and
+        ' each has its own trunk. This keeps a sane value for the shadow bakes,
+        ' which never take the trunk branch and never look at it.
         GL.Uniform1(sunDepthTreeShader("u_trunk_radius"), MapFlightBake.TRUNK_RADIUS)
         GL.Uniform1(sunDepthTreeShader("u_tree_id_base"), id_base)
 
@@ -778,6 +781,13 @@ Public Class MapTrees
         ' Full-detail LOD0: this runs once per bake, so the cost is nothing and
         ' the leaf cutout in the shadow is as good as the asset can give.
         For Each p In parts
+            ' ACTUALS. Each species' own trunk, measured off its .srt collision
+            ' hull, instead of one 0.6 m ceiling over the whole roster. A draw
+            ' call is a species, so this costs one uniform per call and the
+            ' number is cached after the first map load.
+            If trunk_only Then
+                GL.Uniform1(sunDepthTreeShader("u_trunk_radius"), TreeTrunks.RadiusOf(p.name))
+            End If
             GL.DrawElementsInstancedBaseVertexBaseInstance(
                 PrimitiveType.Triangles, p.lod_index_count(0), DrawElementsType.UnsignedInt,
                 New IntPtr(p.lod_index_offset(0)), p.instance_count, p.base_vertex, p.base_instance)
