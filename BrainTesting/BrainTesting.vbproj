@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Brain Testing - the smallest thing that can open a WoT map and stand tanks
+    on it, so a NEW brain can be written against it. See
+    docs\brain_testing_plan.md.
+
+    LINKED SOURCE, NOT A PROJECT REFERENCE. nuTerra's types are Friend -
+    `Shader` is, because ShaderLoader is a Module - and Friend is assembly
+    scoped, so a project that merely REFERENCES nuTerra cannot reach its
+    loaders at all. Compiling nuTerra's own .vb files into this assembly keeps
+    one copy of every loader on disk and lets a fix over there arrive here on
+    the next build.
+
+    The <Compile Include="..\nuTerra\..."> list below is therefore the honest
+    statement of what this app is: everything absent is absent on purpose.
+    Stage 0 links NOTHING - it exists to prove the skeleton stands up before
+    the dependency closure starts.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>BrainTesting</RootNamespace>
+    <AssemblyName>BrainTesting</AssemblyName>
+    <StartupObject>BrainTesting.Program</StartupObject>
+    <OptionCompare>Text</OptionCompare>
+    <UseWindowsForms>true</UseWindowsForms>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Product>Brain Testing</Product>
+    <AssemblyTitle>Brain Testing</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTK" Version="4.7.1" />
+  </ItemGroup>
+
+  <!--
+    ===================== LINKED nuTerra SOURCE =====================
+    Empty at stage 0. Each stage of the plan adds the files it needs and
+    NOTHING ELSE, so this list stays readable and the exclusions stay visible.
+  -->
+
+</Project>
