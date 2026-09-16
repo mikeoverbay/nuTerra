@@ -35,6 +35,22 @@
     <AssemblyTitle>Brain Testing</AssemblyTitle>
   </PropertyGroup>
 
+  <!-- nuTerra declares these project-wide; its linked files rely on them
+       (System.Drawing.Point appears unqualified in modGlobalVars). -->
+  <!-- The heightmap is a PNG; ChunkFunctions.get_heights reads it with
+       Pngcs. Same assembly nuTerra references, from its folder. -->
+  <ItemGroup>
+    <Reference Include="Pngcs">
+      <HintPath>../nuTerra/Pngcs.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Import Include="System.Drawing" />
+    <Import Include="System.Windows.Forms" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.7.1" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="5.0.0" />
@@ -49,6 +65,8 @@
   -->
   <ItemGroup>
     <Compile Include="../nuTerra/ModelLoaders/modUtilities.vb" Link="linked/modUtilities.vb" />
+    <Compile Include="../nuTerra/Modules/modGlobalVars.vb" Link="linked/modGlobalVars.vb" />
+    <Compile Include="../nuTerra/OpenGL/modVertexPack.vb" Link="linked/modVertexPack.vb" />
     <Compile Include="../nuTerra/OpenGL/modOpenGLAliases.vb" Link="linked/modOpenGLAliases.vb" />
     <Compile Include="../nuTerra/OpenGL/GLBuffer.vb" Link="linked/GLBuffer.vb" />
     <Compile Include="../nuTerra/OpenGL/GLVertexArray.vb" Link="linked/GLVertexArray.vb" />
@@ -67,6 +85,18 @@
     <Compile Include="../nuTerra/Tanks/TankFiles.vb" Link="linked/TankFiles.vb" />
     <Compile Include="../nuTerra/Tanks/TankPrimitives.vb" Link="linked/TankPrimitives.vb" />
     <Compile Include="../nuTerra/Tanks/TankFormats.vb" Link="linked/TankFormats.vb" />
+  </ItemGroup>
+
+  <!-- STAGE 2 - terrain, as meshes. -->
+  <ItemGroup>
+    <Compile Include="../nuTerra/ModelLoaders/PrimitiveLoader.vb" Link="linked/PrimitiveLoader.vb" />
+    <Compile Include="../nuTerra/Modules/modTypeStructures.vb" Link="linked/modTypeStructures.vb" />
+    <Compile Include="../nuTerra/Space.bin/modSpacedBinVars.vb" Link="linked/modSpacedBinVars.vb" />
+    <Compile Include="../nuTerra/Space.bin/modSpaceBin.vb" Link="linked/modSpaceBin.vb" />
+    <Compile Include="../nuTerra/Space.bin/modSpaceBinFunctions.vb" Link="linked/modSpaceBinFunctions.vb" />
+    <Compile Include="../nuTerra/MapLoader/OutlandDecimator.vb" Link="linked/OutlandDecimator.vb" />
+    <Compile Include="../nuTerra/MapLoader/ChunkFunctions.vb" Link="linked/ChunkFunctions.vb" />
+    <Compile Include="../nuTerra/MapLoader/TerrainBuilder.vb" Link="linked/TerrainBuilder.vb" />
   </ItemGroup>
 
 </Project>

@@ -193,6 +193,30 @@ Everything above exists to make this one interface easy to write against.
         Public row As Integer()           ' what the CARD shows as the path row
     End Structure
 
+**REVISED 2026-09-15 by Tank AI work, who will write against it.** Four
+changes, and each one came with the reason:
+
+- **`standable(x, z, radius)` - a POINT query, not only a segment one.** The
+  algorithm the owner picked is a bounded Bug1: on hitting something, trace the
+  obstacle boundary about 50 cells each way and score both ends by cells walked
+  plus straight line to target. That probes a hundred places the tank is NOT,
+  and needs a cheap "is this cell free for a hull of radius r". `blocked(a, b)`
+  can emulate it with tiny segments, but that is the wrong primitive and would
+  be the slow path.
+- **Hull half-extents belong ON `BrainHull`.** Ray origins sit on the hull
+  edge, so every cast depends on the box - a Panhard and a Maus fan their rays
+  differently. The world already knows it (`TankRoster.HullHalfExtents`), so
+  handing it over stops each brain looking it up and getting it inconsistently.
+- **No wall clock anywhere a brain can reach.** `dt` in, and nothing else - no
+  `DateTime`, no unseeded RNG. Spawns are a pure function for exactly this
+  reason and the brain has to hold the same line, or two runs still do not
+  compare.
+- **The PATH is not world data.** Which road a hull drives is a brain decision.
+  The brain reads `<map>_paths.json` itself, from
+  `C:
+uTerra_shared	ank_paths` (moved out of `%TEMP%`, which the owner
+  could not reach); nuTerra reads shared-first, flight-second, newest wins.
+
 Three properties this has to keep:
 
 - **The brain never touches OpenGL, the loaders, or a file.** It is given
@@ -205,6 +229,13 @@ Three properties this has to keep:
 - **Bodies are driven by throttle and steer only.** No teleporting a hull to a
   waypoint. If a brain cannot drive there with the controls a tank has, that is
   a finding, not something to route around.
+
+**The black box.** Tank AI work's `TankLog` writes a CSV per SIM run to
+`C:
+uTerra_shared	ank_logs`: eight ray distances, eight states, heading,
+speed, travel since the last row, and the drive's own stated reason. Brain
+Testing should write the SAME rows, because identical spawns plus identical
+columns is what makes two different brains comparable at all.
 
 The shape above is a proposal, not a decision - the owner writes the brain, so
 the last word on what it is handed is his.

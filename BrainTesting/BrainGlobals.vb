@@ -1,4 +1,6 @@
-﻿''' <summary>
+﻿Imports OpenTK.Mathematics
+
+''' <summary>
 ''' Every global the command line writes into, and nothing else.
 '''
 ''' DELIBERATELY NOT nuTerra's modGlobalVars, which is 1,888 lines. The names
@@ -15,6 +17,12 @@
 ''' Added 2026-09-15 by nuTerra work, stage 0 of docs\brain_testing_plan.md.
 ''' </summary>
 Module BrainGlobals
+    ' NOTE, 2026-09-15: the window and world globals that used to live here
+    ' (STARTUP_MAP, TANK_PER_TEAM, CLEAN_VIEW and the rest) were removed when
+    ' nuTerra's own modGlobalVars was linked in for the terrain builders. Two
+    ' declarations of one setting is the drift this project keeps paying for,
+    ' and the compiler will not let it happen quietly - it is an ambiguity
+    ' error naming the symbol. What is left here is what only this app has.
 
     ''' <summary>The app's name, in one place. It is the window title, it is
     ''' what the owner calls it, and it is what a screenshot has to say so he
@@ -25,12 +33,9 @@ Module BrainGlobals
 
     Public SCR_WIDTH As Integer = 1600
     Public SCR_HEIGHT As Integer = 900
-    Public HALF_SIZE_WINDOW As Boolean = False
-    Public FULLSCREEN_WINDOW As Boolean = False
 
     ''' <summary>Hide the HUD. Same meaning as nuTerra's, so a habit carries
     ''' over.</summary>
-    Public CLEAN_VIEW As Boolean = False
 
     ''' <summary>Which session opened this window, from `owner=`. Several
     ''' sessions run these apps at once and the windows are otherwise
@@ -43,17 +48,11 @@ Module BrainGlobals
 
     ''' <summary>Map named on the command line, loaded without the menu.
     ''' Nothing when the menu is to be shown.</summary>
-    Public STARTUP_MAP As String = Nothing
 
     ''' <summary>r, ax, ay, lx, ly, lz - exactly what nuTerra's Snapshot
     ''' prints, so a view set up by hand over there reproduces here.</summary>
-    Public STARTUP_CAM As Single() = Nothing
 
     ' ---- the bodies ------------------------------------------------------
-
-    Public TANK_AUTOLOAD As Boolean = False
-    Public TANK_SOLO_TAG As String = Nothing
-    Public TANK_PER_TEAM As Integer = 15
 
     ''' <summary>Run the brain, or leave every hull standing. Both directions
     ''' from the command line (`brain=1` / `brain=0`) rather than a bare flag
@@ -70,5 +69,36 @@ Module BrainGlobals
     ''' `verbose` on the command line. Off, this app prints only its own
     ''' "brain:" lines.</summary>
     Public LOG_VERBOSE As Boolean = False
+
+
+    ''' <summary>Heightmap edge in samples. nuTerra keeps this in MapLoader.vb,
+    ''' a 112 KB file this app does not link; the value is the same 64 and the
+    ''' chunk reader compares against it.</summary>
+    Public HEIGHTMAPSIZE As Integer = 64
+
+    ''' <summary>The window, so the linked loaders can call ForceRender() to
+    ''' keep a frame alive during a long load - the same thing nuTerra's
+    ''' Program.main_window is for.</summary>
+    Public main_window As BrainWindow
+
+    ''' <summary>
+    ''' Every model the space declares, indexed by the space.bin's own model
+    ''' index. THE BUILDINGS - this is what stage 3 draws.
+    '''
+    ''' nuTerra keeps it in MapLoader.vb, a 112 KB file this app does not link
+    ''' (it is the whole map load: decals, water, trees, particles). The
+    ''' space.bin reader fills this array and is linked, so the declaration
+    ''' lives here instead. Same name and type, so that file compiles
+    ''' unchanged.
+    ''' </summary>
+    Public MAP_MODELS() As mdl_
+
+    ''' <summary>One model as the space declares it: its LOD chain, and the
+    ''' bounds the game culls it by. Copied exactly from MapLoader.vb - the
+    ''' linked space.bin reader fills both fields by name.</summary>
+    Public Structure mdl_
+        Public modelLods() As base_model_holder_
+        Public visibilityBounds As Matrix2x3
+    End Structure
 
 End Module

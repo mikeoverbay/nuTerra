@@ -78,8 +78,23 @@ Public Class BrainWindow
         Return OWNER_TAG.Trim() & " - " & APP_NAME
     End Function
 
+    ''' <summary>
+    ''' Draw one frame NOW, from inside a blocking load.
+    '''
+    ''' The linked terrain builders call this so a long load still paints -
+    ''' without it the whole load is a single frozen frame. Same purpose as
+    ''' nuTerra's Window.ForceRender.
+    ''' </summary>
+    Public Sub ForceRender()
+        GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
+        DrawWorld()
+        SwapBuffers()
+        ProcessEvents(0.0)
+    End Sub
+
     Protected Overrides Sub OnLoad()
         MyBase.OnLoad()
+        main_window = Me
 
         Dim major = GL.GetInteger(GetPName.MajorVersion)
         Dim minor = GL.GetInteger(GetPName.MinorVersion)
@@ -143,7 +158,13 @@ Public Class BrainWindow
     Protected Overrides Sub OnRenderFrame(e As FrameEventArgs)
         MyBase.OnRenderFrame(e)
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
+        DrawWorld()
         SwapBuffers()
+    End Sub
+
+    ''' <summary>Everything the frame draws, in ONE place so the normal frame
+    ''' and ForceRender cannot drift apart.</summary>
+    Private Sub DrawWorld()
     End Sub
 
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
