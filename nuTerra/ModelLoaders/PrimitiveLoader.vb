@@ -266,6 +266,22 @@ Module PrimitiveLoader
         Public nVertices As Integer
         Public material_id As Integer
 
+        ''' <summary>
+        ''' The material id AS SPACE.BIN NUMBERS IT, before the loader remaps it.
+        '''
+        ''' `material_id` above is a LOCAL index - apply_material_for_pgroup
+        ''' rewrites it to a position in the app's own material list so the
+        ''' renderer can index an array. That remap loses the only key that
+        ''' reaches cBSMA, and with it the part identifier: d_wood0_1, n_metal3_2,
+        ''' s_wall_0 - destructible, non-destructible, static structure.
+        '''
+        ''' Four bytes a primitive group to keep a question answerable that was
+        ''' otherwise unanswerable from inside the app. The identifier itself is
+        ''' NOT stored: it is one lookup away and there are far more groups than
+        ''' distinct materials.
+        ''' </summary>
+        Public space_material_id As Integer = -1
+
         Public no_draw As Boolean
     End Class
 

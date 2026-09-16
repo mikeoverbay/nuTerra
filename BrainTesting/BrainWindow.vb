@@ -169,6 +169,11 @@ Public Class BrainWindow
                 ' The footprint rasteriser is the fallback for a map with no
                 ' bake yet, and the log says which one answered.
                 If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
+
+                ' NOW the trees can be drawn by whether a hull gets through
+                ' them. Built earlier, decided here - the grid did not exist
+                ' when their geometry went up.
+                BrainTrees.MarkDrivable()
                 If BrainNav.NAV_AUDIT Then BrainNav.MaterialAudit()
 
                 ' THE SIM STARTS AT LAUNCH - the owner's ask. What it DOES is
@@ -292,6 +297,45 @@ Public Class BrainWindow
         BrainRender.DrawTerrain(aspect)
     End Sub
 
+    ''' <summary>Where the left button went down, and how far the cursor has
+    ''' travelled since.</summary>
+    Private pressAt As Vector2
+    Private pressTravel As Single
+    Private wasDown As Boolean
+
+    ''' <summary>
+    ''' Pick on RELEASE, and only if the cursor barely moved.
+    '''
+    ''' A left DRAG is the camera orbit. Picking on press would fire on the
+    ''' first frame of every orbit, so the log would fill with whatever the
+    ''' user happened to start the drag on - and the one thing this app must
+    ''' not do is spam the output window.
+    '''
+    ''' TRAVEL IS ACCUMULATED, not measured press-to-release. A drag that
+    ''' circles back to where it started has a displacement of zero and is
+    ''' still emphatically a drag.
+    ''' </summary>
+    Private Sub pick_if_clicked()
+        Dim down = MouseState.IsButtonDown(OpenTK.Windowing.GraphicsLibraryFramework.MouseButton.Left)
+        Dim here = New Vector2(MouseState.X, MouseState.Y)
+        If down Then
+            If Not wasDown Then
+                pressAt = here
+                pressTravel = 0.0F
+            Else
+                pressTravel += (here - pressAt).Length
+                pressAt = here
+            End If
+        ElseIf wasDown Then
+            If pressTravel <= 4.0F Then
+                Dim aspect = CSng(ClientSize.X) / Math.Max(1, ClientSize.Y)
+                Dim vp = BrainRender.Cam.ViewProj(aspect)
+                BrainPick.Report(BrainPick.At(vp, here.X, here.Y, ClientSize.X, ClientSize.Y))
+            End If
+        End If
+        wasDown = down
+    End Sub
+
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
         MyBase.OnUpdateFrame(e)
         If KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape) Then Close()
@@ -299,6 +343,7 @@ Public Class BrainWindow
         ' nuTerra's camera_mouse_update by way of Exporter Studio.
         BrainSim.Tick(CSng(e.Time))
         BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
+        pick_if_clicked()
     End Sub
 
 End Class

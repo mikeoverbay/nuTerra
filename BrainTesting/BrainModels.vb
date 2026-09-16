@@ -24,6 +24,17 @@ Module BrainModels
         ''' <summary>Local-space bounds, for the view-space clip.</summary>
         Public bbMin As Vector3
         Public bbMax As Vector3
+
+        ''' <summary>
+        ''' Primitive groups by identifier prefix: d_ destructible, n_ non-
+        ''' destructible, s_ static structure, and everything that carries
+        ''' none of the three.
+        '''
+        ''' PER PART, WHICH IS THE POINT. One shed is 14 d_ against 24 n_ -
+        ''' planks destructible, frame not - so "is this model crushable" has
+        ''' no answer and the counts are the honest reply.
+        ''' </summary>
+        Public pD, pN, pS, pOther As Integer
         Public ok As Boolean
     End Structure
 
@@ -161,6 +172,14 @@ Module BrainModels
                 If Not any Then Continue For
             End If
 
+            ' The part identifiers, counted while the groups are in hand. One
+            ' cBSMA lookup each, on a table of a few hundred rows, at load.
+            If rs.primitiveGroups IsNot Nothing Then
+                For Each pg In rs.primitiveGroups.Values
+                    count_prefix(pg, m)
+                Next
+            End If
+
             Dim vb = rs.buffers.vertexBuffer
             Dim ib = rs.buffers.index_buffer32
             If vb Is Nothing OrElse ib Is Nothing OrElse vb.Length = 0 Then Continue For
@@ -289,6 +308,37 @@ Module BrainModels
         GL.BindVertexArray(0)
     End Sub
 
+    ''' <summary>
+    ''' Nearest model the ray meets, into an existing Hit.
+    '''
+    ''' HERE RATHER THAN IN BrainPick because `meshes` is private to this
+    ''' file, and widening it so a picker can read it would open the mesh
+    ''' table to everything else too.
+    '''
+    ''' OUTLAND IS SKIPPED, the same test the draw uses. A thing that is not
+    ''' on screen cannot be the thing under the cursor, and the boundary
+    ''' slabs are the largest boxes in the space - without this they would
+    ''' swallow most picks.
+    ''' </summary>
+    Public Sub PickInto(origin As Vector3, dir As Vector3, ByRef res As BrainPick.Hit)
+        If meshes Is Nothing OrElse MODEL_INDEX_LIST Is Nothing Then Return
+        For Each inst In MODEL_INDEX_LIST
+            If inst.model_index < 0 OrElse inst.model_index >= meshes.Length Then Continue For
+            Dim m = meshes(inst.model_index)
+            If Not m.ok Then Continue For
+            Dim mat = inst.matrix
+            If outside_map(mat) Then Continue For
+            Dim t = BrainPick.RayBox(origin, dir, mat, m.bbMin, m.bbMax)
+            If t < 0.0F OrElse t >= res.dist Then Continue For
+            res.dist = t
+            res.what = "model"
+            res.name = m.asset
+            res.kind = m.kind
+            res.size = m.bbMax - m.bbMin
+            res.pD = m.pD : res.pN = m.pN : res.pS = m.pS : res.pOther = m.pOther
+        Next
+    End Sub
+
     ''' <summary>One placement's world-space footprint and what it is.</summary>
     Public Structure Footprint
         Public ok As Boolean
@@ -338,6 +388,38 @@ Module BrainModels
         f.ok = True
         Return f
     End Function
+
+    ''' <summary>
+    ''' Bucket one primitive group by its identifier prefix.
+    '''
+    ''' THE PREFIX IS DOUBLED ON SOME NAMES - the havok bodies show
+    ''' `n_n_wood0_1` and `s_s_nd_0_wall`, because a body is named
+    ''' `<prefix>_<identifier>` and the identifier already had one. Only the
+    ''' LEADING two characters are read, so a doubled name buckets the same
+    ''' as a single one.
+    ''' </summary>
+    Private Sub count_prefix(pg As PrimitiveGroup, ByRef m As Mesh)
+        If pg Is Nothing OrElse pg.space_material_id < 0 Then
+            m.pOther += 1
+            Return
+        End If
+        Dim id As String = Nothing
+        Try
+            id = cBSMA.MaterialItem(pg.space_material_id).identifier
+        Catch
+        End Try
+        If String.IsNullOrEmpty(id) Then
+            m.pOther += 1
+        ElseIf id.StartsWith("d_", StringComparison.OrdinalIgnoreCase) Then
+            m.pD += 1
+        ElseIf id.StartsWith("n_", StringComparison.OrdinalIgnoreCase) Then
+            m.pN += 1
+        ElseIf id.StartsWith("s_", StringComparison.OrdinalIgnoreCase) Then
+            m.pS += 1
+        Else
+            m.pOther += 1
+        End If
+    End Sub
 
     ''' <summary>The kind's colour, 0..1. ModelKind.KIND_RGB is the one table -
     ''' it is Path Studio's legend and the owner has been reading it since
