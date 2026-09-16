@@ -65,6 +65,16 @@ Public Class BrainCamera
         PitchRad = -0.5F
     End Sub
 
+    ''' <summary>Stand off from a world point and look at it. The stand-off is
+    ''' along -Z and up at 35 degrees, which shows a formation's depth rather
+    ''' than looking straight down at its roofs.</summary>
+    Public Sub LookAt(x As Single, z As Single, ground As Single, dist As Single)
+        Dim h = dist * 0.7F
+        Position = New Vector3(x, ground + h, z - dist)
+        YawRad = 0.0F
+        PitchRad = CSng(-Math.Atan2(h, dist))
+    End Sub
+
     Public Sub Update(dt As Single, k As KeyboardState)
         Dim look = LOOK_RATE * dt
         If k.IsKeyDown(Keys.Left) Then YawRad -= look

@@ -23,7 +23,14 @@ Public Class MapTanks
     ''' takes the same mirror so it faces the same way as the buildings around
     ''' it. Left settable because it is a verification step, not a known.
     ''' </summary>
-    Public Shared MirrorX As Boolean = True
+    ''' <summary>Forwarded from TankRoster, which owns it now - Brain Testing
+    ''' poses the same hulls and must flip them the same way. One definition;
+    ''' this re-exports it so every site here is untouched.</summary>
+    Public Shared ReadOnly Property MirrorX As Boolean
+        Get
+            Return TankRoster.MirrorX
+        End Get
+    End Property
 
     ''' <summary>Which normal encoding the .vert unpacks: 1 = 8/8/8 unsigned bytes (what the VB exporter uses for BPVT streams), 0 = 11/10/10 signed.</summary>
     Public Shared NormalMode As Integer = 1
@@ -37,7 +44,12 @@ Public Class MapTanks
     ''' gun drawn pointing out over the spade. Verified on the still that
     ''' followed; left as a flag so the A/B is one line.
     ''' </summary>
-    Public Shared FlipSkinnedZ As Boolean = True
+    ''' <summary>Forwarded from TankRoster. See MirrorX.</summary>
+    Public Shared ReadOnly Property FlipSkinnedZ As Boolean
+        Get
+            Return TankRoster.FlipSkinnedZ
+        End Get
+    End Property
 
     Private ReadOnly scene As MapScene
     Private cards As TankCards
