@@ -20,14 +20,25 @@
 ''' off its end - the same over-claim that cost the nav grid 6,000 false
 ''' blockers before it rasterised oriented quads.
 '''
-''' IT ALSO SAYS WHAT THE PARTS ARE. The identifiers - d_ destructible, n_
-''' non-destructible, s_ static structure - hang off the primitive group's
-''' ORIGINAL space.bin material id, which the loader used to remap away
-''' before anything could read it. PrimitiveGroup keeps the original
-''' alongside now, so a click can answer it.
+''' IT ALSO COUNTS THE NAME PREFIXES - d_, n_, s_ - off the primitive
+''' group's ORIGINAL space.bin material id, which the loader used to remap
+''' away before anything could read it.
 '''
-''' The counts are PER PART and do not reduce to one verdict: a shed is 14
-''' d_ against 24 n_, planks destructible and frame not.
+''' A PREFIX IS A NAME, NOT A VERDICT, and this said otherwise until
+''' Exporter Studio retracted it on 2026-09-16. The prefixes read as
+''' destructible / non-destructible / static and mostly are - but the same
+''' identifier can be either. Verified by running their --idents: n_stone0
+''' is 61 materials over 6 assets carrying materialKind 73 AND 111, the
+''' destructible band on some buildings and the static band on others. The
+''' name genuinely does not carry the answer, so no amount of careful prefix
+''' matching recovers it.
+'''
+''' materialKind is what the engine reads and is the key worth having here
+''' - 73-85 intact, 87-98 destroyed, the rest static. It is not on this seam
+''' yet. Until it is, these counts are a name census and are labelled as one.
+'''
+''' The counts are also PER PART and do not reduce to one verdict: a shed is
+''' 14 d_ against 24 n_, planks and frame named differently.
 '''
 ''' Added 2026-09-16 by nuTerra work, on the owner's ask.
 ''' </summary>
@@ -171,8 +182,8 @@ Module BrainPick
                 h.name, h.point.X, h.point.Y, h.point.Z, h.dist,
                 h.size.X, h.size.Y, h.size.Z)
         If h.what = "model" AndAlso (h.pD + h.pN + h.pS + h.pOther) > 0 Then
-            LogThis("brain:      parts - {0} destructible (d_), {1} not (n_), " &
-                    "{2} static (s_), {3} unnamed",
+            LogThis("brain:      part names - {0} d_, {1} n_, {2} s_, {3} unprefixed " &
+                    "(a name census, not the destruction state - see BrainPick)",
                     h.pD, h.pN, h.pS, h.pOther)
         End If
     End Sub
