@@ -9,6 +9,11 @@ Public Class BuildingPart
     Public Property Path As String              ' full package path, lowered
     Public Property Pkg As String               ' the package it was found in
     Public Property Lod As Integer
+    ''' <summary>Whether the .model has actually been read yet. The scan now
+    ''' covers every package, so parsing all 92,394 up front would cost seconds
+    ''' of startup to fill in fields most of them will never be asked for.
+    ''' Everything below this line is meaningless until it is True.</summary>
+    Public Property Parsed As Boolean
     Public Property Visual As String            ' nodelessVisual / nodefullVisual target
     Public Property Nodeless As Boolean         ' which of the two keys named it
     Public Property HasBox As Boolean
@@ -149,10 +154,47 @@ Public Class BuildingLibrary
 
     Public Const ROOT As String = "content/buildings/"
 
-    ''' <summary>content/buildings/&lt;asset&gt;/&lt;state&gt;/lod&lt;N&gt;/&lt;part&gt;.model</summary>
+    ''' <summary>
+    ''' &lt;root&gt;/&lt;asset&gt;/&lt;state&gt;/lod&lt;N&gt;/&lt;part&gt;.model - the shape EVERY
+    ''' model in the game uses, with the root left open instead of pinned to
+    ''' content/buildings.
+    '''
+    ''' Measured across all 218 packages on 2026-09-16: 92,394 .model files,
+    ''' 88,988 of which carry a lod&lt;N&gt; segment, and the component directly
+    ''' above that segment is "normal" (56,445), "crash" (32,542) or
+    ''' "waffentrager_e100_idle" (1). Three values, 100% of them - so state is
+    ''' a real level of the path and opening the root up does not turn the
+    ''' rest of the shape into a guess. Buildings are 4,893 of the 92,394;
+    ''' scanning only those was the app assuming its own answer.
+    ''' </summary>
     Private Shared ReadOnly SHAPE As New Regex(
-        "^(?<root>content/buildings)/(?<asset>[^/]+)/(?<state>[^/]+)/lod(?<lod>\d+)/(?<part>[^/]+)\.model$",
+        "^(?<root>.+)/(?<asset>[^/]+)/(?<state>[^/]+)/lod(?<lod>\d+)/(?<part>[^/]+)\.model$",
         RegexOptions.Compiled Or RegexOptions.IgnoreCase)
+
+    ''' <summary>
+    ''' &lt;root&gt;/&lt;asset&gt;/&lt;part&gt;.model - no LOD folder anywhere in the path.
+    '''
+    ''' 3,406 models ship this way, mostly particle and interface meshes. They
+    ''' are single-LOD by construction, so they are filed at lod 0 rather than
+    ''' dropped: "all packages" has to mean all of them. Tried only AFTER the
+    ''' Havok shape, because a collision proxy at
+    ''' &lt;asset&gt;/&lt;state&gt;/lod&lt;N&gt;/havok/&lt;part&gt;.hkt.model also has no lod
+    ''' segment in the position SHAPE wants and would otherwise be filed here
+    ''' as if it were render geometry.
+    '''
+    ''' The root is optional because exactly two models in the game sit two
+    ''' segments deep - objects/fake_model.model and
+    ''' particles/gradient_cube.model. A required root dropped both, and the
+    ''' count came out two short of the census, which is how they were found.
+    ''' </summary>
+    Private Shared ReadOnly NOLOD_SHAPE As New Regex(
+        "^(?:(?<root>.+)/)?(?<asset>[^/]+)/(?<part>[^/]+)\.model$",
+        RegexOptions.Compiled Or RegexOptions.IgnoreCase)
+
+    ''' <summary>A lod&lt;N&gt; segment anywhere in a path, for the models whose
+    ''' lod folder is not where SHAPE expects it.</summary>
+    Private Shared ReadOnly LOD_ANYWHERE As New Regex(
+        "(?:^|/)lod(?<lod>\d+)(?:/|$)", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
 
     ''' <summary>
     ''' content/buildings/&lt;asset&gt;/&lt;state&gt;/lod&lt;N&gt;/havok/&lt;part&gt;.hkt.model
@@ -244,6 +286,29 @@ Public Class BuildingLibrary
         Return one
     End Function
 
+    ''' <summary>
+    ''' Is there a part in this library for that stem? Takes the path with or
+    ''' without one of the three sibling extensions, the same as
+    ''' ForSingleModel, so a caller does not have to know which one we file.
+    ''' </summary>
+    Public Function HasModel(stemOrPath As String) As Boolean
+        If String.IsNullOrWhiteSpace(stemOrPath) Then Return False
+        Dim q = stemOrPath.Replace("\"c, "/"c).Trim().ToLowerInvariant()
+        For Each ext In {".primitives_processed", ".visual_processed", ".model"}
+            If q.EndsWith(ext, StringComparison.Ordinal) Then
+                q = q.Substring(0, q.Length - ext.Length)
+                Exit For
+            End If
+        Next
+        q &= ".model"
+        For Each a In Assets.Values
+            For Each pt In a.Parts
+                If String.Equals(pt.Path, q, StringComparison.OrdinalIgnoreCase) Then Return True
+            Next
+        Next
+        Return False
+    End Function
+
     Public Shared Function Scan(pkg As PkgIndex) As BuildingLibrary
         Dim library As New BuildingLibrary
 
@@ -264,9 +329,15 @@ Public Class BuildingLibrary
                     Continue For
                 End If
 
-                ' Not shaped like a building path. Still worth a look: if it is
-                ' NAMED like one, that is the null control firing and we want to
-                ' hear about it.
+                ' No lod folder where SHAPE wants one. Still a model, so file
+                ' it rather than drop it.
+                m = NOLOD_SHAPE.Match(e.Path)
+            End If
+
+            If Not m.Success Then
+                ' Nothing recognised it at all. Worth a look: if it is NAMED like
+                ' a building, that is the null control firing and we want to hear
+                ' about it.
                 Dim segs = e.Path.Split("/"c)
                 If segs.Length > 2 AndAlso NAMED_BLD.IsMatch(segs(2)) AndAlso
                    Not e.Path.StartsWith(ROOT, StringComparison.OrdinalIgnoreCase) Then
@@ -278,14 +349,20 @@ Public Class BuildingLibrary
 
             library.ModelsFound += 1
             Dim assetName = m.Groups("asset").Value
-            If Not NAMED_BLD.IsMatch(assetName) Then library.InRootNotNamedBld.Add(assetName)
+            ' Scoped to content/buildings, because that is the only place the
+            ' claim means anything. Unscoped it fired on 2,993 assets the first
+            ' time the scan went game-wide - every map, every tank - and a null
+            ' control that reports thousands of hits is not a control any more,
+            ' it is noise that hides the one real hit.
+            If e.Path.StartsWith(ROOT, StringComparison.OrdinalIgnoreCase) AndAlso
+               Not NAMED_BLD.IsMatch(assetName) Then library.InRootNotNamedBld.Add(assetName)
 
             Dim asset As BuildingAsset = Nothing
             If Not library.Assets.TryGetValue(assetName, asset) Then
                 asset = New BuildingAsset With {
                     .Name = assetName,
                     .Root = m.Groups("root").Value.ToLowerInvariant(),
-                    .State = m.Groups("state").Value.ToLowerInvariant()}
+                    .State = If(m.Groups("state").Success, m.Groups("state").Value.ToLowerInvariant(), "-")}
                 library.Assets.Add(assetName, asset)
             End If
             asset.Pkgs.Add(e.Pkg)
@@ -294,27 +371,65 @@ Public Class BuildingLibrary
                 .Name = m.Groups("part").Value,
                 .Path = e.Path,
                 .Pkg = e.Pkg,
-                .Lod = Integer.Parse(m.Groups("lod").Value)}
+                .Lod = LodOf(m, e.Path)}
 
-            Try
-                Dim node = PackedSection.Parse(pkg.Read(e))
-                If node Is Nothing Then
+            ' Only lod0 is read here. That is what the browser lists and what
+            ' every report below counts; the deeper LODs are parsed by
+            ' EnsureParsed if and when the viewer walks down to one. Parsing all
+            ' of them cost 220 ms over 4,893 buildings and would cost seconds
+            ' over 92,394 models for fields nothing asks for.
+            If part.Lod = 0 Then
+                Try
+                    Dim node = PackedSection.Parse(pkg.Read(e))
+                    If node Is Nothing Then
+                        library.ModelsUnparsable += 1
+                        library.Failures.Add(e.Path & "  (not a packed section)")
+                    Else
+                        library.ModelsParsed += 1
+                        ReadModel(node, part)
+                    End If
+                    part.Parsed = True
+                Catch ex As Exception
                     library.ModelsUnparsable += 1
-                    library.Failures.Add(e.Path & "  (not a packed section)")
-                Else
-                    library.ModelsParsed += 1
-                    ReadModel(node, part)
-                End If
-            Catch ex As Exception
-                library.ModelsUnparsable += 1
-                library.Failures.Add(e.Path & "  " & ex.GetType().Name & ": " & ex.Message)
-            End Try
+                    library.Failures.Add(e.Path & "  " & ex.GetType().Name & ": " & ex.Message)
+                End Try
+            End If
 
             asset.Parts.Add(part)
         Next
 
         Return library
     End Function
+
+    ''' <summary>
+    ''' The LOD number for a matched path: the shape's own group where it has
+    ''' one, otherwise a lod&lt;N&gt; segment found anywhere in the path, otherwise
+    ''' 0 for a model that simply has no LODs.
+    ''' </summary>
+    Private Shared Function LodOf(m As Match, path As String) As Integer
+        If m.Groups("lod").Success Then Return Integer.Parse(m.Groups("lod").Value)
+        Dim any = LOD_ANYWHERE.Match(path)
+        If any.Success Then Return Integer.Parse(any.Groups("lod").Value)
+        Return 0
+    End Function
+
+    ''' <summary>
+    ''' Read this part's .model if it has not been read yet.
+    '''
+    ''' The scan reads lod0 only, so anything that needs Visual or the box off
+    ''' a deeper LOD has to ask. Cheap and idempotent - a part is parsed once.
+    ''' </summary>
+    Public Shared Sub EnsureParsed(pkg As PkgIndex, part As BuildingPart)
+        If part Is Nothing OrElse part.Parsed Then Return
+        part.Parsed = True
+        Try
+            Dim node = PackedSection.Parse(pkg.ReadPath(part.Path))
+            If node IsNot Nothing Then ReadModel(node, part)
+        Catch
+            ' A part that will not parse still resolves: PrimitivesPathFor falls
+            ' back to the .model stem when Visual is empty.
+        End Try
+    End Sub
 
     ''' <summary>
     ''' Pull the two things a .model carries that we care about: which visual it

@@ -512,6 +512,12 @@ Public Class ViewerWindow
 
         For Each part In CurrentParts()
             If wanted <> "all" AndAlso Not part.Name.ToLowerInvariant().Contains(wanted) Then Continue For
+            ' The scan reads lod0 only, so a part reached by the LOD keys may
+            ' never have been opened. Without this its Visual is empty and
+            ' PrimitivesPathFor silently falls back to the .model stem - right
+            ' most of the time, and wrong exactly where a model points at a
+            ' visual somewhere else.
+            BuildingLibrary.EnsureParsed(pkg, part)
             Dim raw = pkg.ReadPath(PrimitivesPathFor(part))
             If raw Is Nothing Then Continue For
             Dim meshes As List(Of PrimMesh)
