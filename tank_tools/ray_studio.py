@@ -240,6 +240,60 @@ SOLID_BIT = 32
 KIND_FENCE, KIND_TREE, KIND_PROP, KIND_WATER = 2, 3, 5, 6
 
 
+def bits_from_meta(meta, map_name=""):
+    """The bit contract, FROM THE BAKE, not from memory.
+
+    CLAUDE.md: "the flight bake's contract lives in <map>_meta.txt (kind_mask,
+    outland_bit, trunk_bit, trunk_radius; solid_bit and stem_min_m once
+    written) and the readers in tools/ take every bit from there - the writer
+    must not move a bit without telling the Path Studio session."
+
+    This reader did not. kinds_from_meta has always read the kind NUMBERS out
+    of the meta, but the four bits beside them were module constants - 7, 16,
+    128, 32 - and the height threshold was a fifth. They are all correct today.
+    That is luck plus a careful writer, not a check: the app validates the
+    meta against its own constants and invalidates the bake when they differ
+    (MapFlightBake ~line 747), and the one reader on the other side of the
+    contract took them on faith.
+
+    The constants stay as the fallback, because a v1 bake has no such keys and
+    reading one should still work. A DISAGREEMENT is the interesting case and
+    it is loud: the bake wins, since it describes the bytes actually on disk.
+    """
+    out = {}
+    for name, fallback in (("kind_mask", KIND_MASK),
+                           ("outland_bit", OUTLAND_BIT),
+                           ("trunk_bit", TRUNK_BIT),
+                           ("solid_bit", SOLID_BIT)):
+        raw = meta.get(name)
+        if raw is None:
+            out[name] = fallback
+            continue
+        try:
+            v = int(str(raw).strip(), 0)
+        except ValueError:
+            out[name] = fallback
+            continue
+        if v != fallback:
+            print("=" * 68)
+            print(" BIT CONTRACT MOVED: %s bakes %s=%d, this reader had %d."
+                  % (map_name or "this map", name, v, fallback))
+            print(" Using the bake's value. If this is not a mistake, the")
+            print(" constant at the top of this file needs the same change.")
+            print("=" * 68)
+        out[name] = v
+
+    raw = meta.get("obstacle_min_h")
+    try:
+        out["obstacle_min_h"] = float(raw) if raw is not None else MAX_OBSTACLE_M
+    except ValueError:
+        out["obstacle_min_h"] = MAX_OBSTACLE_M
+    if abs(out["obstacle_min_h"] - MAX_OBSTACLE_M) > 1e-6:
+        print("NOTE: %s bakes obstacle_min_h=%.3f m; this reader had %.3f m. "
+              "Using the bake's." % (map_name, out["obstacle_min_h"], MAX_OBSTACLE_M))
+    return out
+
+
 def kinds_from_meta(meta):
     """(fence, tree, prop, water) as THIS bake numbers them."""
     byname = {}
@@ -313,24 +367,28 @@ def build_grid(map_name, hull_r_m):
     fl16 = np.fromfile(os.path.join(FLIGHT, f"{map_name}_floor.r16"),
                        dtype="<u2").reshape(W, W).astype(np.int32)
 
+    bits = bits_from_meta(meta, map_name)
+
     key = top[:, :, 0]
     t16 = (top[:, :, 1].astype(np.int32) << 8) | top[:, :, 2]
-    kind = key & KIND_MASK
+    kind = key & bits["kind_mask"]
 
-    # Y ABOVE 1.0 m IS A COLLISION - at the texel, not at a cell average.
-    over = (t16 - fl16) > int(MAX_OBSTACLE_M * scale)
+    # Y ABOVE THE BAKE'S OWN THRESHOLD IS A COLLISION - at the texel, not at a
+    # cell average. The height comes from obstacle_min_h for the same reason
+    # the bits do: it is the number the bake was written with.
+    over = (t16 - fl16) > int(bits["obstacle_min_h"] * scale)
     # CRUSHABLE ONLY IF IT IS NOT ALSO SOLID. A tank flattens a tree, a fence
     # and a vase - the owner's rule - but a texel that keys tree and carries
     # the solid bit is rock or wall standing UNDER a canopy, and driving at it
     # is driving into a cliff.
-    solid = (key & SOLID_BIT).astype(bool)
+    solid = (key & bits["solid_bit"]).astype(bool)
     # THE SOLID BIT QUALIFIES TREES, AND ONLY TREES. It is read between the
     # model pass and the tree pass, so a model sets it for itself: 75.6% of
     # fence texels and 63.3% of prop texels carry it against 7.0% of tree
     # texels. Testing it on fence and prop un-crushed three quarters of the
     # fences on this map.
     k_fence, k_tree, k_prop, k_water = kinds_from_meta(meta)
-    trunk = (key & TRUNK_BIT).astype(bool)
+    trunk = (key & bits["trunk_bit"]).astype(bool)
 
     # THE TRUNK BLOCKS. Reversed 2026-09-16 on the owner's ruling, and this
     # expression must stay identical to MapFlightBake.Crushable(k) in the app:
@@ -355,7 +413,7 @@ def build_grid(map_name, hull_r_m):
     #
     # Measured on monastery: after the half-hull growth the planner saw
     # 26.78% of the bake blocked with trunks in, 24.00% with them out.
-    collide = (over & testable)         | (key & OUTLAND_BIT).astype(bool)         | (kind == k_water)
+    collide = (over & testable)         | (key & bits["outland_bit"]).astype(bool)         | (kind == k_water)
 
     # GROW IT BY THE HULL, ONCE, AT FULL RESOLUTION.
     #
@@ -419,7 +477,7 @@ def build_grid(map_name, hull_r_m):
     # Path Studio's suggestion, and it costs nothing because the data is here.
     return dict(W=W, texel_m=(wx1 - wx0) / W, collide=collide,
                 collide_hull=collide_hull, used=None,
-                kind=kind, trunk=(key & TRUNK_BIT).astype(bool),
+                kind=kind, trunk=trunk,
                 bake_version=bake_version,
                 solid=solid, ids=ids, id_names=id_names, palette=palette,
                 kinds=dict(fence=k_fence, tree=k_tree, prop=k_prop,
