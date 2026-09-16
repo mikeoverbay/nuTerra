@@ -102,6 +102,11 @@ Public Class ViewerWindow
     ''' visibility path can be proven without anyone clicking.</summary>
     Private hideQuery As String = Nothing
 
+    ''' <summary>--export-now visible|all: press the panel's export button
+    ''' once, after the first load, then carry on. Same code path the button
+    ''' takes, so it proves the button rather than a parallel one.</summary>
+    Private exportNowMode As String = Nothing
+
     ''' <summary>--ui: build the panel even for a --shot, so the interface
     ''' itself can be looked at in a still instead of only over someone's
     ''' shoulder. Off by default, because a strip of UI down one side of every
@@ -261,6 +266,18 @@ Public Class ViewerWindow
     Private ReadOnly atlasCache As New Dictionary(Of String, Integer)(StringComparer.OrdinalIgnoreCase)
     Private atlasProgram As Integer = 0
     Private partsPanel As New PartsPanel()
+
+    ''' <summary>The interleaved vertex block and index list the PBR build
+    ''' uploaded, kept CPU-side so an export can write what is on screen.
+    '''
+    ''' rawParts is not enough: it is per MESH and carries positions only,
+    ''' while the panel hides per GROUP and an export wants the uv too. 20k
+    ''' vertices at 16 floats is 1.3 MB - cheap against re-reading and
+    ''' re-parsing the packages on every export.</summary>
+    Private pbrVertData As Single() = Array.Empty(Of Single)()
+    Private pbrIdxData As Integer() = Array.Empty(Of Integer)()
+    Private exportFormat As String = Nothing
+    Private lastExport As String = ""
     Private atlasParts As Integer = 0
 
     ''' <summary>The vestigial tile inset. 0.0 is what the data wants; 0.0625
@@ -316,7 +333,7 @@ Public Class ViewerWindow
                    Optional bakeTo As String = Nothing, Optional bakePx As Integer = 2048,
                    Optional objFile As String = Nothing, Optional uiInShot As Boolean = False,
                    Optional findPattern As String = Nothing, Optional debugView As Integer = 0,
-                   Optional hidePattern As String = Nothing)
+                   Optional hidePattern As String = Nothing, Optional exportNow As String = Nothing)
         MyBase.New(GameWindowSettings.Default,
                    New NativeWindowSettings With {
                        .Size = New Vector2i(1280, 800),
@@ -330,6 +347,7 @@ Public Class ViewerWindow
         assetIndex = Math.Max(0, Math.Min(startAsset, assets.Count - 1))
         lodIndex = Math.Max(0, cfg.Lod)
         shotPath = shot
+        exportFormat = If(cfg.OutFormat, "obj").Trim().ToLowerInvariant()
         shellOnLoad = doShell
         bakeDir = bakeTo
         objPath = objFile
@@ -337,6 +355,7 @@ Public Class ViewerWindow
         startQuery = findPattern
         pbrDebug = Math.Max(0, debugView)
         hideQuery = hidePattern
+        exportNowMode = exportNow
         If bakePx >= 64 Then bakeSize = bakePx
         If shotPath IsNot Nothing Then
             ' The angle decides what the picture can prove, so it is explicit
@@ -715,9 +734,11 @@ Public Class ViewerWindow
 
         GL.BindVertexArray(pbrVao)
         GL.BindBuffer(BufferTarget.ArrayBuffer, pbrVbo)
-        GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
+        pbrVertData = verts.ToArray()
+        pbrIdxData = idx.ToArray()
+        GL.BufferData(BufferTarget.ArrayBuffer, pbrVertData.Length * 4, pbrVertData, BufferUsageHint.StaticDraw)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
-        GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ElementArrayBuffer, pbrIdxData.Length * 4, pbrIdxData, BufferUsageHint.StaticDraw)
         Const ST As Integer = 16 * 4
         GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
         GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
@@ -729,6 +750,7 @@ Public Class ViewerWindow
 
         RefreshPartsPanel()
         ApplyHideQuery()
+        RunExportNow()
 
         Dim withN = pbrParts.Where(Function(x) x.HasNormal).Count()
         Console.WriteLine("  pbr: {0} group(s), {1:N0} tris, {2} with a normal map, {3} texture(s) resident",
@@ -1136,9 +1158,11 @@ Public Class ViewerWindow
 
         GL.BindVertexArray(pbrVao)
         GL.BindBuffer(BufferTarget.ArrayBuffer, pbrVbo)
-        GL.BufferData(BufferTarget.ArrayBuffer, verts.Count * 4, verts.ToArray(), BufferUsageHint.StaticDraw)
+        pbrVertData = verts.ToArray()
+        pbrIdxData = idx.ToArray()
+        GL.BufferData(BufferTarget.ArrayBuffer, pbrVertData.Length * 4, pbrVertData, BufferUsageHint.StaticDraw)
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, pbrEbo)
-        GL.BufferData(BufferTarget.ElementArrayBuffer, idx.Count * 4, idx.ToArray(), BufferUsageHint.StaticDraw)
+        GL.BufferData(BufferTarget.ElementArrayBuffer, pbrIdxData.Length * 4, pbrIdxData, BufferUsageHint.StaticDraw)
         Const ST As Integer = 16 * 4
         GL.EnableVertexAttribArray(0) : GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, ST, 0)
         GL.EnableVertexAttribArray(1) : GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, False, ST, 12)
@@ -1517,6 +1541,8 @@ drawn:
             Dim mp = MouseState.Position
             ui.BeginFrame(ClientSize.X, ClientSize.Y)
             browser.Draw(ui, PanelWidth(), ClientSize.Y, mp.X, mp.Y)
+            partsPanel.ExportFormat = exportFormat
+            partsPanel.LastExport = lastExport
             partsPanel.Draw(ui, ClientSize.X, ClientSize.Y, mp.X, mp.Y)
             ui.EndFrame()
         End If
@@ -2087,6 +2113,19 @@ drawn:
     ''' the same class of bug as testing a double click by time alone.
     ''' </summary>
     Private Sub HandlePartsClick(p As Vector2)
+        If partsPanel.HitsExportFormat(p.X, p.Y) Then
+            ' Only the two the writer actually has. Adding glb here before
+            ' MeshExport can write one would offer a button that fails.
+            exportFormat = If(exportFormat = "obj", "stl", "obj")
+            Console.WriteLine("export format: {0}", exportFormat)
+            Return
+        End If
+        If partsPanel.HitsExportVisible(p.X, p.Y) Then
+            ExportFromViewer(visibleOnly:=True) : Return
+        End If
+        If partsPanel.HitsExportAll(p.X, p.Y) Then
+            ExportFromViewer(visibleOnly:=False) : Return
+        End If
         If partsPanel.HitsShowAll(p.X, p.Y) Then
             partsPanel.ShowAll() : ApplyPartVisibility() : Return
         End If
@@ -2110,6 +2149,103 @@ drawn:
             partsClickRow = row
         End If
         ApplyPartVisibility()
+    End Sub
+
+
+    ''' <summary>
+    ''' Write the model out from the viewer, optionally only the parts that are
+    ''' switched on.
+    '''
+    ''' EXPORTS WHAT YOU SEE, because the menu sits directly under the hide
+    ''' controls and that is what it would mean anywhere else. `--export` on the
+    ''' command line still writes whole assets; this is the interactive one.
+    '''
+    ''' The vertex set is REBUILT COMPACT rather than written whole with a
+    ''' filtered index list. Writing every vertex and only some triangles leaves
+    ''' the file full of unreferenced points - OBJ readers keep them, the bounding
+    ''' box comes out wrong, and a slicer sees a model larger than the geometry in
+    ''' it. So each kept triangle's corners are remapped through a dictionary and
+    ''' only the survivors are written.
+    '''
+    ''' UV2 IS WRITTEN AS THE UV SET, the same rule the asset export follows: the
+    ''' tiled and atlas families address their per-object maps with it, so it is
+    ''' the unwrap that matches a baked texture. UV1 is the tile coordinate and
+    ''' repeats many times over a wall, which is not a thing you can bake into.
+    ''' </summary>
+    Private Sub ExportFromViewer(visibleOnly As Boolean)
+        If pbrParts.Count = 0 OrElse pbrVertData.Length = 0 Then
+            lastExport = "nothing loaded"
+            Return
+        End If
+
+        Const FL As Integer = 16          ' floats per vertex, see BuildPbr
+        Dim remap As New Dictionary(Of Integer, Integer)
+        Dim pos As New List(Of Vector3)
+        Dim uv As New List(Of Vector2)
+        Dim tri As New List(Of Integer)
+        Dim groups As New List(Of ObjGroup)
+        Dim used = 0
+
+        For Each pt In pbrParts
+            If visibleOnly AndAlso pt.Hidden Then Continue For
+            Dim first = tri.Count
+            For k = pt.First To pt.First + pt.Count - 1
+                If k < 0 OrElse k >= pbrIdxData.Length Then Continue For
+                Dim vi = pbrIdxData(k)
+                Dim mapped = 0
+                If Not remap.TryGetValue(vi, mapped) Then
+                    mapped = pos.Count
+                    remap(vi) = mapped
+                    Dim b = vi * FL
+                    If b + FL > pbrVertData.Length Then Continue For
+                    pos.Add(New Vector3(pbrVertData(b), pbrVertData(b + 1), pbrVertData(b + 2)))
+                    ' +56 is uv2; +24 is uv1. See the note above for why.
+                    uv.Add(New Vector2(pbrVertData(b + 14), pbrVertData(b + 15)))
+                End If
+                tri.Add(mapped)
+            Next
+            If tri.Count > first Then
+                used += 1
+                groups.Add(New ObjGroup With {
+                    .Name = If(String.IsNullOrEmpty(pt.PartName), pt.Name, pt.PartName) & "_" & pt.Ident,
+                    .Material = If(String.IsNullOrEmpty(pt.Ident), "part", pt.Ident),
+                    .FirstIndex = first, .IndexCount = tri.Count - first})
+            End If
+        Next
+
+        If tri.Count < 3 Then
+            lastExport = "nothing visible to write"
+            Console.WriteLine("export: {0}", lastExport)
+            Return
+        End If
+
+        Dim stem = assets(assetIndex).Name
+        If soloModel IsNot Nothing Then stem = soloModel.Name
+        If visibleOnly AndAlso partsPanel.HiddenCount > 0 Then stem &= "_visible"
+        Dim dir = If(String.IsNullOrWhiteSpace(settings.OutDir), "exported", settings.OutDir)
+        Dim path = IO.Path.Combine(dir, stem & "." & exportFormat)
+
+        Try
+            Dim r = MeshExport.Write(path, exportFormat, pos.ToArray(), tri.ToArray(),
+                                     String.Equals(EffectiveAxis(), "z", StringComparison.OrdinalIgnoreCase),
+                                     settings.OutScale, uv.ToArray(), groups, Nothing)
+            lastExport = String.Format("{0}  {1:N0} tris  {2:N0} KB",
+                                       IO.Path.GetFileName(r.Path), r.Triangles, r.Bytes \ 1024)
+            Console.WriteLine("export: {0}", IO.Path.GetFullPath(r.Path))
+            Console.WriteLine("        {0} group(s) of {1}, {2:N0} verts, {3:N0} tris",
+                              used, pbrParts.Count, pos.Count, tri.Count \ 3)
+        Catch ex As Exception
+            lastExport = "failed: " & ex.Message
+            Console.WriteLine("export: {0}", lastExport)
+        End Try
+    End Sub
+
+    ''' <summary>Fire --export-now once, if it was asked for.</summary>
+    Private Sub RunExportNow()
+        If String.IsNullOrWhiteSpace(exportNowMode) Then Return
+        Dim mode = exportNowMode.Trim().ToLowerInvariant()
+        exportNowMode = Nothing            ' once, not on every rebuild
+        ExportFromViewer(visibleOnly:=(mode <> "all"))
     End Sub
 
     ''' <summary>Apply --hide, if one was given. Matched against

@@ -50,6 +50,12 @@ Public Class PartsPanel
 
     Public Property Visible As Boolean = True
     Public Property Scroll As Integer = 0
+    ''' <summary>Shown on the format row; the viewer owns the value.</summary>
+    Public Property ExportFormat As String = "obj"
+    ''' <summary>One line of result under the buttons - the viewer writes it
+    ''' after an export so the answer appears where the button was, not only
+    ''' in a console nobody is looking at.</summary>
+    Public Property LastExport As String = ""
     Public ReadOnly Rows As New List(Of PartRow)
 
     Private rowH As Integer = 18
@@ -112,7 +118,9 @@ Public Class PartsPanel
     End Sub
 
     Public Function VisibleRows(panelH As Integer) As Integer
-        Return Math.Max(1, (panelH - listTop - PAD - rowH * 2) \ Math.Max(1, rowH))
+        ' Four rows of chrome below the list - show/hide, format, and the two
+        ' export buttons - plus the hidden-count line and the padding.
+        Return Math.Max(1, (panelH - listTop - PAD * 3 - rowH * 5) \ Math.Max(1, rowH))
     End Function
 
     Public Sub ClampScroll()
@@ -145,17 +153,25 @@ Public Class PartsPanel
         Return lx >= BOX_X - 2 AndAlso lx <= BOX_X + BOX_W + 2
     End Function
 
+    ''' <summary>Y of the show all / hide all row. Everything below it is the
+    ''' export block, so this is computed from the bottom up and the two must
+    ''' agree - a hit test and a draw that disagree by one row is a button
+    ''' that looks right and fires the one beneath it.</summary>
+    Public Function BulkRowY(panelH As Integer) As Integer
+        Return ExportRowY(panelH, 0) - rowH - PAD
+    End Function
+
     ''' <summary>The two footer buttons: all on, all off.</summary>
     Public Function HitsShowAll(x As Single, y As Single) As Boolean
         If Not Visible OrElse Rows.Count = 0 Then Return False
-        Dim by = lastPanelH - rowH - PAD
+        Dim by = BulkRowY(lastPanelH)
         Return y >= by AndAlso y < by + rowH AndAlso
                x >= panelX + PAD AndAlso x < panelX + panelW \ 2 - 2
     End Function
 
     Public Function HitsHideAll(x As Single, y As Single) As Boolean
         If Not Visible OrElse Rows.Count = 0 Then Return False
-        Dim by = lastPanelH - rowH - PAD
+        Dim by = BulkRowY(lastPanelH)
         Return y >= by AndAlso y < by + rowH AndAlso
                x >= panelX + panelW \ 2 + 2 AndAlso x < panelX + panelW - PAD
     End Function
@@ -184,6 +200,39 @@ Public Class PartsPanel
             i += 1
         End While
         Return a.Substring(0, i)
+    End Function
+
+
+    ' ---- the export menu, under show all / hide all ----
+    '
+    ' Three stacked rows at the very bottom, so the visibility switches and the
+    ' thing that consumes them are one block: you hide what you do not want and
+    ' write the rest without moving the mouse across the window.
+
+    Public Function ExportRowY(panelH As Integer, which As Integer) As Integer
+        ' 0 = format, 1 = export visible, 2 = export all
+        Return panelH - PAD - rowH * (3 - which) - EXPORT_GAP * (2 - which)
+    End Function
+
+    Private Const EXPORT_GAP As Integer = 3
+
+    Public Function HitsExportFormat(x As Single, y As Single) As Boolean
+        Return HitsExportRow(x, y, 0)
+    End Function
+
+    Public Function HitsExportVisible(x As Single, y As Single) As Boolean
+        Return HitsExportRow(x, y, 1)
+    End Function
+
+    Public Function HitsExportAll(x As Single, y As Single) As Boolean
+        Return HitsExportRow(x, y, 2)
+    End Function
+
+    Private Function HitsExportRow(x As Single, y As Single, which As Integer) As Boolean
+        If Not Visible OrElse Rows.Count = 0 Then Return False
+        Dim ry = ExportRowY(lastPanelH, which)
+        Return y >= ry AndAlso y < ry + rowH AndAlso
+               x >= panelX + PAD AndAlso x < panelX + panelW - PAD
     End Function
 
     Public Sub Draw(ui As UiOverlay, windowW As Integer, panelH As Integer,
@@ -254,8 +303,15 @@ Public Class PartsPanel
         End If
 
         ' Footer: the two bulk actions, and what is hidden right now.
-        Dim fy = panelH - rowH - PAD
-        ui.Rect(panelX, fy - PAD, panelW, rowH + PAD * 2, New Vector4(0.1F, 0.11F, 0.13F, 1.0F))
+        '
+        ' BulkRowY, the SAME call the hit tests make. This was written once as
+        ' `panelH - rowH - PAD` here while the hit tests had already moved up
+        ' to make room for the export block, and the result drew `export all`
+        ' straight over `show all` - two labels in one row of pixels. One
+        ' function, both callers.
+        Dim fy = BulkRowY(panelH)
+        ui.Rect(panelX, fy - rowH - PAD, panelW, panelH - fy + rowH + PAD,
+                New Vector4(0.1F, 0.11F, 0.13F, 1.0F))
         Dim halfW = panelW \ 2 - PAD - 2
         ui.Frame(panelX + PAD, fy, halfW, rowH, edge)
         ui.TextClipped(panelX + PAD + 6, fy + 2, "show all", halfW - 10, fg)
@@ -266,6 +322,28 @@ Public Class PartsPanel
         If hid > 0 Then
             ui.TextClipped(panelX + PAD, fy - rowH,
                            String.Format("{0} hidden", hid), panelW - PAD * 2, accent)
+        End If
+
+        ' ---- export ----
+        Dim ey0 = ExportRowY(panelH, 0)
+        Dim fullW = panelW - PAD * 2
+        ui.Frame(panelX + PAD, ey0, fullW, rowH, edge)
+        ui.TextClipped(panelX + PAD + 6, ey0 + 2, "format: " & ExportFormat, fullW - 10, dim_)
+
+        Dim ey1 = ExportRowY(panelH, 1)
+        ui.Rect(panelX + PAD, ey1, fullW, rowH, New Vector4(0.17F, 0.2F, 0.26F, 1.0F))
+        ui.Frame(panelX + PAD, ey1, fullW, rowH, accent)
+        ui.TextClipped(panelX + PAD + 6, ey1 + 2,
+                       If(hid > 0, String.Format("export visible ({0})", Rows.Count - hid), "export visible"),
+                       fullW - 10, fg)
+
+        Dim ey2 = ExportRowY(panelH, 2)
+        ui.Frame(panelX + PAD, ey2, fullW, rowH, edge)
+        ui.TextClipped(panelX + PAD + 6, ey2 + 2,
+                       String.Format("export all ({0})", Rows.Count), fullW - 10, fg)
+
+        If Not String.IsNullOrEmpty(LastExport) Then
+            ui.TextClipped(panelX + PAD, ey2 + rowH + 3, LastExport, fullW, dim_)
         End If
     End Sub
 End Class
