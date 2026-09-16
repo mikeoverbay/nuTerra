@@ -1,4 +1,5 @@
-﻿Imports OpenTK.Graphics.OpenGL4
+﻿Imports System.Reflection
+Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -51,11 +52,27 @@ Public Class MapTankRays
     Private vao As GLVertexArray
     Private vbo As GLBuffer
 
+    ' Cached in-game TankNav overlay. The baked/nav geometry is static, so do
+    ' not rebuild a million-cell grid every frame. Rebuild only when the TankNav
+    ' object changes.
+    Private nav_vao As GLVertexArray
+    Private nav_vbo As GLBuffer
+    Private nav_vert_count As Integer
+    Private nav_cached As TankNav
+
+    ' Raw flight-bake obstacle-height overlay. These markers are placed at the
+    ' actual bake texel that produced the height, not at the coarse TankNav cell.
+    Private height_vao As GLVertexArray
+    Private height_vbo As GLBuffer
+    Private height_vert_count As Integer
+    Private height_cached As MapFlightBake
+
     ''' <summary>Vertices the buffer can hold. Grown, never shrunk.</summary>
     Private cap_verts As Integer
 
     ''' <summary>Whether the one-off count has been logged.</summary>
     Private said As Boolean
+    Private saidNavMissing As Boolean
 
     ''' <summary>CPU staging, reused between frames so a per-frame rebuild does
     ''' not also mean a per-frame allocation of a few hundred kilobytes.</summary>
@@ -67,6 +84,10 @@ Public Class MapTankRays
     Private Const MAX_SEG As Integer = 256            ' per ray, a bound not a budget
     Private Const CROSS_M As Single = 5.0F            ' arm of the goal marker
     Private Const LINE_PX As Single = 2.0F
+    Private Const NAV_LINE_PX As Single = 1.2F          ' in-game nav outline
+    Private Const NAV_LIFT_M As Single = 0.35F          ' above terrain
+    Private Const HEIGHT_LINE_PX As Single = 2.0F       ' raw bake height markers
+    Private Const HIT_SQUARE_HALF_M As Single = 0.28F    ' tiny world-space hit marker
 
     ''' <summary>
     ''' Blank the few metres nearest the eye. Standing beside a hull, its own ray
@@ -104,6 +125,25 @@ Public Class MapTankRays
         Dim live = map_scene.tanks.instances
         If live Is Nothing OrElse live.Count = 0 Then Return
 
+        ' The same TankNav the tanks drive against.
+        Dim nav = loaded_nav()
+        If nav Is Nothing AndAlso Not saidNavMissing Then
+            saidNavMissing = True
+            LogThis("tank rays: TankNav not found on MapTanks/MapScene - nav overlay and map-hit colours disabled")
+        End If
+
+        ' NAVMAP overlay disabled. Keep tank ray diagnostics, but do not draw
+        ' the yellow TankNav boundaries or cyan raw-height marker lines.
+        Dim showNavMap As Boolean = False
+
+        If showNavMap Then
+            refresh_nav_overlay(nav)
+
+            ' Raw flight-bake height data that TankNav was built from.
+            Dim bake = loaded_bake()
+            refresh_height_overlay(bake, nav)
+        End If
+
         ' Count first, then fill. A ray's LENGTH decides how many segments it
         ' takes, so the total is not a function of the hull count alone.
         Dim want = 0
@@ -123,8 +163,18 @@ Public Class MapTankRays
                 If t Is Nothing Then Continue For
                 rayHulls += 1
             Next
-            want += rayHulls * TankSim.RAY_COUNT * 2
+            ' 2 vertices for the ray + up to 8 for a square hit marker.
+            want += rayHulls * TankSim.RAY_COUNT * 10
         End If
+
+        ' Terrain-recovery brain scan: 36 rays, each with a nav hit square.
+        ' Drawn even while the sim is paused, because that pause exists so this
+        ' exact decision can be inspected.
+        For Each t In live
+            If t Is Nothing OrElse Not t.drive.brainScanVisible Then Continue For
+            want += t.drive.brainScanRays.Count * 10
+        Next
+
         ' The whole graph from the file, plus the run each hull is on over it.
         If TankSim.SIM_SHOW_PATHS Then
             want += TankSim.lines.Count * 2 + TankSim.startPts.Count * 8
@@ -139,9 +189,12 @@ Public Class MapTankRays
         ' NOT "no goals, nothing to draw" any more - the file's own lines are
         ' worth drawing with every hull sitting still, which is exactly the
         ' state before the sim is started.
-        If want = 0 Then Return
+        If want = 0 AndAlso
+           (Not showNavMap OrElse
+            (nav_vert_count = 0 AndAlso height_vert_count = 0)) Then Return
 
-        If verts Is Nothing OrElse verts.Length < want * FLOATS_PER_VERT Then
+        If want > 0 AndAlso
+           (verts Is Nothing OrElse verts.Length < want * FLOATS_PER_VERT) Then
             ReDim verts(want * FLOATS_PER_VERT * 2 - 1)
         End If
 
@@ -255,53 +308,89 @@ Public Class MapTankRays
         End If
 
         ' ---- the avoidance rays ------------------------------------------
-        ' Drawn for every hull, driving or not: a tank that has stopped is
-        ' exactly the one whose neighbours matter, and drawing only the moving
-        ' ones would hide the jam being diagnosed.
+        ' Drawn for every hull, driving or not. A tiny world-space square marks
+        ' the ACTUAL FIRST hit point: red = tank, yellow = nav/terrain. If both
+        ' are on one ray, distance decides which one the sensor encountered first.
         If TankSim.SIM_SHOW_RAYS Then
-            ' A RAY THAT HAS FOUND SOMETHING IS RED. The whole point of drawing
-            ' them is to see what the avoidance is reacting to, and eight pale
-            ' blue lines that never change say nothing about that.
             Dim clearC As New Vector4(0.55F, 0.85F, 1.0F, 0.5F)
-            Dim hitC As New Vector4(1.0F, 0.25F, 0.2F, 1.0F)
+            Dim tankHitC As New Vector4(1.0F, 0.25F, 0.2F, 1.0F)
+            Dim mapHitC As New Vector4(1.0F, 1.0F, 0.0F, 1.0F)
+
             For Each t In live
                 If t Is Nothing Then Continue For
+
                 Dim ry = ground(t.position.X, t.position.Z) + 0.35F
-                Dim hits = TankSim.RayHits(t, live)
+                Dim tankDist = TankSim.RayHitDistances(t, live)
                 Dim hullR = TankSim.HullRays(t)
+                Dim mapDist = ray_map_hit_distances(nav, hullR)
+
                 For i = 0 To hullR.Count - 1
                     Dim o = hullR(i).Item1, d = hullR(i).Item2
-                    Dim cc = If(i < hits.Length AndAlso hits(i), hitC, clearC)
                     Dim reach = TankSim.RayLen(i)
+                    Dim td = If(i < tankDist.Length, tankDist(i), Single.MaxValue)
+                    Dim md = If(i < mapDist.Length, mapDist(i), Single.MaxValue)
+
+                    Dim hitD = Math.Min(td, md)
+                    Dim cc = clearC
+                    If hitD < Single.MaxValue Then
+                        cc = If(td < md, tankHitC, mapHitC)
+                    End If
+
                     n = put(n, o.X, ry, o.Y, cc)
                     n = put(n, o.X + d.X * reach, ry, o.Y + d.Y * reach, cc)
+
+                    If hitD < Single.MaxValue Then
+                        Dim hp = o + d * hitD
+                        n = put_square(n, hp, cc)
+                    End If
                 Next
             Next
         End If
 
-        Dim vcount = n \ FLOATS_PER_VERT
-        If vcount = 0 Then Return
-        ensure_buffer(vcount)
+        ' ---- terrain brain scan ------------------------------------------
+        ' The brain stores the exact 10-degree sweep that selected its escape
+        ' heading. Every endpoint is a static-nav hit: yellow squares normally,
+        ' green for the winning longest ray. The winner's ray is green too.
+        Dim scanC As New Vector4(0.42F, 0.82F, 1.0F, 0.65F)
+        Dim scanHitC As New Vector4(1.0F, 1.0F, 0.0F, 1.0F)
+        Dim winnerC As New Vector4(0.2F, 1.0F, 0.25F, 1.0F)
 
-        ' ONCE, on the first frame that actually has something to draw. The
-        ' overlay is silent after this: it is judged by looking at it, and a line
-        ' a frame would bury the log the routing itself reports into.
-        '
-        ' It exists because "no GL error" only says the draw was accepted, not
-        ' that any geometry reached it. This is the number that separates "drew
-        ' nothing, correctly" from "drew something".
+        For Each t In live
+            If t Is Nothing OrElse Not t.drive.brainScanVisible Then Continue For
+
+            For Each sr In t.drive.brainScanRays
+                Dim rc = If(sr.isWinner, winnerC, scanC)
+                Dim hc = If(sr.isWinner, winnerC, scanHitC)
+                Dim y0 = ground(sr.origin.X, sr.origin.Y) + 0.5F
+                Dim y1 = ground(sr.hit.X, sr.hit.Y) + 0.5F
+
+                n = put(n, sr.origin.X, y0, sr.origin.Y, rc)
+                n = put(n, sr.hit.X, y1, sr.hit.Y, rc)
+                n = put_square(n, sr.hit, hc)
+            Next
+        Next
+
+        Dim vcount = n \ FLOATS_PER_VERT
+        If vcount = 0 AndAlso
+           (Not showNavMap OrElse
+            (nav_vert_count = 0 AndAlso height_vert_count = 0)) Then Return
+        If vcount > 0 Then ensure_buffer(vcount)
+
+        ' ONCE, on the first frame that actually has something to draw.
         If Not said Then
             said = True
-            LogThis("tank rays: {0} ray(s), {1} vertice(s), {2} amber", rays, vcount, amber)
+            LogThis("tank rays: {0} ray(s), {1} dynamic vertice(s), {2} nav vertice(s), {3} height vertice(s), {4} amber",
+                    rays, vcount,
+                    If(showNavMap, nav_vert_count, 0),
+                    If(showNavMap, height_vert_count, 0),
+                    amber)
         End If
 
         GL_PUSH_GROUP("MapTankRays::Draw")
-        vbo.SubData(IntPtr.Zero, n * 4, verts)
+        If vcount > 0 Then vbo.SubData(IntPtr.Zero, n * 4, verts)
 
         campathShader.Use()
-        vao.Bind()
         GL.Uniform2(campathShader("viewport"), CSng(MainFBO.width), CSng(MainFBO.height))
-        GL.Uniform1(campathShader("line_px"), LINE_PX)
         GL.Uniform1(campathShader("alpha_mul"), 1.0F)
 
         Dim eye = map_scene.camera.CAM_POSITION
@@ -313,7 +402,31 @@ Public Class MapTankRays
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha)
         GL.Disable(EnableCap.DepthTest)
 
-        GL.DrawArrays(PrimitiveType.Lines, 0, vcount)
+        ' Draw RAW FLIGHT-BAKE HEIGHT first:
+        '   cyan vertical markers = actual baked obstacle height at the raw texel
+        '   from floor_m to top_m, only where height exceeds MAX_OBSTACLE.
+        If showNavMap AndAlso
+           height_vert_count > 0 AndAlso height_vao IsNot Nothing Then
+            height_vao.Bind()
+            GL.Uniform1(campathShader("line_px"), HEIGHT_LINE_PX)
+            GL.DrawArrays(PrimitiveType.Lines, 0, height_vert_count)
+        End If
+
+        ' Then draw the derived TankNav map:
+        '   yellow outlines = baked/nav impassable regions
+        If showNavMap AndAlso
+           nav_vert_count > 0 AndAlso nav_vao IsNot Nothing Then
+            nav_vao.Bind()
+            GL.Uniform1(campathShader("line_px"), NAV_LINE_PX)
+            GL.DrawArrays(PrimitiveType.Lines, 0, nav_vert_count)
+        End If
+
+        ' Paths, goals and avoidance rays draw over the diagnostics.
+        If vcount > 0 Then
+            vao.Bind()
+            GL.Uniform1(campathShader("line_px"), LINE_PX)
+            GL.DrawArrays(PrimitiveType.Lines, 0, vcount)
+        End If
 
         ' Put back what was borrowed. Everything after this expects the depth test
         ' on and blending off - the tank markers draw next.
@@ -322,6 +435,374 @@ Public Class MapTankRays
         campathShader.StopUse()
         GL_POP_GROUP()
     End Sub
+
+    ''' <summary>
+    ''' Build the RAW flight-bake obstacle-height overlay once per loaded bake.
+    '''
+    ''' Cyan vertical lines are placed at the actual bake texel position. Their
+    ''' bottom is floor_m and their top is top_m, so their visible length is the
+    ''' measured obstacle height that TankNav uses for BLOCKED.
+    '''
+    ''' To keep this readable, only the strongest blocking texel in each TankNav
+    ''' cell is drawn. That preserves the exact blocker position while avoiding
+    ''' up to 64 cyan lines inside every 1.4 m nav cell.
+    ''' </summary>
+    Private Sub refresh_height_overlay(bake As MapFlightBake, nav As TankNav)
+        If bake Is Nothing OrElse Not bake.ready OrElse nav Is Nothing OrElse Not nav.ready Then
+            height_vert_count = 0
+            height_cached = Nothing
+            Return
+        End If
+
+        If bake Is height_cached AndAlso height_vao IsNot Nothing Then Return
+
+        height_cached = bake
+        build_height_overlay(bake, nav)
+    End Sub
+
+    Private Sub build_height_overlay(bake As MapFlightBake, nav As TankNav)
+        Dim data As New List(Of Single)
+        Dim cyan As New Vector4(0.0F, 1.0F, 1.0F, 0.9F)
+
+        Dim BN = MapFlightBake.SIZE
+        Dim N = TankNav.SIZE
+        Dim tpc = TankNav.CELL_TEXELS
+
+        Dim dxw = (bake.wx_max - bake.wx_min) / BN
+        Dim dzw = (bake.wz_max - bake.wz_min) / BN
+
+        For cz = 0 To N - 1
+            Dim r0 = cz * tpc
+            For cx = 0 To N - 1
+                ' Height markers are only relevant to cells whose derived nav
+                ' result includes BLOCKED. STEEP/WATER/OFFMAP have other causes.
+                Dim nf = nav.cell(cz * N + cx)
+                If (nf And TankNav.BLOCKED) = 0 Then Continue For
+
+                Dim c0 = cx * tpc
+                Dim bestI = -1
+                Dim bestH = TankNavLimits.MAX_OBSTACLE
+
+                For dr = 0 To tpc - 1
+                    Dim rr = r0 + dr
+                    Dim row = rr * BN + c0
+                    For dc = 0 To tpc - 1
+                        Dim cc = c0 + dc
+                        Dim i = row + dc
+
+                        Dim fl = bake.floor_m(i)
+                        Dim h = bake.top_m(i) - fl
+                        If h <= bestH Then Continue For
+
+                        ' Match TankNav.Build's crushable rule. Fence/prop do not
+                        ' block by height; a tree blocks by height only when the
+                        ' bake says solid geometry exists under the canopy.
+                        Dim k = bake.kind_b(i)
+                        Dim k7 = k And MapFlightBake.KIND_MASK
+                        Dim crushable =
+                            (k7 = MapFlightBake.KIND_FENCE OrElse
+                             k7 = MapFlightBake.KIND_PROP) OrElse
+                            (k7 = MapFlightBake.KIND_TREE AndAlso
+                             (k And MapFlightBake.SOLID_BIT) = 0)
+
+                        If crushable Then Continue For
+
+                        bestH = h
+                        bestI = i
+                    Next
+                Next
+
+                If bestI < 0 Then Continue For
+
+                Dim br = bestI \ BN
+                Dim bc = bestI Mod BN
+                Dim wx = bake.wx_min + (bc + 0.5F) * dxw
+                Dim wz = bake.wz_max - (br + 0.5F) * dzw
+                Dim y0 = bake.floor_m(bestI) + 0.12F
+                Dim y1 = bake.top_m(bestI) + 0.12F
+
+                height_vert(data, wx, y0, wz, cyan)
+                height_vert(data, wx, y1, wz, cyan)
+
+                ' Small horizontal cap at the baked top so a short vertical line
+                ' remains visible from a high/map camera.
+                Dim cap = Math.Max(dxw * 3.0F, 0.35F)
+                height_vert(data, wx - cap, y1, wz, cyan)
+                height_vert(data, wx + cap, y1, wz, cyan)
+                height_vert(data, wx, y1, wz - cap, cyan)
+                height_vert(data, wx, y1, wz + cap, cyan)
+            Next
+        Next
+
+        height_vert_count = data.Count \ FLOATS_PER_VERT
+
+        If height_vbo IsNot Nothing Then height_vbo.Dispose()
+        If height_vao IsNot Nothing Then height_vao.Dispose()
+        height_vbo = Nothing
+        height_vao = Nothing
+
+        If height_vert_count = 0 Then Return
+
+        Dim a = data.ToArray()
+        height_vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tankHeightOverlayVerts")
+        height_vbo.StorageNullData(a.Length * 4, BufferStorageFlags.DynamicStorageBit)
+        height_vbo.SubData(IntPtr.Zero, a.Length * 4, a)
+
+        height_vao = GLVertexArray.Create("tankHeightOverlayVao")
+        height_vao.VertexBuffer(0, height_vbo, IntPtr.Zero, FLOATS_PER_VERT * 4)
+        height_vao.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+        height_vao.AttribBinding(0, 0)
+        height_vao.EnableAttrib(0)
+        height_vao.AttribFormat(1, 4, VertexAttribType.Float, False, 3 * 4)
+        height_vao.AttribBinding(1, 0)
+        height_vao.EnableAttrib(1)
+
+        LogThis("tank height overlay: {0} vertices from raw flight bake",
+                height_vert_count)
+    End Sub
+
+    Private Shared Sub height_vert(data As List(Of Single),
+                                   x As Single, y As Single, z As Single,
+                                   c As Vector4)
+        data.Add(x)
+        data.Add(y)
+        data.Add(z)
+        data.Add(c.X)
+        data.Add(c.Y)
+        data.Add(c.Z)
+        data.Add(c.W)
+    End Sub
+
+    ''' <summary>
+    ''' Find the MapFlightBake already loaded by MapTanks/MapScene.
+    ''' </summary>
+    Private Function loaded_bake() As MapFlightBake
+        Dim b = flight_bake_from(If(map_scene Is Nothing, Nothing, map_scene.tanks))
+        If b IsNot Nothing Then Return b
+        Return flight_bake_from(map_scene)
+    End Function
+
+    Private Shared Function flight_bake_from(owner As Object) As MapFlightBake
+        If owner Is Nothing Then Return Nothing
+
+        Dim flags = BindingFlags.Instance Or BindingFlags.Public Or BindingFlags.NonPublic
+        Dim tp = owner.GetType()
+
+        Try
+            For Each f In tp.GetFields(flags)
+                If GetType(MapFlightBake).IsAssignableFrom(f.FieldType) Then
+                    Dim b = TryCast(f.GetValue(owner), MapFlightBake)
+                    If b IsNot Nothing Then Return b
+                End If
+            Next
+
+            For Each p In tp.GetProperties(flags)
+                If Not p.CanRead OrElse p.GetIndexParameters().Length <> 0 Then Continue For
+                If GetType(MapFlightBake).IsAssignableFrom(p.PropertyType) Then
+                    Dim b = TryCast(p.GetValue(owner), MapFlightBake)
+                    If b IsNot Nothing Then Return b
+                End If
+            Next
+        Catch
+            ' Diagnostic only.
+        End Try
+
+        Return Nothing
+    End Function
+
+    ''' <summary>
+    ''' Build/rebuild the in-game navigation overlay only when needed.
+    ''' The navigation map is static: it comes entirely from the flight bake.
+    ''' Only the outline between impassable and passable cells is drawn.
+    ''' </summary>
+    Private Sub refresh_nav_overlay(nav As TankNav)
+        If nav Is Nothing OrElse Not nav.ready Then
+            nav_vert_count = 0
+            nav_cached = Nothing
+            Return
+        End If
+
+        If nav Is nav_cached AndAlso nav_vao IsNot Nothing Then Return
+
+        nav_cached = nav
+        build_nav_overlay(nav)
+    End Sub
+
+    Private Sub build_nav_overlay(nav As TankNav)
+        Dim data As New List(Of Single)
+        Dim N = TankNav.SIZE
+        Dim half = nav.cell_m * 0.5F
+        Dim mapC As New Vector4(1.0F, 0.82F, 0.08F, 0.34F)
+
+        For cz = 0 To N - 1
+            For cx = 0 To N - 1
+                Dim idx = cz * N + cx
+                Dim f = nav.cell(idx)
+                If (f And TankNav.IMPASSABLE) = 0 Then Continue For
+
+                Dim p = nav.CentreOf(cx, cz)
+                Dim xL = p.X - half, xR = p.X + half
+                Dim zB = p.Y - half, zT = p.Y + half
+
+                If cx = 0 OrElse
+                   (nav.cell(cz * N + (cx - 1)) And TankNav.IMPASSABLE) = 0 Then
+                    nav_line(data, xL, zB, xL, zT, mapC)
+                End If
+                If cx = N - 1 OrElse
+                   (nav.cell(cz * N + (cx + 1)) And TankNav.IMPASSABLE) = 0 Then
+                    nav_line(data, xR, zB, xR, zT, mapC)
+                End If
+                If cz = 0 OrElse
+                   (nav.cell((cz - 1) * N + cx) And TankNav.IMPASSABLE) = 0 Then
+                    nav_line(data, xL, zT, xR, zT, mapC)
+                End If
+                If cz = N - 1 OrElse
+                   (nav.cell((cz + 1) * N + cx) And TankNav.IMPASSABLE) = 0 Then
+                    nav_line(data, xL, zB, xR, zB, mapC)
+                End If
+            Next
+        Next
+
+        nav_vert_count = data.Count \ FLOATS_PER_VERT
+
+        If nav_vbo IsNot Nothing Then nav_vbo.Dispose()
+        If nav_vao IsNot Nothing Then nav_vao.Dispose()
+        nav_vbo = Nothing
+        nav_vao = Nothing
+
+        If nav_vert_count = 0 Then Return
+
+        Dim a = data.ToArray()
+
+        nav_vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tankNavOverlayVerts")
+        nav_vbo.StorageNullData(a.Length * 4, BufferStorageFlags.DynamicStorageBit)
+        nav_vbo.SubData(IntPtr.Zero, a.Length * 4, a)
+
+        nav_vao = GLVertexArray.Create("tankNavOverlayVao")
+        nav_vao.VertexBuffer(0, nav_vbo, IntPtr.Zero, FLOATS_PER_VERT * 4)
+        nav_vao.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
+        nav_vao.AttribBinding(0, 0)
+        nav_vao.EnableAttrib(0)
+        nav_vao.AttribFormat(1, 4, VertexAttribType.Float, False, 3 * 4)
+        nav_vao.AttribBinding(1, 0)
+        nav_vao.EnableAttrib(1)
+
+        LogThis("tank nav overlay: {0} vertices from baked no-go map",
+                nav_vert_count)
+    End Sub
+
+    Private Sub nav_line(data As List(Of Single),
+                         x0 As Single, z0 As Single,
+                         x1 As Single, z1 As Single,
+                         c As Vector4)
+        nav_vert(data, x0, ground(x0, z0) + NAV_LIFT_M, z0, c)
+        nav_vert(data, x1, ground(x1, z1) + NAV_LIFT_M, z1, c)
+    End Sub
+
+    Private Shared Sub nav_vert(data As List(Of Single),
+                                x As Single, y As Single, z As Single,
+                                c As Vector4)
+        data.Add(x)
+        data.Add(y)
+        data.Add(z)
+        data.Add(c.X)
+        data.Add(c.Y)
+        data.Add(c.Z)
+        data.Add(c.W)
+    End Sub
+
+    ''' <summary>
+    ''' Find the TankNav that is already owned by the loaded tank/map scene.
+    '''
+    ''' Reflection keeps this a one-file diagnostic change. It accepts a public
+    ''' or private TankNav field/property on MapTanks first, then MapScene.
+    ''' Nothing is created and nothing is modified.
+    ''' </summary>
+    Private Function loaded_nav() As TankNav
+        Dim n = tank_nav_from(If(map_scene Is Nothing, Nothing, map_scene.tanks))
+        If n IsNot Nothing Then Return n
+        Return tank_nav_from(map_scene)
+    End Function
+
+    Private Shared Function tank_nav_from(owner As Object) As TankNav
+        If owner Is Nothing Then Return Nothing
+
+        Dim flags = BindingFlags.Instance Or BindingFlags.Public Or BindingFlags.NonPublic
+        Dim tp = owner.GetType()
+
+        Try
+            For Each f In tp.GetFields(flags)
+                If GetType(TankNav).IsAssignableFrom(f.FieldType) Then
+                    Dim n = TryCast(f.GetValue(owner), TankNav)
+                    If n IsNot Nothing Then Return n
+                End If
+            Next
+
+            For Each p In tp.GetProperties(flags)
+                If Not p.CanRead OrElse p.GetIndexParameters().Length <> 0 Then Continue For
+                If GetType(TankNav).IsAssignableFrom(p.PropertyType) Then
+                    Dim n = TryCast(p.GetValue(owner), TankNav)
+                    If n IsNot Nothing Then Return n
+                End If
+            Next
+        Catch
+            ' Visual diagnostic only. Failure to discover the nav must never
+            ' disturb rendering or tank simulation.
+        End Try
+
+        Return Nothing
+    End Function
+
+    ''' <summary>
+    ''' VISUAL ONLY: mark every avoidance ray that crosses an impassable TankNav
+    ''' cell. The nav now comes only from the baked static no-go map.
+    ''' </summary>
+    ''' <summary>
+    ''' VISUAL ONLY: distance to the first impassable TankNav cell on each of
+    ''' the normal eight avoidance rays. Single.MaxValue means no nav hit inside
+    ''' that ray's finite reach. This is paired with TankSim.RayHitDistances so
+    ''' the renderer can mark whichever hit - tank or terrain - happened first.
+    ''' </summary>
+    Private Shared Function ray_map_hit_distances(
+        nav As TankNav,
+        hullR As List(Of ValueTuple(Of Vector2, Vector2))) As Single()
+
+        Dim hit(TankSim.RAY_COUNT - 1) As Single
+        For i = 0 To hit.Length - 1
+            hit(i) = Single.MaxValue
+        Next
+        If nav Is Nothing OrElse Not nav.ready OrElse hullR Is Nothing Then Return hit
+
+        Dim stepM = Math.Max(0.25F, nav.cell_m * 0.5F)
+
+        For i = 0 To Math.Min(TankSim.RAY_COUNT, hullR.Count) - 1
+            Dim o = hullR(i).Item1
+            Dim d = hullR(i).Item2
+            Dim reach = TankSim.RayLen(i)
+            Dim steps = Math.Max(1, CInt(Math.Ceiling(reach / stepM)))
+
+            For s = 1 To steps
+                Dim dist = Math.Min(reach, CSng(s) * stepM)
+                Dim q = o + d * dist
+
+                Dim cx As Integer, cz As Integer
+                nav.CellOf(q.X, q.Y, cx, cz)
+
+                If Not nav.InBounds(cx, cz) Then
+                    hit(i) = dist
+                    Exit For
+                End If
+
+                Dim flags = nav.cell(cz * TankNav.SIZE + cx)
+                If (flags And TankNav.IMPASSABLE) <> 0 Then
+                    hit(i) = dist
+                    Exit For
+                End If
+            Next
+        Next
+
+        Return hit
+    End Function
 
     ''' <summary>Segments this hull's ray needs: one every SEG_M, at least one,
     ''' and bounded so a goal at the far corner of an outsized map cannot make the
@@ -335,6 +816,21 @@ Public Class MapTankRays
 
     Private Function ground(x As Single, z As Single) As Single
         Return get_Y_at_XZ_fast(x, z) + LIFT_M
+    End Function
+
+    Private Function put_square(n As Integer, p As Vector2, c As Vector4) As Integer
+        Dim h = HIT_SQUARE_HALF_M
+        Dim y = ground(p.X, p.Y) + 0.55F
+
+        n = put(n, p.X - h, y, p.Y - h, c)
+        n = put(n, p.X + h, y, p.Y - h, c)
+        n = put(n, p.X + h, y, p.Y - h, c)
+        n = put(n, p.X + h, y, p.Y + h, c)
+        n = put(n, p.X + h, y, p.Y + h, c)
+        n = put(n, p.X - h, y, p.Y + h, c)
+        n = put(n, p.X - h, y, p.Y + h, c)
+        n = put(n, p.X - h, y, p.Y - h, c)
+        Return n
     End Function
 
     Private Function put(n As Integer, x As Single, y As Single, z As Single,
@@ -381,8 +877,20 @@ Public Class MapTankRays
     Public Sub Dispose() Implements IDisposable.Dispose
         If vbo IsNot Nothing Then vbo.Dispose()
         If vao IsNot Nothing Then vao.Dispose()
+        If nav_vbo IsNot Nothing Then nav_vbo.Dispose()
+        If nav_vao IsNot Nothing Then nav_vao.Dispose()
+        If height_vbo IsNot Nothing Then height_vbo.Dispose()
+        If height_vao IsNot Nothing Then height_vao.Dispose()
         vbo = Nothing
         vao = Nothing
+        nav_vbo = Nothing
+        nav_vao = Nothing
+        height_vbo = Nothing
+        height_vao = Nothing
         cap_verts = 0
+        nav_vert_count = 0
+        height_vert_count = 0
+        nav_cached = Nothing
+        height_cached = Nothing
     End Sub
 End Class

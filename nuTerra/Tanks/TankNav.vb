@@ -51,8 +51,11 @@ Public Class TankNav
     ''' <summary>Water. Not a slope and not a wall; a tank simply does not
     ''' go there.</summary>
     Public Const WATER As Byte = 16
-    ''' <summary>Learned at runtime - something stopped a tank here that the
-    ''' bake did not predict. Survives a restart; see Save.</summary>
+    ''' <summary>
+    ''' Legacy reserved bit. Runtime pinning has been removed; this bit is never
+    ''' set, loaded, saved, or treated as impassable. Kept only so older callers
+    ''' that reference TankNav.PINNED still compile.
+    ''' </summary>
     Public Const PINNED As Byte = 32
 
     ''' <summary>
@@ -83,7 +86,7 @@ Public Class TankNav
     ''' wood is `tree AND solid` - rock or wall standing under the canopy.
     ''' </remarks>
     Public Const IMPASSABLE As Byte =
-        BLOCKED Or STEEP Or OUTLAND Or WATER Or PINNED Or OFFMAP
+        BLOCKED Or STEEP Or OUTLAND Or WATER Or OFFMAP
 
     Public ReadOnly cell(SIZE * SIZE - 1) As Byte
 
@@ -247,18 +250,10 @@ Public Class TankNav
         Next
 
         ready = True
-        Load()
 
-        ' CLEARANCE LAST, AFTER THE PINS. Load() ORs PINNED into the cells, and
-        ' PINNED is part of IMPASSABLE - so building the field before it left
-        ' the planner measuring room that a learned obstacle was standing in.
-        ' A route was then cut straight through ground CanStand refuses, and the
-        ' hull met it a few metres off the start line. It compounded: every run
-        ' learned more pins near the place the last run stopped, and every run
-        ' planned as though none of them existed.
-        '
-        ' The two tests have to see the same world. clear_m >= hull is meant to
-        ' be STRICTER than CanStand, not merely different.
+        ' The flight bake is the complete static no-go source. There is no
+        ' runtime learned/pinned obstacle layer anymore, so clearance is built
+        ' directly from the baked TankNav flags.
         BuildClearance()
 
         report(CSng((Date.UtcNow - t0).TotalMilliseconds))
@@ -361,7 +356,7 @@ Public Class TankNav
     Private Sub report(ms As Single)
         Dim n = cell.Length
         Dim n_blocked = 0, n_steep = 0, n_outland = 0, n_offmap = 0
-        Dim n_trunk = 0, n_water = 0, n_pinned = 0, n_open = 0
+        Dim n_trunk = 0, n_water = 0, n_open = 0
         For i = 0 To n - 1
             Dim f = cell(i)
             If (f And BLOCKED) <> 0 Then n_blocked += 1
@@ -369,14 +364,13 @@ Public Class TankNav
             If (f And OUTLAND) <> 0 Then n_outland += 1
             If (f And TRUNK) <> 0 Then n_trunk += 1
             If (f And WATER) <> 0 Then n_water += 1
-            If (f And PINNED) <> 0 Then n_pinned += 1
             If (f And OFFMAP) <> 0 Then n_offmap += 1
             If (f And IMPASSABLE) = 0 Then n_open += 1
         Next
         LogThis("tank nav: {0}x{0} cells of {1:0.00} m in {2:0} ms", SIZE, cell_m, ms)
-        LogThis("tank nav:   open {0} ({1:0.0}%)  blocked {2}  steep {3}  outland {4}  trunk {5}  water {6}  pinned {7}  offmap {8}",
+        LogThis("tank nav:   open {0} ({1:0.0}%)  blocked {2}  steep {3}  outland {4}  trunk {5}  water {6}  offmap {7}",
                 n_open, 100.0F * n_open / n, n_blocked, n_steep, n_outland,
-                n_trunk, n_water, n_pinned, n_offmap)
+                n_trunk, n_water, n_offmap)
 
         ' Of the ARENA rather than of the bake, which is the number that means
         ' something: the bake is 1400 m of which only the play area is ever
@@ -475,157 +469,21 @@ Public Class TankNav
     End Function
 
     ''' <summary>
-    ''' Mark a cell as learned-impassable.
-    '''
-    ''' WHAT THE BAKE CANNOT KNOW goes here: another tank that is not moving, a
-    ''' wreck, a lip the height test called fine and the hull disagreed with.
-    ''' Kept apart from the baked flags by its own bit so a rebuild of the grid
-    ''' does not erase the learning, and so the dump shows which is which.
+    ''' Runtime learned obstacles were removed. The flight bake/TankNav is the
+    ''' authoritative no-go map. This no-op remains only for source compatibility
+    ''' with any older caller that still invokes Pin().
     ''' </summary>
     Public Sub Pin(x As Single, z As Single)
-        If Not ready Then Return
-        Dim cx, cz As Integer
-        CellOf(x, z, cx, cz)
-        If Not InBounds(cx, cz) Then Return
-        Dim i = cz * SIZE + cx
-        If (cell(i) And PINNED) <> 0 Then Return
-        If n_pinned >= PIN_BUDGET Then Return
-
-        ' ONCE IS AN ACCIDENT. The first version pinned on the first wedge and
-        ' laid down 299 cells in one session, then 264 more in the next, and
-        ' the fleet got measurably worse as it "learned" - fewer tanks moving
-        ' each run, because most of those cells were not map errors at all.
-        ' They were one tank that steered itself into a corner it could not
-        ' turn out of, which says nothing about whether the ground is passable.
-        '
-        ' A real disagreement between the map and a hull repeats: every tank
-        ' that tries it gets stuck in the same place. Demanding several
-        ' independent wedges keeps those and throws away the rest.
-        Dim hits = 0
-        suspect.TryGetValue(i, hits)
-        hits += 1
-        suspect(i) = hits
-        If hits < PIN_CONFIRM Then Return
-
-        cell(i) = cell(i) Or PINNED
-
-        ' AND TELL THE CLEARANCE FIELD, or the planner keeps routing through it.
-        '
-        ' A pin is a LEARNED obstacle - a wreck, a lip the height test forgave,
-        ' a hull that stopped - and PINNED is part of IMPASSABLE, so CanStand
-        ' refuses it the instant it exists. But clear_m was computed at load and
-        ' knows nothing about it, so the planner cuts a route straight through
-        ' the cell the driver just learned it cannot cross, and the hull meets
-        ' it again. Measured: a run that was 4/4 moving at a kilometre fell to
-        ' 1/4 with two blocked on ground, while the pin count climbed.
-        '
-        ' A new obstacle can only REDUCE clearance, and by a knowable amount: no
-        ' cell may now claim more room than its distance to this pin. That is
-        ' precisely what the transform would produce locally, so this is not an
-        ' approximation OF the field, it is the field.
-        '
-        ' 40 cells because nothing on this grid holds more clearance than that,
-        ' and pins are rare enough that the comparisons do not matter.
-        If clear_m IsNot Nothing Then
-            Const R As Integer = 40
-            For dz = -R To R
-                Dim rr = cz + dz
-                If rr < 0 OrElse rr >= SIZE Then Continue For
-                For dx = -R To R
-                    Dim cc = cx + dx
-                    If cc < 0 OrElse cc >= SIZE Then Continue For
-                    Dim bound = (CSng(Math.Sqrt(dx * dx + dz * dz)) - 0.5F) * cell_m
-                    If bound < 0.0F Then bound = 0.0F
-                    Dim k = rr * SIZE + cc
-                    If clear_m(k) > bound Then clear_m(k) = bound
-                Next
-            Next
-        End If
-
-        suspect.Remove(i)
-        n_pinned += 1
-        pins_dirty = True
+        ' Intentionally disabled.
     End Sub
 
-    ''' <summary>Cells that have stopped a tank, and how often. In memory only:
-    ''' a suspicion that never repeated is not worth carrying into the next
-    ''' session.</summary>
-    Private ReadOnly suspect As New Dictionary(Of Integer, Integer)
-
-    ''' <summary>Independent wedges at one cell before it is believed.</summary>
-    Private Const PIN_CONFIRM As Integer = 3
-
     ''' <summary>
-    ''' Most cells that may ever be pinned.
-    '''
-    ''' A ceiling rather than a hope. Pins are permanent and persisted, so
-    ''' without one a long-running session degrades in a way that survives a
-    ''' restart and cannot be undone except by deleting the file. 2000 cells is
-    ''' 0.4% of the arena - ample for the places the bake genuinely gets wrong,
-    ''' and nowhere near enough to close a route.
-    ''' </summary>
-    Private Const PIN_BUDGET As Integer = 2000
-
-    Private n_pinned As Integer
-    Private pins_dirty As Boolean
-
-    ' =========================================================== persistence
-
-    Private Function pin_path() As String
-        Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "tanks")
-        IO.Directory.CreateDirectory(dir)
-        Return IO.Path.Combine(dir, map_name & "_pins.u32")
-    End Function
-
-    ''' <summary>
-    ''' The learned pins, as a plain list of cell indices.
-    '''
-    ''' INDICES, NOT THE WHOLE GRID. The baked flags come back for free on the
-    ''' next load from a bake that is itself rebuilt, so writing them would be
-    ''' storing a derived thing and inviting the two to disagree after a map
-    ''' changes. Only what was LEARNED is worth keeping, and there are few
-    ''' enough of those that four bytes each is nothing.
+    ''' Runtime pin persistence was removed. Existing *_pins.u32 files are never
+    ''' read and therefore cannot affect navigation. This no-op remains only for
+    ''' source compatibility with any older caller that still invokes Save().
     ''' </summary>
     Public Sub Save()
-        If Not ready OrElse Not pins_dirty OrElse map_name = "" Then Return
-        Try
-            Dim ids As New List(Of Integer)
-            For i = 0 To cell.Length - 1
-                If (cell(i) And PINNED) <> 0 Then ids.Add(i)
-            Next
-            Dim b(ids.Count * 4 - 1) As Byte
-            For k = 0 To ids.Count - 1
-                BitConverter.GetBytes(ids(k)).CopyTo(b, k * 4)
-            Next
-            IO.File.WriteAllBytes(pin_path(), b)
-            pins_dirty = False
-            LogThis("tank nav: saved {0} learned pin(s)", ids.Count)
-        Catch ex As Exception
-            LogThis("tank nav: could not save pins - {0}", ex.Message)
-        End Try
-    End Sub
-
-    ''' <summary>Bring back what earlier runs learned. A grid whose SIZE has
-    ''' changed since the file was written would read every index as a
-    ''' different place, so the length is checked against the grid.</summary>
-    Private Sub Load()
-        Try
-            Dim p = pin_path()
-            If Not IO.File.Exists(p) Then Return
-            Dim b = IO.File.ReadAllBytes(p)
-            If b.Length Mod 4 <> 0 Then Return
-            Dim n = 0
-            For k = 0 To b.Length \ 4 - 1
-                Dim i = BitConverter.ToInt32(b, k * 4)
-                If i < 0 OrElse i >= cell.Length Then Continue For
-                cell(i) = cell(i) Or PINNED
-                n += 1
-            Next
-            n_pinned = n
-            If n > 0 Then LogThis("tank nav: recalled {0} learned pin(s)", n)
-        Catch ex As Exception
-            LogThis("tank nav: could not read pins - {0}", ex.Message)
-        End Try
+        ' Intentionally disabled.
     End Sub
 
     ' =========================================================== eyeballing
@@ -661,8 +519,6 @@ Public Class TankNav
                         Dim rr As Byte = 30, gg As Byte = 34, bb As Byte = 38   ' open
                         If (f And IMPASSABLE) = 0 Then
                             rr = 40 : gg = 90 : bb = 45
-                        ElseIf (f And PINNED) <> 0 Then
-                            rr = 255 : gg = 70 : bb = 200                       ' learned
                         ElseIf (f And OFFMAP) <> 0 Then
                             rr = 16 : gg = 16 : bb = 20                       ' beyond the arena
                         ElseIf (f And OUTLAND) <> 0 Then

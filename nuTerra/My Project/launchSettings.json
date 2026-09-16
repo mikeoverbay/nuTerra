@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "nuTerra": {
+      "commandName": "Project",
+      "commandLineArgs": "19_monastery tanks perteam=15 ai=1\r\n"
+    }
+  }
+}

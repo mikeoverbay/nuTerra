@@ -943,8 +943,52 @@ def main():
                 # base 1 path at their base Z." The second set is the same
                 # sweep with the ends swapped, and because the rows are now the
                 # bases' own Z it comes out on team 2's line without being told.
+                def _road_only(rec):
+                    """Keep only the maze road between its real start/end points.
+
+                    sweep_roads also solves two hookup legs: base -> first road
+                    point and last road point -> opposite base. Those are useful
+                    to prove the lane can be reached, but they are NOT part of
+                    the road Ray Studio edits or saves. The solver gives us the
+                    two real lane endpoints as `start` and `via`; cut the point
+                    list to those two markers, inclusive.
+                    """
+                    if not rec.get("crossed", True):
+                        return False
+                    pts = list(rec.get("pts") or ())
+                    a = rec.get("start")
+                    b = rec.get("via")
+                    if len(pts) < 2 or a is None or b is None:
+                        return False
+
+                    def nearest_index(q):
+                        qx, qz = q
+                        return min(range(len(pts)),
+                                   key=lambda i: ((pts[i][0] - qx) ** 2 +
+                                                  (pts[i][1] - qz) ** 2))
+
+                    ia = nearest_index(a)
+                    ib = nearest_index(b)
+                    if ia > ib:
+                        ia, ib = ib, ia
+                    core = pts[ia:ib + 1]
+                    if len(core) < 2:
+                        return False
+                    rec["pts"] = core
+                    rec["length"] = float(sum(
+                        np.hypot(core[i + 1][0] - core[i][0],
+                                 core[i + 1][1] - core[i][1])
+                        for i in range(len(core) - 1)))
+                    rec["base_hooks_removed"] = True
+                    return True
+
                 def _mk(team):
                     def _landed(rec):
+                        # THE HOOKS PROVE REACHABILITY; THEY ARE NOT THE ROAD.
+                        # Keep only first road point -> last road point before
+                        # anything is drawn, loaded into PathEdit, or saved.
+                        if not _road_only(rec):
+                            return
                         # SIMPLIFIED ON THE WORKER, so the frame loop only ever
                         # copies a list - it never does geometry.
                         rec["pts"] = maze.simplify(rec["pts"])
@@ -960,8 +1004,16 @@ def main():
                                       standoff_m=standoff_m,
                                       row_inset_m=row_inset,
                                       on_route=_mk(2))
+                # Keep only REAL crossed lanes, and strip the two base hookup
+                # legs from the final returned lists too. The on_route callback
+                # already did this to live roads, but the completed route list
+                # is authoritative and gets the same rule explicitly.
+                c["routes"] = [q for q in c["routes"] if _road_only(q)]
+                c2["routes"] = [q for q in c2["routes"] if _road_only(q)]
                 for q in c2["routes"]:
                     q["team"] = 2
+                for q in c["routes"]:
+                    q["team"] = 1
                 c["routes"] = c["routes"] + c2["routes"]
                 ln = [q["length"] for q in c["routes"]] or [r["length"]]
                 # SIMPLIFIED FOR DRAWING ONLY. One point per metre is what the
@@ -1073,6 +1125,54 @@ def main():
     sel = []                      # selected node ids, in ring order for a face
     sel_edge = None               # (a, b) when a LINE is what was picked
     TEAM_NAME = {1: "team 1", 2: "team 2", 3: "both teams", 0: "hand drawn"}
+
+    # TEAM NETWORKS NEVER MIX. A neutral hand-drawn component (team 0) may
+    # attach to one team, but once a component contains team 1 it may never be
+    # joined or merged to team 2, and vice versa. Checking the WHOLE connected
+    # component matters: a neutral point can sit between two team points, so a
+    # node-only comparison would still allow team 1 -- neutral -- team 2.
+    def component_team(i):
+        if i not in edit.nodes:
+            return 0
+        seen = set()
+        stack = [i]
+        mask = 0
+        while stack:
+            q = stack.pop()
+            if q in seen or q not in edit.nodes:
+                continue
+            seen.add(q)
+            mask |= int(edit.nodes[q].get("team", 0))
+            stack.extend(edit.edges.get(q, ()))
+        return mask
+
+    def teams_can_join(a, b):
+        """True only when joining these components cannot mix team types."""
+        ta, tb = component_team(a), component_team(b)
+        # 3 means a component already contains both teams (or an old team=3
+        # point). Never let an invalid mixed component spread farther.
+        if ta == 3 or tb == 3:
+            return False
+        return ta == 0 or tb == 0 or ta == tb
+
+    def mixed_team_components():
+        """Return components that contain both team 1 and team 2."""
+        bad, seen = [], set()
+        for root in edit.nodes:
+            if root in seen:
+                continue
+            stack, ids, mask = [root], [], 0
+            while stack:
+                q = stack.pop()
+                if q in seen or q not in edit.nodes:
+                    continue
+                seen.add(q)
+                ids.append(q)
+                mask |= int(edit.nodes[q].get("team", 0))
+                stack.extend(edit.edges.get(q, ()))
+            if mask == 3:
+                bad.append(ids)
+        return bad
     # THE OWNER'S BASE COLOURS: "2 is red and 1 is green." One table, read by
     # the base rings and by the ring round every start and end, so a point and
     # the base it belongs to are never two different greens.
@@ -1086,6 +1186,18 @@ def main():
                                   # until the graph is edited by hand
     roads_loaded = False          # the graph holds the sweep, so do not draw
                                   # the sweep's own polylines over the top
+
+    # THE GRAPH IS FOR EDITING; THE ROAD CHAINS ARE FOR DRIVING.
+    #
+    # load_routes deliberately merges same-team points that land in the same
+    # 1 m cell. That is useful for the editor because shared ground becomes a
+    # visible fork, but it destroys which outgoing edge belonged to which maze
+    # road. The SIM must never try to reconstruct a solved road from that
+    # merged graph. Keep every generated road's ordered node ids separately and
+    # write them beside the graph on save.
+    saved_road_chains = []        # [{id, team, nodes:[...]}, ...]
+    saved_roads_valid = [False]   # list so nested handlers can flip it
+
     show_raw = False              # ...unless asked, to compare the two
     show_pickbuf = False          # draw the pick buffer instead of the map
     show_snapgrid = False
@@ -1177,6 +1289,8 @@ def main():
         """
         nonlocal_loaded[0] = True
         edit.clear()
+        saved_road_chains[:] = []
+        saved_roads_valid[0] = True
         cell, at = 1.0, {}
 
         def vert(x, z, team):
@@ -1201,13 +1315,13 @@ def main():
             return i
 
         lines = 0
-        for road in maze_roads:
+        for road_index, road in enumerate(maze_roads):
             # WHICH SIDE THIS ROAD SERVES, kept as a BITMASK - 1, 2, or 3.
-            # It stays a mask rather than a plain 1 or 2 because the EDITOR
-            # can still join the two networks by hand: a dragged end landing
-            # on the other side's point merges them, and that survivor really
-            # does belong to both. What no longer produces a 3 is merely
-            # LOADING the roads, which is what it used to do at both bases.
+            # It stays a mask because the file format uses one, but Ray Studio
+            # NEVER joins team 1 and team 2 networks. Dragging, line joins and
+            # merges are all guarded below, so a new team=3 point is not a legal
+            # editing result. The team key in vert() also keeps automatic route
+            # loading from folding opposite-team points together.
             #
             # Without this the editor drew all 31 roads in the warm palette,
             # straight over the cool ones underneath, and the two sets stopped
@@ -1215,9 +1329,15 @@ def main():
             bit = 2 if road.get("team") == 2 else 1
             prev = None
             first = True
+            road_ids = []
             for q in road["pts"]:
                 i = vert(q[0], q[1], bit)
                 edit.nodes[i]["team"] |= bit
+                # Preserve THIS road's order even when the editor reuses a
+                # vertex that another road already touched. Consecutive points
+                # may collapse to one vertex; do not duplicate that id.
+                if not road_ids or road_ids[-1] != i:
+                    road_ids.append(i)
                 if first:
                     # WHERE THE TANKS ARE SENT. A road's first point is at the
                     # base it leaves from, and the dedupe puts every road of a
@@ -1238,7 +1358,16 @@ def main():
                     edit.link(prev, i)
                     lines += 1 if edit.degree(prev) > before else 0
                 prev = i
+            if len(road_ids) >= 2:
+                saved_road_chains.append({
+                    "id": road_index,
+                    "team": bit,
+                    "nodes": road_ids,
+                })
         edit.rebuild()
+        bad = mixed_team_components()
+        if bad:
+            raise RuntimeError("route load created a mixed-team component")
         return len(edit.nodes), lines
 
     # load_routes runs before roads_loaded is bound in the frame loop's
@@ -1260,7 +1389,39 @@ def main():
         path after that.
         """
         path = os.path.join(FLIGHT, "%s_paths.json" % map_name)
+
+        # HARD INVARIANT: never save a graph in which team 1 and team 2 are
+        # connected, even through one or more neutral hand-drawn points. The
+        # UI guards every join/merge, and this catches any future code path that
+        # forgets to use those guards.
+        bad = mixed_team_components()
+        if bad:
+            raise RuntimeError("refusing to save: team 1 and team 2 are joined")
+
         d = edit.to_dict()
+
+        # Save the SAME point kind Ray Studio shows in the selection panel.
+        # It is derived from the graph (fork/end/through/loose), so writing it
+        # here is diagnostic convenience, not a second source of truth.
+        for rec in d.get("nodes", ()):
+            i = int(rec["id"])
+            rec["kind"] = edit.kind(i)
+            rec["degree"] = edit.degree(i)
+
+        # MOST IMPORTANT: preserve complete maze-solved roads. Nodes+edges alone
+        # cannot tell which branch to take at a merged fork. If the graph was
+        # structurally edited after load, do not lie by saving stale road ids.
+        if saved_roads_valid[0] and saved_road_chains:
+            d["roads"] = [dict(id=r["id"], team=r["team"],
+                               nodes=list(r["nodes"]))
+                          for r in saved_road_chains]
+            d["roads_valid"] = True
+            d["roads_source"] = "maze_sweep"
+        else:
+            d["roads"] = []
+            d["roads_valid"] = False
+            d["roads_source"] = "graph_only"
+
         with io.open(path, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(d, fh, indent=1)
         return path, len(d["nodes"]), len(edit.starts())
@@ -1651,10 +1812,16 @@ def main():
                             edit_msg = ("from vert %d - shift-click the next"
                                         % who_id)
                         else:
-                            edit.link(line_from, who_id)
-                            line_from = who_id if tool == "line" else None
-                            edit.rebuild()
-                            edit_msg = "joined"
+                            if not teams_can_join(line_from, who_id):
+                                edit_msg = ("blocked: team %s cannot join team %s" %
+                                            (component_team(line_from),
+                                             component_team(who_id)))
+                            else:
+                                edit.link(line_from, who_id)
+                                saved_roads_valid[0] = False
+                                line_from = who_id if tool == "line" else None
+                                edit.rebuild()
+                                edit_msg = "joined"
                     elif kind == 2:
                         # ON A LINE: break it and put the new point in the
                         # gap, or the point sits on top of the run without
@@ -1663,18 +1830,35 @@ def main():
                         if ed is not None:
                             i = edit.add(*edit.snap(ed[2], ed[3]))
                             edit.split_edge(ed[0], ed[1], i)
+                            saved_roads_valid[0] = False
                             sel, sel_edge = [i], None
                             edit.rebuild()
                             edit_msg = "split the line at %d" % i
                     else:
                         i = edit.add(sx, sz)
+                        blocked_new = False
                         if line_from is not None:
-                            edit.link(line_from, i)
-                        line_from = i if tool == "line" else None
-                        sel, sel_edge = [i], None
-                        edit_auto = False
-                        edit.rebuild()
-                        edit_msg = "point %d" % i
+                            # A new hand point attached to an existing team
+                            # component immediately belongs to that team. This
+                            # prevents a neutral bridge from later connecting
+                            # team 1 to team 2 through team=0 vertices.
+                            inherited = component_team(line_from)
+                            if inherited == 3:
+                                # Do not extend a legacy/invalid mixed network.
+                                edit.remove(i)
+                                blocked_new = True
+                                edit_msg = "blocked: mixed-team network cannot be extended"
+                            else:
+                                if inherited in (1, 2):
+                                    edit.nodes[i]["team"] = inherited
+                                edit.link(line_from, i)
+                        if not blocked_new:
+                            line_from = i if tool == "line" else None
+                            sel, sel_edge = [i], None
+                            edit_auto = False
+                            saved_roads_valid[0] = False
+                            edit.rebuild()
+                            edit_msg = "point %d" % i
                 elif e.pos[0] >= LEFT_W and e.pos[0] < screen.get_width() - RIGHT_W:
                     dragging, drag_from = True, e.pos
             elif e.type == pygame.MOUSEBUTTONUP and e.button in (1, 2, 3):
@@ -1697,9 +1881,17 @@ def main():
                     # was being eaten underneath it.
                     ids = edit_drag["ids"]
                     moved = edit_drag.get("moved", False)
+                    drag_base = list(edit_drag.get("base", ()))
                     if moved:
                         edit_auto = False
+                        saved_roads_valid[0] = False
                     edit_drag = None
+
+                    def restore_drag():
+                        for ri, rx, rz in drag_base:
+                            if ri in edit.nodes:
+                                edit.nodes[ri]["x"] = rx
+                                edit.nodes[ri]["z"] = rz
                     if not moved:
                         pass
                     elif len(ids) == 1:
@@ -1708,19 +1900,35 @@ def main():
                         onto = edit.near_node(wx, wz, px_to_m(GRAB_PX),
                                               skip=me)
                         if onto is not None:
-                            edit.merge(me, onto)
-                            sel = [onto]
-                            edit_msg = ("fork at %d" % onto
-                                        if edit.degree(onto) >= 3 else "merged")
+                            if not teams_can_join(me, onto):
+                                restore_drag()
+                                edit_msg = ("blocked merge: team %s cannot merge with team %s" %
+                                            (component_team(me),
+                                             component_team(onto)))
+                            else:
+                                edit.merge(me, onto)
+                                sel = [onto]
+                                edit_msg = ("fork at %d" % onto
+                                            if edit.degree(onto) >= 3 else "merged")
                         else:
                             ed = edit.near_edge(wx, wz, px_to_m(GRAB_PX),
                                                 skip=me)
                             if ed is not None:
-                                mid = edit.add(*edit.snap(ed[2], ed[3]))
-                                edit.split_edge(ed[0], ed[1], mid)
-                                edit.merge(me, mid)
-                                sel = [mid]
-                                edit_msg = "fork at %d - the line was split" % mid
+                                # Compare the dragged point's WHOLE component to
+                                # the line's component BEFORE splitting the line.
+                                # Otherwise split_edge can create a team point and
+                                # merge() can turn it into team=3.
+                                if not teams_can_join(me, ed[0]):
+                                    restore_drag()
+                                    edit_msg = ("blocked merge: team %s cannot merge into team %s line" %
+                                                (component_team(me),
+                                                 component_team(ed[0])))
+                                else:
+                                    mid = edit.add(*edit.snap(ed[2], ed[3]))
+                                    edit.split_edge(ed[0], ed[1], mid)
+                                    edit.merge(me, mid)
+                                    sel = [mid]
+                                    edit_msg = "fork at %d - the line was split" % mid
                     edit.rebuild()
             elif e.type == pygame.MOUSEMOTION and active_slider is not None:
                 sr, lo, hi = slider_rects[active_slider]
@@ -1818,6 +2026,7 @@ def main():
                         # them - what was asked for is the segment.
                         a, b = sel_edge
                         edit_auto = False
+                        saved_roads_valid[0] = False
                         edit.unlink(a, b)
                         edit_msg = "deleted line %d-%d" % (a, b)
                         sel, sel_edge, lit_face, line_from = [], None, None, None
@@ -1825,6 +2034,7 @@ def main():
                     elif sel:
                         through = len(sel) == 1 and edit.degree(sel[0]) == 2
                         edit_auto = False
+                        saved_roads_valid[0] = False
                         for i in list(sel):
                             edit.remove(i)
                         edit_msg = ("deleted a through point - the run is now"
@@ -2112,6 +2322,7 @@ def main():
                         edit_msg = "pick a point or a line first"
                     if made:
                         edit_auto = False
+                        saved_roads_valid[0] = False
                         sel, sel_edge, lit_face, line_from = made, None, None, None
                         edit.rebuild()
                 elif e.key == pygame.K_r:

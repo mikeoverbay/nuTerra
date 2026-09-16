@@ -501,12 +501,12 @@ Public Class TankRoutes
             trace_dir = Nothing
         End If
 
-        LogThis("tank routes: {0} - {1} route(s) in {2:0} ms, {3:N0} cell(s) expanded, stopped because {4}",
-                label, routes.Count, ms, total_expanded, why_stopped)
+        'LogThis("tank routes: {0} - {1} route(s) in {2:0} ms, {3:N0} cell(s) expanded, stopped because {4}",
+        'label, routes.Count, ms, total_expanded, why_stopped)
         For i = 0 To routes.Count - 1
-            LogThis("tank routes:   {0}: {1:0} m, least room {2:0.0} m, lane {3,4:0} m over {4} cell(s)",
-                    i, routes(i).length_m, routes(i).min_clear_m,
-                    routes(i).lane_m, routes(i).cells.Length)
+            'LogThis("tank routes:   {0}: {1:0} m, least room {2:0.0} m, lane {3,4:0} m over {4} cell(s)",
+            '        i, routes(i).length_m, routes(i).min_clear_m,
+            '        routes(i).lane_m, routes(i).cells.Length)
         Next
     End Sub
 
@@ -937,10 +937,24 @@ Public Class TankRoutes
             For d = 0 To 7
                 Dim nx = cx + DX(d), nz = cz + DZ(d)
                 If nx < 0 OrElse nz < 0 OrElse nx >= N OrElse nz >= N Then Continue For
+
                 Dim ni = nz * N + nx
+
                 If shut(ni) OrElse eaten(ni) Then Continue For
                 If nav.clear_m(ni) < hull_r_m Then Continue For
-                Dim step_m = If(d < 4, cm, cm * 1.41421356F)
+
+                ' Prevent diagonal corner cutting.
+                ' A diagonal move must also fit through both side cells.
+                If d >= 4 Then
+                    Dim side1 = cz * N + nx   ' horizontal neighbor
+                    Dim side2 = nz * N + cx   ' vertical neighbor
+
+                    If eaten(side1) OrElse eaten(side2) Then Continue For
+                    If nav.clear_m(side1) < hull_r_m Then Continue For
+                    If nav.clear_m(side2) < hull_r_m Then Continue For
+                End If
+
+                Dim step_m = If(d < 4, cm, cm * 1.41421354F)
 
                 ' THE LANE BIAS, IN THE COST AND NEVER IN THE HEURISTIC. Put it
                 ' in the heuristic and A* stops being exact and starts being a

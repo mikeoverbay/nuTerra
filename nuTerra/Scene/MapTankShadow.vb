@@ -28,19 +28,41 @@ Imports OpenTK.Mathematics
 ''' boundary pops. The last quarter of the range fades it out, so a tank driving
 ''' away loses its shadow gradually and the boundary is invisible.
 '''
-''' WHAT IT DRAWS TODAY IS THE HULL BOX, not the mesh. The skinned draw lives in
-''' MapTanks, which is the Tank AI session's file, and one owner per file is the
-''' rule we agreed. A box proves every part of this - the layers, the matrices,
-''' the range test, the fade, the sampling - and produces a real shadow on the
-''' ground today rather than correct code that cannot be looked at. When that
-''' session hands over a depth-only draw, ONE call here changes and the shadow
-''' becomes tank shaped. See draw_box.
+''' IT DRAWS THE TANK'S OWN MESHES, since 2026-09-14. It rasterised the hull BOX
+''' before that, deliberately and as documented - a box proved the layers, the
+''' matrices, the range test, the fade and the sampling while the skinned draw
+''' sat in another session's file. The prediction written here was exact: one
+''' call changed and the shadow became tank shaped.
+'''
+''' What it cost while it stood: every tank cast a soft rectangular slab, a
+''' cuboid projected along the sun angle, and it read as a shadow BUG rather
+''' than as a placeholder. An hour went into the depth conventions - the clear
+''' value, the depth func, the ZeroToOne remap, the compare mode, tank_factor's
+''' transform - and all of them were right the whole time. The owner is the one
+''' who cut through it: "you can do the shading for the baked shadow and not
+''' this? It's the same math." It was the same math. Only the geometry differed.
+''' A placeholder that renders something plausible is harder to see than one
+''' that renders nothing.
 ''' </summary>
 Public Class MapTankShadow
     Implements IDisposable
 
     ''' <summary>Texels a side, per tank. The owner's number.</summary>
-    Public Const SIZE As Integer = 512
+    ' 2048 from 512 on 2026-09-14, at the owner's ask - "i have Vram to burn".
+    '
+    ' THE COST IS THE ARRAY, AND IT IS PAID UP FRONT: SIZE * SIZE * 4 bytes *
+    ' MAX_CASTERS, so 512 MB at 2048 against 32 MB at 512, allocated whether one
+    ' tank is casting or thirty. The per-frame cost is 16x the rasterised area,
+    ' and unlike the sun map this one is rebuilt EVERY FRAME for every caster in
+    ' range - which is where it will show up if it shows up at all.
+    '
+    ' What it buys: the ortho is fitted per tank at span = radius * 2 + 6, about
+    ' 14-16 m, so a texel goes from roughly 3 cm to roughly 7 mm.
+    '
+    ' Watch the "Tanks" GPU timer, which brackets this pass and the beauty pass
+    ' together (modRender.vb:202-208) - the beauty pass does not change, so the
+    ' delta on that counter is this.
+    Public Const SIZE As Integer = 2048
 
     ''' <summary>Most tanks that can cast at once. Thirty is a full roster; the
     ''' rest are lit unshadowed rather than dropped, which degrades instead of
@@ -51,8 +73,6 @@ Public Class MapTankShadow
 
     Private depth_tex As GLTexture
     Private fbo As GLFramebuffer
-    Private box_vao As GLVertexArray
-    Private box_vbo As GLBuffer
     Private allocated As Integer
 
     ''' <summary>How many layers hold a tank this frame.</summary>
@@ -113,7 +133,6 @@ Public Class MapTankShadow
         picked.Sort(Function(a, b) a.Item1.CompareTo(b.Item1))
 
         ensure_target()
-        build_box()
 
         ' Plain depth ordering, NOT the reversed-Z the main pass runs, and put
         ' back exactly as found. Leaving ClearDepth at 1.0 makes every later
@@ -147,14 +166,6 @@ Public Class MapTankShadow
             Dim mid = (hi + lo) * 0.5F
             Dim radius = half.Length
 
-            ' SCALE FIRST, and it was missing. The VAO is a UNIT cube, so
-            ' without this every tank cast a 2 m box sitting at its hull centre
-            ' whatever size it actually is - which is what "its all wrong"
-            ' looked like on screen. half was computed and then never used.
-            Dim model = Matrix4.CreateScale(half) *
-                        Matrix4.CreateTranslation(mid) *
-                        Matrix4.CreateRotationY(t.headingRad) *
-                        Matrix4.CreateTranslation(t.position)
             Dim centre = t.position + Vector3.TransformPosition(mid,
                             Matrix4.CreateRotationY(t.headingRad))
 
@@ -186,8 +197,19 @@ Public Class MapTankShadow
                 FramebufferAttachment.DepthAttachment, depth_tex.texture_id, 0, i)
             GL.Clear(ClearBufferMask.DepthBufferBit)
 
-            GL.UniformMatrix4(tankShadowShader("mvp"), False, model * vp(i))
-            draw_box()
+            ' THE TANK ITSELF. DrawDepth is TankRenderer's own inner loop with
+            ' the materials, lights, armour and recoil taken out - so the
+            ' shadow is skinned by the same code, with the same palette and the
+            ' same base-vertex-zero rule, as the tank a viewer is looking at.
+            ' Re-deriving any of that here is how a shadow ends up beside its
+            ' caster rather than under it, and the base-vertex rule alone had
+            ' already been measured silently dropping group 1 of all 31
+            ' multi-group meshes.
+            '
+            ' It sets sh("mvp") per mesh and uploads the bone palette; it does
+            ' NOT Use() the program or touch depth or cull state, which is why
+            ' the state block above and tankShadowShader.Use() still wrap it.
+            map_scene.tanks.DrawDepth(tankShadowShader, vp(i), t)
         Next
 
         tankShadowShader.StopUse()
@@ -278,48 +300,6 @@ Public Class MapTankShadow
         If depth_tex IsNot Nothing Then depth_tex.BindUnit(unit)
     End Sub
 
-    ''' <summary>
-    ''' ONE CALL, AND IT IS THE SEAM. Today it rasterises the hull box; when
-    ''' MapTanks offers a depth-only draw this becomes that call and the shadow
-    ''' stops being a rectangle. Nothing else in this file changes.
-    ''' </summary>
-    Private Sub draw_box()
-        box_vao.Bind()
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 36)
-    End Sub
-
-    Private Sub build_box()
-        If box_vao IsNot Nothing Then Return
-        ' A unit cube about the origin, scaled by the model matrix. 36 vertices,
-        ' no index buffer - it is twelve triangles once per frame per tank and
-        ' an index buffer would be ceremony.
-        Dim c()() As Single = {
-            New Single() {-1, -1, -1}, New Single() {1, -1, -1}, New Single() {1, 1, -1},
-            New Single() {-1, -1, -1}, New Single() {1, 1, -1}, New Single() {-1, 1, -1},
-            New Single() {-1, -1, 1}, New Single() {1, 1, 1}, New Single() {1, -1, 1},
-            New Single() {-1, -1, 1}, New Single() {-1, 1, 1}, New Single() {1, 1, 1},
-            New Single() {-1, -1, -1}, New Single() {-1, 1, 1}, New Single() {-1, -1, 1},
-            New Single() {-1, -1, -1}, New Single() {-1, 1, -1}, New Single() {-1, 1, 1},
-            New Single() {1, -1, -1}, New Single() {1, -1, 1}, New Single() {1, 1, 1},
-            New Single() {1, -1, -1}, New Single() {1, 1, 1}, New Single() {1, 1, -1},
-            New Single() {-1, -1, -1}, New Single() {1, -1, 1}, New Single() {1, -1, -1},
-            New Single() {-1, -1, -1}, New Single() {-1, -1, 1}, New Single() {1, -1, 1},
-            New Single() {-1, 1, -1}, New Single() {1, 1, -1}, New Single() {1, 1, 1},
-            New Single() {-1, 1, -1}, New Single() {1, 1, 1}, New Single() {-1, 1, 1}}
-        Dim v(36 * 3 - 1) As Single
-        For i = 0 To 35
-            v(i * 3) = c(i)(0) : v(i * 3 + 1) = c(i)(1) : v(i * 3 + 2) = c(i)(2)
-        Next
-
-        box_vbo = GLBuffer.Create(BufferTarget.ArrayBuffer, "tankShadowBox")
-        box_vbo.Storage(v.Length * 4, v, BufferStorageFlags.None)
-        box_vao = GLVertexArray.Create("tankShadowBoxVao")
-        box_vao.VertexBuffer(0, box_vbo, IntPtr.Zero, 3 * 4)
-        box_vao.AttribFormat(0, 3, VertexAttribType.Float, False, 0)
-        box_vao.AttribBinding(0, 0)
-        box_vao.EnableAttrib(0)
-    End Sub
-
     Private Sub ensure_target()
         If depth_tex IsNot Nothing AndAlso allocated = MAX_CASTERS Then Return
         Dispose_gl()
@@ -369,7 +349,5 @@ Public Class MapTankShadow
 
     Public Sub Dispose() Implements IDisposable.Dispose
         Dispose_gl()
-        box_vbo?.Dispose() : box_vbo = Nothing
-        box_vao?.Dispose() : box_vao = Nothing
     End Sub
 End Class
