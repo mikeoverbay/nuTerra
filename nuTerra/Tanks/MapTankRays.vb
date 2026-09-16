@@ -312,7 +312,13 @@ Public Class MapTankRays
         ' the ACTUAL FIRST hit point: red = tank, yellow = nav/terrain. If both
         ' are on one ray, distance decides which one the sensor encountered first.
         If TankSim.SIM_SHOW_RAYS Then
-            Dim clearC As New Vector4(0.55F, 0.85F, 1.0F, 0.5F)
+            ' THE THREE STATES, or the measurement is invisible. A ray that
+            ' reports 19 m and one that reports 2 m looked identical while the
+            ' colour only said hit or not, which is exactly the distinction
+            ' being replaced.
+            Dim clearC As New Vector4(0.55F, 0.85F, 1.0F, 0.35F)
+            Dim cautionC As New Vector4(1.0F, 0.78F, 0.25F, 0.85F)
+            Dim stopC As New Vector4(1.0F, 0.25F, 0.2F, 1.0F)
             Dim tankHitC As New Vector4(1.0F, 0.25F, 0.2F, 1.0F)
             Dim mapHitC As New Vector4(1.0F, 1.0F, 0.0F, 1.0F)
 
@@ -331,10 +337,20 @@ Public Class MapTankRays
                     Dim md = If(i < mapDist.Length, mapDist(i), Single.MaxValue)
 
                     Dim hitD = Math.Min(td, md)
+                    ' BY STATE, not by whether anything was hit at all. A ray
+                    ' reporting 19 m and one reporting 2 m drew the same colour
+                    ' before, which is the very distinction these limits exist
+                    ' to make. Clear stays faint, caution goes amber, stop goes
+                    ' red - and the ray is drawn only as far as what it found,
+                    ' so the length on screen IS the measurement.
+                    Dim st = TankSim.RayState(i, hitD)
                     Dim cc = clearC
-                    If hitD < Single.MaxValue Then
-                        cc = If(td < md, tankHitC, mapHitC)
+                    If st = TankSim.RAY_STOP Then
+                        cc = stopC
+                    ElseIf st = TankSim.RAY_CAUTION Then
+                        cc = cautionC
                     End If
+                    If hitD < reach Then reach = hitD
 
                     n = put(n, o.X, ry, o.Y, cc)
                     n = put(n, o.X + d.X * reach, ry, o.Y + d.Y * reach, cc)

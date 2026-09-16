@@ -72,8 +72,9 @@ Public Module TankSim
     ''' they reach ten metres they see neighbouring columns as blockers.
     ''' </summary>
     Public Function RayLen(i As Integer) As Single
-        If i = R_FRONT Then Return SIM_RAY_FRONT_M
-        Return SIM_RAY_M
+        ' ALL EIGHT THE SAME NOW. The rays differ in what they mean, not in how
+        ' far they see - see STOP_M and CLEAR_M.
+        Return RAY_LEN_M
     End Function
 
     ''' <summary>Eight rays a hull: the four corners and the middle of each
@@ -106,8 +107,89 @@ Public Module TankSim
     ''' Distances are measured from the ray origin on this hull's edge to the near
     ''' edge of the other hull's avoidance disc.
     ''' </summary>
-    Public Const FRONT_STOP_M As Single = 6.0F
-    Public Const CORNER_STOP_M As Single = 2.5F
+    ''' <summary>
+    ''' Every ray reaches the same twenty metres, and what differs is what each
+    ''' one does with the number.
+    '''
+    ''' "set all ray lengths to 20m. we are going to use measurements instead of
+    ''' simply did we hit something. we can have a stop limit and clear limit
+    ''' length for each of the 8 rays."
+    '''
+    ''' So a ray no longer answers yes or no - it answers a DISTANCE, and each
+    ''' ray reads that distance against its own pair of limits:
+    '''
+    '''   d &lt;= STOP_M   the hull must act - too close to drive through
+    '''   d &gt;= CLEAR_M  ignore it - seen, but not in the way
+    '''   between       caution: known, watched, not yet acted on
+    '''
+    ''' Giving every ray the full reach costs nothing - the cast is the same
+    ''' arithmetic at any length - and it means the side and rear rays can
+    ''' REPORT a neighbour long before they care about one. That is the whole
+    ''' difference between seeing and reacting, and it was not expressible
+    ''' while a short ray meant "cannot see" and a long one meant "must act".
+    ''' </summary>
+    Public Const RAY_LEN_M As Single = 20.0F
+
+    ''' <summary>Below this, on this ray, the hull has to do something.</summary>
+    Public STOP_M As Single() = {
+        3.0F,    ' R_FL     front-left corner - the swept corner in a turn
+        3.0F,    ' R_FR     front-right corner
+        2.0F,    ' R_RL     rear-left - only matters when backing
+        2.0F,    ' R_RR     rear-right
+        9.0F,    ' R_FRONT  7.6 m to brake from 11 m/s, plus hull
+        2.0F,    ' R_REAR   straight back
+        2.5F,    ' R_RIGHT  abeam - a neighbour alongside is close or it is not
+        2.5F     ' R_LEFT
+    }
+
+    ''' <summary>Above this, on this ray, the hit is not worth a thought.
+    ''' Between the two the hull knows about it and has not acted.</summary>
+    Public CLEAR_M As Single() = {
+        8.0F,    ' R_FL
+        8.0F,    ' R_FR
+        5.0F,    ' R_RL
+        5.0F,    ' R_RR
+        18.0F,   ' R_FRONT  1.6 s of travel - time to slow, not to swerve
+        5.0F,    ' R_REAR
+        6.0F,    ' R_RIGHT
+        6.0F     ' R_LEFT
+    }
+
+    ''' <summary>What ray i is saying: 2 stop, 1 caution, 0 clear.</summary>
+    Public Const RAY_CLEAR As Integer = 0
+    Public Const RAY_CAUTION As Integer = 1
+    Public Const RAY_STOP As Integer = 2
+
+    Public Function RayState(i As Integer, d As Single) As Integer
+        If i < 0 OrElse i >= RAY_COUNT Then Return RAY_CLEAR
+        If d <= STOP_M(i) Then Return RAY_STOP
+        If d >= CLEAR_M(i) Then Return RAY_CLEAR
+        Return RAY_CAUTION
+    End Function
+
+    ''' <summary>Every ray's state this frame, in ray order.</summary>
+    Public Function RayStates(inst As TankInstance,
+                              others As List(Of TankInstance)) As Integer()
+        Dim d = RayHitDistances(inst, others)
+        Dim outp(RAY_COUNT - 1) As Integer
+        For i = 0 To RAY_COUNT - 1
+            outp(i) = RayState(i, d(i))
+        Next
+        Return outp
+    End Function
+
+    ' KEPT so the old names still read, now derived from the tables above
+    ' rather than being separate numbers that can drift from them.
+    Public ReadOnly Property FRONT_STOP_M As Single
+        Get
+            Return STOP_M(R_FRONT)
+        End Get
+    End Property
+    Public ReadOnly Property CORNER_STOP_M As Single
+        Get
+            Return STOP_M(R_FL)
+        End Get
+    End Property
 
     ''' <summary>How close counts as reaching a waypoint. Looser than the
     ''' drive's own ARRIVE_M so a hull that stops just short still advances -
@@ -202,6 +284,35 @@ Public Module TankSim
     ''' pairs. Both are needed - the starts alone say where to send a tank and
     ''' nothing about where it goes next.
     ''' </summary>
+    ''' <summary>
+    ''' Where the hand-drawn path file lives: the shared folder first, the old
+    ''' flight folder second.
+    '''
+    ''' The owner could not get at it - it was only ever under
+    ''' %TEMP%/nuTerra/flight, which is C:/Users/&lt;you&gt;/AppData/Local/Temp, a
+    ''' folder that is awkward to browse and that Disk Cleanup empties without
+    ''' asking. A graph somebody drew by hand does not belong in a temp
+    ''' directory; the bake does, because the bake can be rebuilt.
+    '''
+    ''' Both are checked, newest wins, so a file saved by an older Ray Studio
+    ''' still drives and nothing has to be moved by hand.
+    ''' </summary>
+    Public Function PathsFileFor(mapName As String) As String
+        Dim shared_ = Path.Combine("C:
+uTerra_shared", "tank_paths",
+                                   mapName & "_paths.json")
+        Dim flight = Path.Combine(Environment.GetEnvironmentVariable("TEMP"),
+                                  "nuTerra", "flight", mapName & "_paths.json")
+        Dim haveS = File.Exists(shared_), haveF = File.Exists(flight)
+        If haveS AndAlso haveF Then
+            Return If(File.GetLastWriteTimeUtc(shared_) >=
+                      File.GetLastWriteTimeUtc(flight), shared_, flight)
+        End If
+        If haveS Then Return shared_
+        If haveF Then Return flight
+        Return shared_                    ' the one to name when neither exists
+    End Function
+
     Public Function LoadPaths(mapName As String) As Integer
         nodes.Clear()
         adj.Clear()
@@ -218,8 +329,7 @@ Public Module TankSim
         debugTankDumped = False
         debugTankLastNodeId = -1
 
-        Dim p = Path.Combine(Environment.GetEnvironmentVariable("TEMP"),
-                             "nuTerra", "flight", mapName & "_paths.json")
+        Dim p = PathsFileFor(mapName)
         If Not File.Exists(p) Then
             startsMsg = "NO PATHS SAVED - press [F5] in Ray Studio"
             pathsStamp = ""
@@ -439,6 +549,41 @@ Public Module TankSim
             If ways.Count = 0 Then Exit For
 
             ways.Sort()
+
+            ' NEVER DOUBLE BACK AT A JUNCTION.
+            '
+            ' "the tanks head back their home so we are advancing to the wrong
+            ' points." This picked an index out of a sorted list, which has
+            ' nothing to do with geometry - so at a junction the walk could take
+            ' the branch that turns round and runs home, and the hull followed
+            ' it correctly all the way back to its own base.
+            '
+            ' A road continues in roughly the direction it arrived. Anything
+            ' turning more than a right angle off the incoming leg is a U-turn,
+            ' not a continuation, so it is dropped unless it is the only way on
+            ' - a dead end still has to be walked into rather than stalled at.
+            '
+            ' `pick` still chooses among what is left, so two hulls off one
+            ' start take different roads. It chooses among FORWARD branches now
+            ' instead of among all of them.
+            If ways.Count > 1 AndAlso prev >= 0 AndAlso nodes.ContainsKey(prev) Then
+                Dim inX = nodes(cur).x - nodes(prev).x
+                Dim inZ = nodes(cur).z - nodes(prev).z
+                Dim inL = CSng(Math.Sqrt(inX * inX + inZ * inZ))
+                If inL > 0.001F Then
+                    inX /= inL : inZ /= inL
+                    Dim fwd As New List(Of Integer)
+                    For Each w In ways
+                        Dim oX = nodes(w).x - nodes(cur).x
+                        Dim oZ = nodes(w).z - nodes(cur).z
+                        Dim oL = CSng(Math.Sqrt(oX * oX + oZ * oZ))
+                        If oL <= 0.001F Then Continue For
+                        If (inX * oX + inZ * oZ) / oL > 0.0F Then fwd.Add(w)
+                    Next
+                    If fwd.Count > 0 Then ways = fwd
+                End If
+            End If
+
             Dim take = 0
             If ways.Count > 1 Then
                 take = Math.Abs(pick + step_ * 7) Mod ways.Count
@@ -783,6 +928,15 @@ Public Module TankSim
     End Function
 
     ''' <summary>How far along its run this hull is.</summary>
+    ''' <summary>Which start this hull was assigned, or -1. Read-only, and it
+    ''' exists so the black box can name the path a row belongs to - a row that
+    ''' cannot say which road it is about is a row nobody can group.</summary>
+    Public Function StartIdFor(inst As TankInstance) As Integer
+        Dim i = -1
+        If inst IsNot Nothing AndAlso assigned.TryGetValue(inst, i) Then Return i
+        Return -1
+    End Function
+
     Public Function RunAt(inst As TankInstance) As Integer
         Dim i = 0
         atOf.TryGetValue(inst, i)
@@ -1114,8 +1268,7 @@ Public Module TankSim
     Public Sub PollFile(mapName As String)
         If DateTime.Now < nextPoll Then Return
         nextPoll = DateTime.Now.AddSeconds(1.0)
-        Dim p = Path.Combine(Environment.GetEnvironmentVariable("TEMP"),
-                             "nuTerra", "flight", mapName & "_paths.json")
+        Dim p = PathsFileFor(mapName)
         Dim stamp = If(File.Exists(p), File.GetLastWriteTimeUtc(p), DateTime.MinValue)
         If stamp = lastSeen Then Return
         lastSeen = stamp

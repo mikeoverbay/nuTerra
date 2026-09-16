@@ -2055,6 +2055,7 @@ try_again:
                             TankSim.SIM_PAUSED = False
                             TankSim.Reroll()
                             map_scene.tanks.sim_line_up()
+                            TankLog.Close()
                             LogThis("tank sim: reset")
                         End If
                         If ImGui.IsItemHovered() Then
@@ -2097,8 +2098,13 @@ try_again:
                                 Else
                                     TankSim.Reroll()
                                     map_scene.tanks.sim_line_up()
+                                    ' A FILE PER RUN, named for when it started.
+                                    ' Two runs in one stream cannot be compared,
+                                    ' and comparing runs is the point.
+                                    TankLog.StartRun(MAP_NAME_NO_PATH)
                                 End If
                             End If
+                            If Not TankSim.SIM_RUN Then TankLog.Close()
                             LogThis("tank sim: {0}", If(TankSim.SIM_RUN, "running", "stopped"))
                         End If
                         If ImGui.IsItemHovered() Then
@@ -2139,6 +2145,21 @@ try_again:
 
                         ImGui.Checkbox("Show sim paths", TankSim.SIM_SHOW_PATHS)
                         If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("Two things: the whole graph from" & vbLf &
+                                             "the file, dim, always - and the run" & vbLf &
+                                             "each hull is on, bright, while the" & vbLf &
+                                             "sim runs.")
+                        End If
+                        ImGui.Checkbox("Show goal rays (old)", TankSim.SIM_SHOW_GOAL)
+                        If ImGui.IsItemHovered() Then
+                            ImGui.SetTooltip("The hull-to-goal line that predates" & vbLf &
+                                             "the sim. Off by default - it needs" & vbLf &
+                                             "hasGoal, so it appears on SIM and" & vbLf &
+                                             "vanishes on Reset just like the runs" & vbLf &
+                                             "do, which made the two impossible to" & vbLf &
+                                             "tell apart.")
+                        End If
+                        If ImGui.IsItemHovered() Then
                             ImGui.SetTooltip("The run each hull is following," & vbLf &
                                              "from Ray Studio's saved graph." & vbLf &
                                              "Brighter ahead of the tank, dim" & vbLf &
@@ -2148,8 +2169,10 @@ try_again:
                         ImGui.Checkbox("Show avoidance rays", TankSim.SIM_SHOW_RAYS)
                         If ImGui.IsItemHovered() Then
                             ImGui.SetTooltip("Sixteen rays a hull - four corners" & vbLf &
-                                             "and three down each side, " &
-                                             TankSim.SIM_RAY_M.ToString("0.#") & " m long." & vbLf &
+                                             "and four side centres. Forward " &
+                                             TankSim.SIM_RAY_FRONT_M.ToString("0.#") &
+                                             " m, the rest " &
+                                             TankSim.SIM_RAY_M.ToString("0.#") & " m." & vbLf &
                                              "Nothing reads them yet; they are drawn" & vbLf &
                                              "so the avoidance can be judged before" & vbLf &
                                              "it is written.")
