@@ -39,6 +39,9 @@ Module BrainTrunks
         Public height As Single
         Public parts As Integer
         Public ok As Boolean
+        ''' <summary>Whether radius is a TRUNK rather than the whole plant -
+        ''' see TreeTrunks.Trunk.trunkKnown. Only these reach the bake.</summary>
+        Public trunkKnown As Boolean
     End Structure
 
     Public All As New List(Of Trunk)
@@ -78,10 +81,14 @@ Module BrainTrunks
         Next
         All.Sort(Function(a, b) b.placed.CompareTo(a.placed))
 
+        ' COUNTED ON trunkKnown, NOT ON ok. A species with one collision part
+        ' measured fine and still has no trunk in it - reporting those in the
+        ' range would name numbers the bake never uses, and 6.29 m sitting in a
+        ' line about trunks is exactly the sort of figure that gets quoted.
         Dim got = 0, miss = 0
         Dim rmin = Single.MaxValue, rmax = Single.MinValue
         For Each t In All
-            If t.ok Then
+            If t.trunkKnown Then
                 got += 1
                 rmin = Math.Min(rmin, t.radius)
                 rmax = Math.Max(rmax, t.radius)
@@ -91,17 +98,26 @@ Module BrainTrunks
         Next
 
         If got = 0 Then
-            LogThis("brain: no collision hull found in any of {0} species", All.Count)
+            LogThis("brain: no species of {0} has a separable trunk - the bake uses " &
+                    "{1:0.00} m for all of them", All.Count, BAKE_TRUNK_RADIUS)
             Return
         End If
 
-        LogThis("brain: trunks from {0}/{1} species in {2} ms - radius {3:0.00}-{4:0.00} m " &
-                "(the bake uses {5:0.00} for all of them)",
-                got, All.Count, sw.ElapsedMilliseconds, rmin, rmax,
-                BAKE_TRUNK_RADIUS)
+        LogThis("brain: {0}/{1} species have a separable trunk, {2:0.00}-{3:0.00} m, " &
+                "measured in {4} ms - the bake's trunk pass uses those and {5:0.00} m " &
+                "for the other {6}",
+                got, All.Count, rmin, rmax, sw.ElapsedMilliseconds,
+                BAKE_TRUNK_RADIUS, miss)
         For Each t In All
             If Not t.ok Then
-                LogThis("brain:   {0,-34} x{1,5}  no collision part", t.species, t.placed)
+                LogThis("brain:   {0,-30} x{1,5}  no collision part - bake uses {2:0.00}",
+                        IO.Path.GetFileName(t.species), t.placed, BAKE_TRUNK_RADIUS)
+            ElseIf Not t.trunkKnown Then
+                ' ONE PART IS THE WHOLE PLANT. Printing its width in the trunk
+                ' column would be a measurement of the wrong thing.
+                LogThis("brain:   {0,-30} x{1,5}  one hull {2,5:0.00} wide, no trunk in it" &
+                        " - bake uses {3:0.00}",
+                        IO.Path.GetFileName(t.species), t.placed, t.widest, BAKE_TRUNK_RADIUS)
             Else
                 LogThis("brain:   {0,-30} x{1,5}  trunk r {2,5:0.00}  widest {3,5:0.00}  h {4,6:0.00}  {5} part(s)",
                         IO.Path.GetFileName(t.species), t.placed, t.radius, t.widest,
@@ -110,61 +126,21 @@ Module BrainTrunks
         Next
     End Sub
 
+    ''' <summary>
+    ''' Ask nuTerra, then attach how many this map places.
+    '''
+    ''' THE MEASUREMENT MOVED. It lived here first, which was the right place
+    ''' while nothing else wanted it; the trunk pass now sets its threshold
+    ''' from the same numbers, so the measuring belongs where both can reach
+    ''' it and a second copy would only drift. What stays here is the part
+    ''' that is about THIS MAP - the placement count and the report.
+    ''' </summary>
     Private Function measure_one(species As String, placed As Integer) As Trunk
-        Dim t As New Trunk With {.species = species, .placed = placed}
-        Try
-            Dim entry = ResMgr.Lookup(species)
-            If entry Is Nothing Then Return t
-            Dim ms As New MemoryStream()
-            entry.Extract(ms)
-            Dim srt = SrtFile.FromBytes(ms.ToArray(), species)
-            If srt Is Nothing OrElse srt.DrawCalls Is Nothing Then Return t
-
-            ' LOD 0 ONLY. The same hull is repeated per LOD, and mixing them
-            ' would count one trunk several times and widen nothing.
-            ' PER PART, NOT THE UNION, and that is the whole point. Measuring
-            ' every collision part together gives a bush's entire hull and
-            ' calls it a trunk - Olive_bush came out at 3.75 m that way. A
-            ' species with two parts has them separated: the NARROW one is the
-            ' trunk and the wide one is the canopy capsule.
-            Dim n = 0
-            Dim narrow = Single.MaxValue, wide = Single.MinValue
-            Dim tallest = 0.0F
-            For Each dc In srt.DrawCalls
-                If dc.Kind <> SrtFile.PartKind.Collision Then Continue For
-                If dc.Lod <> 0 Then Continue For
-                If dc.Positions Is Nothing OrElse dc.Positions.Length < 3 Then Continue For
-
-                Dim lo_x = Single.MaxValue, hi_x = Single.MinValue
-                Dim lo_z = Single.MaxValue, hi_z = Single.MinValue
-                Dim lo_y = Single.MaxValue, hi_y = Single.MinValue
-                Dim v = 0
-                While v + 2 < dc.Positions.Length
-                    lo_x = Math.Min(lo_x, dc.Positions(v))
-                    hi_x = Math.Max(hi_x, dc.Positions(v))
-                    lo_y = Math.Min(lo_y, dc.Positions(v + 1))
-                    hi_y = Math.Max(hi_y, dc.Positions(v + 1))
-                    lo_z = Math.Min(lo_z, dc.Positions(v + 2))
-                    hi_z = Math.Max(hi_z, dc.Positions(v + 2))
-                    v += 3
-                End While
-                Dim r = Math.Max((hi_x - lo_x) * 0.5F, (hi_z - lo_z) * 0.5F)
-                narrow = Math.Min(narrow, r)
-                wide = Math.Max(wide, r)
-                tallest = Math.Max(tallest, hi_y - lo_y)
-                n += 1
-            Next
-            If n = 0 Then Return t
-
-            t.radius = narrow          ' the trunk
-            t.widest = wide            ' the canopy capsule, where there is one
-            t.height = tallest
-            t.parts = n
-            t.ok = True
-        Catch ex As Exception
-            LogThis("brain: {0} would not parse - {1}", species, ex.Message)
-        End Try
-        Return t
+        Dim m = TreeTrunks.Measure(species)
+        Return New Trunk With {
+            .species = species, .placed = placed,
+            .radius = m.radius, .widest = m.widest, .height = m.height,
+            .parts = m.parts, .ok = m.ok, .trunkKnown = m.trunkKnown}
     End Function
 
 End Module

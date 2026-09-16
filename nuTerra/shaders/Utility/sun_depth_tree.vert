@@ -32,15 +32,20 @@ out Block
     vec2 uv;
     flat uvec2 texHandle;
     flat uint flags;
-    // Horizontal distance from THIS tree's own base, in world metres. The
-    // flight bake's trunk pass needs to tell a trunk from a branch, and the
-    // bark flag cannot: bark is trunk AND limbs on every species. Distance
-    // from the trunk axis is what separates them.
+    // Horizontal distance from THIS tree's own axis, in the ASSET'S OWN
+    // units. The flight bake's trunk pass needs to tell a trunk from a branch,
+    // and the bark flag cannot: bark is trunk AND limbs on every species.
+    // Distance from the axis is what separates them.
     //
-    // Measured in WORLD space, not object space. A placement may carry a
-    // scale, and an object-space radius would then mean a different number
-    // of metres on every instance - so a scaled-up oak would keep the trunk
-    // width of a sapling.
+    // OBJECT SPACE, because the threshold it is compared against is now that
+    // species' measured collision radius out of its .srt, which is in these
+    // same units - see TreeTrunks. Comparing like with like also makes scale
+    // free: a placement that doubles a tree doubles its trunk, and both sides
+    // of the test double with it.
+    //
+    // It was world metres while the threshold was one number for every
+    // species, which needed the reverse argument - a fixed 0.6 m could not be
+    // object space or a scaled-up oak would keep a sapling's trunk width.
     float trunk_r;
     // The placement's id, biased by one - see sun_depth_tree.frag.
     flat uint obj_id;
@@ -57,8 +62,7 @@ void main(void)
     // uploads untransposed, so what GLSL sees here is the transpose and the
     // origin lands in [3]. Same convention the gl_Position line below relies
     // on.
-    vec3 wp = (instanceMatrix * vec4(vertexPosition, 1.0)).xyz;
-    vs_out.trunk_r = length(wp.xz - instanceMatrix[3].xz);
+    vs_out.trunk_r = length(vertexPosition.xz);
 
     // Straight to the sun's clip space. treeDepth stops at world space because
     // a geometry stage fans it out into the four cascades; there is only one
