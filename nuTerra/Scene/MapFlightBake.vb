@@ -707,8 +707,25 @@ Public Class MapFlightBake
         ' would hang one at canopy height over every wood. Neither is a thing a
         ' hull passes under - a canopy is driven through.
         '
-        ' LAST, after read_ids and despike_top have taken everything they need
-        ' out of the depth buffer. This clobbers it.
+        ' LAST, after read_ids and despike_top have taken what they need out of
+        ' the depth buffer, which this clobbers.
+        '
+        ' THE KEY AND ID ATTACHMENTS ARE MASKED OFF FOR THE DURATION.
+        ' sun_depth_model.frag writes bake_key at location 1 and bake_id at
+        ' location 2 on every fragment, so without this the pass would overwrite
+        ' the kind and id layers with whatever its reversed depth test let
+        ' through - and since read_kinds and read_ids have already copied them
+        ' out to the CPU, the damage would be invisible here and would appear
+        ' only in the exported files.
+        '
+        ' Masking rather than relying on running late: Shader IDE + engine
+        ' pointed out that the ordering was load bearing and silent, which is
+        ' the kind of constraint that survives exactly until someone moves a
+        ' call. Now it is neither. Indices are positions in the draw-buffer
+        ' array named in create_target, not attachment numbers - same as
+        ' draw_trunks.
+        GL.ColorMask(1, False, False, False, False)
+        GL.ColorMask(2, False, False, False, False)
         GL.ClearDepth(0.0)
         GL.DepthFunc(DepthFunction.Greater)
         GL.Clear(ClearBufferMask.DepthBufferBit)
@@ -716,6 +733,8 @@ Public Class MapFlightBake
         read_ceiling()
         GL.ClearDepth(1.0)
         GL.DepthFunc(DepthFunction.Less)
+        GL.ColorMask(1, True, True, True, True)
+        GL.ColorMask(2, True, True, True, True)
 
         GL.Enable(EnableCap.CullFace)
         GL.DepthFunc(DepthFunction.Greater)
