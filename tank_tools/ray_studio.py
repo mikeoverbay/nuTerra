@@ -62,6 +62,7 @@ import math
 import threading
 import time
 import struct
+from enum import IntEnum
 import numpy as np
 
 FLIGHT = os.path.join(os.environ.get("TEMP", "."), "nuTerra", "flight")
@@ -237,7 +238,40 @@ SOLID_BIT = 32
 # kinds_from_meta() overrides them per map, so a bake that adds a kind - or
 # renumbers one - is read correctly instead of silently classifying rock as
 # prop and driving into it.
-KIND_FENCE, KIND_TREE, KIND_PROP, KIND_WATER = 2, 3, 5, 6
+class Kind(IntEnum):
+    """What is standing on a texel, by the bake's own numbering.
+
+    NAMED, because a bare 4 in an expression is how this file reported a
+    CLIFF ROCK as a FENCE earlier today: the probe carried a hand-written
+    table in which 4 meant fence, the bake means rock by it, and the
+    conclusion inverted - a fence is crushable, so "the grid is over-claiming"
+    read as a plausible story rather than as an error.
+
+    These values are the canonical ones (ModelKind.vb, KIND_TERRAIN..
+    KIND_OTHER) and they are a DEFAULT, not the authority. The meta ships
+    kind_0..kind_7 by name precisely "so the reading side never has to guess
+    what a number means" - kind_names_from_meta reads those and says so when
+    they disagree with this enum.
+    """
+    TERRAIN = 0
+    BUILDING = 1
+    FENCE = 2
+    TREE = 3
+    ROCK = 4
+    PROP = 5
+    WATER = 6
+    OTHER = 7
+
+
+# The legacy spellings, kept so existing call sites read unchanged.
+KIND_TERRAIN = int(Kind.TERRAIN)
+KIND_BUILDING = int(Kind.BUILDING)
+KIND_FENCE = int(Kind.FENCE)
+KIND_TREE = int(Kind.TREE)
+KIND_ROCK = int(Kind.ROCK)
+KIND_PROP = int(Kind.PROP)
+KIND_WATER = int(Kind.WATER)
+KIND_OTHER = int(Kind.OTHER)
 
 
 def bits_from_meta(meta, map_name=""):
@@ -291,6 +325,38 @@ def bits_from_meta(meta, map_name=""):
     if abs(out["obstacle_min_h"] - MAX_OBSTACLE_M) > 1e-6:
         print("NOTE: %s bakes obstacle_min_h=%.3f m; this reader had %.3f m. "
               "Using the bake's." % (map_name, out["obstacle_min_h"], MAX_OBSTACLE_M))
+    return out
+
+
+def kind_names_from_meta(meta, map_name=""):
+    """All eight kind names, from the bake, as {number: name}.
+
+    kinds_from_meta returns four - fence, tree, prop and water - because those
+    are the four the crushable rule asks about. Decoding a square's kind field
+    needs all eight, and the meta has carried all eight the whole time.
+
+    The meta wins. This enum is the fallback for a bake too old to carry the
+    kind_N lines, and a DISAGREEMENT is loud, because a renumbered kind
+    silently turns every reading of this file into a different claim.
+    """
+    out = {int(k): str(k.name).lower() for k in Kind}
+    seen = {}
+    for k, v in meta.items():
+        if not k.startswith("kind_") or k.endswith("_rgb"):
+            continue
+        try:
+            n = int(k[5:])
+        except ValueError:
+            continue                      # kind_mask and friends are not kinds
+        seen[n] = v.strip().lower()
+    for n, name in sorted(seen.items()):
+        if n in out and out[n] != name:
+            print("=" * 68)
+            print(" KIND RENUMBERED: %s bakes kind_%d=%s, this reader had %s."
+                  % (map_name or "this map", n, name, out[n]))
+            print(" Using the bake's name.")
+            print("=" * 68)
+        out[n] = name
     return out
 
 
