@@ -2003,8 +2003,25 @@ def main():
                     moved = edit_drag.get("moved", False)
                     drag_base = list(edit_drag.get("base", ()))
                     if moved:
+                        # STILL HAND WORK, so stop auto-reloading routes over
+                        # it - but do NOT throw the roads away here.
+                        #
+                        # save_paths says it plainly: "If the graph was
+                        # STRUCTURALLY edited after load, do not lie by saving
+                        # stale road ids." A drag is not a structural edit. The
+                        # chains are lists of node ids, and moving a point
+                        # changes its x and z and nothing else - same ids, same
+                        # adjacency, same roads, with one point now where the
+                        # owner wants it. That is the entire purpose of the
+                        # editor.
+                        #
+                        # Invalidating here is why the saved file has a
+                        # 1,076 node graph and zero roads: the routes were
+                        # loaded, one point was dragged, and every ordered road
+                        # was discarded by the drag. Everything since has run
+                        # the graph-walk fallback. The two merges below ARE
+                        # structural and invalidate for themselves.
                         edit_auto = False
-                        saved_roads_valid[0] = False
                     edit_drag = None
 
                     def restore_drag():
@@ -2026,7 +2043,11 @@ def main():
                                             (component_team(me),
                                              component_team(onto)))
                             else:
+                                # STRUCTURAL: two ids become one, so a chain
+                                # naming the loser now names a node that is
+                                # gone.
                                 edit.merge(me, onto)
+                                saved_roads_valid[0] = False
                                 sel = [onto]
                                 edit_msg = ("fork at %d" % onto
                                             if edit.degree(onto) >= 3 else "merged")
@@ -2044,9 +2065,13 @@ def main():
                                                 (component_team(me),
                                                  component_team(ed[0])))
                                 else:
+                                    # STRUCTURAL: a line is cut in two and
+                                    # the dragged point is folded into the new
+                                    # middle. Both halves change the graph.
                                     mid = edit.add(*edit.snap(ed[2], ed[3]))
                                     edit.split_edge(ed[0], ed[1], mid)
                                     edit.merge(me, mid)
+                                    saved_roads_valid[0] = False
                                     sel = [mid]
                                     edit_msg = "fork at %d - the line was split" % mid
                     edit.rebuild()
