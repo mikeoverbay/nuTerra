@@ -53,6 +53,23 @@ Module BrainNav
     Private occ() As Byte              ' 1 = something solid stands here
     Private w, h As Integer
     Private x0, z0 As Single           ' world position of cell (0,0)
+    ''' <summary>
+    ''' Bit 0 of a square byte is the block flag, and the test is a MASK
+    ''' rather than a comparison against zero.
+    '''
+    ''' The owner is moving the square data to a bitmask - "bit 0 is our block
+    ''' flag. all others are for what it is" - and the failure mode of a
+    ''' non-zero test under that format is silent and INVERTED: open ground
+    ''' carrying a kind in the upper bits is a non-zero byte, so the map FILLS
+    ''' IN rather than emptying. On a 1,400 square grid that reads as a bad
+    ''' bake rather than a bad decode.
+    '''
+    ''' Harmless today, while the byte this file reads is still 0 or 1. Done
+    ''' now so this reader does not have to be FOUND on the day the format
+    ''' lands - Tank AI work made the same change to their Python at d7281ab8.
+    ''' </summary>
+    Private Const BLOCK_BIT As Byte = &H1
+
     Public Ready As Boolean = False
 
     ''' <summary>Cells marked, for the log - a grid that marks nothing is a
@@ -350,7 +367,7 @@ Module BrainNav
                 Dim rowBase = cz * w
                 Dim wz = z0 + (cz + 0.5F) * CELL_M
                 For cx = Math.Max(cx0, 0) To Math.Min(cx1, w - 1)
-                    If occ(rowBase + cx) <> 0 Then Continue For
+                    If (occ(rowBase + cx) And BLOCK_BIT) <> 0 Then Continue For
                     Dim wx = x0 + (cx + 0.5F) * CELL_M
                     If Not InQuad(wx, wz, box) Then Continue For
                     occ(rowBase + cx) = 1
@@ -552,7 +569,7 @@ Module BrainNav
         For cz = cz0 To cz1
             Dim rowBase = cz * w
             For cx = cx0 To cx1
-                If occ(rowBase + cx) <> 0 Then Return False
+                If (occ(rowBase + cx) And BLOCK_BIT) <> 0 Then Return False
             Next
         Next
 

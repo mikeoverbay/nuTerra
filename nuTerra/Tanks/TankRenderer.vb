@@ -150,6 +150,15 @@ Public Class MapTanks
                 LogThis("tank squares: build failed - {0}", ex.Message)
             End Try
 
+            ' THE .BLK, half-metre cells with a byte of what-is-here and the
+            ' ground height beside it. Its own Try for the same reason: a fault
+            ' in something nobody asked for must not take the load down.
+            Try
+                TankBlk.Build(map_scene.flight_bake, MAP_NAME_NO_PATH)
+            Catch ex As Exception
+                LogThis("tank blk: build failed - {0}", ex.Message)
+            End Try
+
             BuildCatalogues()
 
             ' ROUTES WITHOUT A FLEET. "i dont want the tanks. I want it to run

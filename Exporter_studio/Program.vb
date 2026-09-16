@@ -52,7 +52,7 @@ Module Program
         Dim uiInShot = False
         Dim findPattern As String = Nothing
         Dim debugView = 0
-        Dim hidePattern As String = Nothing
+        Dim hidePatterns As New List(Of String)
         Dim exportNow As String = Nothing
         Dim glbCheck As String = Nothing
         Dim startSize As New Vector2i(0, 0)
@@ -121,7 +121,17 @@ Module Program
                 Case "--debug"
                     i += 1 : If i < args.Length Then Integer.TryParse(args(i), debugView)
                 Case "--hide"
-                    i += 1 : If i < args.Length Then hidePattern = args(i)
+                    ' Repeatable, and one argument may carry several split on
+                    ' a comma or a semicolon. "d_ or s_" is not expressible as
+                    ' a single glob, and material identifiers are only letters,
+                    ' digits and underscores, so neither separator can appear
+                    ' inside a pattern.
+                    i += 1
+                    If i < args.Length Then
+                        For Each one In args(i).Split(","c, ";"c)
+                            If one.Trim().Length > 0 Then hidePatterns.Add(one.Trim())
+                        Next
+                    End If
                 Case "--export-now"
                     i += 1 : If i < args.Length Then exportNow = args(i)
                 Case "--glb-check"
@@ -381,12 +391,33 @@ Module Program
             Console.WriteLine("        be several (*eu*house*). Double-click a row to load THAT one model.")
             Console.WriteLine("        / focuses the box, Enter loads, Tab hides the panel.")
             Console.WriteLine()
-            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView, hidePattern, exportNow, startSize)
+            Using win As New ViewerWindow(pkg, library, startAt, settings, shotPath, doShell, shotAngle, shotCut, bakeDir, bakePx, objPath, uiInShot, findPattern, debugView, hidePatterns, exportNow, startSize)
                 win.Run()
             End Using
         End If
     End Sub
 
+
+    ''' <summary>
+    ''' A path with any lod&lt;N&gt; segment removed, so two paths that differ
+    ''' only by LOD compare equal.
+    ''' </summary>
+    Private Function StripLodSegment(p As String) As String
+        Dim keep As New List(Of String)
+        For Each sg In p.ToLowerInvariant().Split("/"c)
+            Dim isLod = sg.Length > 3 AndAlso sg.StartsWith("lod", StringComparison.Ordinal)
+            If isLod Then
+                For i = 3 To sg.Length - 1
+                    If Not Char.IsDigit(sg(i)) Then
+                        isLod = False
+                        Exit For
+                    End If
+                Next
+            End If
+            If Not isLod Then keep.Add(sg)
+        Next
+        Return String.Join("/", keep)
+    End Function
 
     ''' <summary>
     ''' Turn whatever --open was handed into a path this index can find, and say
@@ -459,10 +490,48 @@ Module Program
             Return resolved
         End If
 
+        ' A bare asset name matches once per LOD, and those candidates differ
+        ' only by a lod<N> folder. That is not a real ambiguity for this tool:
+        ' the whole app works at lod0. Break the tie ONLY when lod0 is the single
+        ' candidate carrying that segment AND the paths are otherwise identical -
+        ' if they differ anywhere else the caller did mean two different assets,
+        ' and picking one would be a guess dressed up as a resolution.
+        If n > 1 Then
+            Dim cands = pkg.AllBySuffix(prim)
+            Dim lod0 As String = Nothing
+            Dim lod0Count = 0
+            For Each c In cands
+                If ("/" & c.Path.ToLowerInvariant()).Contains("/lod0/") Then
+                    lod0 = c.Path
+                    lod0Count += 1
+                End If
+            Next
+            If lod0Count = 1 Then
+                Dim stripped = StripLodSegment(lod0)
+                Dim allSame = True
+                For Each c In cands
+                    If StripLodSegment(c.Path) <> stripped Then
+                        allSame = False
+                        Exit For
+                    End If
+                Next
+                If allSame Then
+                    Dim resolved = lod0.Substring(0, lod0.Length - ".primitives_processed".Length)
+                    Console.WriteLine("--open: resolved {0}", resolved)
+                    Console.WriteLine("        from     {0}", given)
+                    Console.WriteLine("        {0} LODs carry that name; took lod0.", cands.Count)
+                    Return resolved
+                End If
+            End If
+        End If
+
         Console.WriteLine("--open: NOTHING MATCHES {0}", given)
         Console.WriteLine("        looked for      {0}", prim)
         If n > 1 Then
-            Console.WriteLine("        {0} entries end with that path - too ambiguous to pick one", n)
+            Console.WriteLine("        {0} entries end with that path:", n)
+            For Each c In pkg.AllBySuffix(prim)
+                Console.WriteLine("          {0}", c.Path)
+            Next
         Else
             Console.WriteLine("        and no indexed entry ends with it either.")
             ' The leaf on its own, as a last hint: it is usually a wrong FOLDER
@@ -602,7 +671,7 @@ Module Program
         Console.WriteLine("  --obj <file.obj>     load an exported OBJ back and look at it")
         Console.WriteLine("  --find <pattern>     open on the first matching model; * wildcards, any number")
         Console.WriteLine("  --ui                 keep the browser panel in a --shot")
-        Console.WriteLine("  --hide <pattern>     switch off parts whose name or .model matches; * wildcards")
+        Console.WriteLine("  --hide <pattern>     switch off matching parts; repeatable, or comma-separated")
         Console.WriteLine("  --idents <pattern>   every material identifier matching, with counts and kinds")
         Console.WriteLine("  --export-now <vis|all>  press the viewer''s export button once on load")
         Console.WriteLine("  --show-settings      print the slice settings and exit")

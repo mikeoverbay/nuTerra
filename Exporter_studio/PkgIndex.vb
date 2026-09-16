@@ -166,22 +166,34 @@ Public Class PkgIndex
     ''' is a different failure from absent and deserves a different message.
     ''' </summary>
     Public Function LookupBySuffix(name As String, ByRef matches As Integer) As Entry?
-        matches = 0
-        If String.IsNullOrWhiteSpace(name) Then Return Nothing
+        Dim all = AllBySuffix(name)
+        matches = all.Count
+        If all.Count = 1 Then Return all(0)
+        Return Nothing
+    End Function
+
+    ''' <summary>
+    ''' Every indexed entry whose path ends with this one, on a segment
+    ''' boundary.
+    '''
+    ''' The whole list rather than a count, because the caller that reports an
+    ''' ambiguity has nothing useful to say without the candidates - "2 entries
+    ''' match" sends you looking for two paths the tool already had in its hand.
+    ''' </summary>
+    Public Function AllBySuffix(name As String) As List(Of Entry)
+        Dim out As New List(Of Entry)
+        If String.IsNullOrWhiteSpace(name) Then Return out
         Dim key = name.Replace("\"c, "/"c).ToLowerInvariant().TrimStart("/"c)
-        Dim found As Entry = Nothing
         For Each kv In map
             If kv.Key.Length < key.Length Then Continue For
             If Not kv.Key.EndsWith(key, StringComparison.Ordinal) Then Continue For
             ' Anchor to a segment boundary: either the whole key, or the
             ' character before it is a separator.
             If kv.Key.Length > key.Length AndAlso kv.Key(kv.Key.Length - key.Length - 1) <> "/"c Then Continue For
-            matches += 1
-            If matches = 1 Then found = kv.Value
-            If matches > 1 Then Return Nothing
+            out.Add(kv.Value)
         Next
-        If matches = 1 Then Return found
-        Return Nothing
+        out.Sort(Function(a, b) String.CompareOrdinal(a.Path, b.Path))
+        Return out
     End Function
 
     ''' <summary>Every indexed entry whose path ends with this extension.</summary>

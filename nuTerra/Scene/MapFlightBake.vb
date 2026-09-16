@@ -913,6 +913,30 @@ Public Class MapFlightBake
             ' still a loop, and the two timings below say what each costs.
             System.Buffer.BlockCopy(floor_bytes, 0, floor_u, 0, floor_bytes.Length)
 
+            ' THE CEILING GOES IN THE SAME WAY, and LEAVING THIS OUT WAS A BUG
+            ' worth naming: the file was added to the missing-files check the
+            ' moment the layer existed, so a bake without one correctly refused
+            ' to load - and then nothing ever read it back. A cached bake came
+            ' up with ceil_u all zeros and ceil_sky zero, has_ceiling answered
+            ' False everywhere, and every doorway silently closed again.
+            '
+            ' It survived because every test run passed `rebake`, which takes
+            ' the other branch. Measured the moment one did not: squares 372,236
+            ' freshly baked against 378,628 from the cache, the 6,392 doorway
+            ' cells gone with no error anywhere.
+            Dim ceil_bytes = IO.File.ReadAllBytes(f_ceiling)
+            System.Buffer.BlockCopy(ceil_bytes, 0, ceil_u, 0, ceil_bytes.Length)
+
+            ' The open-sky sentinel is a property of the PASS, not of the file,
+            ' so it has to be recovered rather than assumed: it is the largest
+            ' value the layer carries, which is what a texel with nothing over
+            ' it was given.
+            Dim sky As UShort = 0
+            For i = 0 To SIZE * SIZE - 1
+                If ceil_u(i) > sky Then sky = ceil_u(i)
+            Next
+            ceil_sky = sky
+
             For i = 0 To SIZE * SIZE - 1
                 Dim o = i * 4
                 kind_b(i) = b(o)
