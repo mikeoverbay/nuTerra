@@ -27,11 +27,16 @@
 ''' A PREFIX IS A NAME, NOT A VERDICT, and this said otherwise until
 ''' Exporter Studio retracted it on 2026-09-16. The prefixes read as
 ''' destructible / non-destructible / static and mostly are - but the same
-''' identifier can be either. Verified by running their --idents: n_stone0
-''' is 61 materials over 6 assets carrying materialKind 73 AND 111, the
-''' destructible band on some buildings and the static band on others. The
-''' name genuinely does not carry the answer, so no amount of careful prefix
-''' matching recovers it.
+''' identifier can be either.
+'''
+''' Measured by running their --idents rather than taking the retraction:
+''' n_stone0 is 61 materials over 6 assets, and they split 31 carrying
+''' materialKind 73 - the destructible band - against 30 carrying 111,
+''' static. One name, both answers, decided per building. n_stone1 splits 13
+''' against 12. Across the corpus it is 50 of 5,673 n_ materials, 0.88%.
+'''
+''' So no amount of careful prefix matching recovers it: the name genuinely
+''' does not know.
 '''
 ''' materialKind is what the engine reads and is the key worth having here
 ''' - 73-85 intact, 87-98 destroyed, the rest static. It is not on this seam
