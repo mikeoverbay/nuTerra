@@ -22,6 +22,7 @@ Module BrainRender
         BrainModels.Init()
         BrainTankDraw.Init()
         BrainRings.Init()
+        BrainTrees.Init()
         If terrainShader.Ready Then LogThis("brain: shaders ready")
     End Sub
 
@@ -69,6 +70,9 @@ Module BrainRender
         ' Hulls last. They are small, they sit on ground already drawn, and
         ' anything that goes wrong with them is easiest to see against a world
         ' that is known to be right.
+        ' Trees before the rings: both write depth, and a ring drawn after is
+        ' one less thing hidden behind a canopy on a base.
+        BrainTrees.Draw(vp)
         BrainRings.Draw(vp)
         BrainTankDraw.Draw(vp)
     End Sub
