@@ -16,6 +16,24 @@
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
     <AssemblyName>Exporter_studio</AssemblyName>
     <!--
+      OUTPUT GOES TO bin\<config>\ WHATEVER -p:Platform IS SET TO.
+
+      MSBuild's default puts it in bin\<platform>\<config>\ as soon as
+      Platform is anything but AnyCPU. CLAUDE.md tells every session to build
+      nuTerra with -p:Platform=x64 - it needs it to resolve its C++ DLL - and
+      that habit applied here quietly produced a SECOND exe in
+      bind\Debug\, while the one nuTerra's find_exporter_studio() looks
+      for in bin\<config>
+et8.0-windows\ went stale. Two exes, the wrong one
+      newer, and no error from either.
+
+      This project is pure managed and sets PlatformTarget itself, so the
+      platform never needed to be in the path. Pinning OutputPath means the
+      flag is now harmless rather than something each person has to remember
+      not to pass.
+    -->
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <!--
       For System.Drawing, which the UI font atlas rasterises through. This is
       the Windows Desktop SHARED FRAMEWORK, not a package: the project still
       carries exactly one PackageReference, which is what the one-dependency
