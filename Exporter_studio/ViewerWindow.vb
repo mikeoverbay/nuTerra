@@ -226,6 +226,12 @@ Public Class ViewerWindow
         ''' passes; it does not touch the geometry, so an export still writes
         ''' the whole model.</summary>
         Public Hidden As Boolean
+        ''' <summary>This group's own box, computed once at build time. The
+        ''' refit unions the visible ones, which is O(parts) per click
+        ''' instead of walking 20,000 vertices every time a box is ticked.</summary>
+        Public HasBounds As Boolean
+        Public Min As Vector3
+        Public Max As Vector3
         Public First As Integer
         Public Count As Integer
         Public Albedo As Integer
@@ -526,11 +532,7 @@ Public Class ViewerWindow
             Return
         End If
 
-        boundsMin = lo : boundsMax = hi
-        target = (lo + hi) * 0.5F
-        ' A shot frames wider than the interactive default: the whole model
-        ' has to be inside the image for the picture to prove anything.
-        dist = Math.Max((hi - lo).Length * If(shotPath IsNot Nothing, 1.35F, 0.9F), 2.0F)
+        FrameBounds(lo, hi)
         planeNudge = 0.0F
         Rebuild()
         BuildPbr()
@@ -728,6 +730,18 @@ Public Class ViewerWindow
                         End If
                         If maps(2) IsNot Nothing Then pt.Gmm = LoadTex(maps(2), whiteTex)
                     End If
+                    ' The group's box, from the vertices its own indices name.
+                    Dim glo As New Vector3(Single.MaxValue, Single.MaxValue, Single.MaxValue)
+                    Dim ghi As New Vector3(Single.MinValue, Single.MinValue, Single.MinValue)
+                    For k = first To first + count - 1
+                        Dim b = idx(k) * 16
+                        If b + 3 > verts.Count Then Continue For
+                        Dim vp As New Vector3(verts(b), verts(b + 1), verts(b + 2))
+                        glo = Vector3.ComponentMin(glo, vp)
+                        ghi = Vector3.ComponentMax(ghi, vp)
+                        pt.HasBounds = True
+                    Next
+                    pt.Min = glo : pt.Max = ghi
                     pbrParts.Add(pt)
                     pbrTris += count \ 3
                 Next
@@ -2396,6 +2410,57 @@ drawn:
         End Try
     End Sub
 
+
+    ''' <summary>Point the camera at a box and back off far enough to hold it.
+    ''' One place, so the initial load and every refit frame a model the same
+    ''' way - a shot backs off further than the interactive default because the
+    ''' whole model has to be inside the image for the picture to prove
+    ''' anything.</summary>
+    Private Sub FrameBounds(lo As Vector3, hi As Vector3)
+        boundsMin = lo
+        boundsMax = hi
+        target = (lo + hi) * 0.5F
+        dist = Math.Max((hi - lo).Length * If(shotPath IsNot Nothing, 1.35F, 0.9F), 2.0F)
+    End Sub
+
+    ''' <summary>
+    ''' Re-centre and refit on the parts that are actually on screen.
+    '''
+    ''' Runs on EVERY visibility change - a box switched on, a box switched off,
+    ''' show all, hide all, solo, and --hide - because a refit that only happens
+    ''' on hide would leave the camera framing a hole the moment you put
+    ''' something back.
+    '''
+    ''' THE CENTRE IS THE MIDDLE OF THE UNION BOX, not the mean of the parts'
+    ''' own centres. They are the same thing only when the parts are of similar
+    ''' size, and buildings are not: averaging centres on a model that is one
+    ''' large wall and forty small fittings pulls the camera towards the crowd
+    ''' of small ones and lets the wall fall out of frame. The box centre with
+    ''' the box's own diagonal for distance is what actually holds everything.
+    '''
+    ''' With nothing visible the camera is LEFT WHERE IT IS. Framing an empty
+    ''' set has no defined answer, and snapping to the origin at scale 2 throws
+    ''' away the view you had just as you uncheck the last box.
+    ''' </summary>
+    Private Sub FitVisible()
+        Dim lo As New Vector3(Single.MaxValue, Single.MaxValue, Single.MaxValue)
+        Dim hi As New Vector3(Single.MinValue, Single.MinValue, Single.MinValue)
+        Dim shown = 0
+        For Each pt In pbrParts
+            If pt.Hidden OrElse Not pt.HasBounds Then Continue For
+            lo = Vector3.ComponentMin(lo, pt.Min)
+            hi = Vector3.ComponentMax(hi, pt.Max)
+            shown += 1
+        Next
+        If shown = 0 Then Return
+        FrameBounds(lo, hi)
+        planeNudge = 0.0F
+        ' One line, not a list - the count and the box, so a refit can be
+        ' checked by reading a number rather than by judging a picture.
+        Console.WriteLine("  fit {0} of {1} part(s)   centre {2:F2},{3:F2},{4:F2}   span {5:F1} m",
+                          shown, pbrParts.Count, target.X, target.Y, target.Z, (hi - lo).Length)
+    End Sub
+
     ''' <summary>Fire --export-now once, if it was asked for.</summary>
     Private Sub RunExportNow()
         If String.IsNullOrWhiteSpace(exportNowMode) Then Return
@@ -2431,6 +2496,10 @@ drawn:
                 pbrParts(r.Index).Hidden = r.Hidden
             End If
         Next
+        ' Every visibility change funnels through here - toggle on, toggle
+        ' off, solo, show all, hide all and --hide - so the refit goes here
+        ' once rather than at five call sites, one of which would be missed.
+        FitVisible()
     End Sub
 
     ''' <summary>Editing keys, which do not arrive as text input.</summary>
