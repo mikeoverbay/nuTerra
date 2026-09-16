@@ -73,9 +73,12 @@ Public Class BrainWindow
     ''' NOT called `title`: VB is case blind, so that name IS NativeWindow's
     ''' own Title property and silently shadows it.
     ''' </summary>
+    ''' <summary>The title carries the controls, because there is nowhere else
+    ''' to put them in an app with no text rendering.</summary>
     Private Shared Function window_title() As String
-        If OWNER_TAG.Trim() = "" Then Return APP_NAME
-        Return OWNER_TAG.Trim() & " - " & APP_NAME
+        Const KEYS As String = "   [Space] run/stop sim   [F5] reload   [Esc] quit"
+        If OWNER_TAG.Trim() = "" Then Return APP_NAME & KEYS
+        Return OWNER_TAG.Trim() & " - " & APP_NAME & KEYS
     End Function
 
     ''' <summary>
@@ -336,9 +339,88 @@ Public Class BrainWindow
         wasDown = down
     End Sub
 
+    ''' <summary>
+    ''' The controls. The owner, 2026-09-16: "can we get some controls. Run/stop
+    ''' sim, reload data, quit."
+    '''
+    ''' KEYS, NOT BUTTONS. This app has no UI framework - no ImGui, no text
+    ''' rendering - and adding one to put three buttons on screen would be the
+    ''' single largest thing in it, in an app whose point is coming up fast.
+    ''' The bindings are in the window title instead, where they cost nothing
+    ''' and cannot scroll away.
+    '''
+    ''' IsKeyPressed, NOT IsKeyDown: it is true only on the frame the key goes
+    ''' down. IsKeyDown would toggle the sim sixty times a second for as long
+    ''' as the key was held, which reads as the sim refusing to start.
+    ''' </summary>
+    Private Sub handle_keys()
+        Dim k = KeyboardState
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape) OrElse
+           k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Q) Then
+            Close()
+            Return
+        End If
+
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then toggle_sim()
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F5) Then reload_data()
+    End Sub
+
+    ''' <summary>
+    ''' Start the sim, or stop it.
+    '''
+    ''' REFUSES WHILE THE ROSTER IS STILL ARRIVING, for the same reason the
+    ''' automatic start waits: a brain handed a different number of hulls each
+    ''' frame is being told the world changed when it did not.
+    ''' </summary>
+    Private Sub toggle_sim()
+        If BrainSim.Running Then
+            BrainSim.Halt()
+            Return
+        End If
+        If BrainTanks.Loading Then
+            LogThis("brain: the roster is still loading - sim not started")
+            Return
+        End If
+        BrainSim.Start()
+    End Sub
+
+    ''' <summary>
+    ''' Re-read what nuTerra writes, without restarting this app.
+    '''
+    ''' THE SQUARE MAP AND THE TREE COLOURS, because those are the files that
+    ''' change under a running Brain Testing: nuTerra rebakes, cuts a fresh
+    ''' <map>_squares.u8, and this app is looking at the old one until it is
+    ''' told. That round trip - rebake there, F5 here - is the whole point.
+    '''
+    ''' WHAT IT DOES NOT RELOAD is the world and the tanks. Terrain, models and
+    ''' vehicles are seconds of loading and do not change while the app is up;
+    ''' re-reading the arena would also move every hull back to spawn, which is
+    ''' not what "reload data" should do to a run in progress.
+    '''
+    ''' STOPS THE SIM FIRST if one is running. Swapping the grid under a brain
+    ''' mid-step means it planned against one map and is judged against
+    ''' another, and the black box would carry both without saying so.
+    ''' </summary>
+    Private Sub reload_data()
+        Dim was_running = BrainSim.Running
+        If was_running Then BrainSim.Halt()
+
+        If STARTUP_MAP Is Nothing Then
+            LogThis("brain: reload - no map to reload for")
+            Return
+        End If
+
+        Dim before = BrainNav.Marked
+        If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
+        BrainTrees.MarkDrivable()
+        LogThis("brain: reloaded - {0:N0} blocked cell(s), was {1:N0}{2}",
+                BrainNav.Marked, before,
+                If(was_running, ". The sim was stopped - press Space to run it again", ""))
+    End Sub
+
     Protected Overrides Sub OnUpdateFrame(e As FrameEventArgs)
         MyBase.OnUpdateFrame(e)
-        If KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape) Then Close()
+        handle_keys()
         ' ONE CALL, and the cursor is never grabbed. See BrainCamera - this is
         ' nuTerra's camera_mouse_update by way of Exporter Studio.
         BrainSim.Tick(CSng(e.Time))
