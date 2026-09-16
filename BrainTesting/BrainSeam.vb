@@ -46,6 +46,45 @@ Public Structure BrainHull
     Public halfZ As Single
 
     ''' <summary>
+    ''' THE GUN, because a brain that cannot aim is only half a brain.
+    '''
+    ''' All of it is read from the vehicle's own def by TankVehicle - none is
+    ''' estimated here. The owner asked for "rotations and tilt limits for the
+    ''' guns and fire position"; it was already loaded and simply not handed
+    ''' over, which is the worst of both - paid for and unusable.
+    '''
+    ''' yawMin/yawMax are DEGREES and a full -180..180 means a turret; a narrow
+    ''' pair means a casemate that has to turn the hull to aim.
+    ''' </summary>
+    Public yawMinDeg As Single
+    Public yawMaxDeg As Single
+    Public yawRateDegS As Single
+    Public pitchRateDegS As Single
+
+    ''' <summary>
+    ''' Pitch limits AT THE CURRENT TURRET YAW, in degrees, X low and Y high.
+    '''
+    ''' A RANGE PER YAW, not one pair per vehicle: real hulls block their own
+    ''' gun over the engine deck, so a tank that depresses 8 degrees forward
+    ''' may manage 2 astern. TankVehicle.PitchRangeAt samples the def's
+    ''' pitchLimits curve; this is that sampled where the turret is pointing
+    ''' now, so a brain never has to know the curve exists.
+    ''' </summary>
+    Public pitchLowDeg As Single
+    Public pitchHighDeg As Single
+
+    ''' <summary>Where the shot leaves, in vehicle-local metres, and whether
+    ''' the model actually named it. False means the vehicle has no HP_gunFire
+    ''' node and this is the barrel tip guessed from the bounding box - worth
+    ''' knowing before trusting it for a line of fire.</summary>
+    Public muzzleLocal As Vector3
+    Public hasMuzzle As Boolean
+
+    ''' <summary>Where the turret is pointing now, degrees.</summary>
+    Public turretYawDeg As Single
+    Public gunPitchDeg As Single
+
+    ''' <summary>
     ''' Half the DIAGONAL plus a margin - the radius that answers "will this
     ''' hull fit through that gap".
     '''

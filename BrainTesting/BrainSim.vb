@@ -100,7 +100,23 @@ Module BrainSim
                 .pos = b.spawn, .y = b.y,
                 .headingRad = b.headingRad,
                 .speed = If(speeds Is Nothing, 0.0F, speeds(i)),
-                .halfX = b.half.X, .halfZ = b.half.Z}
+                .halfX = b.half.X, .halfZ = b.half.Z,
+                .turretYawDeg = b.turretYawDeg, .gunPitchDeg = b.gunPitchDeg}
+
+            ' The gun, from the vehicle's own def. PitchRangeAt is sampled at
+            ' the CURRENT yaw, so a brain gets the limits where the turret
+            ' actually is rather than the curve it came from.
+            If b.vehicle IsNot Nothing Then
+                inp.hulls(i).yawMinDeg = b.vehicle.yawMin
+                inp.hulls(i).yawMaxDeg = b.vehicle.yawMax
+                inp.hulls(i).yawRateDegS = b.vehicle.yawRate
+                inp.hulls(i).pitchRateDegS = b.vehicle.pitchRate
+                Dim pr = b.vehicle.PitchRangeAt(b.turretYawDeg)
+                inp.hulls(i).pitchLowDeg = pr.X
+                inp.hulls(i).pitchHighDeg = pr.Y
+                inp.hulls(i).muzzleLocal = b.vehicle.muzzleLocal
+                inp.hulls(i).hasMuzzle = b.vehicle.hasMuzzle
+            End If
         Next
         Return inp
     End Function

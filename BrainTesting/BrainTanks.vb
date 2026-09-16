@@ -25,6 +25,10 @@ Module BrainTanks
         ''' <summary>Half-extents of the HULL in metres: X across, Y up, Z
         ''' along. The game's own boundingBox, via TankRoster.</summary>
         Public half As Vector3
+        ''' <summary>Where the turret and gun are pointing, degrees. The brain
+        ''' moves these; the world only carries them.</summary>
+        Public turretYawDeg As Single
+        Public gunPitchDeg As Single
     End Structure
 
     Public Bodies As New List(Of Body)
@@ -149,6 +153,97 @@ Module BrainTanks
     ''' perTeam, so asking for more than half does not field more a side, it
     ''' fields the excess on team 1 and leaves team 2 short.
     ''' </summary>
+    ''' <summary>
+    ''' THE WORLD DOES NOT WAIT FOR THE TANKS.
+    '''
+    ''' Thirty vehicles are 5.7 s of the 10.2 s this app took to come up -
+    ''' measured at 199 ms a vehicle, with the first costing 1,140 because it
+    ''' builds a 270,965-entry package index. None of that is one slow thing
+    ''' that could be fixed; it is thirty ordinary ones.
+    '''
+    ''' So they are loaded ONE PER FRAME after the first frame is on screen.
+    ''' The terrain, buildings and trees are up and the camera is live in about
+    ''' four seconds, and hulls appear over the next few. Nothing is faster in
+    ''' total - the work is the same - but "up" happens when the world is up,
+    ''' which is what the owner asked for: "load and get the thing up as fast
+    ''' as possible".
+    '''
+    ''' A frame is drawn between vehicles, so the app is draggable and
+    ''' zoomable while they arrive rather than frozen behind them.
+    ''' </summary>
+    Public Sub BeginLoad(perTeam As Integer)
+        Bodies.Clear()
+        queue.Clear()
+        loadClock = Stopwatch.StartNew()
+        times.Clear()
+
+        Dim per = Math.Max(1, Math.Min(perTeam, TankRoster.PerTeamMax))
+        If per <> perTeam Then
+            LogThis("brain: {0} a side asked for, {1} is what a roster of {2} allows",
+                    perTeam, per, TankRoster.ALL.Length)
+        End If
+        For i = 0 To per * 2 - 1
+            queue.Add(Tuple.Create(i, per))
+        Next
+    End Sub
+
+    ''' <summary>True while there are still vehicles to load.</summary>
+    Public ReadOnly Property Loading As Boolean
+        Get
+            Return queue.Count > 0
+        End Get
+    End Property
+
+    ''' <summary>Load ONE vehicle. Returns False when the queue is empty.</summary>
+    Public Function LoadStep() As Boolean
+        If queue.Count = 0 Then Return False
+        Dim job = queue(0)
+        queue.RemoveAt(0)
+
+        Dim i = job.Item1, per = job.Item2
+        Dim r = TankRoster.ALL(i)
+        Dim team = If(i < per, 1, 2)
+        Dim k = i Mod per
+
+        Dim one = Stopwatch.StartNew()
+        Dim v = TankVehicle.Load(r.Item1, r.Item2, Nothing)
+        times.Add(Tuple.Create(CSng(one.ElapsedMilliseconds), r.Item2))
+        If v Is Nothing Then
+            LogThis("brain: {0}/{1} did not load", r.Item1, r.Item2)
+            failedCount += 1
+        Else
+            Bodies.Add(New Body With {
+                .id = i + 1,
+                .team = team,
+                .tag = r.Item2,
+                .vehicle = v,
+                .spawn = SpawnOf(team, k),
+                .y = ground_at(SpawnOf(team, k)),
+                .headingRad = If(team = 1, 0.0F, CSng(Math.PI)),
+                .half = TankRoster.HullHalfExtents(v)})
+        End If
+
+        If queue.Count = 0 Then
+            times.Sort(Function(a, b) b.Item1.CompareTo(a.Item1))
+            If times.Count > 0 Then
+                Dim total = 0.0F
+                For Each t In times
+                    total += t.Item1
+                Next
+                LogThis("brain: vehicle load {0:0} ms mean, slowest {1:0} ms ({2}), fastest {3:0} ms",
+                        total / times.Count, times(0).Item1, times(0).Item2,
+                        times(times.Count - 1).Item1)
+            End If
+            report(loadClock.ElapsedMilliseconds, failedCount)
+        End If
+        Return True
+    End Function
+
+    Private ReadOnly queue As New List(Of Tuple(Of Integer, Integer))
+    Private ReadOnly times As New List(Of Tuple(Of Single, String))
+    Private loadClock As Stopwatch = Nothing
+    Private failedCount As Integer = 0
+
     Public Function LoadAll(perTeam As Integer) As Integer
         Bodies.Clear()
         Dim per = Math.Max(1, Math.Min(perTeam, TankRoster.PerTeamMax))
@@ -159,12 +254,18 @@ Module BrainTanks
 
         Dim sw = Stopwatch.StartNew()
         Dim failed = 0
+        ' PER VEHICLE, because a mean hides the shape. If they are all the same
+        ' the cost is per-part work; if a few dominate it is one big roster
+        ' entry and the fix is different.
+        Dim times As New List(Of Tuple(Of Single, String))
         For i = 0 To per * 2 - 1
             Dim r = TankRoster.ALL(i)
             Dim team = If(i < per, 1, 2)
             Dim k = i Mod per
 
+            Dim one = Stopwatch.StartNew()
             Dim v = TankVehicle.Load(r.Item1, r.Item2, Nothing)
+            times.Add(Tuple.Create(CSng(one.ElapsedMilliseconds), r.Item2))
             If v Is Nothing Then
                 LogThis("brain: {0}/{1} did not load", r.Item1, r.Item2)
                 failed += 1
@@ -181,6 +282,17 @@ Module BrainTanks
                 .headingRad = If(team = 1, 0.0F, CSng(Math.PI)),
                 .half = TankRoster.HullHalfExtents(v)})
         Next
+
+        times.Sort(Function(a, b) b.Item1.CompareTo(a.Item1))
+        If times.Count > 0 Then
+            Dim total = 0.0F
+            For Each t In times
+                total += t.Item1
+            Next
+            LogThis("brain: vehicle load {0:0} ms mean, slowest {1:0} ms ({2}), fastest {3:0} ms",
+                    total / times.Count, times(0).Item1, times(0).Item2,
+                    times(times.Count - 1).Item1)
+        End If
 
         report(sw.ElapsedMilliseconds, failed)
         Return Bodies.Count
@@ -236,14 +348,47 @@ Module BrainTanks
             Next
         End If
 
+        report_guns()
+
         If Not HULL_BOX_TABLE Then Return
-        LogThis("brain:  id tm  {0,-32} {1,6} {2,6} {3,6}   spawn", "vehicle", "W", "H", "L")
+        LogThis("brain:  id tm  {0,-32} {1,6} {2,6} {3,6}  {4,7} {5,6} {6,6}   spawn",
+                "vehicle", "W", "H", "L", "yaw", "dn", "up")
         For Each b In Bodies
-            LogThis("brain:  {0,2} T{1}  {2,-32} {3,6:0.00} {4,6:0.00} {5,6:0.00}   ({6:0.0}, {7:0.0})",
+            Dim pr = If(b.vehicle Is Nothing, New Vector2(0.0F, 0.0F), b.vehicle.PitchRangeAt(0.0F))
+            LogThis("brain:  {0,2} T{1}  {2,-32} {3,6:0.00} {4,6:0.00} {5,6:0.00}  {6,7:0} {7,6:0.0} {8,6:0.0}   ({9:0.0}, {10:0.0})",
                     b.id, b.team, b.tag,
                     b.half.X * 2.0F, b.half.Y * 2.0F, b.half.Z * 2.0F,
+                    If(b.vehicle Is Nothing, 0.0F, b.vehicle.yawMax - b.vehicle.yawMin),
+                    pr.X, pr.Y,
                     b.spawn.X, b.spawn.Y)
         Next
+    End Sub
+
+    ''' <summary>
+    ''' What the roster can aim, in one line.
+    '''
+    ''' A COUNT, NOT A LIST, per the owner's standing rule about the output
+    ''' window - but the counts that matter to a brain. A casemate cannot
+    ''' shoot without turning the whole hull, so "how many of these thirty
+    ''' have to drive to aim" is a planning fact, and a muzzle missing is a
+    ''' line of fire that would be traced from a guess.
+    ''' </summary>
+    Private Sub report_guns()
+        Dim turret = 0, casemate = 0, muzzled = 0, known = 0
+        Dim dn = Single.MaxValue, up = Single.MinValue
+        For Each b In Bodies
+            If b.vehicle Is Nothing Then Continue For
+            known += 1
+            If b.vehicle.yawMax - b.vehicle.yawMin >= 359.0F Then turret += 1 Else casemate += 1
+            If b.vehicle.hasMuzzle Then muzzled += 1
+            Dim pr = b.vehicle.PitchRangeAt(0.0F)
+            dn = Math.Min(dn, pr.X)
+            up = Math.Max(up, pr.Y)
+        Next
+        If known = 0 Then Return
+        LogThis("brain: guns on the seam - {0} turret, {1} casemate, {2}/{3} with a real muzzle. " &
+                "Depression/elevation ahead spans {4:0.0} to {5:0.0} deg",
+                turret, casemate, muzzled, known, dn, up)
     End Sub
 
 End Module

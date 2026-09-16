@@ -155,7 +155,9 @@ Public Class BrainWindow
                 End If
             End If
             BrainTanks.ReadArena(STARTUP_MAP)
-            BrainTanks.LoadAll(TANK_PER_TEAM)
+            ' QUEUED, NOT LOADED. One vehicle a frame from OnRenderFrame, so
+            ' the world is on screen and the camera is live while they arrive.
+            BrainTanks.BeginLoad(TANK_PER_TEAM)
             BrainRings.Build()
 
                 ' The nav grid AFTER the models, because it is rasterised from
@@ -167,14 +169,15 @@ Public Class BrainWindow
                 ' The footprint rasteriser is the fallback for a map with no
                 ' bake yet, and the log says which one answered.
                 If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
-                BrainNav.SelfCheck()
                 If BrainNav.NAV_AUDIT Then BrainNav.MaterialAudit()
 
                 ' THE SIM STARTS AT LAUNCH - the owner's ask. What it DOES is
                 ' Tank AI's: BrainSim.Brain is NullBrain until their code sets
                 ' it, and NullBrain parks everything. `sim=0` holds it back for
                 ' a run where the world is the thing being looked at.
-                If BRAIN_ON Then BrainSim.Start()
+                ' The sim starts when the hulls are all in - see OnRenderFrame.
+                ' Starting it on a half-loaded roster would hand a brain a
+                ' different number of tanks each frame.
         End If
 
         GL.Enable(EnableCap.DepthTest)
@@ -206,13 +209,34 @@ Public Class BrainWindow
         ' the driver has the buffers it was promised, and a black capture would
         ' read as "nothing draws" when the truth is "nothing drew YET".
         frames += 1
-        If SHOT_PATH <> "" AndAlso frames = 3 Then
+        If frames = 1 Then
+            ' THE NUMBER THAT MATTERS. Not the window handle - that exists
+            ' before anything is drawn - but the first frame with the world in
+            ' it, which is when the app is actually up.
+            LogThis("brain: WORLD ON SCREEN at {0:0.00}s", boot.Elapsed.TotalSeconds)
+        End If
+
+        ' ONE VEHICLE A FRAME, after the frame is on screen. A frame is drawn
+        ' between each, so the app is draggable while the roster arrives.
+        If BrainTanks.Loading Then
+            BrainTanks.LoadStep()
+            If Not BrainTanks.Loading Then
+                ' Everything that needs the finished roster, in order.
+                BrainNav.SelfCheck()
+                If BRAIN_ON Then BrainSim.Start()
+            End If
+        End If
+
+        ' The shot waits for the roster. Capturing at frame 3 would photograph
+        ' a map with two tanks on it and call it thirty.
+        If SHOT_PATH <> "" AndAlso Not BrainTanks.Loading AndAlso frames >= 3 Then
             Capture(SHOT_PATH)
             Close()
         End If
     End Sub
 
     Private frames As Integer = 0
+    Private ReadOnly boot As Stopwatch = Stopwatch.StartNew()
 
     ''' <summary>
     ''' The back buffer to a PNG, and a COUNT of how much of it is not the
