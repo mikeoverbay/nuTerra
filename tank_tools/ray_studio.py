@@ -158,6 +158,97 @@ def check_against_squares(g, map_name):
     return (mine == sq).mean(), app_only, mine_only
 
 
+# ---- the .blk plane ----------------------------------------------------
+#
+# "Get nuTerra to make a .5 res .blk file" - the owner, 2026-09-16.
+#
+# One file carrying what the planner needs: a byte of bits per cell and a float
+# of ground height, at half a metre. It replaces pooling the 8192 bake down on
+# every launch, and it carries what a pooled bit never could - WHAT is in the
+# cell, not merely that something is.
+#
+# The bits, from his spec:
+#     0      blocked
+#     1      reserved
+#     2-4    kind, the meta's own numbering
+#     5      solid
+#     6      trunk
+#     7      crushable, precomputed by the writer
+#
+# READ THE HEADER, DO NOT ASSUME IT. nuTerra writes this file and may settle on
+# a different layout than the one proposed; a reader that trusts a remembered
+# shape is how a bake with a moved bit gets read as a different map. Magic and
+# version are checked, n and cell_m are taken from the file, and anything
+# unexpected returns None so the caller falls back rather than misreads.
+BLK_MAGIC = b"nBLK"
+BLK_VERSION = 1
+
+BLK_BLOCK = 0x01
+BLK_KIND_SHIFT = 2
+BLK_KIND_MASK = 0x07 << BLK_KIND_SHIFT
+BLK_SOLID = 0x20
+BLK_TRUNK = 0x40
+BLK_CRUSHABLE = 0x80
+
+
+def blk_path(map_name):
+    return os.path.join(FLIGHT, "%s.blk" % map_name)
+
+
+def load_blk(map_name):
+    """The half-metre plane, or None if there is not one to read.
+
+    Returns dict(mask, height, n, cell_m, wx_min, wz_max) with mask and height
+    as (n, n) arrays, rows running from wz_max DOWNWARD and x fastest - the
+    same order as the bake and squares.u8, so the index is stride*row + col
+    with no flip anywhere.
+    """
+    p = blk_path(map_name)
+    if not os.path.exists(p):
+        return None
+    try:
+        with open(p, "rb") as fh:
+            head = fh.read(32)
+            if len(head) < 32 or head[:4] != BLK_MAGIC:
+                print("blk: %s is not a .blk file (magic %r)" % (p, head[:4]))
+                return None
+            ver, n = struct.unpack_from("<II", head, 4)
+            cell_m, wx_min, wz_max = struct.unpack_from("<fff", head, 12)
+            if ver != BLK_VERSION:
+                print("blk: %s is version %d, this reader knows %d"
+                      % (p, ver, BLK_VERSION))
+                return None
+            if n <= 0 or n > 20000:
+                print("blk: %s claims n=%d, refusing" % (p, n))
+                return None
+            want = 32 + n * n + n * n * 4
+            have = os.path.getsize(p)
+            if have != want:
+                print("blk: %s is %d bytes, header implies %d - refusing"
+                      % (p, have, want))
+                return None
+            mask = np.frombuffer(fh.read(n * n), np.uint8).reshape(n, n)
+            height = np.frombuffer(fh.read(n * n * 4), "<f4").reshape(n, n)
+        return dict(mask=mask, height=height, n=int(n), cell_m=float(cell_m),
+                    wx_min=float(wx_min), wz_max=float(wz_max))
+    except Exception as exc:
+        print("blk: could not read %s - %s" % (p, exc))
+        return None
+
+
+def blk_describe(b):
+    """One line a person can check against the app's own log."""
+    if b is None:
+        return "no .blk"
+    m = b["mask"]
+    blocked = (m & BLK_BLOCK) != 0
+    return ("%d x %d at %.2f m, %.1f%% blocked, %.1f%% crushable, "
+            "height %.1f..%.1f m"
+            % (b["n"], b["n"], b["cell_m"], 100.0 * blocked.mean(),
+               100.0 * ((m & BLK_CRUSHABLE) != 0).mean(),
+               float(b["height"].min()), float(b["height"].max())))
+
+
 def roads_cache_path(map_name):
     return os.path.join(ROADS_DIR, "%s_roads.json" % map_name)
 
@@ -581,10 +672,37 @@ def build_grid(map_name, hull_r_m):
                     f, c = int(bits[0]), int(bits[1])
                     id_names[(f, f + c - 1)] = (bits[2], bits[3])
 
-    from scipy.ndimage import distance_transform_edt
-    reach = distance_transform_edt(~collide, sampling=(wx1 - wx0) / W)
-    collide_hull = reach < (hull_r_m * 0.5)
-    del reach
+    # NO HALO. "2.25 is too much I dont want that. I want tank to see wall and
+    # stay away. lets do this .5 m and no halo" - the owner, 2026-09-16.
+    #
+    # The erosion grew every obstacle by half a hull so the planner could ask
+    # "can the tank's CENTRE be here" against a plain map. It cost more than it
+    # bought: 1,965,359 crushable texels were swallowed by the halo of real
+    # obstacles beside them, the built-up area went from 17.83% solid to 41.00%
+    # on erosion alone, and 71% of every doorway the ceiling clause opened was
+    # shut again - a doorway is 2-3 m and the halo needs 4.5 m of width to
+    # leave anything down the middle.
+    #
+    # Clearance becomes the DRIVER's job, where it was always going to end up:
+    # eight rays, measured distances, STOP_M and CLEAR_M per ray. A map that
+    # lies about where the walls are cannot be fixed downstream; a driver that
+    # keeps its distance can be tuned.
+    #
+    # WHAT THIS GIVES BACK, and it is the reason the old comment existed:
+    # a centre line may now run within a texel of a wall, so a route is no
+    # longer a promise that a hull fits. Measured when the erosion went in,
+    # 12% of a finished route had a 4.5 m tank overlapping solid geometry,
+    # closest approach 0.17 m. The rays are what answer that now.
+    #
+    # Kept as a number rather than deleted so it can be put back in one edit.
+    HULL_HALO_M = 0.0
+    if HULL_HALO_M > 0.0:
+        from scipy.ndimage import distance_transform_edt
+        reach = distance_transform_edt(~collide, sampling=(wx1 - wx0) / W)
+        collide_hull = reach < HULL_HALO_M
+        del reach
+    else:
+        collide_hull = collide
 
     # THE FLOOR IS KEPT, not just the collision bits, because a slope is a
     # difference between two heights and cannot be read off a boolean.
@@ -1154,9 +1272,37 @@ def main():
     pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
     pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK,
                                     pygame.GL_CONTEXT_PROFILE_CORE)
+    # MAXIMISED, NOT FULLSCREEN. "i didnt mean full full screen. maximixed" -
+    # the owner, after the first attempt took the whole display.
+    #
+    # They are different things and the difference matters here: exclusive
+    # fullscreen hides the taskbar and the title bar, so there is no way to
+    # alt-tab to nuTerra or to see which of three studios this window belongs
+    # to. Maximised keeps the frame and fills the work area - the screen minus
+    # the taskbar - which is what "make it big" actually means.
+    #
+    # DONE THROUGH THE WINDOW MANAGER, not by guessing a size. SDL knows the
+    # desktop resolution but not where the taskbar is, so computing a size
+    # here would either overlap it or leave a gap. ShowWindow(SW_MAXIMIZE) on
+    # the real HWND asks Windows, which is the only thing that knows. The
+    # window stays RESIZABLE, so the existing VIDEORESIZE handler picks the
+    # new size up and the panels lay themselves out against it.
+    #
+    # If any of that is unavailable - another platform, a stubbed SDL - the
+    # window is simply the size it was, which is the old behaviour.
+    maximise = any(a in ("--max", "--maximised", "--maximized", "--fs")
+                   for a in sys.argv)
     disp = pygame.display.set_mode((1400, 900),
                                    pygame.OPENGL | pygame.DOUBLEBUF |
                                    pygame.RESIZABLE)
+    if maximise:
+        try:
+            import ctypes
+            hwnd = pygame.display.get_wm_info().get("window")
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(ctypes.c_void_p(hwnd), 3)
+        except Exception as exc:
+            print("could not maximise the window - %s" % exc)
     # BOTH WAYS IN. Run as a script the directory of this file is on the path
     # and there is no `tank_tools` package to import from; imported as a module
     # there is. Testing only the second is how this shipped broken - the same
@@ -3275,10 +3421,15 @@ def main():
             screen.blit(t, (r.right - 6 - t.get_width(), r.y + 2))
             return r, y + 24
 
-        def readout(x, y, label, value, col=(220, 225, 235)):
+        def readout(x, y, label, value, col=(220, 225, 235), right=None):
+            # THE RIGHT EDGE OF ITS OWN PANEL, not of the screen. This aligned
+            # to SW - 14 back when there was only one column of readouts; the
+            # moment STATE moved to the left panel, every value in it would
+            # have been drawn out across the middle of the map instead.
             screen.blit(font.render(label, True, (135, 140, 152)), (x, y))
             t = font.render(str(value), True, col)
-            screen.blit(t, (SW - 14 - t.get_width(), y))
+            edge = SW - 14 if right is None else right
+            screen.blit(t, (edge - t.get_width(), y))
             return y + 18
 
         # ---- LEFT: what you can do
@@ -3294,6 +3445,34 @@ def main():
         y += 18
         screen.blit(font.render(map_name, True, (135, 140, 152)), (LX, y))
         y += 24
+        # STATE LIVES ON THE LEFT. "you gotta move state to the left panel.
+        # there is no room and text is off the screen even in full screen" -
+        # the owner. The right panel carries STATE, BLOCK LAYER, PATH TOOL and
+        # SELECTION, and SELECTION grows with what is picked, so the column ran
+        # off the bottom of a full screen. STATE is the one block that is pure
+        # readout - no button needs reaching except Frame the play field - so
+        # it is the one that moves cheapest.
+        #
+        # It goes ABOVE SEARCH rather than below the colour key, because what
+        # the solver is set to is the first thing you check and the last thing
+        # you want to scroll for.
+        y = header(LX, y, "STATE", LW)
+        y = readout(LX, y, "hull", "%.1f m" % hull, right=LX + LW)
+        y = readout(LX, y, "cell", "%.1f m" % maze_cell, right=LX + LW)
+        y = readout(LX, y, "climb limit", "%.0f deg" % maze_climb, right=LX + LW)
+        y = readout(LX, y, "road budget", "+%d%%" % road_budget,
+                    (150, 255, 200), right=LX + LW)
+        y = readout(LX, y, "wall standoff", "%.0f m" % standoff_m,
+                    (150, 255, 200), right=LX + LW)
+        if play_bb is not None:
+            y = button(LX, y, LW, "Frame the play field  [h]", pygame.K_h,
+                       False, (255, 120, 120), fam="view")
+            y = readout(LX, y, "play field",
+                        "%.0f x %.0f m" % (play_bb[2] - play_bb[0],
+                                           play_bb[3] - play_bb[1]),
+                        (255, 120, 120), right=LX + LW)
+        y += 10
+
         y = header(LX, y, "SEARCH", LW)
         y = button(LX, y, LW, "Run  [g]", pygame.K_g, bool(maze_pts), fam="run",
                    col=
@@ -3354,26 +3533,6 @@ def main():
         # ---- RIGHT: what it is doing
         RX, RW = SW - RIGHT_W + 12, RIGHT_W - 24
         ry = 12
-        ry = header(RX, ry, "STATE", RW)
-        # WHAT THE MAZE ACTUALLY DEPENDS ON. Ray step, seek ring, min gap and
-        # landmark size described the ring search; none of them reach the flood
-        # fill, so reporting them was reporting a method that is not here.
-        ry = readout(RX, ry, "hull", "%.1f m" % hull)
-        ry = readout(RX, ry, "cell", "%.1f m" % maze_cell)
-        ry = readout(RX, ry, "climb limit", "%.0f deg" % maze_climb)
-        ry = readout(RX, ry, "road budget", "+%d%%" % road_budget,
-                     (150, 255, 200))
-        ry = readout(RX, ry, "wall standoff", "%.0f m" % standoff_m,
-                     (150, 255, 200))
-        if play_bb is not None:
-            ry = button(RX, ry, RW, "Frame the play field  [h]", pygame.K_h,
-                        False, (255, 120, 120), fam="view")
-            ry = readout(RX, ry, "play field",
-                         "%.0f x %.0f m" % (play_bb[2] - play_bb[0],
-                                            play_bb[3] - play_bb[1]),
-                         (255, 120, 120))
-        ry += 10
-
         ry = header(RX, ry, "BLOCK LAYER", RW)
         if squares is None:
             ry = readout(RX, ry, "square map", "NOT FOUND", (255, 150, 150))
