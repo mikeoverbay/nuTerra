@@ -416,6 +416,11 @@ CleanUp:
 
         Dim item = cBSMA.MaterialItem(material_id)
 
+        ' KEPT BEFORE THE REMAP BELOW, and before either no_draw return - a
+        ' group that is not drawn still has an identifier, and collision
+        ' geometry is exactly the case someone will want to ask about.
+        pGroup.space_material_id = material_id
+
         If item.shaderPropBegin = &HFFFFFFFFUI Then
             pGroup.no_draw = True
             Return
