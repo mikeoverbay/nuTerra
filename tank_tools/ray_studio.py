@@ -638,10 +638,22 @@ def grid_from_blk(map_name, hull_r_m):
 
     ids, id_names = _ids_from_file(map_name, W, cell, wx0, wz1)
 
+    # THE KIND NUMBERS ARE READ, NOT TYPED. This said
+    # kinds=dict(fence=1, tree=2, prop=3, water=4) and every one of them was
+    # wrong - the bake numbers them 0 terrain, 1 building, 2 fence, 3 tree,
+    # 4 rock, 5 prop, 6 water, 7 other. So fence was reading buildings, tree
+    # was reading fences, prop was reading trees and water was reading rock.
+    #
+    # Caught by cross-checking the other lane's figure for "blocked cells with
+    # zero obstacle height": they said 496,009 of them are water, my count of
+    # water came back ZERO, and the disagreement was mine. kinds_from_meta has
+    # existed all along and build_grid has always used it.
     palette = {}
     meta_path = os.path.join(FLIGHT, f"{map_name}_meta.txt")
+    k_fence, k_tree, k_prop, k_water = KIND_FENCE, KIND_TREE, KIND_PROP, KIND_WATER
     if os.path.exists(meta_path):
         meta = read_meta(meta_path)
+        k_fence, k_tree, k_prop, k_water = kinds_from_meta(meta)
         for k in range(8):
             v = meta.get("kind_%d_rgb" % k)
             if v:
@@ -654,7 +666,8 @@ def grid_from_blk(map_name, hull_r_m):
                 kind=kind, trunk=trunk,
                 bake_version=None,
                 solid=solid, ids=ids, id_names=id_names, palette=palette,
-                kinds=dict(fence=1, tree=2, prop=3, water=4),
+                kinds=dict(fence=k_fence, tree=k_tree, prop=k_prop,
+                           water=k_water),
                 map_name=map_name,
                 floor=floor, hscale=1.0, ceiling=None,
                 min_clearance=None,
