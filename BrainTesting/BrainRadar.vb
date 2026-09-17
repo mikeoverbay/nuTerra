@@ -259,16 +259,67 @@ Module BrainRadar
             h.front = (i < half)
             h.found = False
             h.dist = REACH_M
-            Dim t = STEP_M
-            While t <= REACH_M
-                Dim px = pos.X + dx * t
-                Dim pz = pos.Y + dz * t
-                If Not BrainNav.Standable(px, pz, BrainNav.TRACE_R) Then
-                    h.dist = t
+
+            ' ---- THE LINE, IN INTEGERS -------------------------------------
+            '
+            ' "we wanna use integers as much as we can. The math is much
+            '  faster. sine/cosine for finding the lines end should not kill
+            '  us. can we try drawing each line use ints and check each new
+            '  point as we go. Simple mask on bit 1" - the owner.
+            '
+            ' The sin and cos are paid ONCE, to find where the ray ends. After
+            ' that nothing is converted and nothing is divided: two integer
+            ' cell coordinates, an error accumulator, one add and one compare a
+            ' step, and a mask on the byte.
+            '
+            ' What it replaces sampled the line at half a metre and called
+            ' Standable at each sample - 40 samples a ray, and every one of
+            ' them recomputing four floor-divisions to get back to a cell index
+            ' it had just walked away from, then taking FIVE terrain height
+            ' queries for the slope test. 28 rays of that was 1,120 calls and
+            ' about 5,600 lookups into the live scene, every tick.
+            '
+            ' ONE AXIS A STEP, which is the whole reason this is not textbook
+            ' Bresenham. The classic form moves both axes in one iteration on a
+            ' diagonal, stepping corner to corner and skipping the two cells it
+            ' passes BETWEEN - for drawing a line that is correct and wanted,
+            ' for a scan it is exactly the "jump a one-cell wall diagonally"
+            ' failure BrainNav.Clear warns about, and it cannot be fixed by
+            ' stepping finer because it is in the construction. Taking one axis
+            ' per iteration walks the cells edge to edge and cannot cut a
+            ' corner.
+            Dim c0 = BrainNav.ColOf(pos.X), r0 = BrainNav.RowOf(pos.Y)
+            Dim c1 = BrainNav.ColOf(pos.X + dx * REACH_M)
+            Dim r1 = BrainNav.RowOf(pos.Y + dz * REACH_M)
+            Dim sc = Math.Sign(c1 - c0), sr = Math.Sign(r1 - r0)
+            Dim dc = Math.Abs(c1 - c0), dr = Math.Abs(r1 - r0)
+            Dim cc = c0, rr = r0
+            Dim err = dc - dr
+            Dim guard = dc + dr + 2        ' cannot outlast the cells it covers
+
+            While guard > 0
+                guard -= 1
+                If (cc <> c0 OrElse rr <> r0) AndAlso BrainNav.BlockedCell(cc, rr) Then
+                    ' DISTANCE FROM THE CELLS, not from a stepped t. Integer
+                    ' deltas the whole way and one square root at the hit,
+                    ' rather than a float accumulated 40 times a ray.
+                    Dim gc = cc - c0, gr = rr - r0
+                    h.dist = Math.Min(REACH_M,
+                        CSng(Math.Sqrt(CDbl(gc) * gc + CDbl(gr) * gr)) * BrainNav.CellSize)
                     h.found = True
                     Exit While
                 End If
-                t += STEP_M
+                If cc = c1 AndAlso rr = r1 Then Exit While
+                Dim e2 = err * 2
+                If e2 > -dr AndAlso cc <> c1 Then
+                    err -= dr
+                    cc += sc
+                ElseIf rr <> r1 Then
+                    err += dc
+                    rr += sr
+                Else
+                    Exit While
+                End If
             End While
             ' THE DRIVE WALK - the same line asked at the BODY's radius.
             '
@@ -296,8 +347,10 @@ Module BrainRadar
             End If
 
             h.at = New Vector2(pos.X + dx * h.dist, pos.Y + dz * h.dist)
-            h.row = CInt(Math.Floor((BrainNav.CellZTop - h.at.Y) / BrainNav.CellSize))
-            h.col = CInt(Math.Floor((h.at.X - BrainNav.CellX0) / BrainNav.CellSize))
+            ' The walk already knows which cell it stopped in - re-deriving it
+            ' from the hit point was a second answer to a question that had one.
+            h.row = rr
+            h.col = cc
             out(i) = h
         Next
         LAST = out

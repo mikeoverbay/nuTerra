@@ -607,6 +607,45 @@ Module BrainNav
     End Function
 
     ''' <summary>
+    ''' WHICH CELL A WORLD POINT IS IN. The row flip lives here and nowhere
+    ''' else - rows run DOWNWARD from z_top on a bake, and indexing it the
+    ''' other way answers about a point mirrored through the middle of the map,
+    ''' which is the sort of wrong that still looks like a working grid.
+    '''
+    ''' Math.Floor, not CInt: the map spans negative X and Z, and truncation
+    ''' rounds toward zero, which mis-indexes every cell left of the origin.
+    ''' </summary>
+    Public Function ColOf(x As Single) As Integer
+        Return CInt(Math.Floor((x - x0) / If(FromBake, sq_cell, CELL_M)))
+    End Function
+
+    Public Function RowOf(z As Single) As Integer
+        Dim cell = If(FromBake, sq_cell, CELL_M)
+        If FromBake Then Return CInt(Math.Floor((z_top - z) / cell))
+        Return CInt(Math.Floor((z - z0) / cell))
+    End Function
+
+    ''' <summary>
+    ''' ONE CELL, ONE BIT, NO ARITHMETIC. What an integer line walk tests at
+    ''' every step - a bounds check and a mask, nothing converted, nothing
+    ''' divided, no terrain touched.
+    '''
+    ''' OFF THE GRID IS BLOCKED, matching Standable: a hull that leaves the
+    ''' arena box has left the test, and a ray that leaves it has nothing
+    ''' further to report.
+    '''
+    ''' NO SLOPE HERE ON PURPOSE. Standable's ground sampling is what made a
+    ''' scan cost 5,600 terrain queries a tick; this is the obstacle question
+    ''' alone. The terrain question is still asked, once per ray, by the drive
+    ''' walk - see Hit.drive. Fast shape, careful driving.
+    ''' </summary>
+    Public Function BlockedCell(col As Integer, row As Integer) As Boolean
+        If Not Ready Then Return False
+        If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return True
+        Return (occ(row * w + col) And BLOCK_BIT) <> 0
+    End Function
+
+    ''' <summary>
     ''' Can a disc of this radius stand here?
     '''
     ''' THE RADIUS IS THE CALLER'S, never a fixed hull constant. A boundary
