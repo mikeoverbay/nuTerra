@@ -1,4 +1,5 @@
-﻿Imports OpenTK.Graphics.OpenGL4
+﻿Imports ImGuiNET
+Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 Imports OpenTK.Windowing.Common
 Imports OpenTK.Windowing.Desktop
@@ -343,6 +344,27 @@ Public Class BrainWindow
     Private Sub DrawWorld()
         Dim aspect = CSng(Math.Max(SCR_WIDTH, 1)) / CSng(Math.Max(SCR_HEIGHT, 1))
         BrainRender.DrawTerrain(aspect)
+
+        ' ---- THE CARD OVER THE TANK ----------------------------------------
+        '
+        ' After the terrain and inside the same depth buffer, so a card behind
+        ' a hill is behind it. The camera's right and up come out of the view
+        ' matrix rather than being recomputed from yaw and pitch: the matrix is
+        ' what the world was actually drawn with, and a second derivation of
+        ' the same basis is a second thing that can disagree with it.
+        Dim vp = BrainRender.Cam.ViewProj(aspect)
+        Dim view = Matrix4.LookAt(BrainRender.Cam.Eye, BrainRender.Cam.Target,
+                                  Vector3.UnitY)
+        Dim right = New Vector3(view.M11, view.M21, view.M31)
+        Dim up = New Vector3(view.M12, view.M22, view.M32)
+        BrainText.SetCamera(right, up)
+        BrainTankState.Draw(vp, right, up, SCR_WIDTH, SCR_HEIGHT)
+        BrainText.Render3D(vp)
+
+        ' THE SCOPE, LAST, in its own ortho pass over everything. It is an
+        ' instrument rather than part of the scene, so nothing in the world
+        ' should ever be in front of it.
+        BrainScope.Draw(SCR_WIDTH, SCR_HEIGHT)
     End Sub
 
     ''' <summary>Where the left button went down, and how far the cursor has
@@ -364,6 +386,13 @@ Public Class BrainWindow
     ''' still emphatically a drag.
     ''' </summary>
     Private Sub pick_if_clicked()
+        ' Not while the pointer belongs to a panel. A click on a button would
+        ' otherwise also pick whatever happened to be behind it, and the log
+        ' would fill with reports nobody asked for.
+        If ImGui.GetIO().WantCaptureMouse Then
+            wasDown = False
+            Return
+        End If
         Dim down = MouseState.IsButtonDown(OpenTK.Windowing.GraphicsLibraryFramework.MouseButton.Left)
         Dim here = New Vector2(MouseState.X, MouseState.Y)
         If down Then
@@ -595,7 +624,24 @@ Public Class BrainWindow
         ' ONE CALL, and the cursor is never grabbed. See BrainCamera - this is
         ' nuTerra's camera_mouse_update by way of Exporter Studio.
         BrainSim.Tick(CSng(e.Time))
-        BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
+
+        ' ---- THE UI GETS FIRST REFUSAL ON THE MOUSE ------------------------
+        '
+        ' "stop mouse from affecting main window when I am in a window"
+        '
+        ' WantCaptureMouse is ImGui's own answer to "is the pointer mine" - it
+        ' is true over any panel, and true while a drag that STARTED on a panel
+        ' is still held even after the cursor has left it. That second part is
+        ' the one worth having: dragging a node across the graph and off its
+        ' edge should not hand the rest of the gesture to the camera.
+        '
+        ' Asking it rather than testing the cursor against panel rectangles
+        ' means there is one answer, ImGui's, and no second list of where the
+        ' windows are to keep in step.
+        Dim uiHasMouse = ImGui.GetIO().WantCaptureMouse
+        If Not uiHasMouse Then
+            BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
+        End If
 
         ' THE CHASE, AFTER the mouse has had its say and before the frame is
         ' drawn. Update owns yaw, pitch and distance; this owns only where the

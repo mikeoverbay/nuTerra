@@ -54,7 +54,11 @@ Public Class RangeBrain
     Private Const BETTER_M As Single = 3.0F
 
     ''' <summary>Start easing off this far out. See creep().</summary>
-    Private Const SLOW_FROM_M As Single = 15.0F
+    ''' <summary>Where the braking curve starts. Raised with the horizon: at
+    ''' 12 m/s a hull covers this in two seconds, so braking that begins at
+    ''' fifteen metres is braking that begins too late to be gentle - which is
+    ''' how a curve meant to ease off became a curve that slams.</summary>
+    Private Const SLOW_FROM_M As Single = 25.0F
 
     ''' <summary>
     ''' A wall whose normal is inside this of the nose is SQUARE ON, and its
@@ -305,7 +309,10 @@ Public Class RangeBrain
     ''' favour a side because of a single ray clipping a corner, and reacting
     ''' to that is how a hull weaves. Three in a row is a wall, not a glint.
     ''' </summary>
-    Private Const LOOK_AHEAD_M As Single = 15.0F
+    ''' <summary>How far the corridor planks reach. Matched to the new
+    ''' horizon: a trigger that fires at fifteen metres while the scan sees
+    ''' forty is throwing away the warning the scan just bought.</summary>
+    Private Const LOOK_AHEAD_M As Single = 30.0F
     Private Const VOTES_NEEDED As Integer = 3
     ' DECIDE FASTER. Three votes a quarter-second apart is 0.75 s to commit,
     ' and at 12 m/s that is nine metres driven while thinking - most of the
@@ -497,6 +504,20 @@ Public Class RangeBrain
         ' said it plainly - "rays 20.0 m ahead but the BODY has 5.0 m" - while
         ' the hull sat there reversing to move a sensor that was working.
         Dim bodyAhead = body_ahead(h.pos, h.headingRad, h.DriveRadius, ahead)
+
+        ' SCAN MODE OR PLANK MODE, never both - AND SET BEFORE ANY STATE CAN
+        ' RETURN.
+        '
+        ' This was written further down, next to the corridor cast, and was
+        ' therefore dead: St.Door returns a hundred lines above it, so the one
+        ' assignment to SCANNING could only ever run while the state was NOT
+        ' Door. It evaluated (state = St.Door) exclusively in the cases where
+        ' that is false, so the flag was permanently False and the mode never
+        ' engaged at all.
+        '
+        ' A flag whose only assignment sits below an early return is not a flag.
+        ' Here, every path through the tick passes it.
+        BrainRadar.SCANNING = (state = St.Door)
 
         ' ---- backing out ---------------------------------------------------
         If state = St.Backing Then
@@ -806,10 +827,29 @@ Public Class RangeBrain
                 Dim dErr = wrap_pi(wantD - h.headingRad)
                 o.steer(DRIVER) = Math.Clamp(dErr / FULL_LOCK, -1.0F, 1.0F)
                 If Math.Abs(dErr) > SQUARE_ON Then
-                    ' LINE UP FIRST, STANDING STILL. A gateway entered on a
-                    ' diagonal is a gateway the hull's corner catches.
-                    Why = String.Format("lining up on the door ({0:0} deg off)",
-                                        MathHelper.RadiansToDegrees(Math.Abs(dErr)))
+                    ' LINE UP WHILE MOVING. This stood still, and the motion
+                    ' box caught what that cost: HALF the run commanding zero
+                    ' throttle, with eleven doors in seventy seconds. The hull
+                    ' spent more time pointing at gaps than going through them.
+                    '
+                    ' The reason for stopping was real - a gateway entered on a
+                    ' diagonal is a gateway the hull's corner catches - but
+                    ' stopping was never what fixed that, ARRIVING SQUARE is,
+                    ' and a hull that closes the angle while it approaches
+                    ' arrives just as square as one that pivoted first. It has
+                    ' the whole run-up to do it in.
+                    '
+                    ' Braked on the room the BODY has, and harder the further
+                    ' off the bearing is, so a big correction still slows down
+                    ' without stopping: at 45 degrees out this is a third of
+                    ' the throttle, at 10 it is nearly all of it.
+                    Dim lineRoom = body_ahead(h.pos, h.headingRad, h.DriveRadius,
+                                              Math.Min(ahead, doorLeft))
+                    Dim square = 1.0F - Math.Min(1.0F, Math.Abs(dErr) / FULL_LOCK)
+                    o.throttle(DRIVER) = creep(lineRoom) * Math.Max(0.3F, square)
+                    Why = String.Format("lining up on the door ({0:0} deg off, thr {1:0.00})",
+                                        MathHelper.RadiansToDegrees(Math.Abs(dErr)),
+                                        o.throttle(DRIVER))
                 Else
                     Dim room = body_ahead(h.pos, h.headingRad, h.DriveRadius,
                                           Math.Min(ahead, doorLeft + 4.0F))
@@ -926,9 +966,12 @@ Public Class RangeBrain
         ' branch for the blocked one. Something has to HAPPEN before it is
         ' worth asking which way out is widest, and a plank touching a wall is
         ' that something.
-        Dim lane = BrainRadar.Corridor(h.pos, h.headingRad, h.DriveRadius,
+        Dim lane As BrainRadar.Lane
+        If Not BrainRadar.SCANNING Then
+            lane = BrainRadar.Corridor(h.pos, h.headingRad, h.DriveRadius,
                                        LOOK_AHEAD_M)
-        If lane.hit AndAlso state <> St.Door Then
+        End If
+        If lane.hit Then
             ' THE WIDEST WAY THE CORRIDOR ACTUALLY CLEARED. WidestGap picked
             ' by chord alone, which is how the hull kept committing to gaps it
             ' could not fit: a chord between jambs at different ranges is a

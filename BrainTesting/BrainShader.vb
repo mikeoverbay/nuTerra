@@ -104,4 +104,9 @@ Public Class BrainShader
         If l >= 0 Then GL.Uniform3(l, v.X, v.Y, v.Z)
     End Sub
 
+    Public Sub SetVec2(name As String, x As Single, y As Single)
+        Dim l = Loc(name)
+        If l >= 0 Then GL.Uniform2(l, x, y)
+    End Sub
+
 End Class

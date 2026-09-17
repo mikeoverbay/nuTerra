@@ -225,3 +225,4 @@ uTerra_ScreenCaps - but ignore the
 # Agent scratch space at the repo root. Same reason: intermediate frames, diff
 # maps and one-off probe scripts belong beside the session, not in the tree.
 /scratchpad/
+_brain_snapshots/

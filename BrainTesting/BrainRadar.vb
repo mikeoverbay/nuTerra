@@ -131,12 +131,31 @@ Module BrainRadar
     ' protecting.
     Public Const RAYS As Integer = 120
     Public Const ARC_DEG As Single = 360.0F
-    Public Const REACH_M As Single = 20.0F
+    ''' <summary>
+    ''' HOW FAR THE SWEEP SEES. Forty metres, and the old twenty was the reason
+    ''' the hull kept slowing down.
+    '''
+    ''' THE ARITHMETIC, not a feeling. Twenty metres at 12 m/s is 1.7 seconds
+    ''' of warning. A forty-degree turn at 26 degrees a second takes 1.5
+    ''' seconds. That is two tenths of a second of margin, so the hull was
+    ''' permanently deciding at the edge of what it knew and the only way it
+    ''' could be safe was to go slower - the braking was never timidity, it was
+    ''' geometry. Doubling the horizon buys 3.3 seconds and turns a 0.2 s
+    ''' margin into 1.8.
+    '''
+    ''' AND IT IS NOW AFFORDABLE, which it was not when this number was chosen.
+    ''' The sweep stepped half a metre at a time calling Standable - five
+    ''' terrain queries a step - so reaching further cost real milliseconds.
+    ''' The walk is integer cells against cached heights now: forty metres is
+    ''' about forty cells a ray instead of twenty, and cells do not register on
+    ''' the tick.
+    ''' </summary>
+    Public Const REACH_M As Single = 40.0F
 
     ''' <summary>How far the per-ray DRIVE walk bothers to look. Beyond this a
     ''' heading is a direction rather than a plan - the hull will have rescanned
     ''' four times before it gets there.</summary>
-    Public Const DRIVE_REACH_M As Single = 14.0F
+    Public Const DRIVE_REACH_M As Single = 28.0F
 
     ''' <summary>
     ''' HOW MUCH OF THE SWEEP THE SURFACE FIT IS ALLOWED TO SEE.
@@ -544,7 +563,9 @@ Module BrainRadar
                 ' error: a silently shadowed name is what cost an evening when
                 ' a parameter called `rays` swallowed the RAYS constant.
                 Dim gapBear = CSng(Math.Atan2(dir.X, dir.Y))
-                Dim lane = Corridor(pos, gapBear, bodyR, reach + 2.0F)
+                ' record:=False - this is asking about a GAP, not about the
+                ' hull's own lane, and the scope draws the lane.
+                Dim lane = Corridor(pos, gapBear, bodyR, reach + 2.0F, False)
                 wy.fits = Not lane.hit
                 WAYS.Add(wy)
             Next
@@ -637,6 +658,24 @@ Module BrainRadar
     Public LANE_LEN As Single() = Nothing     ' metres forward before it stopped
     Public LANE_HIT As Boolean() = Nothing
 
+    ''' <summary>
+    ''' WHICH MODE THE BRAIN IS IN, and they are exclusive.
+    '''
+    ''' PLANK MODE is the cheap question: cast the corridor, is the box ahead
+    ''' clear, keep driving. SCAN MODE is what a plank touching something
+    ''' starts: the full sweep decides a way through and the hull drives to it.
+    '''
+    ''' While scanning, the corridor is NOT cast. It was, every tick, and the
+    ''' guard on re-triggering hid it: the cast still ran and still rewrote the
+    ''' plank arrays, so as the hull turned toward its chosen gap the planks
+    ''' came clear, LANE_ACTIVE went false, and the rays - gated on it -
+    ''' vanished in the middle of the manoeuvre they were drawn to explain.
+    '''
+    ''' The display follows the same rule: planks when planking, rays when
+    ''' scanning. Never both, because the tank is never asking both.
+    ''' </summary>
+    Public SCANNING As Boolean = False
+
     ''' <summary>True while any plank is touching something. The scope uses it
     ''' to decide whether the full scan is worth showing: when nothing is in
     ''' the corridor there is no decision being made and 120 rays are just
@@ -676,8 +715,21 @@ Module BrainRadar
     ''' that away; knowing the left planks are the blocked ones is what lets
     ''' the answer be "go right" rather than "stop and think".
     ''' </summary>
+    ''' <param name="record">
+    ''' Write the LANE_* arrays the scope draws from. TRUE only for the hull's
+    ''' own forward corridor.
+    '''
+    ''' THIS EXISTS BECAUSE THE DISPLAY WAS LYING. Scan calls this once per
+    ''' CANDIDATE GAP to decide whether the hull fits through it - and every
+    ''' one of those calls was overwriting the plank arrays and LANE_ACTIVE.
+    ''' So the planks drawn were whichever gap happened to be verified last,
+    ''' and the rays, which are gated on LANE_ACTIVE, flashed on and off with
+    ''' it. It read as flickering ray data and it was the picture showing a
+    ''' different question from the one the tank was asking.
+    ''' </param>
     Public Function Corridor(pos As Vector2, headingRad As Single,
-                             halfWidth As Single, reach As Single) As Lane
+                             halfWidth As Single, reach As Single,
+                             Optional record As Boolean = True) As Lane
         Dim lane As Lane
         Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
         Dim px = -dz, pz = dx                      ' unit perpendicular
@@ -688,8 +740,8 @@ Module BrainRadar
 
         lane.dist = reach
         lane.planks = n
-        LANE_ACTIVE = False
-        If LANE_OFF Is Nothing OrElse LANE_OFF.Length <> n Then
+        If record Then LANE_ACTIVE = False
+        If record AndAlso (LANE_OFF Is Nothing OrElse LANE_OFF.Length <> n) Then
             ReDim LANE_OFF(n - 1)
             ReDim LANE_LEN(n - 1)
             ReDim LANE_HIT(n - 1)
@@ -698,12 +750,14 @@ Module BrainRadar
             Dim off = -edge + (2.0F * edge) * i / (n - 1)
             Dim ax = pos.X + px * off, az = pos.Y + pz * off
             Dim d = trace_cells(ax, az, ax + dx * reach, az + dz * reach)
-            LANE_OFF(i) = off
-            LANE_LEN(i) = If(d >= 0.0F, d, reach)
-            LANE_HIT(i) = (d >= 0.0F)
+            If record Then
+                LANE_OFF(i) = off
+                LANE_LEN(i) = If(d >= 0.0F, d, reach)
+                LANE_HIT(i) = (d >= 0.0F)
+            End If
             If d >= 0.0F Then
                 lane.hit = True
-                LANE_ACTIVE = True
+                If record Then LANE_ACTIVE = True
                 lane.blocked += 1
                 If d < lane.dist Then lane.dist = d
                 If off < -cell * 0.5F Then lane.leftHit = True
@@ -879,6 +933,10 @@ Module BrainRadar
         ' ---- the SHAPE test, which is the owner's and is the better one ----
         Public turns As Integer      ' turning points in the range sequence
         Public gapped As Boolean     ' a miss in the middle of the run
+        ''' <summary>HOW MANY breaks, not just whether there was one. One gap is
+        ''' a doorway; three is a hedge, a tree and a corner, and the fit is
+        ''' describing none of them.</summary>
+        Public gaps As Integer
         Public turnRay As Integer    ' the nearest ray: closest approach
         Public turnDist As Single    ' its range - d, without the fit
         Public oneSurface As Boolean
@@ -917,7 +975,10 @@ Module BrainRadar
         ' A MISS IN THE MIDDLE IS A GAP, and a gap is two objects however
         ' nicely the rest of the ranges behave.
         For k = 0 To idx.Count - 2
-            If idx(k + 1) <> idx(k) + 1 Then s.gapped = True
+            If idx(k + 1) <> idx(k) + 1 Then
+                s.gapped = True
+                s.gaps += 1
+            End If
         Next
 
         ' Half a cell: the most the staircase can move one sample.

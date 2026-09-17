@@ -115,6 +115,14 @@ Module BrainReport
                              CrawlWorst, metres / t)
     End Function
 
+    ''' <summary>The last why and throttle the brain produced, so a display can
+    ''' read them without reaching into whichever IBrain happens to be
+    ''' installed. The card over the tank wants them every frame; the brain
+    ''' produces them once a tick.</summary>
+    Public LastWhy As String = "-"
+    Public LastThrottle As Single = 0.0F
+    Public LastSpeed As Single = 0.0F
+
     Private probeFrom As Vector2
     Private probedOnce As Boolean = False
     Private beat As Single = 0.0F
@@ -197,6 +205,9 @@ Module BrainReport
     Public Sub Heartbeat(dt As Single, state As String, why As String,
                          throttle As Single, speed As Single, rangeM As Single,
                          surf As BrainRadar.Surface)
+        LastWhy = why
+        LastThrottle = throttle
+        LastSpeed = speed
         Motion(dt, throttle, speed)
         beat += dt
         If beat < 1.0F Then Return

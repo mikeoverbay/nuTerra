@@ -137,15 +137,26 @@ Public Class BrainCamera
         End Get
     End Property
 
-    Public Function ViewProj(aspect As Single) As Matrix4
-        ' nuTerra's eye maths, sign for sign. The -dist on Y is why a negative
-        ' pitch is above the target rather than below it.
-        Dim eye = Target + New Vector3(
-            CSng(Math.Cos(PitchRad) * Math.Sin(YawRad)) * Dist,
-            CSng(Math.Sin(PitchRad)) * -Dist,
-            CSng(Math.Cos(PitchRad) * Math.Cos(YawRad)) * Dist)
+    ''' <summary>
+    ''' Where the camera is. Exposed because anything billboarding into this
+    ''' view needs the same basis the world was drawn with - and the one way to
+    ''' guarantee that is for there to be ONE expression for it. A second copy
+    ''' of this, however carefully transcribed, is a second thing that can
+    ''' disagree with the picture.
+    ''' </summary>
+    Public ReadOnly Property Eye As Vector3
+        Get
+            ' nuTerra's eye maths, sign for sign. The -dist on Y is why a
+            ' negative pitch is above the target rather than below it.
+            Return Target + New Vector3(
+                CSng(Math.Cos(PitchRad) * Math.Sin(YawRad)) * Dist,
+                CSng(Math.Sin(PitchRad)) * -Dist,
+                CSng(Math.Cos(PitchRad) * Math.Cos(YawRad)) * Dist)
+        End Get
+    End Property
 
-        Dim view = Matrix4.LookAt(eye, Target, Vector3.UnitY)
+    Public Function ViewProj(aspect As Single) As Matrix4
+        Dim view = Matrix4.LookAt(Eye, Target, Vector3.UnitY)
         ' Near and far follow the radius: a 1.4 km map seen from 2 km needs a
         ' far plane that reaches, and a hull inspected from 5 m needs a near
         ' plane that does not clip its track.
