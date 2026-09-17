@@ -376,7 +376,16 @@ Module BrainPanel
         ' THE SCOPE, anchored bottom right. Drawn inside the same ImGui frame
         ' as the panel - a second Render() would start a frame that was never
         ' begun.
-        BrainNodes.Draw(ImGui.GetIO().DisplaySize.X, ImGui.GetIO().DisplaySize.Y)
+        ' THE NODE EDITOR DRAWS IN ITS OWN WINDOW NOW - its own form, its own
+        ' GL context, its own ImGui context. See BrainNodeForm. What stays
+        ' here is the key that opens it, because a hidden window runs no
+        ' frames and so could never read the key that brings it back.
+        '
+        ' Not while a text field has the keyboard, or typing a G into a name
+        ' would toggle the editor it was being typed into.
+        If Not ImGui.GetIO().WantTextInput AndAlso ImGui.IsKeyPressed(ImGuiKey.G) Then
+            BrainNodes.SHOW = Not BrainNodes.SHOW
+        End If
 
         ctl.Render()
         Return act

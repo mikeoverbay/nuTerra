@@ -1,4 +1,4 @@
-Imports ImGuiNET
+﻿Imports ImGuiNET
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -33,6 +33,29 @@ Module BrainNodes
 
     Public SHOW As Boolean = False
 
+    ''' <summary>
+    ''' Drawn into the node window's own context rather than over the main
+    ''' window. The graph does not change; where it is painted does.
+    ''' </summary>
+    Public Hosted As Boolean = False
+
+    ''' <summary>
+    ''' HOW FAR THE WINDOW HAS BEEN DRAGGED THIS FRAME, for the form to
+    ''' move by. The form has no border, so ImGui's title bar is the only
+    ''' thing to grab - and what ImGui does with a drag is move its own
+    ''' window inside the client area, which would walk it off the edge of
+    ''' a window that is exactly its size. So the drag is measured, handed
+    ''' over as a move, and undone. The form moves; the window never does.
+    ''' </summary>
+    Public HostDX As Single = 0.0F
+    Public HostDY As Single = 0.0F
+
+    ''' <summary>What the window has been resized to, for the form to match.
+    ''' No undo needed here: the window's size IS the client size, so the
+    ''' form just follows it.</summary>
+    Public HostW As Single = 0.0F
+    Public HostH As Single = 0.0F
+
     ''' <summary>Panel height, dragged by its top edge. Kept here rather than in
     ''' ImGui's ini so it survives a layout reset and is one obvious number.</summary>
     Public PanelH As Single = 280.0F
@@ -45,6 +68,8 @@ Module BrainNodes
     Private Const NODE_HDR As UInteger = &HFF3B4A5CUI
     Private Const NODE_SEL As UInteger = &HFF3CDCFFUI      ' yellow, as on the scope
     Private Const HOVER As UInteger = &HFFBFD9EBUI         ' pale, one step under selected
+    Private Const PIN_OK As UInteger = &HFF40E040UI        ' will take this wire
+    Private Const PIN_NO As UInteger = &HFF4040FFUI        ' will not - ABGR, so red
     Private Const EDGE As UInteger = &HFF55708AUI
     Private Const WIRE As UInteger = &HFF9AD8FFUI
     Private Const WIRE_HOT As UInteger = &HFF3CDCFFUI
@@ -95,6 +120,53 @@ Module BrainNodes
         New Kind("flow", "Gate", {"in", "when"}, {"out"})
     }
 
+    ''' <summary>
+    ''' WHAT A PIN CARRIES, worked out from its name.
+    '''
+    ''' The names were already the types - hits, ways, bearing, metres, yes -
+    ''' they simply were not written down anywhere a check could read them.
+    ''' Deriving rather than adding a field to every Kind keeps ONE spelling of
+    ''' each concept: a pin called ways IS a ways pin, and a typo in a Kind
+    ''' becomes a visible mismatch instead of a second type nobody declared.
+    '''
+    ''' FLOW is the odd one and the important one. a/b/c/d/in/out carry an
+    ''' action-or-nothing between Priority, Sequence and Gate; everything else
+    ''' is data. Keeping those two apart is what stops a graph rotting, and it
+    ''' is cheap now and miserable to retrofit.
+    ''' </summary>
+    Private Function pin_type(name As String) As String
+        Select Case name
+            Case "hits" : Return "hits"
+            Case "ways" : Return "ways"
+            Case "way" : Return "way"
+            Case "bearing" : Return "angle"
+            Case "metres", "dist", "reach" : Return "length"
+            Case "clear", "yes", "when" : Return "bool"
+            Case "side" : Return "side"
+            Case "throttle" : Return "number"
+            Case "a", "b", "c", "d", "in", "out" : Return "flow"
+            Case Else : Return name
+        End Select
+    End Function
+
+    ''' <summary>Could this drag end here? Output to input or input to output,
+    ''' never like to like, never onto itself, and the two must carry the same
+    ''' thing.</summary>
+    Private Function can_join(fromNodeId As Integer, fromIdx As Integer,
+                              fromIsOut As Boolean, toNodeId As Integer,
+                              toIdx As Integer, toIsIn As Boolean) As Boolean
+        If fromNodeId = toNodeId Then Return False
+        ' The drag started on an output exactly when it must land on an input.
+        If fromIsOut <> toIsIn Then Return False
+        Dim a = find(fromNodeId), b = find(toNodeId)
+        If a Is Nothing OrElse b Is Nothing Then Return False
+        Dim an = If(fromIsOut, a.kind.outs, a.kind.ins)
+        Dim bn = If(toIsIn, b.kind.ins, b.kind.outs)
+        If fromIdx < 0 OrElse fromIdx >= an.Length Then Return False
+        If toIdx < 0 OrElse toIdx >= bn.Length Then Return False
+        Return pin_type(an(fromIdx)) = pin_type(bn(toIdx))
+    End Function
+
     Public Class Node
         Public id As Integer
         Public kind As Kind
@@ -123,6 +195,23 @@ Module BrainNodes
     Private ReadOnly nodes As New List(Of Node)
     Private ReadOnly links As New List(Of Link)
     Private nextId As Integer = 1
+
+    ''' <summary>
+    ''' THE GRAPH HAS BEEN EDITED SINCE IT WAS LAST SAVED.
+    '''
+    ''' Set wherever the graph itself changes - a node added or deleted, a
+    ''' wire made or broken, a node moved - and NOT for anything that only
+    ''' changes the view. Panning, zooming and selecting leave it alone,
+    ''' because a mark that turns on when you look at something tells you
+    ''' nothing about whether you would lose work by closing it.
+    ''' </summary>
+    Public Changed As Boolean = False
+
+    ''' <summary>Closing the panel must not cost the graph. Nodes, links and
+    ''' the board position all live in module state, so hiding the window
+    ''' stops it being drawn and touches nothing else - reopening finds it
+    ''' exactly as it was, torn-off window and all.</summary>
+    Private Const KEEPS_ITS_DATA As Boolean = True
     Private selected As Integer = -1
     Private dragging As Integer = -1
     Private scroll As System.Numerics.Vector2 = New System.Numerics.Vector2(0.0F, 0.0F)
@@ -182,6 +271,7 @@ Module BrainNodes
         n.pos = at
         nodes.Add(n)
         selected = n.id
+        Changed = True
     End Sub
 
     Private Sub Remove(id As Integer)
@@ -190,22 +280,16 @@ Module BrainNodes
         links.RemoveAll(Function(l) l.fromNode = id OrElse l.toNode = id)
         nodes.RemoveAll(Function(n) n.id = id)
         If selected = id Then selected = -1
+        Changed = True
     End Sub
 
     Public Sub Draw(displayW As Single, displayH As Single)
         ' ---- ITS OWN SWITCH ------------------------------------------------
         '
-        ' G toggles the panel, handled HERE rather than in the window's key
-        ' block, so this file owns every part of itself: its state, its input,
-        ' its drawing. The only thing outside it is the single call that gets
-        ' it a frame - which cannot be avoided and is not a dependency worth
-        ' calling one.
-        '
-        ' Not while a text field has the keyboard, or typing a G into a node
-        ' name would close the editor it was being typed into.
-        If Not ImGui.GetIO().WantTextInput AndAlso ImGui.IsKeyPressed(ImGuiKey.G) Then
-            SHOW = Not SHOW
-        End If
+        ' The G that opens this lives in BrainPanel now, not here. It has to:
+        ' once the editor draws only in its own window, a HIDDEN window is one
+        ' that runs no frames, so the key that would bring it back would never
+        ' be read. The switch has to sit somewhere that is always drawing.
         ' The toggle lives with the other view switches in BrainPanel, beside
         ' Radar and Scope. A floating button of its own was tried and was
         ' wrong: those two are modules with SHOW flags toggled from the panel,
@@ -213,38 +297,75 @@ Module BrainNodes
         ' and being consistent with where switches live beats owning one more
         ' line of this file.
         If Not SHOW Then Return
-        If PanelH < MIN_H Then PanelH = MIN_H
-        If PanelH > displayH - 120.0F Then PanelH = displayH - 120.0F
-
-        ImGui.SetNextWindowPos(New System.Numerics.Vector2(0.0F, displayH - PanelH),
-                               ImGuiCond.Always)
-        ImGui.SetNextWindowSize(New System.Numerics.Vector2(displayW, PanelH),
-                                ImGuiCond.Always)
+        ' ---- AN ORDINARY WINDOW: DRAG IT AND SIZE IT ------------------------
+        '
+        ' "I will drag to where I want."
+        '
+        ' It was pinned to the bottom edge at full width, with NoMove, NoResize
+        ' and a hand-rolled grip along its top - all of which existed only to
+        ' work around the pinning. Unpinned, ImGui's own title bar drags it and
+        ' its own corner resizes it, and thirty lines of grip code stop being
+        ' needed at all.
+        '
+        ' FirstUseEver, not Always: the position and size are a STARTING point.
+        ' Always would put it back at the bottom every frame, which is the same
+        ' as not letting it move - and ImGui remembers where it was left in its
+        ' ini, so a placement survives a restart.
+        If Hosted Then
+            ' IT IS THE WHOLE WINDOW. FirstUseEver and not Always even here,
+            ' because the size is then free to be dragged by the corner - and
+            ' that resize is what the form follows.
+            ImGui.SetNextWindowPos(New System.Numerics.Vector2(0.0F, 0.0F),
+                                   ImGuiCond.FirstUseEver)
+            ImGui.SetNextWindowSize(New System.Numerics.Vector2(displayW, displayH),
+                                    ImGuiCond.FirstUseEver)
+        Else
+            ImGui.SetNextWindowPos(New System.Numerics.Vector2(40.0F, displayH - 360.0F),
+                                   ImGuiCond.FirstUseEver)
+            ImGui.SetNextWindowSize(New System.Numerics.Vector2(
+                Math.Min(980.0F, displayW - 80.0F), 320.0F), ImGuiCond.FirstUseEver)
+        End If
+        ImGui.SetNextWindowSizeConstraints(New System.Numerics.Vector2(420.0F, MIN_H),
+                                           New System.Numerics.Vector2(9999.0F, 9999.0F))
         ImGui.PushStyleColor(ImGuiCol.WindowBg, New System.Numerics.Vector4(
             0.055F, 0.07F, 0.09F, 0.97F))
-        ImGui.Begin("Brain graph",
-                    ImGuiWindowFlags.NoMove Or ImGuiWindowFlags.NoResize Or
-                    ImGuiWindowFlags.NoCollapse Or ImGuiWindowFlags.NoScrollbar Or
-                    ImGuiWindowFlags.NoScrollWithMouse Or ImGuiWindowFlags.NoTitleBar)
-
-        ' ---- THE RESIZE GRIP, along the top edge --------------------------
+        ' A CLOSE BOX, and the title says whether closing would cost anything.
         '
-        ' Its own invisible button rather than ImGui's window resize, because
-        ' the window is pinned to the bottom of the screen: ImGui would resize
-        ' it from the bottom-right and the panel would grow off the display.
-        ImGui.SetCursorScreenPos(New System.Numerics.Vector2(0.0F, displayH - PanelH))
-        ImGui.InvisibleButton("##graph_grip", New System.Numerics.Vector2(displayW, GRIP))
-        If ImGui.IsItemActive() Then
-            PanelH -= ImGui.GetIO().MouseDelta.Y
-        End If
-        If ImGui.IsItemHovered() OrElse ImGui.IsItemActive() Then
-            ImGui.GetWindowDrawList().AddRectFilled(
-                New System.Numerics.Vector2(0.0F, displayH - PanelH),
-                New System.Numerics.Vector2(displayW, displayH - PanelH + 2.0F), NODE_SEL)
-            ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS)
+        ' It matters more than it looks: once this panel can be dragged into a
+        ' frameless window of its own there is no OS close button on it at
+        ' all, so without this the only way back is the checkbox in the panel
+        ' behind it - which is exactly the window you have just covered up.
+        '
+        ' Passing a flag to Begin is what puts the X there. ImGui writes False
+        ' into it when the X is clicked, and closing the LAST window in a
+        ' torn-off viewport is what makes ImGui destroy that viewport - which
+        ' is what shuts the form. Nothing here closes a window directly.
+        Dim open As Boolean = True
+        ImGui.Begin(If(Changed, "Brain graph *", "Brain graph"), open,
+                    ImGuiWindowFlags.NoCollapse Or ImGuiWindowFlags.NoScrollbar Or
+                    ImGuiWindowFlags.NoScrollWithMouse)
+        If Not open Then SHOW = False
+
+        If Hosted Then
+            ' ---- THE MOVE COMMAND ------------------------------------------
+            '
+            ' ImGui has ALREADY moved the window this frame, to mouse minus the
+            ' offset the drag started at. Read how far that put it from the
+            ' origin, hand it over, and put it back NOW - in this frame, before
+            ' anything is laid out. Undo it next frame instead and every other
+            ' mouse delta goes in the bin, which reads as a window that moves
+            ' at half speed and lags the pointer.
+            Dim wp = ImGui.GetWindowPos()
+            If wp.X <> 0.0F OrElse wp.Y <> 0.0F Then
+                HostDX += wp.X
+                HostDY += wp.Y
+                ImGui.SetWindowPos(New System.Numerics.Vector2(0.0F, 0.0F))
+            End If
+            Dim ws = ImGui.GetWindowSize()
+            HostW = ws.X
+            HostH = ws.Y
         End If
 
-        ImGui.SetCursorScreenPos(New System.Numerics.Vector2(8.0F, displayH - PanelH + GRIP + 2.0F))
         ImGui.BeginGroup()
         palette()
         ImGui.EndGroup()
@@ -355,7 +476,14 @@ Module BrainNodes
             If a IsNot Nothing Then
                 Dim ao = to_screen(p0, a.pos)
                 Dim pa = pin_pos(a, ao, wirePin, Not wireFromOut)
-                bez(dl, pa, io.MousePos, WIRE_HOT)
+                ' The band itself says yes or no, so the answer is under the
+                ' cursor rather than out at the pin being hovered.
+                Dim band = WIRE_HOT
+                If hoverNode >= 0 Then
+                    band = If(can_join(wireNode, wirePin, wireFromOut,
+                                       hoverNode, hoverPin, hoverIn), PIN_OK, PIN_NO)
+                End If
+                bez(dl, pa, io.MousePos, band)
             End If
             If Not ImGui.IsMouseDown(ImGuiMouseButton.Left) Then
                 drop_wire(p0)
@@ -384,6 +512,7 @@ Module BrainNodes
                 ' Divided by the zoom: the pointer moves in SCREEN pixels and
                 ' the node lives in board ones, so without this a node zoomed
                 ' out to a third drags three times as far as the cursor.
+                Changed = True
                 n.pos = New System.Numerics.Vector2(n.pos.X + io.MouseDelta.X / zoom,
                                                     n.pos.Y + io.MouseDelta.Y / zoom)
                 o = to_screen(p0, n.pos)
@@ -414,6 +543,7 @@ Module BrainNodes
             For i = 0 To n.kind.ins.Length - 1
                 Dim pp = pin_pos(n, o, i, True)
                 dl.AddCircleFilled(pp, PIN_R * zoom, PIN_IN, 10)
+                mark_target(dl, n, i, True, pp)
                 dl.AddText(font, fsz,
                            New System.Numerics.Vector2(pp.X + 9.0F * zoom,
                                                        pp.Y - fsz * 0.5F),
@@ -423,6 +553,7 @@ Module BrainNodes
             For i = 0 To n.kind.outs.Length - 1
                 Dim pp = pin_pos(n, o, i, False)
                 dl.AddCircleFilled(pp, PIN_R * zoom, PIN_OUT, 10)
+                mark_target(dl, n, i, False, pp)
                 Dim tw = ImGui.CalcTextSize(n.kind.outs(i)).X * zoom
                 dl.AddText(font, fsz,
                            New System.Numerics.Vector2(pp.X - 9.0F * zoom - tw,
@@ -538,9 +669,23 @@ Module BrainNodes
         ImGui.InvisibleButton("##p" & n.id.ToString() & If(isIn, "i", "o") & idx.ToString(),
                               New System.Numerics.Vector2(grab * 2.0F, grab * 2.0F))
         If ImGui.IsItemActive() AndAlso wireNode < 0 Then
-            wireNode = n.id
-            wirePin = idx
-            wireFromOut = Not isIn
+            ' PICKING UP A CONNECTED INPUT TAKES THE WIRE WITH IT. The link is
+            ' removed now and the drag continues from its SOURCE output, so the
+            ' same gesture re-routes it elsewhere or - dropped on nothing -
+            ' disconnects it. Without this an input could only be overwritten,
+            ' never cleared.
+            Dim held = links.Find(Function(l) l.toNode = n.id AndAlso l.toPin = idx)
+            If isIn AndAlso held IsNot Nothing Then
+                links.Remove(held)
+                Changed = True
+                wireNode = held.fromNode
+                wirePin = held.fromPin
+                wireFromOut = True
+            Else
+                wireNode = n.id
+                wirePin = idx
+                wireFromOut = Not isIn
+            End If
         End If
         If wireNode >= 0 AndAlso ImGui.IsItemHovered() Then
             hoverNode = n.id
@@ -556,8 +701,22 @@ Module BrainNodes
     ''' <summary>Let go of a wire. Only output-to-input counts, in either drag
     ''' direction, and an input takes ONE wire - a second into the same socket
     ''' replaces the first rather than stacking invisibly.</summary>
+    ''' <summary>
+    ''' Let go of a wire.
+    '''
+    ''' THE TEST USED TO BE hoverIn <> wireFromOut AND REJECTED EVERYTHING.
+    ''' Dragging from an output sets wireFromOut True and landing on an input
+    ''' gives hoverIn True, so the two are TRUE TOGETHER on a good connection -
+    ''' the inequality threw out both valid cases and no wire could ever be
+    ''' made. It reads backwards, which is exactly how it came to be written
+    ''' that way, so the rule now lives in can_join with the halves named.
+    '''
+    ''' An input takes ONE wire: a second into the same socket replaces the
+    ''' first rather than stacking invisibly behind it.
+    ''' </summary>
     Private Sub drop_wire(p0 As System.Numerics.Vector2)
-        If hoverNode >= 0 AndAlso hoverNode <> wireNode AndAlso hoverIn <> wireFromOut Then
+        If hoverNode >= 0 AndAlso
+           can_join(wireNode, wirePin, wireFromOut, hoverNode, hoverPin, hoverIn) Then
             Dim l As New Link()
             If wireFromOut Then
                 l.fromNode = wireNode : l.fromPin = wirePin
@@ -568,11 +727,38 @@ Module BrainNodes
             End If
             links.RemoveAll(Function(x) x.toNode = l.toNode AndAlso x.toPin = l.toPin)
             links.Add(l)
+            Changed = True
         End If
         wireNode = -1
         wirePin = -1
         hoverNode = -1
         hoverPin = -1
+    End Sub
+
+    ''' <summary>
+    ''' While a wire is being pulled, ring every pin that WOULD take it and
+    ''' cross the one under the cursor that would not.
+    '''
+    ''' The moment to know is BEFORE letting go. A drop that silently does
+    ''' nothing is indistinguishable from a drop that missed, so the gesture
+    ''' teaches nothing either way.
+    ''' </summary>
+    Private Sub mark_target(dl As ImDrawListPtr, n As Node, idx As Integer,
+                            isIn As Boolean, at As System.Numerics.Vector2)
+        If wireNode < 0 Then Return
+        Dim ok = can_join(wireNode, wirePin, wireFromOut, n.id, idx, isIn)
+        Dim r = PIN_R * zoom + 3.0F
+        If ok Then
+            dl.AddCircle(at, r, PIN_OK, 12, 2.0F)
+        ElseIf n.id <> wireNode Then
+            ' A cross, not a dimming: will-not-take has to be legible against a
+            ' board that is already mostly dim.
+            Dim d = r * 0.7F
+            dl.AddLine(New System.Numerics.Vector2(at.X - d, at.Y - d),
+                       New System.Numerics.Vector2(at.X + d, at.Y + d), PIN_NO, 1.6F)
+            dl.AddLine(New System.Numerics.Vector2(at.X - d, at.Y + d),
+                       New System.Numerics.Vector2(at.X + d, at.Y - d), PIN_NO, 1.6F)
+        End If
     End Sub
 
     Private Sub bez(dl As ImDrawListPtr, a As System.Numerics.Vector2,

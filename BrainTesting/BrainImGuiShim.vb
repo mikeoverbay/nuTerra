@@ -1,4 +1,5 @@
 Imports OpenTK.Graphics.OpenGL4
+Imports System.Runtime.InteropServices
 
 ''' <summary>
 ''' THE ONE THING ImGuiController NEEDS THAT THIS APP DOES NOT HAVE.
@@ -27,22 +28,47 @@ Imports OpenTK.Graphics.OpenGL4
 ''' </summary>
 Public Class ImGuiShaderShim
 
-    Private sh As BrainShader = Nothing
+    ''' <summary>
+    ''' ONE SHADER PER GL CONTEXT, keyed on the context itself.
+    '''
+    ''' The node editor window has its own, unshared context. GL programs do
+    ''' not cross unshared contexts, so a single cached shader would hand that
+    ''' window the MAIN window's program id - a number that means nothing
+    ''' there. Nothing would draw, and nothing would say why: GL does not
+    ''' error on a program name it has never heard of, it just renders
+    ''' nothing.
+    '''
+    ''' Duplicated device objects, not duplicated source - both entries compile
+    ''' the same shaders/imgui.vert and .frag.
+    ''' </summary>
+    Private ReadOnly byCtx As New Dictionary(Of IntPtr, BrainShader)
+
+    <DllImport("opengl32.dll")>
+    Private Shared Function wglGetCurrentContext() As IntPtr
+    End Function
 
     Public ReadOnly Property Ready As Boolean
         Get
+            Dim sh = cur()
             Return sh IsNot Nothing AndAlso sh.Ready
         End Get
     End Property
 
-    ''' <summary>Compiled on first use, not at module load: the GL context has
-    ''' to exist first, and a module initialiser runs before the window.</summary>
-    Private Sub ensure()
-        If sh Is Nothing Then sh = New BrainShader("imgui")
-    End Sub
+    ''' <summary>The shader for whichever context is current, compiled on first
+    ''' use in it - the context has to exist before a shader can be built in
+    ''' it, and a module initialiser runs before any window.</summary>
+    Private Function cur() As BrainShader
+        Dim c = wglGetCurrentContext()
+        Dim sh As BrainShader = Nothing
+        If Not byCtx.TryGetValue(c, sh) Then
+            sh = New BrainShader("imgui")
+            byCtx(c) = sh
+        End If
+        Return sh
+    End Function
 
     Public Sub Use()
-        ensure()
+        Dim sh = cur()
         If sh.Ready Then sh.Use()
     End Sub
 
@@ -54,7 +80,7 @@ Public Class ImGuiShaderShim
     ''' directly, so this is a Default property rather than a named one.</summary>
     Default Public ReadOnly Property Item(name As String) As Integer
         Get
-            ensure()
+            Dim sh = cur()
             If Not sh.Ready Then Return -1
             Return sh.Loc(name)
         End Get

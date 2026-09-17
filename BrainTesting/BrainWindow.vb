@@ -145,6 +145,13 @@ Public Class BrainWindow
         BrainRender.Init()
         BrainPanel.Init(ClientSize.X, ClientSize.Y)
 
+        ' THE NODE EDITOR'S WINDOW, made now and hidden until it is wanted.
+        ' Built here because its GL context is created by asking the CURRENT
+        ' context for an extension, so one has to be live - and after the
+        ' panel, because it builds an ImGui controller of its own and wants
+        ' the main one to exist first so it can hand the context back to it.
+        BrainNodeForm.Start(Me)
+
         If BrainWorld.Ready AndAlso STARTUP_MAP IsNot Nothing Then
             If BrainWorld.LoadMap(STARTUP_MAP) Then
                 ' AFTER the terrain, so MAP_SIZE is real. Framing against the
@@ -236,6 +243,11 @@ Public Class BrainWindow
         ' thing it controls stops is the one you need most.
         Dim act = BrainPanel.Draw(Me, CSng(e.Time))
         If act <> BrainPanel.Action.None Then do_panel(act)
+
+        ' AND THE NODE EDITOR, in its own window and its own context. It makes
+        ' both of ours current again before it returns, so the swap below is
+        ' still this window's.
+        BrainNodeForm.Frame(CSng(e.Time))
 
         SwapBuffers()
 

@@ -127,6 +127,25 @@ Public Class ImGuiController
         End If
     End Sub
 
+    ''' <summary>
+    ''' Draw a draw-list that this controller did not begin.
+    '''
+    ''' Render above is the whole-frame path: it ends the frame it started and
+    ''' draws the result. A SECOND window, with its own GL context and its own
+    ''' ImGui context, runs its own NewFrame and its own ImGui.Render and then
+    ''' has draw data with nobody to draw it - RenderImDrawData is Private and
+    ''' owns the buffers, the shader and the GL state, and a copy of it outside
+    ''' this file would be a second renderer to keep in step with this one.
+    '''
+    ''' Five lines instead of that, and nothing here changes unless somebody
+    ''' calls it. nuTerra does not.
+    '''
+    ''' Added 2026-09-17 for BrainTesting's node editor window.
+    ''' </summary>
+    Public Sub RenderViewport(vp As ImGuiViewportPtr)
+        RenderImDrawData(vp.DrawData)
+    End Sub
+
     Public Sub Update(wnd As GameWindow, deltaSeconds As Single)
         If _frameBegun Then
             ImGui.Render()
