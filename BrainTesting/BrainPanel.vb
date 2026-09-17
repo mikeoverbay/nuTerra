@@ -319,6 +319,8 @@ Module BrainPanel
         ImGui.Separator()
         Dim show = BrainRadar.SHOW
         If ImGui.Checkbox("Radar", show) Then BrainRadar.SHOW = show
+        Dim scope = BrainScope.SHOW
+        If ImGui.Checkbox("Scope", scope) Then BrainScope.SHOW = scope
 
         ImGui.Separator()
         Dim lb = TryCast(BrainSim.Brain, LearnBrain)
@@ -361,6 +363,11 @@ Module BrainPanel
         End If
 
         ImGui.End()
+
+        ' THE SCOPE, anchored bottom right. Drawn inside the same ImGui frame
+        ' as the panel - a second Render() would start a frame that was never
+        ' begun.
+        BrainScope.Draw(ImGui.GetIO().DisplaySize.X, ImGui.GetIO().DisplaySize.Y)
 
         ctl.Render()
         Return act
