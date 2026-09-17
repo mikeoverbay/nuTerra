@@ -504,6 +504,137 @@ def read_meta(path):
     return meta
 
 
+def grid_from_blk(map_name, hull_r_m):
+    """The collision map from the .blk - nuTerra's answer, not our own.
+
+    The owner, 2026-09-17: "so the high map is out and we change flight cam to
+    use the square heights. and tank path studio."
+
+    WHAT THIS DELETES IS WORTH MORE THAN WHAT IT SAVES. build_grid below does
+    not merely READ the bake, it RECOMPUTES the blocked rule from it - the
+    crushable expression, the trunk exception, outland, water, and the
+    pass-under clearance that tells an arch from a wall. Its own comment says
+    what that costs: "THIS IS THE THIRD COPY OF ONE RULE... If the app's
+    version changes, this line changes in the same hour or Tank Path Studio
+    sweeps roads the tanks cannot drive." It had already drifted once, over
+    trunks, for exactly as long as it took someone to notice.
+
+    The .blk mask IS that rule's output, written by the app that owns it. So
+    this does not re-derive anything: bit 0 is blocked because nuTerra says
+    so, and the copy that could disagree stops existing.
+
+    RESOLUTION, HONESTLY: 0.5 m here against the bake's 0.171. The staircase
+    that made us sample the bake finely was never the cell size - it was the
+    4.5 m obstacle inflation stacked on 1.37 m cells. Half a metre with no
+    inflation is the tank grid's own resolution and the resolution the tanks
+    themselves drive on, which is the point: the planner and the driver now
+    read the same squares.
+
+    WHAT IS NOT IN THE .blk stays where it was. Object ids come from
+    <map>_ids.u32, which is not a height map and is not affected; the palette
+    still comes from the meta, because the colour of a kind is nuTerra's data
+    product and not ours to invent.
+    """
+    b = load_blk(map_name)
+    if b is None:
+        return None
+
+    m = b["mask"]
+    W = b["n"]
+    cell = b["cell_m"]
+    wx0 = b["wx_min"]
+    wx1 = wx0 + W * cell
+    wz1 = b["wz_max"]
+    wz0 = wz1 - W * cell
+
+    collide = (m & BLK_BLOCK) != 0
+    kind = blk_kind(m)
+    trunk = (m & BLK_TRUNK) != 0
+    solid = (m & BLK_SOLID) != 0
+
+    # GROWN BY THE HULL, the same erosion and the same halo as before - and
+    # eight times cheaper, because the grid is 2800 square rather than 8192.
+    try:
+        from scipy.ndimage import distance_transform_edt
+        reach = distance_transform_edt(~collide, sampling=cell)
+        collide_hull = reach < HULL_HALO_M
+        del reach
+    except Exception:
+        collide_hull = collide
+
+    # HEIGHTS IN METRES, so hscale is 1. The uint16 floor needed a scale to
+    # divide by; this plane is already what it means. Every reader of
+    # g["floor"] divides by g["hscale"], so both stay and the slope tests do
+    # not change a line.
+    floor = b["height"]
+
+    ids, id_names = _ids_from_file(map_name, W, cell, wx0, wz1)
+
+    palette = {}
+    meta_path = os.path.join(FLIGHT, f"{map_name}_meta.txt")
+    if os.path.exists(meta_path):
+        meta = read_meta(meta_path)
+        for k in range(8):
+            v = meta.get("kind_%d_rgb" % k)
+            if v:
+                palette[k] = tuple(int(x) for x in v.split(","))
+    palette.setdefault(0, (60, 70, 55))
+    palette.setdefault(7, (150, 150, 150))
+
+    return dict(W=W, texel_m=cell, collide=collide,
+                collide_hull=collide_hull, used=None,
+                kind=kind, trunk=trunk,
+                bake_version=None,
+                solid=solid, ids=ids, id_names=id_names, palette=palette,
+                kinds=dict(fence=1, tree=2, prop=3, water=4),
+                map_name=map_name,
+                floor=floor, hscale=1.0, ceiling=None,
+                min_clearance=None,
+                wx0=wx0, wx1=wx1, wz0=wz0, wz1=wz1, hull=hull_r_m)
+
+
+def _ids_from_file(map_name, W, cell, wx0, wz1):
+    """Object ids at the .blk's resolution, or (None, {}) if there are none.
+
+    <map>_ids.u32 is written at the bake's 8192, so it is POOLED down rather
+    than resampled: the id of the top-left source texel of each square. Wrong
+    would be averaging them, which invents an object that is not there.
+    """
+    idp = os.path.join(FLIGHT, map_name + "_ids.u32")
+    if not os.path.exists(idp):
+        return None, {}
+    try:
+        raw = np.fromfile(idp, dtype="<u4")
+        n = int(round(len(raw) ** 0.5))
+        if n * n != len(raw):
+            return None, {}
+        ids = raw.reshape(n, n)
+        if n != W:
+            # NEAREST SQUARE, BY INDEX, not by an integer factor. The ids are
+            # 8192 and the .blk is 2800, and 8192 % 2800 is 2592 - an
+            # integer-factor pool would have quietly returned nothing and the
+            # object ids would have disappeared without a line in the log.
+            #
+            # Both cover the same -700..700, so the mapping is a scale. Nearest
+            # rather than an average, because averaging two object ids invents
+            # a third that is not on the map.
+            sel = ((np.arange(W) + 0.5) * (float(n) / W)).astype(np.int64)
+            np.clip(sel, 0, n - 1, out=sel)
+            ids = ids[sel][:, sel]
+        names = {}
+        csv = os.path.join(FLIGHT, map_name + "_ids.csv")
+        if os.path.exists(csv):
+            with io.open(csv, "r", encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    part = line.rstrip("\n").split(",", 1)
+                    if len(part) == 2 and part[0].strip().isdigit():
+                        names[int(part[0])] = part[1].strip()
+        return ids, names
+    except Exception as exc:
+        print("ids: could not read %s - %s" % (idp, exc))
+        return None, {}
+
+
 def build_grid(map_name, hull_r_m):
     """The COLLISION MAP: sample XZ at the plane location, read Y, and anything
     standing over a metre is solid.
@@ -1220,19 +1351,42 @@ def main():
     print("  ray %.1f  ring-start %.1f  ring-step %.1f  ring-max %.1f  "
           "gap %.1f  escape %.1f"
           % (ray_cap, RING_MIN_M, RING_STEP_M, ring_max, min_gap, escape_m))
-    g = build_grid(map_name, hull)
-    W = g["W"]
-    print(f"  collision map {W}x{W} at {g['texel_m']:.3f} m per texel, "
-          f"{(~g['collide']).sum():,} clear texel(s), Y over "
-          f"{MAX_OBSTACLE_M:.1f} m is solid")
+    # THE .blk FIRST. Falls back to rebuilding from the bake only when there
+    # is no .blk to read - which is a map nuTerra has not cut yet, not a
+    # preference. Said out loud either way, because which grid the roads were
+    # swept from decides whether they match what the tanks drive.
+    g = grid_from_blk(map_name, hull)
+    if g is not None:
+        W = g["W"]
+        print(f"  collision map {W}x{W} at {g['texel_m']:.3f} m per texel "
+              f"FROM THE .blk - {(~g['collide']).sum():,} clear square(s), "
+              f"blocked is nuTerra's bit 0")
+    else:
+        print("  no .blk for this map - rebuilding the rule from the bake")
+        g = build_grid(map_name, hull)
+        W = g["W"]
+        print(f"  collision map {W}x{W} at {g['texel_m']:.3f} m per texel, "
+              f"{(~g['collide']).sum():,} clear texel(s), Y over "
+              f"{MAX_OBSTACLE_M:.1f} m is solid")
 
     # THE PICTURE IS SMALLER THAN THE MAP. Collision stays at the full 8192 so
     # rays stop where things actually are; the background is quartered to 2048
     # because a pygame surface of 8192 square is 200 MB and no screen can show
     # it anyway. A texel is solid in the picture if any of its four are.
-    SHOW = 2048
-    f = W // SHOW
-    shown = g["collide"].reshape(SHOW, f, SHOW, f).any(axis=(1, 3))
+    # THE PICTURE IS NO LONGER ALWAYS SMALLER. At the bake's 8192 this
+    # quartered to 2048 because a pygame surface of 8192 square is 200 MB. The
+    # .blk is 2800, which is not a multiple of 2048 and does not need
+    # shrinking anyway - so the factor is worked out rather than assumed, and
+    # a grid that already fits is shown as it is.
+    f = max(1, W // 2048)
+    while f > 1 and W % f:
+        f -= 1
+    SHOW = W // f
+    if f > 1:
+        shown = g["collide"].reshape(SHOW, f, SHOW, f).any(axis=(1, 3))
+    else:
+        SHOW = W
+        shown = g["collide"]
 
     # The two ctf bases. They are not in the meta - the app reads them from
     # arena_defs - so monastery's are given here and anything else needs them
