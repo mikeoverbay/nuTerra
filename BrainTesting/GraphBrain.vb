@@ -693,7 +693,12 @@ Public Class GraphBrain
     ''' </summary>
     Private Function commit(offered As Object) As Object
         If holding Then
-            heldFor += dt
+            ' ONLY WHILE WE ARE ASKING TO MOVE. Turning on the spot gains no
+            ' ground by design - since badly misaligned means zero throttle,
+            ' every turn was being abandoned before it finished, the bearing
+            ' jumped to a new way, and the next turn started over. Turning
+            ' toward a way is not failing to reach it.
+            If Math.Abs(lastThr) > 0.1F Then heldFor += dt
             Dim gained = (h.pos - heldFrom).Length
             If heldFor < 0.6F OrElse gained > 1.0F Then
                 ' Working, or too early to say. Either way, keep going and do
@@ -755,6 +760,19 @@ Public Class GraphBrain
     Private Function throttle_for_turn(bearing As Single, room As Single) As Single
         Const SIM_TOP As Single = 12.0F                  ' m/s at full throttle
         Dim swing = Math.Abs(wrap_pi(bearing))
+
+        ' POINTED THE WRONG WAY: DO NOT DRIVE AT ALL.
+        '
+        ' The sim drives along the HEADING, not along the bearing we asked for,
+        ' so throttle while badly misaligned is throttle into whatever we are
+        ' turning away from. Past about 50 degrees, turn on the spot - the one
+        ' command the sim never refuses - and drive when the nose is near.
+        '
+        ' This has to come before the creep floor below, which is what defeated
+        ' the turn budget: scaling the throttle down to nothing and then
+        ' flooring it at 0.35 is still 0.35 into a wall.
+        If swing > 0.9F Then Return 0.0F
+
         Dim base_ = throttle_for(room)
         If swing < 0.05F Then Return base_
 

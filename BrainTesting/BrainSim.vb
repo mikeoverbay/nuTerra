@@ -30,6 +30,36 @@ Module BrainSim
     ''' they are two numbers - and the switch is a checkbox, so getting it
     ''' wrong leaves no trace anywhere else.
     ''' </summary>
+    Private refuseIn As Single = 0.0F
+
+    ''' <summary>
+    ''' WHY THE HULL DID NOT MOVE.
+    '''
+    ''' The refusal above is silent, and it is the end of every stuck run: the
+    ''' brain commands full throttle, the speed reads zero, and nothing says
+    ''' what failed. The numbers are the answer, so this prints them rather
+    ''' than a count - but twice a second, because one a frame is sixty a
+    ''' second and that is a window nobody can read.
+    '''
+    ''' It also asks whether a SMALLER box would have passed. That one extra
+    ''' question separates the two cases, and they have nothing in common:
+    ''' either the hull is somewhere tighter than its own drive box, which no
+    ''' amount of brain work fixes, or the destination is fine for a hull and
+    ''' we are asking for more room than we need.
+    ''' </summary>
+    Private Sub say_refused(h As BrainHull, want As Vector2, dt As Single)
+        refuseIn -= dt
+        If refuseIn > 0.0F Then Return
+        refuseIn = 0.5F
+
+        Dim r = h.DriveRadius
+        Dim half = BrainNav.Standable(want.X, want.Y, r * 0.5F)
+        Dim here = BrainNav.Standable(h.pos.X, h.pos.Y, r)
+        LogThis("brain: MOVE REFUSED at ({0:0.0}, {1:0.0}) -> ({2:0.0}, {3:0.0}) " &
+                "r {4:0.00} | half-r {5} | standing where we are {6}",
+                h.pos.X, h.pos.Y, want.X, want.Y, r, half, here)
+    End Sub
+
     Public Sub NoteDriver()
         Dim n = If(Brain Is Nothing, "none", Brain.Name)
         If n = drivingName Then Return
@@ -215,6 +245,7 @@ Module BrainSim
                     b.spawn = want
                 Else
                     speeds(i) = 0.0F
+                    say_refused(inp.hulls(i), want, dt)
                 End If
             End If
 

@@ -51,7 +51,37 @@ a kind name and guessing which one had fired.
 | 14 | `Commit` latches the chosen way | board + pick | chatter **1916/1729 → 609/606** |
 | 15 | any-gap-that-fits rung, above backing out | board | **`Reverse` gone**, 155 changes, 30.4 m door at 14° |
 
-Nine of the fifteen were board changes.
+| 16 | `BrainSim` logs WHY it refused a move | logic | the measurement that ended the guessing |
+| 17 | no throttle while badly misaligned | logic | refusals **21 → 3**, changes 155 → 51 |
+| 18 | `Commit` does not time a turn as failure | logic | **full speed, 12 m/s**, runs a 31.3 m door |
+
+Nine of the eighteen were board changes.
+
+## The one that mattered most, and it was not in the brain
+
+`BrainSim` moves the hull along its **current heading** and steers separately:
+
+```vb
+b.headingRad += str * TURN_RATE * dt
+want = b.spawn + fwd * step_m        ' fwd is the HEADING, not the bearing asked for
+```
+
+So `driving -134 deg, 2.0 m clear, thr 0.35` meant: turn hard left, and
+meanwhile drive **forward into the thing we are turning away from**. The
+destination failed seven centimetres from a position that passes - every frame,
+for the whole run. The refusal log is what showed it: destination equal to the
+current position, the current position standable, and the move refused anyway.
+
+The turn budget was meant to handle this and could not, because the creep floor
+put 0.35 back underneath it. Scaling a throttle to nothing and then flooring it
+at 0.35 is still 0.35 into a wall. Past about fifty degrees there is now no
+throttle at all - turn on the spot, which the sim never refuses, and drive once
+the nose is near.
+
+That then exposed the last one: `Commit` releases a way after a second of
+gaining no ground, and turning on the spot gains no ground **on purpose**. Every
+turn was abandoned two thirds through, the bearing jumped, the next turn began
+again. Its clock now runs only while we are asking to move.
 
 ## What was actually wrong
 
