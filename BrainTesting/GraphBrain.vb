@@ -60,6 +60,10 @@ Public Class GraphBrain
     Private Const MAX_DEPTH As Integer = 64
     Private Const VOTES_NEEDED As Integer = 2
 
+    ''' <summary>Radians a second the hull swings at full steer. Mirrors
+    ''' BrainSim's TURN_RATE, which is Private there.</summary>
+    Private Const SIM_TURN_RATE As Single = 0.4538F       ' 26 deg/s
+
     ' ---- what this tick is working with ----------------------------------
     Private h As BrainHull
     Private goal As Vector2
@@ -79,6 +83,28 @@ Public Class GraphBrain
     Private depth As Integer
 
     Private ready As Boolean = False
+
+    ''' <summary>What we asked for LAST tick. This tick's throttle is
+    ''' cleared before any node runs, so a node asking whether we are stuck
+    ''' has to look at what was commanded, not at what is commanded.</summary>
+    Private lastThr As Single = 0.0F
+
+    ''' <summary>Seconds spent in Backing. Reset whenever the state is not
+    ''' Backing, so it measures THIS attempt rather than the sum of
+    ''' every attempt in the run.</summary>
+    Private backingFor As Single = 0.0F
+
+    ''' <summary>Seconds of asking to move and not moving. A clock rather
+    ''' than an instant, for the same reason the wedge watch is one: a
+    ''' single frame of scuffing a wall should not throw away the heading
+    ''' we are committed to.</summary>
+    Private stuckFor As Single = 0.0F
+
+    ' ---- the way we are committed to, and how it is going ---------
+    Private heldWay As BrainRadar.Way
+    Private holding As Boolean = False
+    Private heldFrom As Vector2
+    Private heldFor As Single = 0.0F
     Private goalsMade As Integer = 0
 
     ''' <summary>Its own, so a graph run and a RangeBrain run do not pull from
@@ -133,7 +159,7 @@ Public Class GraphBrain
         ' ONE SCAN A TICK, kept here rather than in the Ray Scan node. Several
         ' nodes ask for hits and the pull would run the scan once each - and a
         ' scan is the most expensive thing the brain does.
-        hits = BrainRadar.Scan(h.pos, h.headingRad, 0.0F)
+        hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
         laneDone = False
 
         ' The wedge watch is a TIMER, not a reading, which is why it is here and
@@ -149,6 +175,21 @@ Public Class GraphBrain
             wedgedFor = 0.0F
         End If
 
+        ' The clock on this backing attempt, kept here because a timer is not
+        ' something a wire can carry.
+        If state = GSt.Backing Then
+            backingFor += dt
+        Else
+            backingFor = 0.0F
+        End If
+
+        If Math.Abs(thr) > 0.1F AndAlso Math.Abs(h.speed) < 0.2F Then
+            stuckFor += dt
+        Else
+            stuckFor = 0.0F
+        End If
+
+        lastThr = thr
         thr = 0.0F
         steerOut = 0.0F
         why = "the board did nothing"
@@ -296,8 +337,8 @@ Public Class GraphBrain
                 Dim offTail = wrap_pi(b - CSng(Math.PI))
                 steerOut = -turn_to(offTail)
                 thr = -CREEP
-                why = String.Format("backing, {0:0} deg off the tail",
-                                    MathHelper.RadiansToDegrees(offTail))
+                why = String.Format("backing {1:0.00}s, {0:0} deg off the tail",
+                                    MathHelper.RadiansToDegrees(offTail), backingFor)
             Case "Turn To"
                 Dim b = as_num(pulled(id, "bearing"), 0.0F)
                 steerOut = turn_to(b)
@@ -307,10 +348,11 @@ Public Class GraphBrain
             Case "Drive Heading"
                 Dim b = as_num(pulled(id, "bearing"), goal_bearing())
                 Dim t = as_num(pulled(id, "throttle"), 0.0F)
+                Dim room = body_ahead()
                 steerOut = turn_to(b)
-                thr = If(t > 0.0F, t, throttle_for(body_ahead()))
-                why = String.Format("driving {0:0} deg, {1:0.0} m clear",
-                                    MathHelper.RadiansToDegrees(b), body_ahead())
+                thr = If(t > 0.0F, t, throttle_for_turn(b, room))
+                why = String.Format("driving {0:0} deg, {1:0.0} m clear, thr {2:0.00}",
+                                    MathHelper.RadiansToDegrees(b), room, thr)
             Case "Drive To Point", "Through Door"
                 Dim w = pulled(id, "way")
                 If w Is Nothing Then Return False
@@ -378,6 +420,22 @@ Public Class GraphBrain
                 v = CObj(BrainRadar.WAYS)
             Case "Arrived"
                 v = CObj(as_num(pulled(id, "range"), (goal - h.pos).Length) <= ARRIVE_M)
+            Case "Backed Enough"
+                ' Long enough. RangeBrain backs for a set time and then looks
+                ' again rather than waiting for the world to open up, and a
+                ' state whose exit needs the world to improve is one that can be
+                ' entered and never left.
+                v = CObj(backingFor > 1.2F)
+            Case "Not Moving"
+                ' ASKED FOR MOVEMENT AND DID NOT GET IT. Not simply "the speed is
+                ' low" - the branch this gates is Turn To, which commands zero
+                ' throttle, so a bare speed test was true BECAUSE of what it had
+                ' just caused. The tank span on the spot for the rest of every
+                ' run, held there by its own answer.
+                '
+                ' Last tick's throttle, because this tick's is cleared before any
+                ' node is evaluated.
+                v = CObj(stuckFor > 0.25F)
             Case "Is Wedged"
                 '' NOT WHILE ALREADY BACKING - RangeBrain gates this the same way
                 '' (state <> St.Backing) and the reason is structural: the wedge
@@ -410,7 +468,13 @@ Public Class GraphBrain
                 Dim c = pulled(id, "clear")
                 v = CObj(Not as_bool(c, Not corridor().hit))
             Case "Rear Better"
-                v = CObj(rear_deepest() > as_num(pulled(id, "metres"), body_ahead()) + BETTER_M)
+                ' AND THE FRONT HAS TO BE BLOCKED. Deeper behind than ahead is
+                ' true constantly in close country, and on its own it had the
+                ' board reversing with clear road in front of it - drive,
+                ' reverse, drive, reverse, twice a tick for the whole run.
+                ' Backing up is for when forward is not an option.
+                v = CObj(body_ahead() < BLOCK_M AndAlso
+                         rear_deepest() > body_ahead() + BETTER_M)
             Case "Is Seek" : v = CObj(state = GSt.Seek)
             Case "Is Backing" : v = CObj(state = GSt.Backing)
             Case "Is Turning" : v = CObj(state = GSt.Turning)
@@ -426,11 +490,17 @@ Public Class GraphBrain
                 v = CObj(deeper_side())
             Case "Vote"
                 v = vote(pulled(id, "way"))
+            Case "Commit"
+                v = commit(pulled(id, "way"))
+            Case "Way Bearing"
+                Dim wb = pulled(id, "way")
+                If wb IsNot Nothing Then v = CObj(CType(wb, BrainRadar.Way).bearing)
         End Select
         ' A test's answer is the interesting half of a walk - the reason it
         ' turned where it did. Recorded here rather than at every call site so
         ' no test can be added later and quietly not report.
         If TypeOf v Is Boolean Then BrainNodes.TraceTest(id, CBool(v))
+        BrainNodes.TraceValue(id, shown(v))
         depth -= 1
         Return v
     End Function
@@ -559,7 +629,15 @@ Public Class GraphBrain
         Dim want = goal_bearing()
         For Each w In BrainRadar.WAYS
             If Not w.fits Then Continue For
+            ' IN FRONT, ROUGHLY. A way at 104 degrees off the nose is not a way
+            ' through, it is a three-point turn - and taking those is what had
+            ' the tank driving sideways past openings and coming back.
+            If Math.Abs(wrap_pi(w.bearing)) > 1.4F Then Continue For
             Dim score = w.chord * CSng(Math.Cos(wrap_pi(w.bearing - want)))
+            ' AND IT HAS TO GAIN GROUND. A negative score is a way that leads
+            ' away from the goal; offering the least bad of those is how a
+            ' local decision becomes a tour of the map.
+            If score <= 0.0F Then Continue For
             If score > bestScore Then
                 bestScore = score
                 best = w
@@ -594,6 +672,51 @@ Public Class GraphBrain
         Return CObj(way)
     End Function
 
+    ''' <summary>
+    ''' HOLD A WAY UNTIL IT STOPS WORKING.
+    '''
+    ''' "plank stops scanning until we find the next path point that gets us
+    '''  moving again. if we having not moved forward we still can't get out."
+    '''
+    ''' So the test of a chosen way is not whether it still looks good - it is
+    ''' whether the tank GOT ANYWHERE. While ground is being made this keeps
+    ''' handing back the same way, which keeps Has Way true, which is what
+    ''' stops the plank branch re-scanning something already decided.
+    '''
+    ''' It lets go when a second has passed with less than a metre gained. That
+    ''' is the owner's condition: not moving forward means we still cannot get
+    ''' out, and the way we picked is not the way.
+    '''
+    ''' A grace period first, because a heavy hull does not accelerate
+    ''' instantly and judging a decision on the frame after it was made throws
+    ''' away every decision.
+    ''' </summary>
+    Private Function commit(offered As Object) As Object
+        If holding Then
+            heldFor += dt
+            Dim gained = (h.pos - heldFrom).Length
+            If heldFor < 0.6F OrElse gained > 1.0F Then
+                ' Working, or too early to say. Either way, keep going and do
+                ' not look for anything else.
+                If gained > 1.0F Then
+                    heldFrom = h.pos
+                    heldFor = 0.0F
+                End If
+                Return CObj(heldWay)
+            End If
+            ' A second of not getting anywhere. Drop it and let the board look
+            ' again - which is what turns the scan back on.
+            holding = False
+        End If
+
+        If offered Is Nothing Then Return Nothing
+        heldWay = CType(offered, BrainRadar.Way)
+        holding = True
+        heldFrom = h.pos
+        heldFor = 0.0F
+        Return CObj(heldWay)
+    End Function
+
     Private Function will_clear(bearing As Single, metres As Single) As Boolean
         Dim head = h.headingRad + bearing
         Dim far = h.pos + New Vector2(CSng(Math.Sin(head)) * metres,
@@ -607,7 +730,38 @@ Public Class GraphBrain
     ''' the sharp-turn complaint earlier in the project was a gain of 1.0 on
     ''' this, which spins on the spot at the smallest error.</summary>
     Private Function turn_to(bearing As Single) As Single
-        Return Math.Max(-1.0F, Math.Min(1.0F, wrap_pi(bearing) * 0.6F))
+        ' SHARPER WHILE SCANNING. At the cruising gain a forty degree error asks
+        ' for 42% of the turn rate, which is a leisurely swing to be making when
+        ' something is already touching the planks. The gentle gain is still
+        ' what ordinary driving gets - "we need to not turn so sharp" was about
+        ' cruising, not about getting out of the way.
+        Dim gain = If(BrainRadar.SCANNING, 1.8F, 0.6F)
+        Return Math.Max(-1.0F, Math.Min(1.0F, wrap_pi(bearing) * gain))
+    End Function
+
+    ''' <summary>
+    ''' How fast we can go and still finish the turn in the room we have.
+    '''
+    ''' The hull swings at a fixed rate, so a heading change takes a known
+    ''' TIME, and at a given speed that time is a known DISTANCE. If the swing
+    ''' would carry us further than the room ahead, slow by exactly that ratio -
+    ''' and no further. With room to spare this does not slow at all, which is
+    ''' the point: slowing is for finding a way out, not a reflex.
+    '''
+    ''' The two figures mirror BrainSim's TOP_SPEED and TURN_RATE, which are
+    ''' Private there. If they move, this goes stale quietly - the symptom
+    ''' would be arriving at gaps still swinging.
+    ''' </summary>
+    Private Function throttle_for_turn(bearing As Single, room As Single) As Single
+        Const SIM_TOP As Single = 12.0F                  ' m/s at full throttle
+        Dim swing = Math.Abs(wrap_pi(bearing))
+        Dim base_ = throttle_for(room)
+        If swing < 0.05F Then Return base_
+
+        Dim secs = swing / SIM_TURN_RATE
+        Dim wouldCover = SIM_TOP * secs
+        If wouldCover <= room Then Return base_
+        Return Math.Max(CREEP, base_ * (room / wouldCover))
     End Function
 
     ''' <summary>Throttle from room. Full when there is room, easing off as the
@@ -619,6 +773,27 @@ Public Class GraphBrain
     End Function
 
     ' ---- coercion ---------------------------------------------------------
+
+    ''' <summary>A value in one short string, for the node to wear. Units
+    ''' where there are any - a bare number on a board of fifty-nine nodes is
+    ''' a number you have to go and look up.</summary>
+    Private Function shown(v As Object) As String
+        If v Is Nothing Then Return "-"
+        If TypeOf v Is Boolean Then Return If(CBool(v), "yes", "no")
+        If TypeOf v Is Single Then Return CSng(v).ToString("0.0")
+        If TypeOf v Is BrainRadar.Way Then
+            Dim w = CType(v, BrainRadar.Way)
+            Return String.Format("{0:0.0} m @ {1:0}", w.chord,
+                                 MathHelper.RadiansToDegrees(w.bearing))
+        End If
+        If TypeOf v Is List(Of BrainRadar.Way) Then
+            Return CType(v, List(Of BrainRadar.Way)).Count.ToString() & " ways"
+        End If
+        If TypeOf v Is BrainRadar.Hit() Then
+            Return CType(v, BrainRadar.Hit()).Length.ToString() & " rays"
+        End If
+        Return "?"
+    End Function
 
     Private Function as_num(v As Object, fallback As Single) As Single
         If v Is Nothing Then Return fallback

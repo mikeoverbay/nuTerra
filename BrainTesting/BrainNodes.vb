@@ -98,6 +98,7 @@ Module BrainNodes
     Private Const ACTED_EDGE As UInteger = &HFF3CDCFFUI    ' and this is what it did
     Private Const ANS_YES As UInteger = &HFF40E040UI
     Private Const ANS_NO As UInteger = &HFF4040FFUI        ' ABGR, so red
+    Private Const VAL_TXT As UInteger = &HFF9FE0FFUI       ' the live value
     Private Const HOVER As UInteger = &HFFBFD9EBUI         ' pale, one step under selected
     Private Const PIN_OK As UInteger = &HFF40E040UI        ' will take this wire
     Private Const PIN_NO As UInteger = &HFF4040FFUI        ' will not - ABGR, so red
@@ -155,6 +156,8 @@ Module BrainNodes
         New Kind("sense", "Gaps", {"hits"}, {"ways"}),
         New Kind("test", "Arrived", {"range"}, {"yes"}),
         New Kind("test", "Is Wedged", {}, {"yes"}),
+        New Kind("test", "Not Moving", {}, {"yes"}),
+        New Kind("test", "Backed Enough", {}, {"yes"}),
         New Kind("test", "No Goal", {}, {"yes"}),
         New Kind("test", "Too Few Rays", {"hits"}, {"yes"}),
         New Kind("test", "Has Way", {"way"}, {"yes"}),
@@ -173,6 +176,8 @@ Module BrainNodes
         New Kind("pick", "Door Gap", {"ways"}, {"way"}),
         New Kind("pick", "Deeper Side", {"hits"}, {"bearing"}),
         New Kind("pick", "Vote", {"way"}, {"way"}),
+        New Kind("pick", "Commit", {"way"}, {"way"}),
+        New Kind("pick", "Way Bearing", {"way"}, {"bearing"}),
         New Kind("act", "Stop", {"in"}, {}),
         New Kind("act", "New Goal", {"in"}, {}),
         New Kind("act", "Rescan", {"in"}, {}),
@@ -445,6 +450,12 @@ Module BrainNodes
     Public ReadOnly Tested As New Dictionary(Of Integer, Boolean)
 
     ''' <summary>The act that ended the tick, or -1.</summary>
+    ''' <summary>What each node produced this tick, as text. Tests answer
+    ''' yes or no and that is in Tested; this is the numbers - metres,
+    ''' degrees, how many ways - so a step can be READ rather than
+    ''' inferred from what happened next.</summary>
+    Public ReadOnly Vals As New Dictionary(Of Integer, String)
+
     Public ActedNode As Integer = -1
 
     Private lastPath As String = ""
@@ -452,6 +463,7 @@ Module BrainNodes
     Public Sub TraceBegin()
         Fired.Clear()
         Tested.Clear()
+        Vals.Clear()
         ActedNode = -1
     End Sub
 
@@ -461,6 +473,10 @@ Module BrainNodes
 
     Public Sub TraceTest(id As Integer, answer As Boolean)
         Tested(id) = answer
+    End Sub
+
+    Public Sub TraceValue(id As Integer, text As String)
+        Vals(id) = text
     End Sub
 
     Public Sub TraceAct(id As Integer)
@@ -481,7 +497,7 @@ Module BrainNodes
         Next
         Dim a = find(ActedNode)
         b.Append(" -> ")
-        b.Append(If(a Is Nothing, "nothing", a.kind.name))
+        b.Append(If(a Is Nothing, "nothing", a.kind.name + "#" + a.id.ToString()))
         Return b.ToString()
     End Function
 
@@ -613,7 +629,24 @@ Module BrainNodes
         join_pins(scan, "hits", pDeep, "hits")
         join_pins(gaps, "ways", pWide, "ways")
         join_pins(gaps, "ways", pDoorG, "ways")
-        join_pins(pWide, "way", pVote, "way")
+        ' VOTE SITS BETWEEN THE PICK AND THE COMMIT. On Widest it fed
+        ' nothing; here it is the damper that stops the board changing its
+        ' mind every tick between going through a gap and reversing away
+        ' from it.
+        ' BEST PROGRESS, not widest. Reach times the cosine of how far the
+        ' opening is off the goal bearing: metres actually gained toward
+        ' where we are going. Widest picks the biggest hole even when it
+        ' leads away, which is how a tank ends up touring the map.
+        join_pins(gaps, "ways", pProg, "ways")
+        join_pins(gaps, "ways", pWide, "ways")
+        join_pins(goal, "bearing", pProg, "bearing")
+        join_pins(pProg, "way", pVote, "way")
+        ' COMMIT HOLDS THE CHOICE. Vote says the way was there two ticks
+        ' running; Commit says we are going to it and keeps saying so until
+        ' the tank stops gaining ground. Everything downstream reads the
+        ' committed way, so a choice cannot be re-made every frame.
+        Dim pHold = spawn("Commit", 640.0F, 1400.0F)
+        join_pins(pVote, "way", pHold, "way")
         join_pins(goal, "bearing", tFit, "bearing")
         join_pins(body, "metres", tFit, "metres")
         join_pins(body, "metres", tRearB, "metres")
@@ -628,7 +661,25 @@ Module BrainNodes
         Dim p3 = spawn("Priority", 650.0F, 780.0F)
         Dim p4 = spawn("Priority", 650.0F, 1140.0F)
         join_pins(tick, "out", p1, "in")
-        join_pins(p1, "d", p2, "in")
+        ' ---- STUCK BEATS EVERYTHING BUT THE GUARDS --------------------
+        '
+        ' A tank that cannot move has one useful move, and every state's own
+        ' answer was to push harder in the direction that was already refused.
+        ' Rotation is never refused, so it goes here - above the states, below
+        ' the goal and the wedge.
+        Dim pStuck2 = spawn("Priority", 650.0F, 250.0F)
+        Dim tStuck2 = spawn("Not Moving", 430.0F, 190.0F)
+        Dim gStuck2 = spawn("Gate", 870.0F, 250.0F)
+        Dim aSpin2 = spawn("Turn To", 1090.0F, 250.0F)
+        join_pins(p1, "d", pStuck2, "in")
+        join_pins(pStuck2, "a", gStuck2, "in")
+        join_pins(tStuck2, "yes", gStuck2, "when")
+        join_pins(gStuck2, "out", aSpin2, "in")
+        ' Toward the most open direction there is - the deepest ray - because
+        ' when nothing fits, "furthest from anything" is the only honest
+        ' heading available.
+        join_pins(pDeep, "bearing", aSpin2, "bearing")
+        join_pins(pStuck2, "d", p2, "in")
         join_pins(p2, "d", p3, "in")
         join_pins(p3, "d", p4, "in")
 
@@ -688,7 +739,29 @@ Module BrainNodes
         join_pins(body, "metres", tRoom, "dist")
         join_pins(tRoom, "yes", gBackOut, "when")
         join_pins(gBackOut, "out", aSeek, "in")
-        join_pins(pBack, "b", aRev, "in")
+        ' SPIN BEFORE REVERSING. The sim turns the hull before it tests where
+        ' the hull wants to go, so rotation is the one command that is never
+        ' refused - and a hull pushing into geometry at zero speed has nothing
+        ' else that works. Reversing straight back is about zero steer, so it
+        ' pushed and pushed and never came free.
+        Dim tStuck = spawn("Not Moving", 1090.0F, 400.0F)
+        Dim gStuck = spawn("Gate", 1310.0F, 620.0F)
+        Dim aSpin = spawn("Turn To", 1530.0F, 620.0F)
+        ' AND A WAY OUT ON THE CLOCK. The clearance exit above can be waited
+        ' on forever in a pocket - this one cannot. Whatever else is true,
+        ' after long enough backing we stop backing and look again.
+        Dim tBacked = spawn("Backed Enough", 1090.0F, 470.0F)
+        Dim gBacked = spawn("Gate", 1310.0F, 470.0F)
+        Dim aSeek2 = spawn("Set Seek", 1530.0F, 470.0F)
+        join_pins(pBack, "b", gBacked, "in")
+        join_pins(tBacked, "yes", gBacked, "when")
+        join_pins(gBacked, "out", aSeek2, "in")
+
+        join_pins(pBack, "c", gStuck, "in")
+        join_pins(tStuck, "yes", gStuck, "when")
+        join_pins(gStuck, "out", aSpin, "in")
+        join_pins(pDeep, "bearing", aSpin, "bearing")
+        join_pins(pBack, "d", aRev, "in")
         join_pins(rear, "bearing", aRev, "bearing")
 
         Dim gTurn = spawn("Gate", 870.0F, 710.0F)
@@ -711,39 +784,136 @@ Module BrainNodes
         join_pins(corr, "side", aWall, "side")
 
         ' ---- the fresh decision ----------------------------------------------
+        ' ---- RULE ONE: A PLANK TOUCH STOPS US AND STARTS THE SCAN --------
+        '
+        ' "plank is the trigger to start scanning[;] it needs stop if and until
+        '  after we have a clear step forward that clears the sides."
+        '
+        ' So: hold still, raise the scan, and swing toward the widest way the
+        ' hull actually FITS through - all at zero throttle. It keeps doing
+        ' that until the corridor comes clear, and the corridor IS "a step
+        ' forward that clears the sides": planks a hull wide plus one proud of
+        ' each fender. When they clear, this rule declines and the chain falls
+        ' through to driving.
         Dim gPlank = spawn("Gate", 870.0F, 1080.0F)
-        Dim aRescan2 = spawn("Rescan", 1090.0F, 1080.0F)
+        Dim sqPlank = spawn("Priority", 1090.0F, 1080.0F)
+        Dim aScan = spawn("Rescan", 1310.0F, 1020.0F)
+        Dim pTurn = spawn("Priority", 1310.0F, 1120.0F)
+        Dim gWay = spawn("Gate", 1530.0F, 1120.0F)
+        Dim tWay = spawn("Has Way", 1090.0F, 1260.0F)
+        Dim pWayB = spawn("Way Bearing", 1310.0F, 1300.0F)
+        Dim aGo = spawn("Drive Heading", 1750.0F, 1120.0F)
         join_pins(p3, "c", gPlank, "in")
         join_pins(tPlank, "yes", gPlank, "when")
-        join_pins(gPlank, "out", aRescan2, "in")
+        join_pins(gPlank, "out", sqPlank, "in")
+
+        ' Scanning is the SIDE EFFECT of noticing, so it sits in a Sequence
+        ' beside the decision rather than being one. It raises the flag and
+        ' claims nothing, which is why the turn below still gets to act.
+        ' SCANNING STOPS ONCE WE HAVE SOMEWHERE TO GO.
+        '
+        ' "plank needs to stop scanning if we are looking for a door or open
+        '  area left or right"
+        '
+        ' As a Sequence this scanned AND THEN looked for a way - every tick,
+        ' including all the way through a gap it had already committed to. A
+        ' scan is for finding a way out; once there is one there is nothing
+        ' left to look for, and the rays stayed up on the scope saying
+        ' otherwise.
+        '
+        ' A Priority says it properly: take the way if there is one, and only
+        ' scan when there is not.
+        join_pins(sqPlank, "a", pTurn, "in")
+        join_pins(sqPlank, "b", aScan, "in")
+
+        ' KEEP DRIVING, TURNING TOWARD THE GAP. Door Gap, not Widest: only a
+        ' way the hull FITS through is worth turning toward, and turning
+        ' toward one it does not fit is how it arrives wedged. The throttle is
+        ' left unwired on purpose - Drive Heading then eases it off the room
+        ' actually ahead instead of a number guessed here.
+        join_pins(pTurn, "a", gWay, "in")
+        ' Same pick here. When a plank touches, the opening worth swinging
+        ' toward is the one that still leads onward, not the roomiest one
+        ' off to the side.
+        join_pins(pHold, "way", tWay, "way")
+        join_pins(tWay, "yes", gWay, "when")
+        join_pins(pHold, "way", pWayB, "way")
+        join_pins(pWayB, "bearing", aGo, "bearing")
+        join_pins(gWay, "out", aGo, "in")
+
+        ' AND IF NOTHING FITS, DECLINE - do not Stop here.
+        '
+        ' Stopping claimed the tick, and a stopped tank never changes what it
+        ' can see, so no way ever appeared and it sat there for the rest of
+        ' the run. Declining hands the problem to the rear rules below, which
+        ' is where backing out of a dead end already lives. The owner's rule
+        ' is that we stop when we cannot turn - and reversing IS how you stop
+        ' being somewhere you cannot turn.
 
         Dim gFit = spawn("Gate", 870.0F, 1190.0F)
         Dim aDrive = spawn("Drive Heading", 1090.0F, 1190.0F)
         join_pins(p4, "a", gFit, "in")
         join_pins(tFit, "yes", gFit, "when")
         join_pins(gFit, "out", aDrive, "in")
-        join_pins(pDeep, "bearing", aDrive, "bearing")
+        ' THE BEARING IT TESTED. Will Clear asks about the GOAL direction,
+        ' so this has to drive the goal direction - it drove the deepest ray
+        ' instead, which is a different bearing, and the rule confirmed one
+        ' thing then did another.
+        join_pins(goal, "bearing", aDrive, "bearing")
 
         Dim gDoor2 = spawn("Gate", 870.0F, 1320.0F)
         Dim tHasDoor = spawn("Has Way", 650.0F, 1320.0F)
         Dim aDoor2 = spawn("Through Door", 1090.0F, 1320.0F)
         join_pins(p4, "b", gDoor2, "in")
-        join_pins(pDoorG, "way", tHasDoor, "way")
+        join_pins(pHold, "way", tHasDoor, "way")
         join_pins(tHasDoor, "yes", gDoor2, "when")
         join_pins(gDoor2, "out", aDoor2, "in")
-        join_pins(pDoorG, "way", aDoor2, "way")
+        join_pins(pHold, "way", aDoor2, "way")
+
+        ' ---- ANY GAP THAT FITS, EVEN A SIDEWAYS ONE --------------------
+        '
+        ' Best Progress above only offers ways that face forward and gain
+        ' ground. In a cluttered start nothing qualifies, and without this the
+        ' chain went from "no good gap" straight to "reverse" - past the gaps.
+        ' The out of a pocket is a gap; it just is not one pointing at the goal.
+        Dim pAnyW = spawn("Commit", 640.0F, 1520.0F)
+        Dim tAnyW = spawn("Has Way", 870.0F, 1520.0F)
+        Dim pAnyB = spawn("Way Bearing", 870.0F, 1620.0F)
+        Dim gAnyW = spawn("Gate", 1090.0F, 1520.0F)
+        Dim aAnyW = spawn("Through Door", 1310.0F, 1520.0F)
+        join_pins(pWide, "way", pAnyW, "way")
+        join_pins(pAnyW, "way", tAnyW, "way")
+        join_pins(pAnyW, "way", pAnyB, "way")
+        join_pins(pAnyW, "way", aAnyW, "way")
+        join_pins(tAnyW, "yes", gAnyW, "when")
+        join_pins(p4, "c", gAnyW, "in")
+        join_pins(gAnyW, "out", aAnyW, "in")
+
+        ' ---- and only then, backing out ---------------------------------
+        Dim p5 = spawn("Priority", 650.0F, 1700.0F)
+        join_pins(p4, "d", p5, "in")
 
         Dim gRear = spawn("Gate", 870.0F, 1440.0F)
         Dim aRev2 = spawn("Reverse", 1090.0F, 1440.0F)
-        join_pins(p4, "c", gRear, "in")
+        join_pins(p5, "a", gRear, "in")
         join_pins(tRearB, "yes", gRear, "when")
         join_pins(gRear, "out", aRev2, "in")
         join_pins(rear, "bearing", aRev2, "bearing")
 
-        ' Boxed in: the last else, with no test in front of it. Everything
-        ' above declined, so there is nothing left to ask.
-        Dim aRev3 = spawn("Reverse", 1090.0F, 1560.0F)
-        join_pins(p4, "d", aRev3, "in")
+        ' THE LAST ELSE: HEAD FOR THE GOAL.
+        '
+        ' This rung used to be Reverse, and it fired as a matter of routine -
+        ' drive, the plank clears, nothing qualifies, reverse, the plank
+        ' touches, drive: 1218 times in ten seconds. Reversing belongs to the
+        ' rules that have a reason for it, and since the stuck-turns rung sits
+        ' above the state machine, being unable to move is already answered
+        ' higher up.
+        '
+        ' So when everything else has declined, point at the goal and go. If
+        ' that meets something, the rules above are what handle it.
+        Dim aOnward = spawn("Drive Heading", 1090.0F, 1560.0F)
+        join_pins(p5, "d", aOnward, "in")
+        join_pins(goal, "bearing", aOnward, "bearing")
 
         Changed = False
         LogThis("brain: model built - {0} nodes, {1} wires", nodes.Count, links.Count)
@@ -1517,6 +1687,17 @@ Module BrainNodes
                 dl.AddCircleFilled(
                     New System.Numerics.Vector2(br.X - 9.0F * zoom, o.Y + HDR_H * 0.5F * zoom),
                     4.0F * zoom, If(ans, ANS_YES, ANS_NO), 10)
+            End If
+
+            ' WHAT IT PRODUCED, along the bottom edge. Only while the brain is
+            ' actually walking the board - a stale number left over from the
+            ' last run it drove would be worse than none.
+            Dim vtext As String = Nothing
+            If Vals.TryGetValue(n.id, vtext) AndAlso zoom > 0.6F Then
+                dl.AddText(font, fsz * 0.9F,
+                           New System.Numerics.Vector2(o.X + 8.0F * zoom,
+                                                       br.Y - 15.0F * zoom),
+                           VAL_TXT, vtext)
             End If
             dl.AddText(font, fsz,
                        New System.Numerics.Vector2(o.X + 8.0F * zoom, o.Y + 4.0F * zoom),
