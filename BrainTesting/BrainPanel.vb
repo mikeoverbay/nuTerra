@@ -321,8 +321,6 @@ Module BrainPanel
         If ImGui.Checkbox("Radar", show) Then BrainRadar.SHOW = show
         Dim scope = BrainScope.SHOW
         If ImGui.Checkbox("Scope", scope) Then BrainScope.SHOW = scope
-        Dim graph = BrainNodes.SHOW
-        If ImGui.Checkbox("Brain graph", graph) Then BrainNodes.SHOW = graph
         Dim chase = BrainRender.Cam.Chase
         If ImGui.Checkbox("Chase cam  (C)", chase) Then BrainRender.Cam.Chase = chase
         Dim trail = BrainRender.Cam.ChaseTrail

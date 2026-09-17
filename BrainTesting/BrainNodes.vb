@@ -193,6 +193,19 @@ Module BrainNodes
     End Sub
 
     Public Sub Draw(displayW As Single, displayH As Single)
+        ' ---- ITS OWN SWITCH ------------------------------------------------
+        '
+        ' G toggles the panel, handled HERE rather than in the window's key
+        ' block, so this file owns every part of itself: its state, its input,
+        ' its drawing. The only thing outside it is the single call that gets
+        ' it a frame - which cannot be avoided and is not a dependency worth
+        ' calling one.
+        '
+        ' Not while a text field has the keyboard, or typing a G into a node
+        ' name would close the editor it was being typed into.
+        If Not ImGui.GetIO().WantTextInput AndAlso ImGui.IsKeyPressed(ImGuiKey.G) Then
+            SHOW = Not SHOW
+        End If
         If Not SHOW Then Return
         If PanelH < MIN_H Then PanelH = MIN_H
         If PanelH > displayH - 120.0F Then PanelH = displayH - 120.0F
