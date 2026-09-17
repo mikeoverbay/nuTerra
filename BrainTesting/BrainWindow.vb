@@ -268,7 +268,7 @@ Public Class BrainWindow
                 If LEARN_ON_START Then
                     ' Straight into it. The goal came back with the
                     ' scenario, so there is nothing to place.
-                    BrainSim.Brain = New LearnBrain()
+                    BrainSim.Brain = New RangeBrain()
                     If Not BrainGoal.HasTarget Then
                         LogThis("brain: learning asked for but no goal in the " &
                                 "snapshot - press alt to place one")
@@ -553,8 +553,8 @@ Public Class BrainWindow
         ' the first thing in the way; this one tries a way round, scores it and
         ' remembers. SeekBrain stays in the tree as the baseline any of this
         ' has to beat.
-        If Not (TypeOf BrainSim.Brain Is LearnBrain) Then
-            BrainSim.Brain = New LearnBrain()
+        If Not (TypeOf BrainSim.Brain Is RangeBrain) Then
+            BrainSim.Brain = New RangeBrain()
         End If
         If Not BrainSim.Running Then BrainSim.Start()
     End Sub
