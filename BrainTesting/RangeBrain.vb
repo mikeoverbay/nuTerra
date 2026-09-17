@@ -222,6 +222,32 @@ Public Class RangeBrain
     Private Const NEXT_GOAL_M As Single = 300.0F
     Private goalsMade As Integer = 0
 
+    ' ---- the trap -------------------------------------------------------
+    '
+    ' "look for cases where all front rays hit something and we trying to turn
+    '  and move failed, we need to backup using rear scans. but first we are
+    '  going to mark that blk we are on as a 1 in the data so we don't drive
+    '  in to it again"
+    '
+    ' WHAT MAKES IT A TRAP AND NOT A WALL. A wall is every front ray finding
+    ' something; that happens constantly and the blocked branch answers it by
+    ' turning. A TRAP is every front ray finding something AND the turning
+    ' having already failed - the hull asked to move, the world refused, and
+    ' the scan offers nowhere better. Both halves are required, or every wall
+    ' on the map gets marked and the map fills up with things that were only
+    ' ever in the way.
+    '
+    ' MARKED ON THE WAY OUT, NOT ON THE WAY IN, and that is not tidiness. The
+    ' square the hull stands on is inside its own footprint, so setting the bit
+    ' while standing there makes Standable refuse every neighbouring
+    ' destination too - the mark would wall the tank into the trap it was meant
+    ' to escape. The cell is remembered, the reverse runs, and the bit is set
+    ' once the hull is clear of it.
+    Private trapCol As Integer = -1
+    Private trapRow As Integer = -1
+    Private trapAt As Vector2
+    Private traps As Integer = 0
+
     Private rearTrigs As Integer = 0
     Private rearLastDeg As Single = 0.0F
 
@@ -376,6 +402,24 @@ Public Class RangeBrain
             wedgedFor = 0.0F
         End If
         If wedgedFor > 0.8F AndAlso state <> St.Backing Then
+            ' IS THIS A TRAP? Every front ray finding something, on top of the
+            ' hull having just failed to move, is the case the owner named.
+            Dim allShut = True
+            For Each q In hits
+                If q.front AndAlso Not q.found Then
+                    allShut = False
+                    Exit For
+                End If
+            Next
+            If allShut AndAlso trapCol < 0 Then
+                trapCol = BrainNav.ColOf(h.pos.X)
+                trapRow = BrainNav.RowOf(h.pos.Y)
+                trapAt = h.pos
+                traps += 1
+                LogThis("brain: TRAP {0} - every front ray blocked and the hull will not " &
+                        "move. Square ({1},{2}) marked once we are clear of it.",
+                        traps, trapCol, trapRow)
+            End If
             LogThis("brain: WEDGED - throttle {0:0.00} but speed {1:0.00} for {2:0.0} s. " &
                     "Backing out.", lastThrottle, h.speed, wedgedFor)
             state = St.Backing
@@ -396,6 +440,7 @@ Public Class RangeBrain
             LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
                     "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
                     "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14} " &
+                    "traps {20} (marked {21}) " &
                     "| ai {15:0.00} ms (ground {16:0.00} ms, {17} new / {18} cached, " &
                     "{19} cells)",
                     state.ToString(), Why, lastThrottle, h.speed, range,
@@ -404,7 +449,8 @@ Public Class RangeBrain
                     probes, dblTaps, rearTrigs,
                     If(rearTrigs > 0, String.Format(" (last {0:0} deg)", rearLastDeg), ""),
                     doors, BrainSim.TickMs, BrainNav.GroundMs,
-                    BrainNav.GroundMisses, BrainNav.CellHeightHits, BrainNav.CellTests)
+                    BrainNav.GroundMisses, BrainNav.CellHeightHits, BrainNav.CellTests,
+                    traps, BrainNav.Learned)
         End If
 
         ' ---- what the scan says --------------------------------------------
@@ -442,6 +488,49 @@ Public Class RangeBrain
         If state = St.Backing Then
             backFor -= inp.dt
 
+            ' THE MARK, once the hull is out of its own footprint. Held until
+            ' here so the bit cannot wall the tank into the square it is
+            ' reversing out of.
+            If trapCol >= 0 AndAlso
+               (h.pos - trapAt).Length > h.DriveRadius + BrainNav.CellSize Then
+                If BrainNav.MarkBlocked(trapCol, trapRow) Then
+                    LogThis("brain: square ({0},{1}) marked blocked - {2:0.0} m clear of it " &
+                            "now, {3} learned this run. IN MEMORY ONLY, the .blk on disk is " &
+                            "nuTerra's and is not touched.",
+                            trapCol, trapRow, (h.pos - trapAt).Length, BrainNav.Learned)
+                Else
+                    LogThis("brain: square ({0},{1}) was already blocked - the hull was " &
+                            "wedged against something the map already knew about",
+                            trapCol, trapRow)
+                End If
+                trapCol = -1
+                trapRow = -1
+            End If
+
+            ' WHICH WAY BACK, BY THE REAR SCAN. "we need to backup using rear
+            ' scans" - so the reverse is steered rather than straight: take the
+            ' rear ray whose BODY distance is deepest and swing the tail toward
+            ' it. Every ray carries a drive distance since the scan folded the
+            ' body test in, so this is the room the hull has and not the room
+            ' the line has.
+            '
+            ' STEERING IS INVERTED IN REVERSE. A tank backing up swings its
+            ' TAIL opposite to the way the steer points, so aiming the tail at
+            ' a bearing means steering away from it. Backwards, the hull
+            ' reverses confidently into the nearest wall.
+            Dim bestRear As Single = 0.0F
+            Dim rearBear As Single = 0.0F
+            For Each q In rear
+                Dim reach = If(q.drive > 0.0F, q.drive, q.dist)
+                If reach > bestRear Then
+                    bestRear = reach
+                    rearBear = wrap_pi(q.angle - CSng(Math.PI))
+                End If
+            Next
+            If bestRear > 0.0F AndAlso Math.Abs(rearBear) > ALIGNED Then
+                o.steer(DRIVER) = Math.Clamp(-rearBear / FULL_LOCK, -1.0F, 1.0F)
+            End If
+
             ' THE SAME LOGIC GOING BACKWARDS. "if we cant back up using same
             ' logic as going forward."
             '
@@ -471,7 +560,8 @@ Public Class RangeBrain
                 ' buy enough room to turn in - three metres or so - not to
                 ' retreat half the map.
                 o.throttle(DRIVER) = -creep(behind)
-                Why = "backing - rear was better"
+                Why = String.Format("backing toward {0:0} deg off the tail ({1:0.0} m clear)",
+                                    MathHelper.RadiansToDegrees(rearBear), bestRear)
                 o.why(DRIVER) = Why
                 Return o
             End If

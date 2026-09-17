@@ -706,6 +706,37 @@ Module BrainNav
     Public CellHeightHits As Integer = 0
 
     ''' <summary>
+    ''' MARK A SQUARE BLOCKED BECAUSE THE HULL PROVED IT WAS.
+    '''
+    ''' "we are going to mark that blk we are on as a 1 in the data so we don't
+    '''  drive in to it again" - the owner.
+    '''
+    ''' IN MEMORY ONLY. "do not over write the .blk on disk. you do not create
+    ''' it. hands off" - and he is right twice: the file is nuTerra's output,
+    ''' and a brain editing the map it was given would be indistinguishable
+    ''' from a bake bug the next time anyone opened it. The bake stays the
+    ''' truth; this is what THIS RUN learned on top of it, and it dies with the
+    ''' process.
+    '''
+    ''' Returns False when the square was already blocked, so a caller can tell
+    ''' "I learned something" from "I re-learned something" - a trap that keeps
+    ''' being rediscovered is a different bug from a trap.
+    ''' </summary>
+    Public Function MarkBlocked(col As Integer, row As Integer) As Boolean
+        If Not Ready OrElse occ Is Nothing Then Return False
+        If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return False
+        Dim i = row * w + col
+        If (occ(i) And BLOCK_BIT) <> 0 Then Return False
+        occ(i) = occ(i) Or BLOCK_BIT
+        Learned += 1
+        Return True
+    End Function
+
+    ''' <summary>How many squares this run has marked that the bake did not.
+    ''' On screen so a number nobody can see cannot quietly grow.</summary>
+    Public Learned As Integer = 0
+
+    ''' <summary>
     ''' ONE CELL, ONE BIT, NO ARITHMETIC. What an integer line walk tests at
     ''' every step - a bounds check and a mask, nothing converted, nothing
     ''' divided, no terrain touched.
