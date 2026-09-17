@@ -76,6 +76,14 @@ Module Program
             ElseIf a.Equals("restore", StringComparison.OrdinalIgnoreCase) Then
                 RESTORE_ON_START = True
 
+            ElseIf a.Equals("graph", StringComparison.OrdinalIgnoreCase) Then
+                ' DRIVE FROM THE NODE BOARD. The checkbox does the same
+                ' thing, but a scorecard run has to be repeatable without
+                ' anybody remembering to tick it - and a run that was
+                ' supposed to be the graph and quietly was not is a
+                ' measurement of the wrong brain.
+                USE_GRAPH = True
+
             ElseIf a.Equals("sim", StringComparison.OrdinalIgnoreCase) Then
                 ' START THE SIM FROM THE COMMAND LINE. The owner's ask,
                 ' 2026-09-15: "It should be able to start the sim with a arg."

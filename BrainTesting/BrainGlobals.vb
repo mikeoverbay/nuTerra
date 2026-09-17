@@ -97,6 +97,16 @@ Module BrainGlobals
     ''' nothing left to press.</summary>
     Public LEARN_ON_START As Boolean = False
 
+    ''' <summary>
+    ''' Drive from the node board instead of RangeBrain.
+    '''
+    ''' OFF. The graph is drawn FROM RangeBrain, so the only way to know
+    ''' whether it drives as well as the thing it describes is to run both
+    ''' and compare scorecards - which needs the incumbent still there.
+    ''' </summary>
+    Public USE_GRAPH As Boolean = False
+
+
 
     ''' <summary>Heightmap edge in samples. nuTerra keeps this in MapLoader.vb,
     ''' a 112 KB file this app does not link; the value is the same 64 and the

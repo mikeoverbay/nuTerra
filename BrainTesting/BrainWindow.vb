@@ -281,7 +281,7 @@ Public Class BrainWindow
                 If LEARN_ON_START Then
                     ' Straight into it. The goal came back with the
                     ' scenario, so there is nothing to place.
-                    BrainSim.Brain = New RangeBrain()
+                    BrainSim.Brain = pick_brain()
                     If Not BrainGoal.HasTarget Then
                         LogThis("brain: learning asked for but no goal in the " &
                                 "snapshot - press alt to place one")
@@ -601,12 +601,20 @@ Public Class BrainWindow
                 MathHelper.RadiansToDegrees(b.headingRad), s.verdict)
     End Sub
 
+    ''' <summary>Whichever brain is switched on. One place, so the two
+    ''' call sites cannot drift apart and leave the checkbox lying about
+    ''' which one is driving.</summary>
+    Private Function pick_brain() As IBrain
+        If USE_GRAPH Then Return New GraphBrain()
+        Return New RangeBrain()
+    End Function
+
     Private Sub go_here()
         BrainGoal.PlaceAtLookAt()
         ' THE BRAIN. There is one now - RangeBrain - and this is where a goal
         ' placed by hand puts it to work.
         If Not (TypeOf BrainSim.Brain Is RangeBrain) Then
-            BrainSim.Brain = New RangeBrain()
+            BrainSim.Brain = pick_brain()
         End If
         If Not BrainSim.Running Then BrainSim.Start()
     End Sub

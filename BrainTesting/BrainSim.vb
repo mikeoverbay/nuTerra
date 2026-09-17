@@ -20,6 +20,23 @@ Module BrainSim
 
     ''' <summary>The installed brain. NullBrain until something replaces it.
     ''' Public so Tank AI's code can set it without touching this file.</summary>
+    Private drivingName As String = ""
+
+    ''' <summary>
+    ''' WHO IS DRIVING, said once each time it changes.
+    '''
+    ''' A run's log has to name the brain that produced it. Two scorecards
+    ''' that do not say which brain they came from are not a comparison,
+    ''' they are two numbers - and the switch is a checkbox, so getting it
+    ''' wrong leaves no trace anywhere else.
+    ''' </summary>
+    Public Sub NoteDriver()
+        Dim n = If(Brain Is Nothing, "none", Brain.Name)
+        If n = drivingName Then Return
+        drivingName = n
+        LogThis("brain: driving with the {0} brain", n)
+    End Sub
+
     Public Brain As IBrain = New NullBrain()
 
     Public Running As Boolean = False
@@ -110,7 +127,8 @@ Module BrainSim
         Dim outp As BrainOutput
         Try
             think.Restart()
-            outp = Brain.Tick(inp)
+            NoteDriver()
+        outp = Brain.Tick(inp)
             think.Stop()
             Dim ms = think.Elapsed.TotalMilliseconds
             TickMs = If(TickMs = 0.0, ms, TickMs * 0.9 + ms * 0.1)

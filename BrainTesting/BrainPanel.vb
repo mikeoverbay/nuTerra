@@ -323,6 +323,17 @@ Module BrainPanel
         If ImGui.Checkbox("Scope", scope) Then BrainScope.SHOW = scope
         Dim graph = BrainNodes.SHOW
         If ImGui.Checkbox("Brain graph  (G)", graph) Then BrainNodes.SHOW = graph
+        ' WHICH BRAIN IS DRIVING. Swapped live rather than on restart, so
+        ' the same goal and the same spot can be handed to both - two runs
+        ' from different places do not compare.
+        Dim ong = USE_GRAPH
+        If ImGui.Checkbox("Drive from the board", ong) Then
+            USE_GRAPH = ong
+            BrainSim.Brain = If(USE_GRAPH, CType(New GraphBrain(), IBrain),
+                                           CType(New RangeBrain(), IBrain))
+        End If
+        ImGui.TextDisabled("  " & BrainSim.Brain.Name)
+
         Dim chase = BrainRender.Cam.Chase
         If ImGui.Checkbox("Chase cam  (C)", chase) Then BrainRender.Cam.Chase = chase
         Dim trail = BrainRender.Cam.ChaseTrail
