@@ -27,8 +27,24 @@ Module BrainScope
 
     Public SHOW As Boolean = True
 
+    ''' <summary>
+    ''' A SQUARE PLOT WITH THE HULL IN THE MIDDLE OF IT.
+    '''
+    ''' It used to sit the hull 72% of the way down and scale to 66% of the
+    ''' height, because the scan was two arcs and the front one was worth four
+    ''' times the pixels of the rear. A full 360 sweep has no favoured
+    ''' direction: anything off-centre crops the side the tank happens to be
+    ''' turning toward, and a non-square plot means a metre left is a different
+    ''' number of pixels from a metre ahead - which makes a round wall look
+    ''' oval and a corner look like a curve.
+    '''
+    ''' So: square, centred, and the scale set from the half-width so the full
+    ''' REACH_M radius lands just inside the frame in every direction.
+    ''' </summary>
     Private Const W As Single = 300.0F
-    Private Const H As Single = 330.0F
+    Private Const PLOT As Single = W - 20.0F
+    Private Const TEXT_H As Single = 78.0F
+    Private Const H As Single = PLOT + TEXT_H
     Private Const MARGIN As Single = 12.0F
 
     ''' <summary>
@@ -73,16 +89,21 @@ Module BrainScope
         Dim s = BrainRadar.FitSurface(hits)
 
         Dim p0 = ImGui.GetCursorScreenPos()
-        Dim plotW = W - 20.0F
-        Dim plotH = H - 76.0F
+        Dim plotW = PLOT
+        Dim plotH = PLOT
         Dim dl = ImGui.GetWindowDrawList()
 
-        ' HULL AT THE BOTTOM, NOSE UP. A scope that put the tank in the middle
-        ' would waste half its pixels on the rear arc, which is 15 rays that
-        ' matter far less than the 15 in front.
+        ' HULL IN THE MIDDLE, NOSE UP. This said the opposite until the sweep
+        ' went to 360 - that centring it "would waste half its pixels on the
+        ' rear arc, which is 15 rays that matter far less than the 15 in
+        ' front". True of two arcs and false of a circle: there are 60 rays
+        ' behind now, they are what the reverse is steered by, and there is no
+        ' longer a direction worth cropping.
         Dim cx = p0.X + plotW * 0.5F
-        Dim cy = p0.Y + plotH * 0.72F
-        Dim scale = (plotH * 0.66F) / BrainRadar.REACH_M
+        Dim cy = p0.Y + plotH * 0.5F
+        ' Six pixels of margin so a return at exactly REACH_M draws inside the
+        ' border rather than on it.
+        Dim scale = (plotW * 0.5F - 6.0F) / BrainRadar.REACH_M
 
         ' Range rings every 5 m, so a distance can be read off rather than
         ' guessed.
