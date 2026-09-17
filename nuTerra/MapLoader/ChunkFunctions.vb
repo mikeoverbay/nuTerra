@@ -1682,6 +1682,41 @@ Module ChunkFunctions
         Lx += 0.01
         Lz += 0.01
 
+        ' ---- THE CHUNK BY ARITHMETIC, BEFORE SEARCHING FOR IT --------------
+        '
+        ' The board is a regular 100 m grid, so which chunk holds a point is a
+        ' division, not a hunt. Below, it was hunted: a double loop over the
+        ' whole board on EVERY call, and a second complete double loop after
+        ' exit1 whenever the X matched and the Z did not. Measured from the
+        ' tank brain at about 7.6 microseconds a call, which is most of what a
+        ' height lookup cost.
+        '
+        ' The index maths is get_Y_at_XZ_fast's, verbatim, because that
+        ' function already worked it out and two versions of one rule drift.
+        '
+        ' AND IT IS VERIFIED, NOT TRUSTED. The chunk it lands on has to satisfy
+        ' the same bracket the search below tests for - so this cannot import a
+        ' bug from the fast path or disagree with the old answer: either it
+        ' finds the chunk the search would have found, or it falls through and
+        ' the search runs exactly as before. Nothing else in this function is
+        ' touched.
+        Dim qcx = CInt(Math.Ceiling(Lx / 100.0)) - 1
+        Dim qcy = CInt(Math.Ceiling(Lz / 100.0))
+        Dim qbx = qcx + (MAP_BOARD_SIZE \ 2)
+        Dim qby = qcy + (MAP_BOARD_SIZE \ 2)
+        If qbx >= 0 AndAlso qby >= 0 AndAlso
+           qbx < MAP_BOARD_SIZE AndAlso qby < MAP_BOARD_SIZE AndAlso
+           mapBoard(qbx, qby).occupied Then
+            Dim qpx = mapBoard(qbx, qby).location.X
+            Dim qpz = mapBoard(qbx, qby).location.Y
+            If qpx - 50 < Lx AndAlso qpx + 50 >= Lx AndAlso
+               qpz - 50 < Lz AndAlso qpz + 50 >= Lz Then
+                xvp = qbx
+                yvp = qby
+                GoTo exit2
+            End If
+        End If
+
         For xo = 0 To MAP_BOARD_SIZE - 1
             For yo = 0 To MAP_BOARD_SIZE - 1
                 If mapBoard(xo, yo).occupied Then
