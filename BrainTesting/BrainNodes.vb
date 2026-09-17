@@ -44,6 +44,7 @@ Module BrainNodes
     Private Const NODE_BG As UInteger = &HFF2A3340UI
     Private Const NODE_HDR As UInteger = &HFF3B4A5CUI
     Private Const NODE_SEL As UInteger = &HFF3CDCFFUI      ' yellow, as on the scope
+    Private Const HOVER As UInteger = &HFFBFD9EBUI         ' pale, one step under selected
     Private Const EDGE As UInteger = &HFF55708AUI
     Private Const WIRE As UInteger = &HFF9AD8FFUI
     Private Const WIRE_HOT As UInteger = &HFF3CDCFFUI
@@ -126,6 +127,26 @@ Module BrainNodes
     Private dragging As Integer = -1
     Private scroll As System.Numerics.Vector2 = New System.Numerics.Vector2(0.0F, 0.0F)
 
+    ''' <summary>
+    ''' BOARD ZOOM. Node positions and sizes are stored in BOARD coordinates
+    ''' and multiplied by this on the way to the screen, so zooming never
+    ''' touches the graph itself - a saved layout is the same layout whatever
+    ''' it was last looked at.
+    '''
+    ''' Clamped rather than unbounded: past about 3x a node is bigger than the
+    ''' panel and past a quarter its title is unreadable, so both ends are
+    ''' places you can only get lost.
+    ''' </summary>
+    Private zoom As Single = 1.0F
+    Private Const ZOOM_MIN As Single = 0.3F
+    Private Const ZOOM_MAX As Single = 3.0F
+
+    ''' <summary>Which node the pointer is over, for the hover outline. Read
+    ''' from ImGui's own hit test rather than compared against rectangles, so
+    ''' the pins stacked on top of a node take precedence exactly as they do
+    ''' for clicks.</summary>
+    Private hovered As Integer = -1
+
     ' a wire being pulled: which node/pin it started from, and whether from an output
     Private wireNode As Integer = -1
     Private wirePin As Integer = -1
@@ -134,8 +155,16 @@ Module BrainNodes
     ''' <summary>Where a pin sits on screen, given the node's screen origin.</summary>
     Private Function pin_pos(n As Node, origin As System.Numerics.Vector2,
                              idx As Integer, isIn As Boolean) As System.Numerics.Vector2
-        Dim y = origin.Y + HDR_H + ROW * idx + ROW * 0.5F
-        Return New System.Numerics.Vector2(If(isIn, origin.X, origin.X + n.w), y)
+        Dim y = origin.Y + (HDR_H + ROW * idx + ROW * 0.5F) * zoom
+        Return New System.Numerics.Vector2(If(isIn, origin.X, origin.X + n.w * zoom), y)
+    End Function
+
+    ''' <summary>Board coordinates to screen. One place, so a node, its pins
+    ''' and its wires cannot end up on three different transforms.</summary>
+    Private Function to_screen(p0 As System.Numerics.Vector2,
+                               b As System.Numerics.Vector2) As System.Numerics.Vector2
+        Return New System.Numerics.Vector2(p0.X + scroll.X + b.X * zoom,
+                                           p0.Y + scroll.Y + b.Y * zoom)
     End Function
 
     Private Function find(id As Integer) As Node
@@ -229,8 +258,12 @@ Module BrainNodes
                 ' Dropped near the top-left of the canvas, offset by how many
                 ' are already there so a run of clicks does not stack them all
                 ' in one spot.
-                Add(k, New System.Numerics.Vector2(40.0F + (nodes.Count Mod 6) * 24.0F,
-                                                   30.0F + (nodes.Count Mod 6) * 20.0F))
+                ' In BOARD coordinates, allowing for where the board has been
+                ' scrolled and zoomed to - otherwise a node added while panned
+                ' away is created somewhere off screen.
+                Add(k, New System.Numerics.Vector2(
+                    (-scroll.X + 40.0F + (nodes.Count Mod 6) * 24.0F) / zoom,
+                    (-scroll.Y + 30.0F + (nodes.Count Mod 6) * 20.0F) / zoom))
             End If
         Next
         ImGui.Separator()
@@ -256,8 +289,10 @@ Module BrainNodes
         dl.AddRectFilled(p0, New System.Numerics.Vector2(p0.X + size.X, p0.Y + size.Y), BG)
         dl.AddRect(p0, New System.Numerics.Vector2(p0.X + size.X, p0.Y + size.Y), EDGE)
 
-        ' A grid, so dragging has something to read position against.
-        Dim step_px = 32.0F
+        ' A grid, so dragging has something to read position against. It
+        ' scales with the board, which is what makes a zoom read as moving
+        ' closer rather than as the nodes changing size.
+        Dim step_px = 32.0F * zoom
         Dim gx = (scroll.X Mod step_px)
         While gx < size.X
             dl.AddLine(New System.Numerics.Vector2(p0.X + gx, p0.Y),
@@ -271,22 +306,25 @@ Module BrainNodes
             gy += step_px
         End While
 
-        ' PAN with the right button held on empty canvas.
-        ImGui.SetCursorScreenPos(p0)
-        ImGui.InvisibleButton("##pan", size, ImGuiButtonFlags.MouseButtonRight)
-        If ImGui.IsItemActive() Then
-            scroll.X += io.MouseDelta.X
-            scroll.Y += io.MouseDelta.Y
+        ' ZOOM ABOUT THE POINTER, not about the corner. The board point under
+        ' the cursor is worked out BEFORE the zoom changes and scroll is then
+        ' set so that same point lands back under the cursor after it - which
+        ' is why the thing being looked at stays put instead of sliding away.
+        If ImGui.IsWindowHovered() AndAlso Math.Abs(io.MouseWheel) > 0.001F Then
+            Dim before = New System.Numerics.Vector2(
+                (io.MousePos.X - p0.X - scroll.X) / zoom,
+                (io.MousePos.Y - p0.Y - scroll.Y) / zoom)
+            zoom = Math.Clamp(zoom * (1.0F + io.MouseWheel * 0.12F), ZOOM_MIN, ZOOM_MAX)
+            scroll.X = io.MousePos.X - p0.X - before.X * zoom
+            scroll.Y = io.MousePos.Y - p0.Y - before.Y * zoom
         End If
 
         ' ---- the wires, under the nodes ------------------------------------
         For Each l In links
             Dim a = find(l.fromNode), b = find(l.toNode)
             If a Is Nothing OrElse b Is Nothing Then Continue For
-            Dim ao = New System.Numerics.Vector2(p0.X + scroll.X + a.pos.X,
-                                                 p0.Y + scroll.Y + a.pos.Y)
-            Dim bo = New System.Numerics.Vector2(p0.X + scroll.X + b.pos.X,
-                                                 p0.Y + scroll.Y + b.pos.Y)
+            Dim ao = to_screen(p0, a.pos)
+            Dim bo = to_screen(p0, b.pos)
             Dim pa = pin_pos(a, ao, l.fromPin, False)
             Dim pb = pin_pos(b, bo, l.toPin, True)
             bez(dl, pa, pb, WIRE)
@@ -296,8 +334,7 @@ Module BrainNodes
         If wireNode >= 0 Then
             Dim a = find(wireNode)
             If a IsNot Nothing Then
-                Dim ao = New System.Numerics.Vector2(p0.X + scroll.X + a.pos.X,
-                                                     p0.Y + scroll.Y + a.pos.Y)
+                Dim ao = to_screen(p0, a.pos)
                 Dim pa = pin_pos(a, ao, wirePin, Not wireFromOut)
                 bez(dl, pa, io.MousePos, WIRE_HOT)
             End If
@@ -307,44 +344,108 @@ Module BrainNodes
         End If
 
         ' ---- the nodes ------------------------------------------------------
+        Dim font = ImGui.GetFont()
+        Dim fsz = ImGui.GetFontSize() * zoom
+        hovered = -1
         For Each n In nodes
-            Dim o = New System.Numerics.Vector2(p0.X + scroll.X + n.pos.X,
-                                                p0.Y + scroll.Y + n.pos.Y)
-            Dim br = New System.Numerics.Vector2(o.X + n.w, o.Y + n.h)
+            Dim o = to_screen(p0, n.pos)
+            Dim br = New System.Numerics.Vector2(o.X + n.w * zoom, o.Y + n.h * zoom)
 
-            dl.AddRectFilled(o, br, NODE_BG, 4.0F)
-            dl.AddRectFilled(o, New System.Numerics.Vector2(br.X, o.Y + HDR_H), NODE_HDR, 4.0F)
-            dl.AddRect(o, br, If(selected = n.id, NODE_SEL, EDGE), 4.0F, 0,
-                       If(selected = n.id, 2.0F, 1.0F))
-            dl.AddText(New System.Numerics.Vector2(o.X + 8.0F, o.Y + 4.0F), TXT, n.kind.name)
-
-            ' drag by the header
+            ' THE WHOLE BODY IS THE HANDLE, not just the header. Submitted
+            ' BEFORE the pins so a pin on top of it still wins a click - the
+            ' same last-submitted-wins rule the pan button relies on.
             ImGui.SetCursorScreenPos(o)
             ImGui.InvisibleButton("##n" & n.id.ToString(),
-                                  New System.Numerics.Vector2(n.w, HDR_H))
+                                  New System.Numerics.Vector2(n.w * zoom, n.h * zoom))
+            Dim hot = ImGui.IsItemHovered()
+            If hot Then hovered = n.id
             If ImGui.IsItemActive() Then
                 selected = n.id
                 dragging = n.id
-                n.pos = New System.Numerics.Vector2(n.pos.X + io.MouseDelta.X,
-                                                    n.pos.Y + io.MouseDelta.Y)
+                ' Divided by the zoom: the pointer moves in SCREEN pixels and
+                ' the node lives in board ones, so without this a node zoomed
+                ' out to a third drags three times as far as the cursor.
+                n.pos = New System.Numerics.Vector2(n.pos.X + io.MouseDelta.X / zoom,
+                                                    n.pos.Y + io.MouseDelta.Y / zoom)
+                o = to_screen(p0, n.pos)
+                br = New System.Numerics.Vector2(o.X + n.w * zoom, o.Y + n.h * zoom)
             End If
+
+            dl.AddRectFilled(o, br, NODE_BG, 4.0F * zoom)
+            dl.AddRectFilled(o, New System.Numerics.Vector2(br.X, o.Y + HDR_H * zoom),
+                             NODE_HDR, 4.0F * zoom)
+
+            ' Selected outlines yellow and thick; merely HOVERED gets a paler
+            ' lift, so "this is the one that will move" reads before the button
+            ' goes down rather than after.
+            Dim edgeCol = EDGE
+            Dim edgeW = 1.0F
+            If selected = n.id Then
+                edgeCol = NODE_SEL
+                edgeW = 2.0F
+            ElseIf hot Then
+                edgeCol = HOVER
+                edgeW = 2.0F
+            End If
+            dl.AddRect(o, br, edgeCol, 4.0F * zoom, 0, edgeW)
+            dl.AddText(font, fsz,
+                       New System.Numerics.Vector2(o.X + 8.0F * zoom, o.Y + 4.0F * zoom),
+                       TXT, n.kind.name)
 
             For i = 0 To n.kind.ins.Length - 1
                 Dim pp = pin_pos(n, o, i, True)
-                dl.AddCircleFilled(pp, PIN_R, PIN_IN, 10)
-                dl.AddText(New System.Numerics.Vector2(pp.X + 9.0F, pp.Y - 7.0F),
+                dl.AddCircleFilled(pp, PIN_R * zoom, PIN_IN, 10)
+                dl.AddText(font, fsz,
+                           New System.Numerics.Vector2(pp.X + 9.0F * zoom,
+                                                       pp.Y - fsz * 0.5F),
                            TXT, n.kind.ins(i))
                 pin_button(n, i, True, pp)
             Next
             For i = 0 To n.kind.outs.Length - 1
                 Dim pp = pin_pos(n, o, i, False)
-                dl.AddCircleFilled(pp, PIN_R, PIN_OUT, 10)
-                Dim tw = ImGui.CalcTextSize(n.kind.outs(i)).X
-                dl.AddText(New System.Numerics.Vector2(pp.X - 9.0F - tw, pp.Y - 7.0F),
+                dl.AddCircleFilled(pp, PIN_R * zoom, PIN_OUT, 10)
+                Dim tw = ImGui.CalcTextSize(n.kind.outs(i)).X * zoom
+                dl.AddText(font, fsz,
+                           New System.Numerics.Vector2(pp.X - 9.0F * zoom - tw,
+                                                       pp.Y - fsz * 0.5F),
                            TXT, n.kind.outs(i))
                 pin_button(n, i, False, pp)
             Next
         Next
+
+        ' ---- PAN THE BOARD, LAST AND ONLY IF NOTHING ELSE WANTED IT ---------
+        '
+        ' The first version submitted this FIRST, covering the whole canvas, on
+        ' the theory that ImGui resolves overlapping items in favour of the last
+        ' one submitted. It does not reliably: the pan button took the press and
+        ' held ActiveId for the whole gesture, so the board moved and nodes
+        ' never budged.
+        '
+        ' So it is not a race any more. Nodes and pins are submitted above; if
+        ' any of them is hovered, being dragged, or pulling a wire, the pan
+        ' button is NOT SUBMITTED AT ALL and cannot take anything. A button that
+        ' does not exist cannot win.
+        If hovered < 0 AndAlso dragging < 0 AndAlso wireNode < 0 Then
+            ImGui.SetCursorScreenPos(p0)
+            ImGui.InvisibleButton("##pan", size,
+                                  ImGuiButtonFlags.MouseButtonLeft Or
+                                  ImGuiButtonFlags.MouseButtonRight)
+            If ImGui.IsItemActive() Then
+                scroll.X += io.MouseDelta.X
+                scroll.Y += io.MouseDelta.Y
+                ' A drag that began on empty board is a pan, not a selection.
+                If ImGui.IsMouseDragging(ImGuiMouseButton.Left, 3.0F) Then selected = -1
+            End If
+
+            ' DOUBLE CLICK ON EMPTY BOARD FRAMES EVERYTHING. It can live inside
+            ' this block with no test of its own: the block only exists when
+            ' nothing is hovered, dragged or being wired, so "on the pan button"
+            ' already MEANS "on empty board".
+            If ImGui.IsItemHovered() AndAlso
+               ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left) Then
+                fit_all(size)
+            End If
+        End If
 
         If Not ImGui.IsMouseDown(ImGuiMouseButton.Left) Then dragging = -1
 
@@ -356,16 +457,67 @@ Module BrainNodes
         ImGui.EndChild()
     End Sub
 
+    ''' <summary>
+    ''' FRAME EVERY NODE IN THE CANVAS.
+    '''
+    ''' The bounding box is taken in BOARD coordinates - n.pos with n.w and n.h,
+    ''' all of which are unscaled - and mapped onto the canvas rectangle, which
+    ''' is in screen pixels. Mixing those two is the obvious way to get this
+    ''' wrong, and the symptom would be a fit that is correct at zoom 1 and
+    ''' wrong at every other zoom, which is the sort of thing that reads as
+    ''' "sometimes it works".
+    '''
+    ''' The centring falls out of the transform rather than being fiddled: a
+    ''' board point b lands at scroll + b*zoom, so putting the box's centre at
+    ''' the canvas centre is scroll = size/2 - centre*zoom.
+    '''
+    ''' An empty board resets rather than dividing by a bounding box that does
+    ''' not exist.
+    ''' </summary>
+    Private Sub fit_all(size As System.Numerics.Vector2)
+        If nodes.Count = 0 Then
+            zoom = 1.0F
+            scroll = New System.Numerics.Vector2(0.0F, 0.0F)
+            Return
+        End If
+
+        Dim minX = Single.MaxValue, minY = Single.MaxValue
+        Dim maxX = Single.MinValue, maxY = Single.MinValue
+        For Each n In nodes
+            minX = Math.Min(minX, n.pos.X)
+            minY = Math.Min(minY, n.pos.Y)
+            maxX = Math.Max(maxX, n.pos.X + n.w)
+            maxY = Math.Max(maxY, n.pos.Y + n.h)
+        Next
+
+        ' Room for the pin labels, which hang OUTSIDE the node rectangle on
+        ' both sides and would otherwise be cropped by a fit that framed the
+        ' bodies exactly.
+        Const PAD As Single = 60.0F
+        Dim bw = Math.Max(1.0F, maxX - minX)
+        Dim bh = Math.Max(1.0F, maxY - minY)
+        Dim fitX = (size.X - PAD * 2.0F) / bw
+        Dim fitY = (size.Y - PAD * 2.0F) / bh
+        zoom = Math.Clamp(Math.Min(fitX, fitY), ZOOM_MIN, ZOOM_MAX)
+
+        Dim cx = (minX + maxX) * 0.5F
+        Dim cy = (minY + maxY) * 0.5F
+        scroll.X = size.X * 0.5F - cx * zoom
+        scroll.Y = size.Y * 0.5F - cy * zoom
+    End Sub
+
     ''' <summary>A pin is a small button so ImGui owns the hit test; drawing it
     ''' and testing it separately is how a pin ends up catching clicks a few
     ''' pixels from where it appears.</summary>
     Private Sub pin_button(n As Node, idx As Integer, isIn As Boolean,
                            at As System.Numerics.Vector2)
-        ImGui.SetCursorScreenPos(New System.Numerics.Vector2(at.X - PIN_R - 2.0F,
-                                                             at.Y - PIN_R - 2.0F))
+        ' The hit area never shrinks below something a pointer can hit, however
+        ' far the board is zoomed out - a pin you cannot click is worse than a
+        ' pin drawn slightly larger than it looks.
+        Dim grab = Math.Max(PIN_R * zoom + 2.0F, 6.0F)
+        ImGui.SetCursorScreenPos(New System.Numerics.Vector2(at.X - grab, at.Y - grab))
         ImGui.InvisibleButton("##p" & n.id.ToString() & If(isIn, "i", "o") & idx.ToString(),
-                              New System.Numerics.Vector2(PIN_R * 2.0F + 4.0F,
-                                                          PIN_R * 2.0F + 4.0F))
+                              New System.Numerics.Vector2(grab * 2.0F, grab * 2.0F))
         If ImGui.IsItemActive() AndAlso wireNode < 0 Then
             wireNode = n.id
             wirePin = idx
