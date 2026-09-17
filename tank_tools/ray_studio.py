@@ -213,13 +213,26 @@ BLK_VERSION = 2
 # floor of what it represents. 254 is a real 63.5 m and 255 is not a height at
 # all.
 #
-# Decoded as 64.0 with a companion mask rather than as infinity: 64.0 is the
+# Decoded as 63.75 with a companion mask, rather than as infinity: it is the
 # true lower bound and therefore a true statement, it survives the arithmetic
 # the flight planner does on this field (radar_commit.py:420), and the mask is
 # how a caller knows the number is a floor and not a reading.
+#
+# 63.75 AND NOT 64.0, and the difference is the whole point of writing a bound
+# down. This said 64.0 first, on my reasoning that 255 x 0.25 = 63.75 was the
+# last real step so the sentinel must start at the next one. The nuTerra lane
+# checked the writer at the edges instead of reasoning about it and found it
+# saturated on the ROUNDED step - 63.625 gave 254 and 63.626 gave 255 - so 255
+# actually meant "over 63.625" and my 64.0 overstated the floor by 0.375 m.
+# They then made the writer saturate on the metres (57e2bb25), so 63.75 is now
+# exactly true.
+#
+# Nothing was ever unsafe: overstating an obstacle only makes a camera more
+# careful. But a bound that cannot be stated exactly is one somebody reasons
+# from wrongly later, which is precisely what I had just done.
 BLK_OBST_STEP_M = 0.25
 BLK_OBST_TALL = 255
-BLK_OBST_TALL_M = 64.0
+BLK_OBST_TALL_M = 63.75
 
 BLK_BLOCK = 0x01
 BLK_KIND_SHIFT = 1
@@ -328,8 +341,9 @@ def blk_describe(b):
                100.0 * ((m & BLK_OUTLAND) != 0).mean(),
                float(b["height"].min()), float(b["height"].max()),
                "no obstacle layer" if ob is None
-               else "obstacle 0..%.1f m, %d cell(s) at the 64 m ceiling"
-               % (float(ob.max()), int(b["obstacle_tall"].sum()))))
+               else "obstacle 0..%.2f m, %d cell(s) at the %.2f m ceiling"
+               % (float(ob.max()), int(b["obstacle_tall"].sum()),
+                  BLK_OBST_TALL_M)))
 
 
 def roads_cache_path(map_name):
