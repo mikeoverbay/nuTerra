@@ -572,37 +572,47 @@ Module BrainNav
     ''' cache pointless. That crosses into the bake's file format, so it is a
     ''' conversation with the nuTerra lane rather than an edit here.
     ''' </summary>
-    Private ReadOnly gcache As New Dictionary(Of Long, Single)
-
     ''' <summary>Called once a tick. Ground is only stable WITHIN a tick -
     ''' nothing moves the terrain, but keeping the table forever would grow it
     ''' without bound over a long run.</summary>
+    ''' <summary>What the last tick spent where. A tick cost is one number and
+    ''' says nothing about which half to attack; these two say it.</summary>
+    Public GroundMisses As Integer = 0
+    Public GroundHits As Integer = 0
+    Public CellTests As Integer = 0
+    Public GroundMs As Double = 0.0
+    Private ReadOnly gclock As New Stopwatch()
+
     Public Sub NewTick()
-        If gcache.Count > 0 Then gcache.Clear()
+        GroundMisses = 0
+        GroundHits = 0
+        CellTests = 0
+        GroundMs = 0.0
     End Sub
 
     Public Function Ground(x As Single, z As Single) As Single
         If map_scene Is Nothing OrElse Not map_scene.TERRAIN_LOADED Then Return 0.0F
-        ' THE EXACT POINT, not a quantised one. A quarter-metre grid was tried
-        ' first and it is quietly wrong: the slope test works by DIFFERENCING
-        ' two ground samples, so rounding their positions puts an error of up
-        ' to a quarter metre of terrain into a gradient compared against 0.7.
-        ' A cache is allowed to be faster; it is not allowed to answer a
-        ' different question. Keyed on the bits, it only ever collapses samples
-        ' that genuinely coincide - and they do, constantly: with the trace
-        ' striding STEP_M and the slope test sampling at plus and minus
-        ' TRACE_R, the forward sample of one step IS the centre of the next.
-        Dim key = (CLng(BitConverter.SingleToInt32Bits(x)) << 32) Or
-                  (CLng(BitConverter.SingleToInt32Bits(z)) And &HFFFFFFFFL)
-        Dim hit As Single
-        If gcache.TryGetValue(key, hit) Then Return hit
+        ' NO CACHE HERE ANY MORE, and the counters are why. A memo was added
+        ' when the ray walk sampled this 5,600 times a tick, and it halved the
+        ' brain. Then the walk went to integers and stopped asking the terrain
+        ' anything at all - and the heartbeat read "480 miss / 0 hit", every
+        ' tick, for the rest of the run. The only callers left are the drive
+        ' walk and will_clear, which sample at radius-spaced points along a
+        ' ray; those never land on each other, so the table never answered a
+        ' single question and charged a key and an insert for asking.
+        '
+        ' A cache that fixes a hot path is worth keeping until the hot path is
+        ' fixed properly. Then it is just cost.
         Dim y As Single
+        GroundMisses += 1
+        gclock.Restart()
         Try
             y = get_Y_at_XZ(x, z)
         Catch
             y = 0.0F
         End Try
-        gcache(key) = y
+        gclock.Stop()
+        GroundMs += gclock.Elapsed.TotalMilliseconds
         Return y
     End Function
 
@@ -640,6 +650,7 @@ Module BrainNav
     ''' walk - see Hit.drive. Fast shape, careful driving.
     ''' </summary>
     Public Function BlockedCell(col As Integer, row As Integer) As Boolean
+        CellTests += 1
         If Not Ready Then Return False
         If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return True
         Return (occ(row * w + col) And BLOCK_BIT) <> 0
