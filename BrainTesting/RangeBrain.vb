@@ -396,7 +396,7 @@ Public Class RangeBrain
             LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
                     "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
                     "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14} " &
-                    "| ai {15:0.00} ms (ground {16:0.00} ms, {17} miss / {18} hit, " &
+                    "| ai {15:0.00} ms (ground {16:0.00} ms, {17} new / {18} cached, " &
                     "{19} cells)",
                     state.ToString(), Why, lastThrottle, h.speed, range,
                     surf.verdict, surf.valid, surf.oneSurface, surf.turns,
@@ -404,7 +404,7 @@ Public Class RangeBrain
                     probes, dblTaps, rearTrigs,
                     If(rearTrigs > 0, String.Format(" (last {0:0} deg)", rearLastDeg), ""),
                     doors, BrainSim.TickMs, BrainNav.GroundMs,
-                    BrainNav.GroundMisses, BrainNav.GroundHits, BrainNav.CellTests)
+                    BrainNav.GroundMisses, BrainNav.CellHeightHits, BrainNav.CellTests)
         End If
 
         ' ---- what the scan says --------------------------------------------

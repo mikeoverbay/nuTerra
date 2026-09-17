@@ -297,6 +297,20 @@ Module BrainRadar
             Dim err = dc - dr
             Dim guard = dc + dr + 2        ' cannot outlast the cells it covers
 
+            ' ---- THE BODY'S CORRIDOR, IN CELLS ------------------------------
+            '
+            ' The ray is one cell wide and the tank is not. The perpendicular
+            ' is worked out ONCE, here, and the same integer offsets are reused
+            ' at every square - so checking the hull's whole width costs a
+            ' handful of array reads a step rather than a Standable call with
+            ' its four floor-divisions and five terrain queries.
+            Dim halfCells = 0
+            If bodyR > 0.0F Then halfCells = CInt(Math.Ceiling(bodyR / BrainNav.CellSize))
+            Dim pxq = -dz, pzq = dx          ' unit perpendicular, world
+            Dim driveOpen = (bodyR > 0.0F)
+            Dim driveD2 = 0
+            Dim yPrev = BrainNav.CellHeight(c0, r0)
+
             While guard > 0
                 guard -= 1
                 If (cc <> c0 OrElse rr <> r0) AndAlso BrainNav.BlockedCell(cc, rr) Then
@@ -309,6 +323,53 @@ Module BrainRadar
                     h.found = True
                     Exit While
                 End If
+
+                ' ---- WHAT THE SQUARE IS LIKE TO DRIVE ON --------------------
+                '
+                ' One height per square we land on, and the angle to the square
+                ' before it. The walk moves ONE AXIS a step, so consecutive
+                ' squares are always exactly one cell apart - the gradient is a
+                ' subtraction over a constant, with no divide and no second
+                ' sample. That constant spacing is a property of the walk, not
+                ' an assumption about it.
+                '
+                ' This is what the low spot defeated. A bowl gentle over half a
+                ' metre and steep across the hull read as twenty clear metres,
+                ' the tank drove in, and then the body-radius test failed in
+                ' every direction at once. Checked per square against the same
+                ' MAX_SLOPE the sim uses, the rim is seen from outside it.
+                If driveOpen AndAlso (cc <> c0 OrElse rr <> r0) Then
+                    Dim yHere = BrainNav.CellHeight(cc, rr)
+                    If Math.Abs(yHere - yPrev) / BrainNav.CellSize > BrainNav.MAX_SLOPE Then
+                        driveOpen = False
+                    Else
+                        ' The hull's width, either side, same two tests.
+                        For q = 1 To halfCells
+                            Dim ox = CInt(Math.Round(pxq * q)), oz = CInt(Math.Round(pzq * q))
+                            If BrainNav.BlockedCell(cc + ox, rr - oz) OrElse
+                               BrainNav.BlockedCell(cc - ox, rr + oz) Then
+                                driveOpen = False
+                                Exit For
+                            End If
+                            ' ACROSS the hull as well as along it: a side slope
+                            ' steep enough to shed a tank does not show up in
+                            ' the gradient along its own line of travel.
+                            If Math.Abs(BrainNav.CellHeight(cc + ox, rr - oz) - yHere) /
+                               (q * BrainNav.CellSize) > BrainNav.MAX_SLOPE OrElse
+                               Math.Abs(BrainNav.CellHeight(cc - ox, rr + oz) - yHere) /
+                               (q * BrainNav.CellSize) > BrainNav.MAX_SLOPE Then
+                                driveOpen = False
+                                Exit For
+                            End If
+                        Next
+                    End If
+                    If driveOpen Then
+                        Dim ac = cc - c0, ar = rr - r0
+                        driveD2 = ac * ac + ar * ar
+                    End If
+                    yPrev = yHere
+                End If
+
                 If cc = c1 AndAlso rr = r1 Then Exit While
                 Dim e2 = err * 2
                 If e2 > -dr AndAlso cc <> c1 Then
@@ -321,30 +382,16 @@ Module BrainRadar
                     Exit While
                 End If
             End While
-            ' THE DRIVE WALK - the same line asked at the BODY's radius.
-            '
-            ' FRONT ONLY, AND COARSELY. At STEP_M over the full arc this cost
-            ' 79 ms a tick. The stride is the radius itself: the test is an
-            ' axis-aligned box of that half size, so boxes a radius apart still
-            ' overlap and the corridor stays covered - a finer stride re-asks
-            ' about ground the last box already contained. The rear arc does
-            ' not get one because nothing drives forward along it; St.Backing
-            ' measures its own room behind.
-            h.drive = h.dist
-            If bodyR > 0.0F AndAlso h.front Then
-                Dim stride = Math.Max(STEP_M, bodyR)
-                Dim limit = Math.Min(h.dist, DRIVE_REACH_M)
-                Dim u = stride
-                h.drive = 0.0F
-                While u <= limit
-                    If Not BrainNav.Standable(pos.X + dx * u, pos.Y + dz * u, bodyR) Then
-                        Exit While
-                    End If
-                    h.drive = u
-                    u += stride
-                End While
-                If h.drive >= limit Then h.drive = h.dist
-            End If
+            ' ONE SCAN. The drive distance came out of the walk above rather
+            ' than from a second pass - there used to be one, striding the hull
+            ' radius and calling Standable, and it was 70% of the brain's whole
+            ' cost because each of those calls took five terrain queries. The
+            ' walk already visits every square in order; asking it what it
+            ' landed on while it is standing there is free by comparison.
+            h.drive = Math.Min(h.dist,
+                CSng(Math.Sqrt(CDbl(driveD2))) * BrainNav.CellSize)
+            If Not driveOpen AndAlso driveD2 = 0 Then h.drive = 0.0F
+            If bodyR <= 0.0F Then h.drive = h.dist
 
             h.at = New Vector2(pos.X + dx * h.dist, pos.Y + dz * h.dist)
             ' The walk already knows which cell it stopped in - re-deriving it

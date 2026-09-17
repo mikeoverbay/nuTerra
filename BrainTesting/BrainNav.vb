@@ -586,6 +586,7 @@ Module BrainNav
     Public Sub NewTick()
         GroundMisses = 0
         GroundHits = 0
+        CellHeightHits = 0
         CellTests = 0
         GroundMs = 0.0
     End Sub
@@ -634,6 +635,57 @@ Module BrainNav
         If FromBake Then Return CInt(Math.Floor((z_top - z) / cell))
         Return CInt(Math.Floor((z - z0) / cell))
     End Function
+
+    ''' <summary>
+    ''' THE GROUND HEIGHT OF A CELL, SAMPLED ONCE AND KEPT FOREVER.
+    '''
+    ''' "I wanna use one scan and get the height from each square we land on
+    '''  and check terrain angle" - the owner.
+    '''
+    ''' TERRAIN DOES NOT MOVE. The per-tick memo that used to sit on Ground was
+    ''' thrown away every tick because it cached arbitrary world points and
+    ''' there was no telling which would be asked for again. A CELL is a fixed
+    ''' place with a fixed answer, so the sample is good for the whole run -
+    ''' the first ray to walk a square pays get_Y_at_XZ once and every ray and
+    ''' every tick after it reads an array.
+    '''
+    ''' This is the flight bake's height plane, built lazily over exactly the
+    ''' ground the tank drives on, without waiting for the bake to write one.
+    ''' Two million cells at four bytes is 7.8 MB if the whole map is ever
+    ''' visited, and a run visits a corridor.
+    '''
+    ''' NaN IS "NOT ASKED YET", which is the one job NaN is genuinely good at:
+    ''' no second array, no sentinel height a real map might legitimately have,
+    ''' and IsNaN is the only comparison that ever sees it.
+    ''' </summary>
+    Private hcell() As Single = Nothing
+
+    Public Function CellHeight(col As Integer, row As Integer) As Single
+        If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return 0.0F
+        If hcell Is Nothing OrElse hcell.Length <> w * h Then
+            ReDim hcell(w * h - 1)
+            For i = 0 To hcell.Length - 1
+                hcell(i) = Single.NaN
+            Next
+        End If
+        Dim idx = row * w + col
+        Dim y = hcell(idx)
+        If Single.IsNaN(y) Then
+            Dim cell = If(FromBake, sq_cell, CELL_M)
+            Dim wx = x0 + (col + 0.5F) * cell
+            Dim wz = If(FromBake, z_top - (row + 0.5F) * cell, z0 + (row + 0.5F) * cell)
+            y = Ground(wx, wz)
+            hcell(idx) = y
+        Else
+            CellHeightHits += 1
+        End If
+        Return y
+    End Function
+
+    ''' <summary>How often the height plane answered without touching the
+    ''' scene. Next to GroundMisses on the heartbeat, this is what says whether
+    ''' the plane has warmed up.</summary>
+    Public CellHeightHits As Integer = 0
 
     ''' <summary>
     ''' ONE CELL, ONE BIT, NO ARITHMETIC. What an integer line walk tests at
