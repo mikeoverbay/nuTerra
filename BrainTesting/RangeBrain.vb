@@ -74,18 +74,13 @@ Public Class RangeBrain
     ''' <summary>A turn is given this long to pan out before it is judged.</summary>
     Private Const TEST_S As Single = 1.2F
 
-    ''' <summary>
-    ''' HOW MUCH FURTHER TO TURN AWAY WHEN THE BODY WILL NOT CLEAR.
+    ''' <summary>Give up widening after this many rays past the heading the
+    ''' probe liked - about 51 degrees at the scan's 8.6 spacing. Past that it
+    ''' is not a tight gap, it is the wrong way round.
     '''
-    ''' One ray of the scan. Smaller would ask the sweep to resolve detail the
-    ''' scan does not have - between two rays there is no measurement at all,
-    ''' so a 2-degree step is six tries at the same reading.
-    ''' </summary>
-    Private Shared ReadOnly WIDEN_STEP As Single = MathHelper.DegreesToRadians(9.0F)
-
-    ''' <summary>Give up widening after this many steps - 54 degrees past the
-    ''' heading the probe liked. Past that it is not a tight gap, it is the
-    ''' wrong way round.</summary>
+    ''' A fixed-degree step used to live here too. It is gone: the widen walks
+    ''' the scan's own bearings now, so the step size IS the ray spacing and
+    ''' there is nothing left to choose.</summary>
     Private Const WIDEN_MAX As Integer = 6
 
     ''' <summary>Reverse for this long once the rear wins.</summary>
@@ -132,6 +127,35 @@ Public Class RangeBrain
     ' tonight were silent because the paths that stop do not log - and a
     ' hull standing still looks the same whatever it is thinking.
     Private beat As Single = 0.0F
+
+    ' ---- THE RECORD -----------------------------------------------------
+    '
+    ' "i think the rear ray may have stopped us. run as is but record if the
+    '  rear ray was a trigger" / "we dbl tapped a probe again then"
+    '
+    ' INSTRUMENTATION ONLY. Nothing below changes what the brain does - two
+    ' suspicions were raised about WHY it stopped, and neither can be settled
+    ' by watching it. A hull standing still looks identical whichever of them
+    ' is true.
+    '
+    ' THE REAR IS ONLY EVER ONE DECISION: rearBest > ahead + BETTER_M sends it
+    ' to Backing. Worth watching now because the sweep went to 120 degrees and
+    ' the REAR arc widened with it - there are rays 55 degrees off the tail
+    ' looking sideways, and one of those reading deep beats the nose and orders
+    ' a reversal that has nothing to do with what is behind. So the winning
+    ' ray's bearing is recorded, not just that the rear won: an outer one is
+    ' the bug, a middle one is a real answer.
+    Private rearTrigs As Integer = 0
+    Private rearLastDeg As Single = 0.0F
+
+    ' A PROBE THAT DID NOT MOVE FIRST. Entering Turning twice from the same
+    ' spot means the first probe taught it nothing - it looked, settled, and
+    ' came straight back to look again. That is a loop, not progress, and it
+    ' reads on screen as a tank jiggling in place.
+    Private probes As Integer = 0
+    Private dblTaps As Integer = 0
+    Private probeFrom As Vector2
+    Private probedOnce As Boolean = False
 
     ''' <summary>
     ''' HOW LONG THE WORLD HAS BEEN REFUSING TO MOVE US.
@@ -282,10 +306,13 @@ Public Class RangeBrain
         If beat >= 1.0F Then
             beat = 0.0F
             LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
-                    "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg)",
+                    "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
+                    "| probes {10} (dbl {11}) rear-trig {12}{13}",
                     state.ToString(), Why, lastThrottle, h.speed, range,
                     surf.verdict, surf.valid, surf.oneSurface, surf.turns,
-                    MathHelper.RadiansToDegrees(surf.normalRad))
+                    MathHelper.RadiansToDegrees(surf.normalRad),
+                    probes, dblTaps, rearTrigs,
+                    If(rearTrigs > 0, String.Format(" (last {0:0} deg)", rearLastDeg), ""))
         End If
 
         ' ---- what the scan says --------------------------------------------
@@ -345,6 +372,7 @@ Public Class RangeBrain
             holdAt = 0.0F
             lostFor = 0.0F
             state = St.Turning
+            note_probe(h.pos, "after backing")
             Why = String.Format("backed up - turning to {0:0} deg ({1:0.0} m deep)",
                                 MathHelper.RadiansToDegrees(deep.angle), deep.dist)
             LogThis("brain: {0}", Why)
@@ -422,19 +450,38 @@ Public Class RangeBrain
                     ' apply to it - Standable at the fit radius, stepped along
                     ' the way it would drive - and if it fails, turn further
                     ' AWAY, the same way it already turned, a ray at a time.
+                    ' TURN BY ANGLES WE CAN GRAB. "look at a way to find where
+                    ' we are in relation to the points and turn by angles we
+                    ' can grab" - the owner.
+                    '
+                    ' The widen used to step a flat nine degrees, which is a
+                    ' bearing NOTHING WAS MEASURED ALONG: between two rays
+                    ' there is no reading at all, so it was asking will_clear
+                    ' about a direction the scan had never looked. Walk the
+                    ' scan's own bearings outward instead - nearest first, away
+                    ' from the goal - and every heading it commits to is one it
+                    ' has a return for.
                     Dim awaySign = If(followLeft, -1.0F, 1.0F)
+                    Dim cands As New List(Of Single)
+                    For Each q In front
+                        Dim cand = wrap_pi(h.headingRad + q.angle)
+                        If wrap_pi(cand - settled) * awaySign > 0.0F Then cands.Add(cand)
+                    Next
+                    cands.Sort(Function(u, v) (wrap_pi(u - settled) * awaySign).
+                                              CompareTo(wrap_pi(v - settled) * awaySign))
+
                     Dim widened = 0
-                    Do While widened < WIDEN_MAX AndAlso
+                    Do While widened < WIDEN_MAX AndAlso widened < cands.Count AndAlso
                              Not will_clear(h.pos, settled, h.FitRadius, need)
+                        settled = cands(widened)
                         widened += 1
-                        settled = wrap_pi(settled + awaySign * WIDEN_STEP)
                     Loop
 
                     If widened > 0 Then
                         If will_clear(h.pos, settled, h.FitRadius, need) Then
-                            LogThis("brain: body would not clear - turned {0:0} deg " &
-                                    "further {1} until it does",
-                                    MathHelper.RadiansToDegrees(WIDEN_STEP * widened),
+                            LogThis("brain: body would not clear - grabbed the ray {0:0} deg " &
+                                    "further {1}, which does",
+                                    MathHelper.RadiansToDegrees(Math.Abs(wrap_pi(settled - wantHeading))),
                                     If(followLeft, "left", "right"))
                         Else
                             ' NOWHERE IN 54 DEGREES. The probe was right that
@@ -444,8 +491,8 @@ Public Class RangeBrain
                             ' the other side or the rear.
                             Why = "rays opened but the body will not fit"
                             state = St.Seek
-                            LogThis("brain: {0} - {1} deg of widening and still blocked",
-                                    Why, WIDEN_MAX * 9)
+                            LogThis("brain: {0} - {1} ray(s) of widening and still blocked",
+                                    Why, widened)
                             o.throttle(DRIVER) = 0.0F
                             o.why(DRIVER) = Why
                             lastThrottle = 0.0F
@@ -489,7 +536,21 @@ Public Class RangeBrain
         ' to the GOAL is actually open - which is a question the scan can
         ' answer: how far is the ray pointing nearest the goal.
         If state = St.Follow Then
-            If ahead <= BLOCK_M Then
+            ' HOW FAR THE BODY CAN GO, not how far the ray can see.
+            '
+            ' The record caught this: "[Follow] along wall, 6.0 m (want 11.5)
+            ' | thr 1.00 speed 12.0" and then "WEDGED - throttle 1.00 but speed
+            ' 0.00". Full throttle, the front rays reading over 15 m clear, and
+            ' the hull could not move at all.
+            '
+            ' Follow was the one state with no body check left in it. It drove
+            ' on creep(ahead), and `ahead` is a RAY distance measured at
+            ' TRACE_R - a thin probe - while BrainSim will only step the hull
+            ' where Standable clears at its FIT radius. Running alongside a
+            ' wall is exactly where those two disagree: the rays point down the
+            ' gap and the corner of the hull is already in it.
+            Dim bodyAhead = body_ahead(h.pos, h.headingRad, h.FitRadius, ahead)
+            If bodyAhead <= BLOCK_M Then
                 ' Something new in front. Decide again from this scan.
                 state = St.Seek
             Else
@@ -531,7 +592,9 @@ Public Class RangeBrain
                     End If
 
                     o.steer(DRIVER) = steer2
-                    o.throttle(DRIVER) = creep(ahead)
+                    ' Braked on what the BODY has, so it crawls into a
+                    ' narrowing gap instead of arriving at it at 12 m/s.
+                    o.throttle(DRIVER) = creep(bodyAhead)
                     o.why(DRIVER) = Why
                     lastThrottle = o.throttle(DRIVER)
                     Return o
@@ -576,6 +639,7 @@ Public Class RangeBrain
                             votes = 0
                             peeks = 0
                             state = St.Turning
+                            note_probe(h.pos, "early turn")
                             Why = String.Format("early turn {0} at {1:0.0} m ({2:0} deg, {3:0.0} m deep)",
                                                 If(voteLeft, "left", "right"), ahead,
                                                 MathHelper.RadiansToDegrees(deepest.angle),
@@ -710,6 +774,7 @@ Public Class RangeBrain
             lostFor = 0.0F
             peeks = 0
             state = St.Turning
+            note_probe(h.pos, "blocked")
             If Not squareOn Then
                 Why = If(byWall, "along the wall ", "trying ") &
                       If(goLeft, "left", "right") &
@@ -727,15 +792,24 @@ Public Class RangeBrain
 
         ' ---- the front is shut. IS THE REAR BETTER? --------------------------
         Dim rearBest = 0.0F
+        Dim rearWin As Single = 0.0F        ' the winning ray's bearing off the TAIL
         For Each q In rear
-            If q.dist > rearBest Then rearBest = q.dist
+            If q.dist > rearBest Then
+                rearBest = q.dist
+                ' Rear bearings come back near +/-PI; off-the-tail is what a
+                ' person can read, and what says whether it is a sideways ray.
+                rearWin = wrap_pi(q.angle - CSng(Math.PI))
+            End If
         Next
         If rearBest > ahead + BETTER_M Then
             state = St.Backing
             backFor = BACK_S
+            rearTrigs += 1
+            rearLastDeg = MathHelper.RadiansToDegrees(rearWin)
             Why = String.Format("rear is better ({0:0.0} m vs {1:0.0})", rearBest, ahead)
-            LogThis("brain: wall across the scanner - {0}, reversing rather than turning round",
-                    Why)
+            LogThis("brain: REAR TRIGGER {0} - {1}, winning ray {2:0} deg off the tail. " &
+                    "Reversing rather than turning round.",
+                    rearTrigs, Why, rearLastDeg)
             o.throttle(DRIVER) = -0.6F
             o.why(DRIVER) = Why
             lastThrottle = o.throttle(DRIVER)
@@ -761,6 +835,46 @@ Public Class RangeBrain
         lastThrottle = o.throttle(DRIVER)
         Return o
     End Function
+
+    ''' <summary>
+    ''' HOW FAR THE HULL ITSELF CAN GO THIS WAY, up to what the rays saw.
+    '''
+    ''' will_clear answers yes or no over a fixed distance; this answers HOW
+    ''' FAR, which is what a throttle needs. Same rule either way - Standable
+    ''' at the fit radius, the rule BrainSim will apply to every step.
+    ''' </summary>
+    Private Shared Function body_ahead(pos As Vector2, headingRad As Single,
+                                       fitR As Single, limit As Single) As Single
+        Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
+        Dim t = 1.0F
+        While t <= limit
+            If Not BrainNav.Standable(pos.X + dx * t, pos.Y + dz * t, fitR) Then
+                Return t - 1.0F
+            End If
+            t += 1.0F
+        End While
+        Return limit
+    End Function
+
+    ''' <summary>
+    ''' RECORD A PROBE, AND WHETHER IT IS THE SECOND FROM THE SAME SPOT.
+    '''
+    ''' Called at every entry into Turning. A metre is the threshold because a
+    ''' probe is taken at zero throttle - if the hull has not moved a metre
+    ''' since the last one, it is asking the same question from the same place
+    ''' and will get the same answer.
+    ''' </summary>
+    Private Sub note_probe(pos As Vector2, what As String)
+        probes += 1
+        If probedOnce AndAlso (pos - probeFrom).Length < 1.0F Then
+            dblTaps += 1
+            LogThis("brain: DOUBLE TAP - probe {0} ({1}) is {2:0.0} m from probe {3}. " &
+                    "Nothing was driven in between.",
+                    probes, what, (pos - probeFrom).Length, probes - 1)
+        End If
+        probeFrom = pos
+        probedOnce = True
+    End Sub
 
     ''' <summary>How far the scan sees in the direction of the goal - the ray
     ''' whose bearing is nearest to it. This is what says whether giving up the

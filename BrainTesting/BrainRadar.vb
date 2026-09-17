@@ -69,9 +69,29 @@ Module BrainRadar
     ''' </summary>
     Public Const COARSE_RAYS As Integer = 9
 
-    ' NINE DEGREES APART, one sweep. 20 rays, 10 an arc, 90 / 10 = 9.
-    ' It went 8.6, then 6, then 3, then a two-stage 9-and-60, and each
-    ' step made it harder to reason about. This is the simple one.
+    ' A HUNDRED AND TWENTY DEGREES, 8.6 APART. 28 rays, 14 an arc,
+    ' 120 / 14 = 8.57.
+    '
+    ' The arc went back out to 120 on the owner's call - "lets try 120 deg
+    ' sweep" - because a 90 degree sweep cannot SEE the way round something
+    ' it is nose-on to. The way round is at 50 or 60 degrees off, which is
+    ' exactly the ground the old arc stopped at, so the brain was choosing
+    ' the best of the headings it had rather than the best there was.
+    '
+    ' THE RAY COUNT WENT WITH IT. 20 rays across 120 would be 12 degrees
+    ' apart - 4.2 m between returns at full reach, wide enough to hide a
+    ' gap a tank fits through. 28 keeps the spacing at 8.6 and the far-end
+    ' gap at 3.0 m. Eight more walks against a 0.4 ms tick is not a number
+    ' worth protecting.
+    '
+    ' WHAT NARROWING IT FIXED IS STILL FIXED, ELSEWHERE. The arc was cut to
+    ' 90 for a measured reason: a ray 60 degrees off the nose looks at
+    ' ground the hull drives PAST rather than toward, and it joined the
+    ' range sequence and put turning points into a test asking whether the
+    ' thing AHEAD was one surface. So the SCAN is 120 and the FIT is not -
+    ' see FIT_ARC_DEG. Widening the sweep and widening the fit are two
+    ' different changes and only one of them was ever wanted.
+    '
     ' CONST, NOT A VARIABLE, and that is a fix rather than tidying.
     '
     ' As plain module fields these read as ZERO on the first Scan of a run:
@@ -82,9 +102,24 @@ Module BrainRadar
     '
     ' Nothing assigns these at runtime, so there is no reason for them to be
     ' fields. A Const is compiled in and cannot be observed half-built.
-    Public Const RAYS As Integer = 20
-    Public Const ARC_DEG As Single = 90.0F
+    Public Const RAYS As Integer = 28
+    Public Const ARC_DEG As Single = 120.0F
     Public Const REACH_M As Single = 20.0F
+
+    ''' <summary>
+    ''' HOW MUCH OF THE SWEEP THE SURFACE FIT IS ALLOWED TO SEE.
+    '''
+    ''' The scan is 120 degrees so the brain can find a way round. The fit is
+    ''' 90 because that is what it was measured at: past 45 degrees off the
+    ''' nose a return is about ground the hull drives past, not ground it
+    ''' drives at, and feeding those to a test that asks "is the thing AHEAD
+    ''' one surface" is how the shape test started finding turning points in
+    ''' its own periphery.
+    '''
+    ''' A Const and not a ReadOnly field on purpose - see the note above on
+    ''' RAYS reading zero on the first Scan of a run.
+    ''' </summary>
+    Public Const FIT_ARC_DEG As Single = 90.0F
 
     ''' <summary>Which hull wears it. One tank, as asked.</summary>
     Public HULL As Integer = 0
@@ -434,9 +469,16 @@ Module BrainRadar
         If hits Is Nothing Then Return s
 
         ' Front arc, hits only. A ray that found nothing has no 1/r.
+        '
+        ' AND ONLY THE INNER FIT_ARC_DEG OF IT. The sweep is wider than the
+        ' fit: the outer rays are there to find a way round, and they are the
+        ' ones that look at ground the hull drives past. Letting them into the
+        ' fit is what put turning points into the shape test.
+        Dim fitHalf = MathHelper.DegreesToRadians(FIT_ARC_DEG * 0.5F)
         Dim idx As New List(Of Integer)
         For i = 0 To hits.Length - 1
-            If hits(i).front AndAlso hits(i).found AndAlso hits(i).dist > 0.5F Then idx.Add(i)
+            If hits(i).front AndAlso hits(i).found AndAlso hits(i).dist > 0.5F AndAlso
+               Math.Abs(hits(i).angle) <= fitHalf Then idx.Add(i)
         Next
         s.used = idx.Count
         If idx.Count < 4 Then
