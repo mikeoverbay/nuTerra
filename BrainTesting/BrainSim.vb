@@ -46,7 +46,24 @@ Module BrainSim
     ''' vehicle model. When the driving needs real physics it belongs in the
     ''' tank lane, not here.</summary>
     Private Const TOP_SPEED As Single = 12.0F      ' m/s
-    Private Const TURN_RATE As Single = 0.9F       ' rad/s at full steer
+
+    ''' <summary>
+    ''' HOW FAST A HULL SWINGS AT FULL STEER. Halved from 0.9 on the owner's
+    ''' call - "it works but we need to not turn so sharp" - so 26 deg/s
+    ''' rather than 52.
+    '''
+    ''' It is the TURN RADIUS that changed, not just the look of it. Steer and
+    ''' throttle are independent here, so at 12 m/s the tightest circle the
+    ''' hull could cut went from 13 m to 27 m: the brain's turns now describe
+    ''' arcs a tank could actually hold, instead of pivots that happen to be
+    ''' moving forward.
+    '''
+    ''' The probe turns take twice as long, which costs nothing - they are
+    ''' taken at zero throttle and gated on ALIGNED, not on the clock. TEST_S
+    ''' runs down during the swing but is only read after the hull is aligned,
+    ''' where PEEK_SAMPLES holds the decision anyway.
+    ''' </summary>
+    Private Const TURN_RATE As Single = 0.45F      ' rad/s at full steer
 
     Private speeds() As Single
 
