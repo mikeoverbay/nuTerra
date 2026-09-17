@@ -223,14 +223,19 @@ Public Class TankBlk
                 Dim q = CInt(Math.Round((gy - b.h_offset) * MapFlightBake.HEIGHT_SCALE))
                 height(idx) = CUShort(Math.Min(Math.Max(q, 0), 65535))
 
-                Dim ob = CInt(Math.Round(obs_max / OBSTACLE_STEP_M))
-                If ob >= OBSTACLE_TALLER Then
+                ' SATURATE ON THE METRES, NOT ON THE ROUNDED STEP, so the
+                ' sentinel has a bound that can be stated exactly. Testing the
+                ' rounded value made 255 mean "taller than 63.625 m" - the
+                ' round pulled the boundary half a step below the top of the
+                ' range - and a reader quoting any round number for it would
+                ' have been wrong. It now means >= 63.75 m and nothing else.
+                If obs_max >= OBSTACLE_TALLER * OBSTACLE_STEP_M Then
                     obstacle(idx) = OBSTACLE_TALLER
                     saturated += 1
-                ElseIf ob < 0 Then
+                ElseIf obs_max <= 0.0F Then
                     obstacle(idx) = 0
                 Else
-                    obstacle(idx) = CByte(ob)
+                    obstacle(idx) = CByte(Math.Round(obs_max / OBSTACLE_STEP_M))
                 End If
             Next
         Next
