@@ -553,13 +553,57 @@ Module BrainNav
 
     ''' <summary>Ground height, straight from the terrain the app drew - so a
     ''' brain and the picture agree.</summary>
+    ''' <summary>
+    ''' ONE TICK'S WORTH OF GROUND SAMPLES.
+    '''
+    ''' Standable samples ground at five points every call, and a 28-ray scan
+    ''' walks 0.5 m at a time to 20 m - about 5,600 terrain queries a tick, all
+    ''' of them going through get_Y_at_XZ into the live scene. Measured on the
+    ''' heartbeat at "ai 79.79 ms", which is the brain alone eating five frames
+    ''' at 60 Hz.
+    '''
+    ''' Most of those are the SAME point. Consecutive steps are half a metre
+    ''' apart and the slope test samples at plus and minus the radius, so the
+    ''' samples land on each other over and over. Quantised to a quarter metre
+    ''' and remembered for the tick, the repeats cost a dictionary probe.
+    '''
+    ''' THIS IS A PATCH, NOT THE FIX. The fix is to read the height plane the
+    ''' flight bake already writes, which makes Ground an array index and this
+    ''' cache pointless. That crosses into the bake's file format, so it is a
+    ''' conversation with the nuTerra lane rather than an edit here.
+    ''' </summary>
+    Private ReadOnly gcache As New Dictionary(Of Long, Single)
+
+    ''' <summary>Called once a tick. Ground is only stable WITHIN a tick -
+    ''' nothing moves the terrain, but keeping the table forever would grow it
+    ''' without bound over a long run.</summary>
+    Public Sub NewTick()
+        If gcache.Count > 0 Then gcache.Clear()
+    End Sub
+
     Public Function Ground(x As Single, z As Single) As Single
         If map_scene Is Nothing OrElse Not map_scene.TERRAIN_LOADED Then Return 0.0F
+        ' THE EXACT POINT, not a quantised one. A quarter-metre grid was tried
+        ' first and it is quietly wrong: the slope test works by DIFFERENCING
+        ' two ground samples, so rounding their positions puts an error of up
+        ' to a quarter metre of terrain into a gradient compared against 0.7.
+        ' A cache is allowed to be faster; it is not allowed to answer a
+        ' different question. Keyed on the bits, it only ever collapses samples
+        ' that genuinely coincide - and they do, constantly: with the trace
+        ' striding STEP_M and the slope test sampling at plus and minus
+        ' TRACE_R, the forward sample of one step IS the centre of the next.
+        Dim key = (CLng(BitConverter.SingleToInt32Bits(x)) << 32) Or
+                  (CLng(BitConverter.SingleToInt32Bits(z)) And &HFFFFFFFFL)
+        Dim hit As Single
+        If gcache.TryGetValue(key, hit) Then Return hit
+        Dim y As Single
         Try
-            Return get_Y_at_XZ(x, z)
+            y = get_Y_at_XZ(x, z)
         Catch
-            Return 0.0F
+            y = 0.0F
         End Try
+        gcache(key) = y
+        Return y
     End Function
 
     ''' <summary>

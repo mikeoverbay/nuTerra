@@ -416,6 +416,19 @@ Public Class BrainWindow
            k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Enter) OrElse
            k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadEnter) Then go_here()
         If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F5) Then reload_data()
+        ' C chases, shift+C swings round behind it as well.
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C) Then
+            If k.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.LeftShift) OrElse
+               k.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.RightShift) Then
+                BrainRender.Cam.ChaseTrail = Not BrainRender.Cam.ChaseTrail
+                If BrainRender.Cam.ChaseTrail Then BrainRender.Cam.Chase = True
+                LogThis("brain: chase cam trailing {0}",
+                        If(BrainRender.Cam.ChaseTrail, "on", "off"))
+            Else
+                BrainRender.Cam.Chase = Not BrainRender.Cam.Chase
+                LogThis("brain: chase cam {0}", If(BrainRender.Cam.Chase, "on", "off"))
+            End If
+        End If
 
         ' STEP THE TANK, one square at a time. The camera owns WASD and
         ' E/Q, so the arrows are free - and they are the right shape for
@@ -583,6 +596,16 @@ Public Class BrainWindow
         ' nuTerra's camera_mouse_update by way of Exporter Studio.
         BrainSim.Tick(CSng(e.Time))
         BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
+
+        ' THE CHASE, AFTER the mouse has had its say and before the frame is
+        ' drawn. Update owns yaw, pitch and distance; this owns only where the
+        ' orbit is centred, so the two cannot fight over the same field.
+        If BrainRender.Cam.Chase AndAlso BrainTanks.Bodies IsNot Nothing AndAlso
+           BrainTanks.Bodies.Count > BrainRadar.HULL Then
+            Dim cb = BrainTanks.Bodies(BrainRadar.HULL)
+            BrainRender.Cam.ChaseTo(cb.spawn.X, cb.spawn.Y, cb.y,
+                                    cb.headingRad, CSng(e.Time))
+        End If
         pick_if_clicked()
     End Sub
 

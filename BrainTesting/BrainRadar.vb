@@ -106,6 +106,11 @@ Module BrainRadar
     Public Const ARC_DEG As Single = 120.0F
     Public Const REACH_M As Single = 20.0F
 
+    ''' <summary>How far the per-ray DRIVE walk bothers to look. Beyond this a
+    ''' heading is a direction rather than a plan - the hull will have rescanned
+    ''' four times before it gets there.</summary>
+    Public Const DRIVE_REACH_M As Single = 14.0F
+
     ''' <summary>
     ''' HOW MUCH OF THE SWEEP THE SURFACE FIT IS ALLOWED TO SEE.
     '''
@@ -163,6 +168,28 @@ Module BrainRadar
         Public at As Vector2          ' where it landed
         Public row As Integer
         Public col As Integer
+
+        ''' <summary>
+        ''' HOW FAR THE HULL COULD ACTUALLY GO THIS WAY. "2d scans are not
+        ''' enough" - the owner, and the tank that proved it drove into a low
+        ''' spot and hit terrain in every direction.
+        '''
+        ''' `dist` is where the LINE stops: a trace at TRACE_R, half a metre
+        ''' wide, asking about obstacles and about the ground gradient over
+        ''' half a metre. A bowl whose sides are gentle at that scale and steep
+        ''' across the hull reads as twenty clear metres, and it is a TRAP -
+        ''' the hull drives in, and once in, the same test at the body's radius
+        ''' fails in every direction at once. In it goes and it does not come
+        ''' out.
+        '''
+        ''' `drive` is the same walk asked at the BODY's radius, which folds
+        ''' the terrain in: Standable samples ground at plus and minus the
+        ''' radius, so at 1.94 m it is asking about the slope across the tank
+        ''' rather than across a cell. Two numbers per ray - what can be SEEN
+        ''' and what can be DRIVEN - so the brain can stop inferring the second
+        ''' from the first. That inference is what every bug tonight was.
+        ''' </summary>
+        Public drive As Single
     End Structure
 
     ''' <summary>
@@ -210,7 +237,16 @@ Module BrainRadar
     End Function
 
     ''' <summary>Sweep both arcs from this hull.</summary>
-    Public Function Scan(pos As Vector2, headingRad As Single) As Hit()
+    ''' <summary>
+    ''' Sweep both arcs. `bodyR` is the hull's driving radius - pass 0 to skip
+    ''' the drive walk when only the shape is wanted.
+    '''
+    ''' NOT NAMED `rays`, `arc` OR ANYTHING ELSE THAT IS ALSO A CONSTANT HERE.
+    ''' VB is case-insensitive and a parameter that collides with a module
+    ''' constant silently becomes it - that cost an evening once already.
+    ''' </summary>
+    Public Function Scan(pos As Vector2, headingRad As Single,
+                         Optional bodyR As Single = 0.0F) As Hit()
         ' No local named `rays` - see Bearings. VB would fold it into RAYS.
         Dim bear = Bearings()
         Dim half = RAYS \ 2
@@ -234,6 +270,31 @@ Module BrainRadar
                 End If
                 t += STEP_M
             End While
+            ' THE DRIVE WALK - the same line asked at the BODY's radius.
+            '
+            ' FRONT ONLY, AND COARSELY. At STEP_M over the full arc this cost
+            ' 79 ms a tick. The stride is the radius itself: the test is an
+            ' axis-aligned box of that half size, so boxes a radius apart still
+            ' overlap and the corridor stays covered - a finer stride re-asks
+            ' about ground the last box already contained. The rear arc does
+            ' not get one because nothing drives forward along it; St.Backing
+            ' measures its own room behind.
+            h.drive = h.dist
+            If bodyR > 0.0F AndAlso h.front Then
+                Dim stride = Math.Max(STEP_M, bodyR)
+                Dim limit = Math.Min(h.dist, DRIVE_REACH_M)
+                Dim u = stride
+                h.drive = 0.0F
+                While u <= limit
+                    If Not BrainNav.Standable(pos.X + dx * u, pos.Y + dz * u, bodyR) Then
+                        Exit While
+                    End If
+                    h.drive = u
+                    u += stride
+                End While
+                If h.drive >= limit Then h.drive = h.dist
+            End If
+
             h.at = New Vector2(pos.X + dx * h.dist, pos.Y + dz * h.dist)
             h.row = CInt(Math.Floor((BrainNav.CellZTop - h.at.Y) / BrainNav.CellSize))
             h.col = CInt(Math.Floor((h.at.X - BrainNav.CellX0) / BrainNav.CellSize))
@@ -267,7 +328,7 @@ Module BrainRadar
         built_head = b.headingRad
         built_show = True
 
-        Dim hits = Scan(b.spawn, b.headingRad)
+        Dim hits = Scan(b.spawn, b.headingRad, b.half.X + 0.3F)
         If Not said Then LogThis("brain: radar scan returned {0} ray(s), RAYS={1}",
                                  If(hits Is Nothing, -1, hits.Length), RAYS)
 

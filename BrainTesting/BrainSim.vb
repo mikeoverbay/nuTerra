@@ -103,6 +103,9 @@ Module BrainSim
         dt = Math.Clamp(dt, 0.0F, 0.1F)
         If dt <= 0.0F Then Return
 
+        ' The ground table is good for this tick only.
+        BrainNav.NewTick()
+
         Dim inp = Gather(dt)
         Dim outp As BrainOutput
         Try

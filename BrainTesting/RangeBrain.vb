@@ -202,6 +202,26 @@ Public Class RangeBrain
     ''' the jambs leave the arc before the hull is through them.</summary>
     Private Const DOOR_S As Single = 4.0F
 
+    ' ---- the endurance harness -------------------------------------------
+    '
+    ' "i want to change how I place a target / you do it after it makes it.
+    '  random heading 300m distance"
+    '
+    ' ARRIVING IS NOT THE END OF THE RUN, it is the start of the next one. One
+    ' hand-placed look-at tests one route, and every bug tonight came from a
+    ' route nobody thought to try - the low spot, the wall the body would not
+    ' clear, the gateway that has still never been met. A goal thrown 300 m out
+    ' on a random bearing tries routes nobody chose.
+    '
+    ' SEEDED, so the sequence of goals is the same every run. The seam's rule
+    ' is that a brain gets no clock and no unseeded RNG, and it is the right
+    ' rule: two runs from identical spawns have to be comparable, or a change
+    ' cannot be measured against the run before it.
+    Private ReadOnly rng As New Random(20260917)
+    Private Const GOAL_SEED As Integer = 20260917
+    Private Const NEXT_GOAL_M As Single = 300.0F
+    Private goalsMade As Integer = 0
+
     Private rearTrigs As Integer = 0
     Private rearLastDeg As Single = 0.0F
 
@@ -338,6 +358,7 @@ Public Class RangeBrain
             Why = "arrived"
             o.why(DRIVER) = Why
             lastThrottle = o.throttle(DRIVER)
+            throw_goal(h)
             Return o
         End If
 
@@ -345,7 +366,7 @@ Public Class RangeBrain
         ' the turn-back sweep asks how far it can rotate toward it.
         Dim wantGoal = CSng(Math.Atan2(toGoal.X, toGoal.Y))
 
-        Dim hits = BrainRadar.Scan(h.pos, h.headingRad)
+        Dim hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
         Dim surf = BrainRadar.FitSurface(hits)
 
         ' WEDGED: we asked to move and the world did not move us.
@@ -374,13 +395,14 @@ Public Class RangeBrain
             beat = 0.0F
             LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
                     "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
-                    "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14}",
+                    "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14} " &
+                    "| ai {15:0.00} ms",
                     state.ToString(), Why, lastThrottle, h.speed, range,
                     surf.verdict, surf.valid, surf.oneSurface, surf.turns,
                     MathHelper.RadiansToDegrees(surf.normalRad),
                     probes, dblTaps, rearTrigs,
                     If(rearTrigs > 0, String.Format(" (last {0:0} deg)", rearLastDeg), ""),
-                    doors)
+                    doors, BrainSim.TickMs)
         End If
 
         ' ---- what the scan says --------------------------------------------
@@ -1127,6 +1149,46 @@ Public Class RangeBrain
     End Function
 
     ''' <summary>
+    ''' THROW THE NEXT GOAL 300 m OUT ON A RANDOM BEARING.
+    '''
+    ''' IT HAS TO BE SOMEWHERE A TANK COULD STAND. A goal inside a building or
+    ''' off the edge of the map is not a hard route, it is an impossible one,
+    ''' and the hull would grind at the nearest wall until the run ended with
+    ''' nothing learned. So bearings are tried until one lands on standable
+    ''' ground, and the distance is walked in if the map is not big enough that
+    ''' way - 300 m from a corner of a 1400 m map points off it more often than
+    ''' not.
+    ''' </summary>
+    Private Sub throw_goal(h As BrainHull)
+        Dim tries = 0
+        For Each want In New Single() {NEXT_GOAL_M, 220.0F, 150.0F, 90.0F}
+            For k = 1 To 16
+                tries += 1
+                Dim a = CSng(rng.NextDouble() * Math.PI * 2.0)
+                Dim p = h.pos + New Vector2(CSng(Math.Sin(a)), CSng(Math.Cos(a))) * want
+                If BrainNav.Standable(p.X, p.Y, h.DriveRadius) Then
+                    BrainGoal.Target = p
+                    BrainGoal.HasTarget = True
+                    ' PIN IT. Follow rides the camera and would drag the goal
+                    ' back under the owner's view on the very next frame.
+                    BrainGoal.Follow = False
+                    goalsMade += 1
+                    state = St.Seek
+                    holdAt = 0.0F
+                    lostFor = 0.0F
+                    votes = 0
+                    LogThis("brain: GOAL {0} - arrived, throwing the next one {1:0} m " &
+                            "at {2:0} deg ({3} bearing(s) tried). Seed {4}.",
+                            goalsMade, want, MathHelper.RadiansToDegrees(a), tries,
+                            GOAL_SEED)
+                    Return
+                End If
+            Next
+        Next
+        LogThis("brain: arrived, but {0} bearings found nowhere standable to go next", tries)
+    End Sub
+
+    ''' <summary>
     ''' THE WIDEST BODY THAT WOULD GET ONE METRE THIS WAY.
     '''
     ''' Standable takes a RADIUS and tests an axis-aligned box of that half
@@ -1158,13 +1220,25 @@ Public Class RangeBrain
     ''' </summary>
     Private Shared Function body_ahead(pos As Vector2, headingRad As Single,
                                        fitR As Single, limit As Single) As Single
+        ' HALF A CELL, AND THE FIRST STRIDE IS TESTED.
+        '
+        ' This walked at 1.0 m and started at t = 1.0, so the metre directly in
+        ' front of the hull was never tested at all and any lip narrower than a
+        ' metre was stepped clean over. BrainNav.Clear has said why since the
+        ' day it was written - "a full cell can jump a one-cell wall
+        ' diagonally, which is the classic way a line test misses a fence" -
+        ' and this function ignored it and re-made the mistake. The sim moves
+        ' at 0.19 m a frame, so it hits everything this jumped.
         Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
-        Dim t = 1.0F
+        Dim stride = Math.Max(0.25F, BrainNav.CellSize * 0.5F)
+        Dim t = stride
+        Dim last = 0.0F
         While t <= limit
             If Not BrainNav.Standable(pos.X + dx * t, pos.Y + dz * t, fitR) Then
-                Return t - 1.0F
+                Return last
             End If
-            t += 1.0F
+            last = t
+            t += stride
         End While
         Return limit
     End Function
@@ -1235,15 +1309,12 @@ Public Class RangeBrain
     ''' </summary>
     Private Shared Function will_clear(pos As Vector2, headingRad As Single,
                                        fitR As Single, metres As Single) As Boolean
+        ' BrainNav.Clear ALREADY DOES THIS, at half a cell, for the reason its
+        ' own comment gives. This walked at 1.0 m instead and hopped exactly
+        ' what that stride exists to catch. One rule, one place.
         Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
-        Dim t = 1.0F
-        While t <= metres
-            If Not BrainNav.Standable(pos.X + dx * t, pos.Y + dz * t, fitR) Then
-                Return False
-            End If
-            t += 1.0F
-        End While
-        Return True
+        Return BrainNav.Clear(pos, New Vector2(pos.X + dx * metres,
+                                               pos.Y + dz * metres), fitR)
     End Function
 
     Private Shared Function creep(ahead As Single) As Single

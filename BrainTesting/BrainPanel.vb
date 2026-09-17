@@ -321,6 +321,13 @@ Module BrainPanel
         If ImGui.Checkbox("Radar", show) Then BrainRadar.SHOW = show
         Dim scope = BrainScope.SHOW
         If ImGui.Checkbox("Scope", scope) Then BrainScope.SHOW = scope
+        Dim chase = BrainRender.Cam.Chase
+        If ImGui.Checkbox("Chase cam  (C)", chase) Then BrainRender.Cam.Chase = chase
+        Dim trail = BrainRender.Cam.ChaseTrail
+        If ImGui.Checkbox("  trail heading  (shift+C)", trail) Then
+            BrainRender.Cam.ChaseTrail = trail
+            If trail Then BrainRender.Cam.Chase = True
+        End If
 
         ImGui.Separator()
         Dim lb = TryCast(BrainSim.Brain, LearnBrain)

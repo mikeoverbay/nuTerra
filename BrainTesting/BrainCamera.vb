@@ -63,6 +63,55 @@ Public Class BrainCamera
     ''' </summary>
     Public GroundAt As Func(Of Single, Single, Single) = Nothing
 
+    ''' <summary>
+    ''' RIDE THE BOT. The hull now throws itself a goal 300 m away on a random
+    ''' bearing the moment it arrives, so it drives off the edge of a parked
+    ''' view within a few seconds and the only way to watch it is to follow it.
+    '''
+    ''' THE ORBIT STAYS THE OWNER'S. Only the TARGET is taken - yaw, pitch and
+    ''' distance are left exactly as the mouse left them, so chasing is a
+    ''' different anchor rather than a different camera, and letting go puts
+    ''' the view back under his hand with nothing to undo.
+    ''' </summary>
+    Public Chase As Boolean = False
+
+    ''' <summary>Swing round behind the hull as it turns, instead of holding a
+    ''' compass bearing. Off by default: a view that rotates under you while
+    ''' you are trying to read a turn is worse than one that does not, and the
+    ''' thing being watched IS the turning.</summary>
+    Public ChaseTrail As Boolean = False
+
+    ''' <summary>How fast the trailing yaw catches up, per second. Slow on
+    ''' purpose - matching the hull exactly makes the world spin and tells you
+    ''' nothing about how sharply it turned.</summary>
+    Private Const TRAIL_RATE As Single = 1.5F
+
+    ''' <summary>
+    ''' Put the view on the hull. Called once a frame, after the sim has moved
+    ''' it and BEFORE the view matrix is built, or the camera is a frame behind
+    ''' the thing it is following.
+    ''' </summary>
+    Public Sub ChaseTo(x As Single, z As Single, ground As Single,
+                       headingRad As Single, dt As Single)
+        If Not Chase Then Return
+        Target = New Vector3(x, ground, z)
+        If ChaseTrail Then
+            ' Behind the hull is the hull's heading plus half a turn. Eased,
+            ' and through the SHORT way round - a raw lerp on angles takes the
+            ' long way whenever the difference crosses pi, which reads as the
+            ' camera whipping round the wrong side.
+            Dim want = headingRad + CSng(Math.PI)
+            Dim d = want - YawRad
+            While d > Math.PI
+                d -= CSng(Math.PI * 2.0)
+            End While
+            While d < -Math.PI
+                d += CSng(Math.PI * 2.0)
+            End While
+            YawRad += d * Math.Min(1.0F, TRAIL_RATE * dt)
+        End If
+    End Sub
+
     ''' <summary>How far the look-at point sits ABOVE the ground. Shift-drag
     ''' moves this rather than Y directly, so raising the point survives the
     ''' next pan instead of being snapped back down by it.</summary>
