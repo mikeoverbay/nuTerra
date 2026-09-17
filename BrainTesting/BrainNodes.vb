@@ -206,6 +206,12 @@ Module BrainNodes
         If Not ImGui.GetIO().WantTextInput AndAlso ImGui.IsKeyPressed(ImGuiKey.G) Then
             SHOW = Not SHOW
         End If
+        ' The toggle lives with the other view switches in BrainPanel, beside
+        ' Radar and Scope. A floating button of its own was tried and was
+        ' wrong: those two are modules with SHOW flags toggled from the panel,
+        ' so an editor that hid its switch somewhere else was the odd one out,
+        ' and being consistent with where switches live beats owning one more
+        ' line of this file.
         If Not SHOW Then Return
         If PanelH < MIN_H Then PanelH = MIN_H
         If PanelH > displayH - 120.0F Then PanelH = displayH - 120.0F
