@@ -41,11 +41,29 @@ Module BrainNav
     ''' gaps the trace exists to find.</summary>
     Public Const TRACE_R As Single = 0.5F
 
-    ''' <summary>Rise over run a hull will not climb. 0.7 is about 35 degrees;
-    ''' a tier 10 gives up well before that, so this is a floor, not a
-    ''' simulation, and it is here so "blocked" includes terrain rather than
-    ''' only objects.</summary>
-    Public Const MAX_SLOPE As Single = 0.7F
+    ''' <summary>
+    ''' Rise over run a hull will not climb: tan(40 degrees), the owner's
+    ''' number - "we can not climb more than tank specs and we have no driver
+    ''' on the fly, lets use a constant angle. 40 off bottom plane."
+    '''
+    ''' THIS MUST EQUAL TankNavLimits.MAX_SLOPE, and it did not. It was 0.7 -
+    ''' 35 degrees - which is the SAME value that was consolidated away on
+    ''' 2026-09-12, when TankNav, ray_studio's marcher and the square grid all
+    ''' disagreed about what a tank can climb. This file was written after
+    ''' that and carried the old number in, so the bug came back in a fourth
+    ''' place while the other three were correct: ray_studio.MAX_SLOPE_TAN and
+    ''' maze.MAX_CLIMB_TAN are both 0.8391 too.
+    '''
+    ''' It matters more here than it looks. The radar now tests the terrain
+    ''' angle of every square against this, so at 0.7 the brain REFUSED ground
+    ''' that the path planner at 0.8391 routes straight over - a tank that
+    ''' will not drive the road it was given.
+    '''
+    ''' Not a reference to TankNavLimits because TankNav.vb is not linked into
+    ''' this app and pulling it in for one constant drags its dependencies.
+    ''' If a third copy is ever needed, link the file instead of typing it.
+    ''' </summary>
+    Public Const MAX_SLOPE As Single = 0.8391F
 
     ''' <summary>nuTerra's own OUTLAND_MARGIN, from MapLoader.</summary>
     Private Const OUTLAND_MARGIN As Single = 25.0F
