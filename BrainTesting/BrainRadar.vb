@@ -1,0 +1,516 @@
+Imports OpenTK.Graphics.OpenGL4
+Imports OpenTK.Mathematics
+
+''' <summary>
+''' THE RADAR, drawn where it is looking.
+'''
+''' The owner, 2026-09-16: "we will start with trying to teach radar what it is
+''' seeing. I think we use 120 degrees off nose and back and scan both. make
+''' rays visible and show where the intersect a square. one tank on map 30 rays
+''' front and back only. zero speed."
+'''
+''' TWO ARCS, NOT A CIRCLE. A tank drives forwards and reverses; it does not
+''' strafe. The 120 degrees either side of the nose is where it is going and
+''' the 120 behind is where it can retreat to. The 60 degrees off each flank
+''' are deliberately blind - a hull beside you is neither a path nor an escape,
+''' and rays spent there buy a picture nobody acts on.
+'''
+''' THIRTY RAYS, so 15 an arc: one every 8 degrees. At 20 m that is 2.8 m
+''' between neighbours at full reach, which is narrower than a 3.4 m hull - so
+''' nothing tank-sized can sit in the gap between two rays and go unseen. That
+''' is the number the ray count has to be checked against, not "it looks
+''' dense enough".
+'''
+''' ZERO SPEED IS THE POINT. A radar that is wrong while standing still is
+''' wrong for a reason you can look at; a moving tank turns every reading into
+''' a question about when it was taken.
+'''
+''' WHY THE SQUARE IS DRAWN AND NOT JUST THE RAY. "show where the intersect a
+''' square" - a distance cannot be checked against the map by eye, and a
+''' highlighted cell can. A radar reading the wrong place lights the wrong
+''' square, which is obvious on screen and invisible in a number.
+'''
+''' It asks BrainNav.Standable at TRACE_R, which is the same question the
+''' driver asks. A radar that consulted a different map from the driver would
+''' be describing a world nothing drives in - that was this week's most
+''' expensive bug, in another form.
+'''
+''' Added 2026-09-16 by Tank AI work.
+''' </summary>
+Module BrainRadar
+
+    ' NINETY DEGREES, THREE DEGREES APART. 60 rays, 30 an arc, 90 / 30 = 3.
+    '
+    ' The arc narrowed first, from 120 to 90: a ray 60 degrees off the nose
+    ' looks at ground the hull drives PAST rather than toward, and it was
+    ' joining the range sequence and putting turning points into a test that
+    ' was trying to decide whether the thing AHEAD was one surface.
+    '
+    ' Then the sampling doubled. At 20 m the rays are now 1.05 m apart, down
+    ' from 2.8 m at the original 120/30 - so a gap a tank could fit through no
+    ' longer hides between two returns at the far end of the scan, and the
+    ' shape test has twice the samples to find a turning point in.
+    '
+    ' It costs a scan of 60 walks instead of 30, which against a 0.4 ms brain
+    ' tick is not a number worth protecting.
+    ''' <summary>
+    ''' THE FIRST LOOK IS CHEAP. "i think we will drop first scan to 9 rays."
+    '''
+    ''' Two scans, not one. Nine rays across the arc is enough to answer the
+    ''' only question a moving tank keeps asking - is there anything ahead -
+    ''' and it costs a seventh of the full sweep. The detailed scan is for the
+    ''' moment there IS something, which is when a decision has to be made and
+    ''' resolution is suddenly worth paying for.
+    '''
+    ''' That is the right shape for a sensor: look often and coarsely, look
+    ''' closely and rarely. Scanning at full detail every frame spent the
+    ''' resolution on empty ground, where nothing was ever going to be
+    ''' resolved.
+    ''' </summary>
+    Public Const COARSE_RAYS As Integer = 9
+
+    ' NINE DEGREES APART, one sweep. 20 rays, 10 an arc, 90 / 10 = 9.
+    ' It went 8.6, then 6, then 3, then a two-stage 9-and-60, and each
+    ' step made it harder to reason about. This is the simple one.
+    ' CONST, NOT A VARIABLE, and that is a fix rather than tidying.
+    '
+    ' As plain module fields these read as ZERO on the first Scan of a run:
+    ' rays came back 0, Dim out(-1) is a legal empty array in VB, and so the
+    ' radar drew nothing while reporting no error at all. The same log line
+    ' printed hits.Length = 0 and RAYS = 20 in one call, which is only
+    ' possible if the field was still uninitialised when Scan read it.
+    '
+    ' Nothing assigns these at runtime, so there is no reason for them to be
+    ' fields. A Const is compiled in and cannot be observed half-built.
+    Public Const RAYS As Integer = 20
+    Public Const ARC_DEG As Single = 90.0F
+    Public Const REACH_M As Single = 20.0F
+
+    ''' <summary>Which hull wears it. One tank, as asked.</summary>
+    Public HULL As Integer = 0
+
+    Public SHOW As Boolean = True
+
+    ''' <summary>Off the ground so the lines do not z-fight the terrain, and
+    ''' under a hull's clearance so they still read as lying on it.</summary>
+    Private Const LIFT As Single = 0.35F
+
+    ''' <summary>Step along a ray. Half a cell, so a cell cannot be stepped
+    ''' over - the thing being drawn is WHICH CELL, and a stride longer than
+    ''' one would skip the answer.</summary>
+    Private Const STEP_M As Single = 0.5F
+
+    Private shader As BrainShader
+    Private vao, vbo As Integer
+    Private verts As Integer = 0
+    Private said As Boolean = False
+    Private said_scan As Boolean = False
+
+    ' WHAT IT WAS BUILT FOR. A scan and a buffer upload every frame is
+    ' thirty ray walks and a few hundred terrain lookups for a picture that
+    ' has not changed - the tank has to MOVE for the answer to move.
+    Private built_pos As Vector2 = New Vector2(Single.MaxValue, Single.MaxValue)
+    Private built_head As Single = Single.MaxValue
+    Private built_show As Boolean = False
+
+    Public Sub Init()
+        shader = New BrainShader("line")
+        vao = GL.GenVertexArray()
+        vbo = GL.GenBuffer()
+    End Sub
+
+    ''' <summary>One ray's answer.</summary>
+    Public Structure Hit
+        Public angle As Single        ' relative to the nose, radians
+        Public front As Boolean
+        Public dist As Single
+        Public found As Boolean
+        Public at As Vector2          ' where it landed
+        Public row As Integer
+        Public col As Integer
+    End Structure
+
+    ''' <summary>
+    ''' The last FULL-RESOLUTION scan. What the scope draws and what the
+    ''' surface fit reads.
+    '''
+    ''' THE COARSE SCAN DOES NOT PUBLISH HERE, and that was a real bug: the
+    ''' nine-ray look runs every tick while driving, so it became "the last
+    ''' scan" almost always. The scope went sparse and the fit - which needs
+    ''' four front returns and had four rays in the whole front arc - fell
+    ''' below its minimum and reported nothing.
+    '''
+    ''' A cheap look is for deciding whether to look properly. It is not what
+    ''' the tank thinks it sees, and it should not overwrite it.
+    ''' </summary>
+    Public LAST As Hit() = Nothing
+
+    ''' <summary>The last cheap look, kept separately so it can be inspected
+    ''' without standing in for the real one.</summary>
+    Public LAST_COARSE As Hit() = Nothing
+
+    ''' <summary>Bearings relative to the nose: front arc, then rear.</summary>
+    Public Function Bearings() As Single()
+        ' RAYS DIRECTLY. There was a parameter called `rays` here, and VB is
+        ' CASE-INSENSITIVE: `rays` and `RAYS` are one identifier, so the
+        ' parameter shadowed the constant and `If rays <= 0 Then rays = RAYS`
+        ' compiled to `rays = rays`. It stayed 0, Dim out(-1) is a legal EMPTY
+        ' array in VB, and the radar drew nothing while reporting no error.
+        ' The compiler only said so when the local became a Const:
+        ' "Constant 'rays' cannot depend on its own value."
+        Dim half = RAYS \ 2
+        Dim span = MathHelper.DegreesToRadians(ARC_DEG)
+        Dim out(RAYS - 1) As Single
+        For k = 0 To half - 1
+            ' Centre of each slice, so the arc is covered evenly and no ray
+            ' lands exactly on the nose - which would make the middle ray a
+            ' special case in every reading of this.
+            out(k) = -span * 0.5F + span * (k + 0.5F) / half
+        Next
+        Dim rear = RAYS - half
+        For k = 0 To rear - 1
+            out(half + k) = CSng(Math.PI) + (-span * 0.5F + span * (k + 0.5F) / rear)
+        Next
+        Return out
+    End Function
+
+    ''' <summary>Sweep both arcs from this hull.</summary>
+    Public Function Scan(pos As Vector2, headingRad As Single) As Hit()
+        ' No local named `rays` - see Bearings. VB would fold it into RAYS.
+        Dim bear = Bearings()
+        Dim half = RAYS \ 2
+        Dim out(RAYS - 1) As Hit
+        For i = 0 To RAYS - 1
+            Dim a = headingRad + bear(i)
+            Dim dx = CSng(Math.Sin(a)), dz = CSng(Math.Cos(a))
+            Dim h As Hit
+            h.angle = bear(i)
+            h.front = (i < half)
+            h.found = False
+            h.dist = REACH_M
+            Dim t = STEP_M
+            While t <= REACH_M
+                Dim px = pos.X + dx * t
+                Dim pz = pos.Y + dz * t
+                If Not BrainNav.Standable(px, pz, BrainNav.TRACE_R) Then
+                    h.dist = t
+                    h.found = True
+                    Exit While
+                End If
+                t += STEP_M
+            End While
+            h.at = New Vector2(pos.X + dx * h.dist, pos.Y + dz * h.dist)
+            h.row = CInt(Math.Floor((BrainNav.CellZTop - h.at.Y) / BrainNav.CellSize))
+            h.col = CInt(Math.Floor((h.at.X - BrainNav.CellX0) / BrainNav.CellSize))
+            out(i) = h
+        Next
+        LAST = out
+        Return out
+    End Function
+
+    ''' <summary>Rebuild the line buffer from the current hull.</summary>
+    Public Sub Update()
+        If Not SHOW Then
+            verts = 0
+            built_show = False
+            Return
+        End If
+        If BrainTanks.Bodies Is Nothing OrElse BrainTanks.Bodies.Count <= HULL Then Return
+
+        ' spawn IS the live position - the sim writes movement back into it.
+        Dim b = BrainTanks.Bodies(HULL)
+
+        ' A tenth of a metre and a tenth of a degree: below that nothing
+        ' visible changes, and rebuilding is pure cost.
+        If built_show AndAlso
+           Math.Abs(b.spawn.X - built_pos.X) < 0.1F AndAlso
+           Math.Abs(b.spawn.Y - built_pos.Y) < 0.1F AndAlso
+           Math.Abs(b.headingRad - built_head) < 0.002F Then
+            Return
+        End If
+        built_pos = b.spawn
+        built_head = b.headingRad
+        built_show = True
+
+        Dim hits = Scan(b.spawn, b.headingRad)
+        If Not said Then LogThis("brain: radar scan returned {0} ray(s), RAYS={1}",
+                                 If(hits Is Nothing, -1, hits.Length), RAYS)
+
+        Dim v As New List(Of Single)
+        For Each q In hits
+            add_line(v, b.spawn, q.at)
+            If q.found Then
+                ' THE SQUARE IT LANDED IN, as a box on the ground at that
+                ' cell's true size. This is the part worth looking at.
+                Dim cx = BrainNav.CellX0 + (q.col + 0.5F) * BrainNav.CellSize
+                Dim cz = BrainNav.CellZTop - (q.row + 0.5F) * BrainNav.CellSize
+                Dim r = BrainNav.CellSize * 0.5F
+                ' p1..p4, not a..d: b is the BODY in this scope and VB would
+                ' not let it be redeclared - the sort of shadowing that reads
+                ' fine and refuses to compile.
+                Dim p1 = New Vector2(cx - r, cz - r)
+                Dim p2 = New Vector2(cx + r, cz - r)
+                Dim p3 = New Vector2(cx + r, cz + r)
+                Dim p4 = New Vector2(cx - r, cz + r)
+                add_line(v, p1, p2) : add_line(v, p2, p3)
+                add_line(v, p3, p4) : add_line(v, p4, p1)
+            End If
+        Next
+
+        Dim arr = v.ToArray()
+        verts = arr.Length \ 3
+        If Not said Then
+            said = True
+            Dim ymin = Single.MaxValue, ymax = Single.MinValue
+            For k = 1 To arr.Length - 1 Step 3
+                If arr(k) < ymin Then ymin = arr(k)
+                If arr(k) > ymax Then ymax = arr(k)
+            Next
+            LogThis("brain: radar built {0} vert(s), y {1:0.0}..{2:0.0}, hull at " &
+                    "({3:0.0}, {4:0.0}) y {5:0.0}, shader {6}",
+                    verts, ymin, ymax, b.spawn.X, b.spawn.Y, b.y,
+                    If(shader Is Nothing, "NULL", If(shader.Ready, "ready", "NOT READY")))
+        End If
+        If verts = 0 Then Return
+        GL.BindVertexArray(vao)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
+        GL.BufferData(BufferTarget.ArrayBuffer, arr.Length * 4, arr,
+                      BufferUsageHint.DynamicDraw)
+        GL.EnableVertexAttribArray(0)
+        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 12, 0)
+        GL.BindVertexArray(0)
+    End Sub
+
+    ''' <summary>A segment, both ends dropped onto the terrain under them, so a
+    ''' ray follows the ground instead of sailing over a dip.</summary>
+    Private Sub add_line(v As List(Of Single), a As Vector2, b As Vector2)
+        For Each p In {a, b}
+            Dim y = 0.0F
+            Try
+                ' BrainNav.Ground, NOT nuTerra's get_Y_at_XZ_fast.
+                '
+                ' The fast one returns 0.0 when mapBoard is Nothing, and this
+                ' app never fills mapBoard - it builds its own terrain and
+                ' reads it through BrainNav. Swapping to it for speed silently
+                ' put every ray end at y = 0, which is UNDER the ground: the
+                ' rays did not stop being drawn, they were drawn inside the
+                ' hill. Nothing errored and nothing logged.
+                '
+                ' The speed came from the movement cache above, not from this
+                ' call. Borrowing another app's fast path was never the win.
+                y = BrainNav.Ground(p.X, p.Y)
+            Catch
+            End Try
+            v.Add(p.X) : v.Add(y + LIFT) : v.Add(p.Y)
+        Next
+    End Sub
+
+    Public Sub Draw(ByRef viewProj As Matrix4)
+        If shader Is Nothing OrElse Not shader.Ready Then Return
+        If Not SHOW OrElse verts = 0 Then Return
+
+        shader.Use()
+        shader.SetMat4("viewProj", viewProj)
+        ' Depth WRITE off for the same reason the rings do it: these lie on the
+        ' ground and would leave a lip that hulls standing on them clip against.
+        GL.DepthMask(False)
+        shader.SetVec3("colour", New Vector3(0.45F, 0.85F, 1.0F))
+        GL.BindVertexArray(vao)
+        GL.DrawArrays(PrimitiveType.Lines, 0, verts)
+        GL.BindVertexArray(0)
+        GL.DepthMask(True)
+    End Sub
+
+    ''' <summary>What a fit across the front arc concluded.</summary>
+    Public Structure Surface
+        Public valid As Boolean      ' enough hits to say anything
+        Public flat As Boolean
+        Public residual As Single    ' mean metres off a straight wall
+        Public dist As Single        ' perpendicular distance to it
+        Public normalRad As Single   ' bearing of its normal, relative to nose
+        Public edgeRay As Integer    ' first ray that stopped fitting, or -1
+        Public used As Integer
+        Public verdict As String
+
+        ' ---- the SHAPE test, which is the owner's and is the better one ----
+        Public turns As Integer      ' turning points in the range sequence
+        Public gapped As Boolean     ' a miss in the middle of the run
+        Public turnRay As Integer    ' the nearest ray: closest approach
+        Public turnDist As Single    ' its range - d, without the fit
+        Public oneSurface As Boolean
+    End Structure
+
+    ''' <summary>
+    ''' IS THIS ONE SURFACE? By the shape of the range sequence alone.
+    '''
+    ''' The owner's test, and it is better than the residual one: "is each
+    ''' length consecutivly growing or shrinking?"
+    '''
+    ''' For a flat wall r(t) = d / cos(t - phi), so sweeping across the arc the
+    ''' ranges SHRINK until the ray nearest the wall's normal and GROW after
+    ''' it. One turning point, or none at all when the normal falls outside the
+    ''' arc. Two or more means two or more surfaces - a corner, a gap, clutter.
+    '''
+    ''' WHY IT BEATS MEASURING THE RESIDUAL. The grid is a metre, so a wall at
+    ''' an angle IS a staircase and a line fitted through it has error BY
+    ''' CONSTRUCTION - up to half a cell diagonal, and worst at 45 degrees.
+    ''' That made a fixed residual threshold wrong in both directions at once:
+    ''' too tight for an angled wall, too loose for a square one.
+    '''
+    ''' Quantisation moves each range a little. It does not REVERSE a trend. So
+    ''' the shape survives exactly the noise that was corrupting the magnitude.
+    '''
+    ''' THE TOLERANCE IS NOT A FUDGE. Consecutive rays landing on the same
+    ''' tread return the SAME range, and a strict "must be decreasing" test
+    ''' would count every tread as a reversal and call every angled wall broken.
+    ''' Ties are the staircase, not evidence.
+    ''' </summary>
+    Private Sub shape_test(hits As Hit(), idx As List(Of Integer), ByRef s As Surface)
+        s.turnRay = -1
+        s.turns = 0
+        If idx.Count < 3 Then Return
+
+        ' A MISS IN THE MIDDLE IS A GAP, and a gap is two objects however
+        ' nicely the rest of the ranges behave.
+        For k = 0 To idx.Count - 2
+            If idx(k + 1) <> idx(k) + 1 Then s.gapped = True
+        Next
+
+        ' Half a cell: the most the staircase can move one sample.
+        Dim tol = BrainNav.CellSize * 0.5F
+
+        Dim dir = 0                     ' -1 shrinking, +1 growing, 0 flat so far
+        Dim nearest = Single.MaxValue
+        For k = 0 To idx.Count - 2
+            Dim a = hits(idx(k)).dist
+            Dim b = hits(idx(k + 1)).dist
+            If a < nearest Then nearest = a : s.turnRay = idx(k)
+            Dim d = b - a
+            If Math.Abs(d) <= tol Then Continue For       ' same tread: no news
+            Dim nd = If(d > 0.0F, 1, -1)
+            If dir <> 0 AndAlso nd <> dir Then s.turns += 1
+            dir = nd
+        Next
+        Dim last = hits(idx(idx.Count - 1)).dist
+        If last < nearest Then nearest = last : s.turnRay = idx(idx.Count - 1)
+        s.turnDist = nearest
+
+        ' One surface: at most one turn, and no hole in the middle of it.
+        s.oneSurface = (s.turns <= 1) AndAlso Not s.gapped
+    End Sub
+
+    ''' <summary>
+    ''' IS WHAT I AM LOOKING AT A FLAT WALL, AND WHERE DOES IT END?
+    '''
+    ''' The owner's idea, and it is the right one: "we need a very fast way to
+    ''' find out if a surface scanned is flat or smooth. We could trig it and
+    ''' get the diff from hit to radar center?"
+    '''
+    ''' THE TRICK THAT MAKES IT CHEAP. For a straight wall at perpendicular
+    ''' distance d whose normal points at phi, a ray at angle t returns
+    '''
+    '''     r(t) = d / cos(t - phi)
+    '''
+    ''' Invert it and the awkward division becomes a straight line:
+    '''
+    '''     1/r = (cos phi / d) * cos t + (sin phi / d) * sin t
+    '''
+    ''' So 1/r is LINEAR in (cos t, sin t). Fitting two coefficients across the
+    ''' arc is five running sums and a 2x2 solve - no square roots, no atan
+    ''' except once at the end for the bearing - and the residual IS the
+    ''' roughness. A wall fits; a corner, a gap or clutter does not.
+    '''
+    ''' AND THE EDGE COMES FREE. Rays that fit, then one that suddenly does
+    ''' not, is where the wall stops. That is "find the edge of the blocker"
+    ''' answered by LOOKING rather than by driving into it and backing off.
+    '''
+    ''' Added 2026-09-16 by Tank AI work.
+    ''' </summary>
+    Public Function FitSurface(Optional hits As Hit() = Nothing) As Surface
+        Dim s As Surface
+        s.edgeRay = -1
+        s.verdict = "nothing"
+        If hits Is Nothing Then hits = LAST
+        If hits Is Nothing Then Return s
+
+        ' Front arc, hits only. A ray that found nothing has no 1/r.
+        Dim idx As New List(Of Integer)
+        For i = 0 To hits.Length - 1
+            If hits(i).front AndAlso hits(i).found AndAlso hits(i).dist > 0.5F Then idx.Add(i)
+        Next
+        s.used = idx.Count
+        If idx.Count < 4 Then
+            s.verdict = If(idx.Count = 0, "open ahead", "too little to judge")
+            Return s
+        End If
+
+        Dim sxx = 0.0, sxy = 0.0, syy = 0.0, bx = 0.0, by = 0.0
+        For Each i In idx
+            Dim t = hits(i).angle
+            Dim c = Math.Cos(t), sn = Math.Sin(t)
+            Dim u = 1.0 / hits(i).dist
+            sxx += c * c : sxy += c * sn : syy += sn * sn
+            bx += u * c : by += u * sn
+        Next
+        Dim det = sxx * syy - sxy * sxy
+        If Math.Abs(det) < 0.000001 Then
+            s.verdict = "cannot fit"
+            Return s
+        End If
+        Dim a = (bx * syy - by * sxy) / det
+        Dim b = (sxx * by - sxy * bx) / det
+
+        Dim mag = Math.Sqrt(a * a + b * b)
+        If mag < 0.000001 Then
+            s.verdict = "cannot fit"
+            Return s
+        End If
+        s.dist = CSng(1.0 / mag)
+        s.normalRad = CSng(Math.Atan2(b, a))
+
+        ' Residual in METRES, not in 1/r - a tenth of a reciprocal means
+        ' nothing to anybody, and the threshold has to be a distance.
+        shape_test(hits, idx, s)
+
+        Dim total = 0.0
+        Dim worst = 0.0
+        For Each i In idx
+            Dim t = hits(i).angle
+            Dim pred = a * Math.Cos(t) + b * Math.Sin(t)
+            If pred <= 0.000001 Then Continue For
+            Dim rhat = 1.0 / pred
+            Dim e = Math.Abs(hits(i).dist - rhat)
+            total += e
+            If e > worst Then worst = e
+            ' The first ray that leaves the wall, walking outward from the
+            ' middle of the arc, is its edge.
+            If s.edgeRay < 0 AndAlso e > 1.5 Then s.edgeRay = i
+        Next
+        s.residual = CSng(total / idx.Count)
+        s.valid = True
+
+        ' THE SHAPE DECIDES, the residual describes. One surface or not is the
+        ' question the shape answers and answers without caring about the
+        ' staircase; how straight and how far away are what the fit adds once
+        ' the answer is yes.
+        s.flat = s.oneSurface
+        If s.gapped Then
+            s.verdict = String.Format("TWO things - a gap in the returns ({0} turns)",
+                                      s.turns)
+        ElseIf s.turns >= 2 Then
+            s.verdict = String.Format("BROKEN - {0} turning points, not one surface",
+                                      s.turns)
+        ElseIf s.residual < 0.5F Then
+            s.verdict = String.Format("FLAT {0:0.0} m, face {1:0} deg, nearest {2:0.0} m{3}",
+                                      s.dist,
+                                      MathHelper.RadiansToDegrees(s.normalRad),
+                                      s.turnDist,
+                                      If(s.edgeRay >= 0, ", edge", ""))
+        Else
+            s.verdict = String.Format("one surface, curved - nearest {0:0.0} m",
+                                      s.turnDist)
+        End If
+        Return s
+    End Function
+
+End Module

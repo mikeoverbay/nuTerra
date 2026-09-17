@@ -142,6 +142,7 @@ Public Class BrainWindow
         End If
 
         BrainRender.Init()
+        BrainPanel.Init(ClientSize.X, ClientSize.Y)
 
         If BrainWorld.Ready AndAlso STARTUP_MAP IsNot Nothing Then
             If BrainWorld.LoadMap(STARTUP_MAP) Then
@@ -193,6 +194,16 @@ Public Class BrainWindow
         GL.ClearColor(0.16F, 0.17F, 0.19F, 1.0F)
     End Sub
 
+    Protected Overrides Sub OnTextInput(e As TextInputEventArgs)
+        MyBase.OnTextInput(e)
+        BrainPanel.PressChar(ChrW(e.Unicode))
+    End Sub
+
+    Protected Overrides Sub OnMouseWheel(e As MouseWheelEventArgs)
+        MyBase.OnMouseWheel(e)
+        BrainPanel.Scroll(New Vector2(e.OffsetX, e.OffsetY))
+    End Sub
+
     Protected Overrides Sub OnUnload()
         ' Flush the black box. A CSV cut off mid-row is a run nobody can read,
         ' and the last rows are the ones that say how it ended.
@@ -202,6 +213,7 @@ Public Class BrainWindow
 
     Protected Overrides Sub OnResize(e As ResizeEventArgs)
         MyBase.OnResize(e)
+        BrainPanel.Resized(e.Width, e.Height)
         GL.Viewport(0, 0, e.Width, e.Height)
         SCR_WIDTH = e.Width
         SCR_HEIGHT = e.Height
@@ -210,7 +222,20 @@ Public Class BrainWindow
     Protected Overrides Sub OnRenderFrame(e As FrameEventArgs)
         MyBase.OnRenderFrame(e)
         GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
+
+        ' THE GOAL RIDES THE CAMERA, unless it has been pinned with alt. Done
+        ' before the world is drawn so the crosshair and the tank's target are
+        ' the same thing on the same frame.
+        BrainGoal.FollowCamera()
+
         DrawWorld()
+
+        ' THE PANEL OVER THE WORLD, before the swap. Drawn every frame
+        ' whatever the sim is doing - a control that vanishes when the
+        ' thing it controls stops is the one you need most.
+        Dim act = BrainPanel.Draw(Me, CSng(e.Time))
+        If act <> BrainPanel.Action.None Then do_panel(act)
+
         SwapBuffers()
 
         ' A COUPLE OF FRAMES IN, not the first. The first frame can land before
@@ -231,7 +256,27 @@ Public Class BrainWindow
             If Not BrainTanks.Loading Then
                 ' Everything that needs the finished roster, in order.
                 BrainNav.SelfCheck()
-                If BRAIN_ON Then BrainSim.Start()
+                ' RESTORE FIRST, THEN REMEMBER. The scenario becomes the
+                ' opening position, so Reset goes back to the setup rather
+                ' than to wherever the roster happened to spawn - which is
+                ' what Reset is FOR on an evening of one scenario tried
+                ' twenty ways.
+                If RESTORE_ON_START Then BrainPanel.RestoreSnapshot()
+                ' Before anything can drive: once it does, Body.spawn is
+                ' the LIVE position and the opening one is gone.
+                BrainPanel.RememberSpawns()
+                If LEARN_ON_START Then
+                    ' Straight into it. The goal came back with the
+                    ' scenario, so there is nothing to place.
+                    BrainSim.Brain = New LearnBrain()
+                    If Not BrainGoal.HasTarget Then
+                        LogThis("brain: learning asked for but no goal in the " &
+                                "snapshot - press alt to place one")
+                    End If
+                    BrainSim.Start()
+                ElseIf BRAIN_ON Then
+                    BrainSim.Start()
+                End If
             End If
         End If
 
@@ -362,7 +407,23 @@ Public Class BrainWindow
         End If
 
         If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then toggle_sim()
+        ' ALT PLACES THE GOAL. "shift messes with mouse so use alt to place
+        ' a goal spot" - the owner: the camera already takes shift, and a
+        ' modifier that does two things is a modifier you cannot use.
+        ' Enter stays because it costs nothing and was the first binding.
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.LeftAlt) OrElse
+           k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.RightAlt) OrElse
+           k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Enter) OrElse
+           k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.KeyPadEnter) Then go_here()
         If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.F5) Then reload_data()
+
+        ' STEP THE TANK, one square at a time. The camera owns WASD and
+        ' E/Q, so the arrows are free - and they are the right shape for
+        ' this: up and down walk, left and right aim.
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Up) Then step_tank(1.0F)
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Down) Then step_tank(-1.0F)
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Left) Then turn_tank(-15.0F)
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Right) Then turn_tank(15.0F)
     End Sub
 
     ''' <summary>
@@ -401,6 +462,103 @@ Public Class BrainWindow
     ''' mid-step means it planned against one map and is judged against
     ''' another, and the black box would carry both without saying so.
     ''' </summary>
+    ' GO HERE. Drops the crosshair where the camera is looking and puts the
+    ' seeking brain in, so one press both sets the goal and starts the run -
+    ' the owner asked to place it and have the tank seek it, not to place it
+    ' and then go and find a second key.
+    ' What a button asked for. The panel returns intent and this does it,
+    ' so starting and stopping the world stays in one place.
+    Private Sub do_panel(a As BrainPanel.Action)
+        Select Case a
+            Case BrainPanel.Action.RunStop
+                toggle_sim()
+            Case BrainPanel.Action.Reset
+                ' STOP FIRST. Restoring positions under a running sim means
+                ' the next tick drives from the old state into the new one,
+                ' and the reset is half undone before it is seen.
+                If BrainSim.Running Then BrainSim.Halt()
+                BrainPanel.RestoreSpawns()
+                BrainGoal.Clear()
+            Case BrainPanel.Action.Shot
+                Capture(BrainPanel.ShotPath())
+            Case BrainPanel.Action.Snapshot
+                BrainPanel.WriteSnapshot()
+            Case BrainPanel.Action.Restore
+                ' Same reason Reset stops first: a restore under a running
+                ' sim is driven out of by the next tick.
+                If BrainSim.Running Then BrainSim.Halt()
+                BrainPanel.RestoreSnapshot()
+            Case BrainPanel.Action.Cam
+                Dim s = BrainPanel.CamArg()
+                Try
+                    ClipboardString = s
+                Catch
+                End Try
+                LogThis("brain: {0}   (copied)", s)
+        End Select
+    End Sub
+
+    ''' <summary>
+    ''' One square forward or back, and stop the sim doing it too.
+    '''
+    ''' A scanner you can walk a metre at a time is how you find the place
+    ''' where its answer changes - the last square that reads FLAT before a
+    ''' doorway, the first that reads broken. Watching that happen a metre at
+    ''' a time says more about the fit than any number of driven runs.
+    '''
+    ''' It refuses to step into ground the hull cannot stand on, using the
+    ''' same radius the driver uses - a probe that can walk through walls
+    ''' would be reading a world the tank does not live in.
+    ''' </summary>
+    Private Sub step_tank(sign As Single)
+        If BrainTanks.Bodies Is Nothing OrElse
+           BrainTanks.Bodies.Count <= BrainRadar.HULL Then Return
+        If BrainSim.Running Then BrainSim.Halt()
+        Dim i = BrainRadar.HULL
+        Dim b = BrainTanks.Bodies(i)
+        Dim d = BrainNav.CellSize * sign
+        Dim nx = b.spawn.X + CSng(Math.Sin(b.headingRad)) * d
+        Dim nz = b.spawn.Y + CSng(Math.Cos(b.headingRad)) * d
+        Dim fit = CSng(Math.Sqrt(b.half.X * b.half.X + b.half.Z * b.half.Z)) + 0.3F
+        If Not BrainNav.Standable(nx, nz, fit) Then
+            LogThis("brain: step {0} refused - no room at ({1:0.0}, {2:0.0})",
+                    If(sign > 0, "forward", "back"), nx, nz)
+            Return
+        End If
+        b.spawn = New Vector2(nx, nz)
+        b.y = BrainNav.Ground(nx, nz)
+        BrainTanks.Bodies(i) = b
+        Dim s = BrainRadar.FitSurface(BrainRadar.Scan(b.spawn, b.headingRad))
+        LogThis("brain: step {0} -> ({1:0.0}, {2:0.0})  {3}",
+                If(sign > 0, "forward", "back"), nx, nz, s.verdict)
+    End Sub
+
+    ''' <summary>Aim it, so the scan can be swept across a thing.</summary>
+    Private Sub turn_tank(deg As Single)
+        If BrainTanks.Bodies Is Nothing OrElse
+           BrainTanks.Bodies.Count <= BrainRadar.HULL Then Return
+        If BrainSim.Running Then BrainSim.Halt()
+        Dim i = BrainRadar.HULL
+        Dim b = BrainTanks.Bodies(i)
+        b.headingRad += MathHelper.DegreesToRadians(deg)
+        BrainTanks.Bodies(i) = b
+        Dim s = BrainRadar.FitSurface(BrainRadar.Scan(b.spawn, b.headingRad))
+        LogThis("brain: heading {0:0} deg  {1}",
+                MathHelper.RadiansToDegrees(b.headingRad), s.verdict)
+    End Sub
+
+    Private Sub go_here()
+        BrainGoal.PlaceAtLookAt()
+        ' THE LEARNING ONE. SeekBrain drives straight at a point and stops at
+        ' the first thing in the way; this one tries a way round, scores it and
+        ' remembers. SeekBrain stays in the tree as the baseline any of this
+        ' has to beat.
+        If Not (TypeOf BrainSim.Brain Is LearnBrain) Then
+            BrainSim.Brain = New LearnBrain()
+        End If
+        If Not BrainSim.Running Then BrainSim.Start()
+    End Sub
+
     Private Sub reload_data()
         Dim was_running = BrainSim.Running
         If was_running Then BrainSim.Halt()

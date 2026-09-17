@@ -81,6 +81,22 @@ Module BrainGlobals
     ''' frame the whole map.</summary>
     Public LOOK_AT As Single() = Nothing
 
+    ''' <summary>Draw only the n_ (non-destructible) parts of map models.
+    ''' The owner's call: the d_ half is scenery a tank drives through, and
+    ''' drawing it shows a wall where the nav grid has open ground.</summary>
+    Public MODELS_N_ONLY As Boolean = True
+
+    ''' <summary>Come up in the last snapshot: tank, camera and goal.
+    ''' An evening of scenarios starts the same way every time, and typing
+    ''' the camera in and then clicking Restore is two steps for one
+    ''' intention.</summary>
+    Public RESTORE_ON_START As Boolean = False
+
+    ''' <summary>Install LearnBrain and run, the moment the roster is up.
+    ''' With `restore` the goal comes back with the scenario, so there is
+    ''' nothing left to press.</summary>
+    Public LEARN_ON_START As Boolean = False
+
 
     ''' <summary>Heightmap edge in samples. nuTerra keeps this in MapLoader.vb,
     ''' a 112 KB file this app does not link; the value is the same 64 and the

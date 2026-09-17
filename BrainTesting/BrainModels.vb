@@ -192,11 +192,28 @@ Module BrainModels
             Next
             ' index_buffer32 holds TRIANGLES - three indices each - which is
             ' why its element count is a third of the index count.
-            For Each t In ib
-                allI.Add(base_v + t.x)
-                allI.Add(base_v + t.y)
-                allI.Add(base_v + t.z)
-            Next
+            If MODELS_N_ONLY AndAlso rs.primitiveGroups IsNot Nothing AndAlso
+               rs.primitiveGroups.Count > 0 Then
+                ' Per group, so a model that is half destructible keeps its
+                ' solid half. The vertices all go in either way - a few
+                ' unreferenced ones cost nothing and keep base_v valid.
+                For Each pg In rs.primitiveGroups.Values
+                    If pg Is Nothing OrElse Not is_n(pg) Then Continue For
+                    Dim t0 = Math.Max(0, pg.startIndex \ 3)
+                    Dim t1 = Math.Min(ib.Length, t0 + Math.Max(0, pg.nPrimitives))
+                    For k = t0 To t1 - 1
+                        allI.Add(base_v + ib(k).x)
+                        allI.Add(base_v + ib(k).y)
+                        allI.Add(base_v + ib(k).z)
+                    Next
+                Next
+            Else
+                For Each t In ib
+                    allI.Add(base_v + t.x)
+                    allI.Add(base_v + t.y)
+                    allI.Add(base_v + t.z)
+                Next
+            End If
         Next
 
         If allV.Count = 0 OrElse allI.Count = 0 Then Return m
@@ -398,6 +415,31 @@ Module BrainModels
     ''' LEADING two characters are read, so a doubled name buckets the same
     ''' as a single one.
     ''' </summary>
+    ''' <summary>
+    ''' ONLY THE n_ PARTS, when MODELS_N_ONLY is set.
+    '''
+    ''' The owner asked three times for this and it never landed: a map's
+    ''' geometry is split by material identifier - d_ destructible, n_ not,
+    ''' s_ static structure - and for a brain testbed the d_ half is scenery
+    ''' that a tank drives through. Drawing it costs frames and, worse,
+    ''' shows a wall where the nav grid has open ground.
+    '''
+    ''' The split is per PRIMITIVE GROUP, not per model: monastery's own
+    ''' building carries 81 d_ groups and 97 n_ ones in the same mesh, so
+    ''' this cannot be done by skipping files. startIndex and nPrimitives
+    ''' are the group's own triangle range in the shared index buffer.
+    ''' </summary>
+    Private Function is_n(pg As PrimitiveGroup) As Boolean
+        If pg Is Nothing OrElse pg.space_material_id < 0 Then Return False
+        Try
+            Dim id = cBSMA.MaterialItem(pg.space_material_id).identifier
+            Return Not String.IsNullOrEmpty(id) AndAlso
+                   id.StartsWith("n_", StringComparison.OrdinalIgnoreCase)
+        Catch
+            Return False
+        End Try
+    End Function
+
     Private Sub count_prefix(pg As PrimitiveGroup, ByRef m As Mesh)
         If pg Is Nothing OrElse pg.space_material_id < 0 Then
             m.pOther += 1

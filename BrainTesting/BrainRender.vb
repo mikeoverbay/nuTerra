@@ -22,6 +22,8 @@ Module BrainRender
         BrainModels.Init()
         BrainTankDraw.Init()
         BrainRings.Init()
+        BrainRadar.Init()
+        BrainGoal.Init()
 
         ' The camera asks the same sampler the hulls and the nav grid ask, so
         ' the point it looks at is on the surface they all agree about.
@@ -79,6 +81,14 @@ Module BrainRender
         BrainTrees.Draw(vp)
         BrainRings.Draw(vp)
         BrainTankDraw.Draw(vp)
+
+        ' THE RADAR OVER THE HULLS, because it is about the hull and the
+        ' ground together - a ray hidden behind the tank casting it is the
+        ' one reading you cannot check.
+        BrainRadar.Update()
+        BrainRadar.Draw(vp)
+        BrainGoal.Draw(vp)
+        BrainGoal.DrawCursor(vp)
     End Sub
 
 End Module

@@ -70,6 +70,12 @@ Module Program
                     TANK_PER_TEAM = per_team
                 End If
 
+            ElseIf a.Equals("learn", StringComparison.OrdinalIgnoreCase) Then
+                LEARN_ON_START = True
+
+            ElseIf a.Equals("restore", StringComparison.OrdinalIgnoreCase) Then
+                RESTORE_ON_START = True
+
             ElseIf a.Equals("sim", StringComparison.OrdinalIgnoreCase) Then
                 ' START THE SIM FROM THE COMMAND LINE. The owner's ask,
                 ' 2026-09-15: "It should be able to start the sim with a arg."

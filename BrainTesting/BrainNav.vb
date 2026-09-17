@@ -80,6 +80,34 @@ Module BrainNav
     ''' this file's own footprint rasteriser. Said out loud at load.</summary>
     Public FromBake As Boolean = False
 
+    ''' <summary>
+    ''' The grid's own frame, so a caller can say WHICH CELL rather than only
+    ''' blocked or not.
+    '''
+    ''' Added for BrainRadar, which draws the square a ray landed in: a
+    ''' distance cannot be checked against the map by eye and a highlighted
+    ''' cell can. Read-only on purpose - the grid owns these, and a second
+    ''' writer is how two parts of one app end up describing different maps.
+    ''' </summary>
+    Public ReadOnly Property CellX0 As Single
+        Get
+            Return x0
+        End Get
+    End Property
+
+    ''' <summary>Rows run DOWNWARD from this: a larger z is a smaller row.</summary>
+    Public ReadOnly Property CellZTop As Single
+        Get
+            Return If(FromBake, z_top, z0)
+        End Get
+    End Property
+
+    Public ReadOnly Property CellSize As Single
+        Get
+            Return If(FromBake, sq_cell, CELL_M)
+        End Get
+    End Property
+
     ''' <summary>Metres a cell as the loaded map states it, and the world Z of
     ''' row 0. The bake's rows run DOWNWARD from wz_max.</summary>
     Private sq_cell As Single = CELL_M

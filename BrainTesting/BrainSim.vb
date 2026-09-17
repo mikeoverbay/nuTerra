@@ -25,6 +25,22 @@ Module BrainSim
     Public Running As Boolean = False
     Public Frame As Integer = 0
 
+    ''' <summary>How long the BRAIN took last tick, smoothed, in
+    ''' milliseconds.
+    '''
+    ''' Measured around Brain.Tick alone - not the gather, not the apply, not
+    ''' the log. Those are the harness and they cost what they cost; this is
+    ''' the number that says whether the THINKING is affordable, which is the
+    ''' question when a brain starts casting thirty rays a frame.
+    ''' </summary>
+    Public TickMs As Double = 0.0
+
+    ''' <summary>What the brain last said each hull was doing. The panel
+    ''' shows it so the reason a tank is not moving is on screen rather than
+    ''' only in the log.</summary>
+    Public LastWhy As String() = Nothing
+    Private ReadOnly think As New Stopwatch()
+
     ''' <summary>How fast a hull moves at full throttle, and how fast it turns.
     ''' Deliberately crude: this is the WORLD applying a brain's numbers, not a
     ''' vehicle model. When the driving needs real physics it belongs in the
@@ -73,7 +89,11 @@ Module BrainSim
         Dim inp = Gather(dt)
         Dim outp As BrainOutput
         Try
+            think.Restart()
             outp = Brain.Tick(inp)
+            think.Stop()
+            Dim ms = think.Elapsed.TotalMilliseconds
+            TickMs = If(TickMs = 0.0, ms, TickMs * 0.9 + ms * 0.1)
         Catch ex As Exception
             ' A brain that throws stops the SIM, not the app. The owner is
             ' looking at a window; losing it to someone's null reference tells
@@ -83,6 +103,7 @@ Module BrainSim
             Return
         End Try
 
+        LastWhy = outp.why
         Apply(inp, outp, dt)
         BrainLog.Note(inp, outp, Frame * CDbl(dt))
         Frame += 1
