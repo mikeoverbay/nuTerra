@@ -190,6 +190,25 @@ Public Class RangeBrain
     ''' </summary>
     Private Const REAR_ARC_DEG As Single = 60.0F
 
+    ''' <summary>
+    ''' HOW FAR OFF THE NOSE A RAY CAN BE AND STILL BE SOMEWHERE TO DRIVE.
+    '''
+    ''' The scan went to a full circle so nothing is blind abeam, and that
+    ''' immediately broke the side choice - which had always read the OUTERMOST
+    ''' forward rays as front(0) and front(last). Those meant 55 degrees while
+    ''' front was a 120-degree arc. With front as the whole forward hemisphere
+    ''' they mean 88, and a ray pointing almost sideways reads its full 20 m
+    ''' across open ground and wins every vote: "early turn left at 12.1 m
+    ''' (-88 deg, 20.0 m deep)", 2,493 double taps in seventy seconds.
+    '''
+    ''' A ray at 88 degrees is not a way forward, it is a description of the
+    ''' ground beside the tank. Turning to it is a pivot, not a manoeuvre. So
+    ''' SEEING is 360 degrees and STEERING is this cone - which is what the
+    ''' code meant all along, written as an array index instead of as a
+    ''' bearing, and therefore silently redefined the moment the array changed.
+    ''' </summary>
+    Private Shared ReadOnly STEER_ARC As Single = MathHelper.DegreesToRadians(60.0F)
+
     ''' <summary>How much further an open ray must read than the nearest thing
     ''' in the scan before it counts as going PAST it rather than at it.</summary>
     Private Const DOOR_OPEN_M As Single = 4.0F
@@ -464,6 +483,19 @@ Public Class RangeBrain
             Return o
         End If
 
+        ' THE RAYS THAT ARE CANDIDATE HEADINGS, in angle order like front. The
+        ' whole hemisphere is kept for SEEING - the door finder, the surface
+        ' fit and the gap hunt all read `front` - but anything that answers
+        ' "which way do we go" reads this instead.
+        Dim steer As New List(Of BrainRadar.Hit)
+        For Each q In front
+            If Math.Abs(q.angle) <= STEER_ARC Then steer.Add(q)
+        Next
+        If steer.Count < 4 Then
+            o.why(DRIVER) = "no steerable scan"
+            Return o
+        End If
+
         ' Straight ahead: the middle of the front arc.
         Dim mid = front.Count \ 2
         Dim ahead = Math.Min(front(mid).dist, Math.Min(front(mid - 1).dist,
@@ -583,8 +615,8 @@ Public Class RangeBrain
             ' its two confirming samples, sweeps back toward the goal as far as
             ' the rays still allow, and then DRIVES. Probe, touch the outside,
             ' turn back, move forward, repeat.
-            Dim deep = front(0)
-            For Each q In front
+            Dim deep = steer(0)
+            For Each q In steer
                 If q.dist > deep.dist Then deep = q
             Next
             wantHeading = wrap_pi(h.headingRad + deep.angle)
@@ -841,6 +873,11 @@ Public Class RangeBrain
                 Else
                     ' THE SIDE RAY. The outermost one on the side the wall is,
                     ' which is the opposite side to the way we turned.
+                    ' THE BEAM, and this one deliberately stays on `front`. The
+                    ' wall being followed is abeam, and holding a distance off
+                    ' a ray 55 degrees forward of it was regulating against the
+                    ' nearest thing that could be seen rather than against the
+                    ' wall. The full sweep is what makes this honest.
                     Dim side = If(followLeft, front(front.Count - 1), front(0))
                     Dim seen = side.found
 
@@ -887,9 +924,9 @@ Public Class RangeBrain
                 voteAt += inp.dt
                 If voteAt >= VOTE_EVERY_S Then
                     voteAt = 0.0F
-                    Dim lb = Math.Max(front(0).dist, front(1).dist)
-                    Dim rb = Math.Max(front(front.Count - 1).dist,
-                                      front(front.Count - 2).dist)
+                    Dim lb = Math.Max(steer(0).dist, steer(1).dist)
+                    Dim rb = Math.Max(steer(steer.Count - 1).dist,
+                                      steer(steer.Count - 2).dist)
                     Dim thisLeft = (lb >= rb)
                     If votes > 0 AndAlso thisLeft = voteLeft Then
                         votes += 1
@@ -901,8 +938,8 @@ Public Class RangeBrain
                     If votes >= VOTES_NEEDED Then
                         ' Three in a row. Commit while there is still room to
                         ' turn in - and only if the hull actually clears it.
-                        Dim deepest = front(0)
-                        For Each q In front
+                        Dim deepest = steer(0)
+                        For Each q In steer
                             Dim ours = If(voteLeft, q.angle < 0.0F, q.angle > 0.0F)
                             If ours AndAlso q.dist > deepest.dist Then deepest = q
                         Next
@@ -984,8 +1021,8 @@ Public Class RangeBrain
         ' ---- blocked: decide by RANGE ---------------------------------------
         '
         ' THE OUTSIDE TWO EACH SIDE. Where an edge shows itself first.
-        Dim leftBest = Math.Max(front(0).dist, front(1).dist)
-        Dim rightBest = Math.Max(front(front.Count - 1).dist, front(front.Count - 2).dist)
+        Dim leftBest = Math.Max(steer(0).dist, steer(1).dist)
+        Dim rightBest = Math.Max(steer(steer.Count - 1).dist, steer(steer.Count - 2).dist)
         Dim bestOut = Math.Max(leftBest, rightBest)
 
         ' A WALL RIGHT ACROSS THE SCANNER. One surface, spanning, and no end
@@ -1003,8 +1040,8 @@ Public Class RangeBrain
             ' side will not clear, take the other one - and if neither will,
             ' fall through to the rear, which is what a wall across does.
             Dim probe = Math.Max(8.0F, h.FitRadius * 2.0F)
-            Dim headL = wrap_pi(h.headingRad + front(0).angle)
-            Dim headR = wrap_pi(h.headingRad + front(front.Count - 1).angle)
+            Dim headL = wrap_pi(h.headingRad + steer(0).angle)
+            Dim headR = wrap_pi(h.headingRad + steer(steer.Count - 1).angle)
             Dim okL = will_clear(h.pos, headL, h.DriveRadius, probe)
             Dim okR = will_clear(h.pos, headR, h.DriveRadius, probe)
             If goLeft AndAlso Not okL AndAlso okR Then
@@ -1024,7 +1061,7 @@ Public Class RangeBrain
             End If
 
             If Not wallAcross Then
-            Dim pick = If(goLeft, front(0), front(front.Count - 1))
+            Dim pick = If(goLeft, steer(0), steer(steer.Count - 1))
 
             ' THE RAY NEXT TO THE WALL. "we need to check the ray next to the
             ' wall it found. if it hit nothing, we should turn to match the
@@ -1038,13 +1075,13 @@ Public Class RangeBrain
             ' hull runs alongside and past it.
             Dim edgeMiss = -1
             If goLeft Then
-                For k = 0 To front.Count - 1
-                    If front(k).found Then Exit For
+                For k = 0 To steer.Count - 1
+                    If steer(k).found Then Exit For
                     edgeMiss = k
                 Next
             Else
-                For k = front.Count - 1 To 0 Step -1
-                    If front(k).found Then Exit For
+                For k = steer.Count - 1 To 0 Step -1
+                    If steer(k).found Then Exit For
                     edgeMiss = k
                 Next
             End If
@@ -1058,7 +1095,7 @@ Public Class RangeBrain
                 ' side is the bearing, because it is the one that has actually
                 ' found its way past the end.
                 Dim deepest = pick
-                For Each q In front
+                For Each q In steer
                     Dim onOurSide = If(goLeft, q.angle < 0.0F, q.angle > 0.0F)
                     If onOurSide AndAlso q.dist > deepest.dist Then deepest = q
                 Next

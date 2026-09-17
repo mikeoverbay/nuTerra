@@ -102,8 +102,35 @@ Module BrainRadar
     '
     ' Nothing assigns these at runtime, so there is no reason for them to be
     ' fields. A Const is compiled in and cannot be observed half-built.
-    Public Const RAYS As Integer = 28
-    Public Const ARC_DEG As Single = 120.0F
+    ' A HUNDRED AND TWENTY RAYS, ALL THE WAY ROUND. 360 / 120 = 3 degrees.
+    '
+    ' "we need a wider scan. lets do a full 360 sweep. it should not be blind
+    '  to openings it can get though on the sides." - the owner.
+    '
+    ' TWO ARCS LEFT TWO BLIND WEDGES. A 120-degree sweep off the nose and
+    ' another off the tail cover 240 of 360, and the 60 degrees missing on each
+    ' side are DEAD ABEAM - precisely where a wall is while the hull is
+    ' following one, and where a side opening would be. Follow held its
+    ' distance off the outermost forward ray at 55 degrees, which is 35 degrees
+    ' short of the beam: it was regulating against a wall it could not see,
+    ' using the nearest thing it could.
+    '
+    ' THREE DEGREES, BECAUSE IT IS NOW AFFORDABLE AND THERE IS A REAL CEILING.
+    ' "its faster so we can use more rays" - and the limit is not the clock, it
+    ' is the grid: at 20 m reach, rays 1.43 degrees apart land 0.5 m apart,
+    ' which is the cell size. Finer than that and neighbouring rays return the
+    ' same square, so the extra work buys nothing at all.
+    '
+    ' Three degrees puts them 1.05 m apart at full reach - two cells - and
+    ' about 8 cm apart at the five metres where a decision to turn is actually
+    ' made. The old nine degrees was 3.1 m at reach, wide enough to miss the
+    ' EDGE of a gap even when it could not miss the gap.
+    '
+    ' It costs 120 cell walks instead of 28, against a tick that measured
+    ' 0.15 ms - the integer walk made the ray count stop being a number worth
+    ' protecting.
+    Public Const RAYS As Integer = 120
+    Public Const ARC_DEG As Single = 360.0F
     Public Const REACH_M As Single = 20.0F
 
     ''' <summary>How far the per-ray DRIVE walk bothers to look. Beyond this a
@@ -220,18 +247,27 @@ Module BrainRadar
         ' array in VB, and the radar drew nothing while reporting no error.
         ' The compiler only said so when the local became a Const:
         ' "Constant 'rays' cannot depend on its own value."
-        Dim half = RAYS \ 2
+        ' ONE SWEEP, IN ANGLE ORDER, from behind the left shoulder round to
+        ' behind the right. Index order IS angle order now, which the brain
+        ' relies on - it reads the outermost forward rays as front(0) and
+        ' front(last) and would pick the wrong ones from a list built in two
+        ' pieces.
+        '
+        ' Centre of each slice, as before, so no ray lands exactly on the nose
+        ' OR exactly on the tail. Both would otherwise be special cases in
+        ' every reading of this, and the tail matters now that reversing is
+        ' steered by these.
         Dim span = MathHelper.DegreesToRadians(ARC_DEG)
         Dim out(RAYS - 1) As Single
-        For k = 0 To half - 1
-            ' Centre of each slice, so the arc is covered evenly and no ray
-            ' lands exactly on the nose - which would make the middle ray a
-            ' special case in every reading of this.
-            out(k) = -span * 0.5F + span * (k + 0.5F) / half
-        Next
-        Dim rear = RAYS - half
-        For k = 0 To rear - 1
-            out(half + k) = CSng(Math.PI) + (-span * 0.5F + span * (k + 0.5F) / rear)
+        For k = 0 To RAYS - 1
+            Dim a = -span * 0.5F + span * (k + 0.5F) / RAYS
+            While a > Math.PI
+                a -= CSng(Math.PI * 2.0)
+            End While
+            While a < -Math.PI
+                a += CSng(Math.PI * 2.0)
+            End While
+            out(k) = a
         Next
         Return out
     End Function
@@ -249,14 +285,19 @@ Module BrainRadar
                          Optional bodyR As Single = 0.0F) As Hit()
         ' No local named `rays` - see Bearings. VB would fold it into RAYS.
         Dim bear = Bearings()
-        Dim half = RAYS \ 2
         Dim out(RAYS - 1) As Hit
         For i = 0 To RAYS - 1
             Dim a = headingRad + bear(i)
             Dim dx = CSng(Math.Sin(a)), dz = CSng(Math.Cos(a))
             Dim h As Hit
             h.angle = bear(i)
-            h.front = (i < half)
+            ' FRONT IS THE FORWARD HEMISPHERE, not the first half of the
+            ' array. It used to be an index test because the array was built
+            ' front-then-rear; with one sweep round the circle the only honest
+            ' test is the bearing itself. Everything that reasons about "ahead"
+            ' - the surface fit, the door finder, the side choice - reads this,
+            ' and the fit narrows itself further to FIT_ARC_DEG regardless.
+            h.front = (Math.Abs(bear(i)) <= CSng(Math.PI) * 0.5F)
             h.found = False
             h.dist = REACH_M
 
