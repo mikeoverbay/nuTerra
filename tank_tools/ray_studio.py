@@ -189,7 +189,29 @@ def check_against_squares(g, map_name):
 # version are checked, n and cell_m are taken from the file, and anything
 # unexpected returns None so the caller falls back rather than misreads.
 BLK_MAGIC = b"nBLK"
-BLK_VERSION = 1
+
+# THE VERSIONS THIS READER KNOWS, and it knows both on purpose.
+#
+#   1  header 32B, mask u8, height float32.
+#   2  header 32B STILL, mask u8, height uint16, obstacle u8. v1 filled only
+#      24 of its 32 header bytes, so height_offset and height_scale go in the
+#      eight that were always spare and the header size never changes. Height
+#      decodes the way _floor.r16 always did; obstacle is metres ABOVE ground
+#      at 0.25 m steps, 255 meaning 64 m or taller.
+#
+# NO FLAG DAY. The writer is nuTerra's and the readers are this lane's, so a
+# version this reader refuses is an afternoon of two apps not starting. Both
+# are accepted and v1 simply reports no obstacle layer, which is exactly what
+# it has.
+BLK_VERSIONS = (1, 2)
+BLK_VERSION = 2
+
+# Obstacle byte: metres above ground, and the value that means "taller than
+# this byte can say". A camera does not plan to clear a spire, it plans to go
+# round one, so saturating costs nothing and the quarter-metre steps are kept
+# where they matter - the underside of a doorway.
+BLK_OBST_STEP_M = 0.25
+BLK_OBST_MAX = 255
 
 BLK_BLOCK = 0x01
 BLK_KIND_SHIFT = 1
@@ -212,10 +234,14 @@ def blk_path(map_name):
 def load_blk(map_name):
     """The half-metre plane, or None if there is not one to read.
 
-    Returns dict(mask, height, n, cell_m, wx_min, wz_max) with mask and height
-    as (n, n) arrays, rows running from wz_max DOWNWARD and x fastest - the
+    Returns dict(mask, height, obstacle, ver, n, cell_m, wx_min, wz_max) with
+    the arrays (n, n), rows running from wz_max DOWNWARD and x fastest - the
     same order as the bake and squares.u8, so the index is stride*row + col
     with no flip anywhere.
+
+    height is METRES either way - v1 stores float32 and v2 stores uint16 that
+    this decodes - so no caller has to know which version it got. obstacle is
+    metres above ground, or None on v1, which has no such layer.
     """
     p = blk_path(map_name)
     if not os.path.exists(p):
@@ -228,22 +254,47 @@ def load_blk(map_name):
                 return None
             ver, n = struct.unpack_from("<II", head, 4)
             cell_m, wx_min, wz_max = struct.unpack_from("<fff", head, 12)
-            if ver != BLK_VERSION:
-                print("blk: %s is version %d, this reader knows %d"
-                      % (p, ver, BLK_VERSION))
+            if ver not in BLK_VERSIONS:
+                print("blk: %s is version %d, this reader knows %s"
+                      % (p, ver, ", ".join(str(v) for v in BLK_VERSIONS)))
                 return None
             if n <= 0 or n > 20000:
                 print("blk: %s claims n=%d, refusing" % (p, n))
                 return None
-            want = 32 + n * n + n * n * 4
+            h_off, h_scale = 0.0, 1.0
+            if ver >= 2:
+                # THE HEADER DOES NOT GROW. v1 reads 32 bytes and fills only
+                # 24 - magic, version, n, cell, wx_min, wz_max - so bytes
+                # 24..31 have been spare since the format was cut, and that is
+                # exactly two floats. Caught by round-tripping a synthetic v2
+                # file, which refused itself: the first draft appended eight
+                # more bytes and then looked for them 40 in.
+                h_off, h_scale = struct.unpack_from("<ff", head, 24)
+                if h_scale == 0.0:
+                    print("blk: %s has height_scale 0 - refusing" % p)
+                    return None
+                want = 32 + n * n + n * n * 2 + n * n
+            else:
+                want = 32 + n * n + n * n * 4
             have = os.path.getsize(p)
             if have != want:
                 print("blk: %s is %d bytes, header implies %d - refusing"
                       % (p, have, want))
                 return None
+
             mask = np.frombuffer(fh.read(n * n), np.uint8).reshape(n, n)
-            height = np.frombuffer(fh.read(n * n * 4), "<f4").reshape(n, n)
-        return dict(mask=mask, height=height, n=int(n), cell_m=float(cell_m),
+            obstacle = None
+            if ver >= 2:
+                h16 = np.frombuffer(fh.read(n * n * 2), "<u2").reshape(n, n)
+                # METRES OUT, whatever went in. Every caller divides nothing
+                # and subtracts nothing; the encoding stops at this line.
+                height = (h_off + h16.astype(np.float32) / h_scale)
+                ob8 = np.frombuffer(fh.read(n * n), np.uint8).reshape(n, n)
+                obstacle = ob8.astype(np.float32) * BLK_OBST_STEP_M
+            else:
+                height = np.frombuffer(fh.read(n * n * 4), "<f4").reshape(n, n)
+        return dict(mask=mask, height=height, obstacle=obstacle, ver=int(ver),
+                    n=int(n), cell_m=float(cell_m),
                     wx_min=float(wx_min), wz_max=float(wz_max))
     except Exception as exc:
         print("blk: could not read %s - %s" % (p, exc))
@@ -256,12 +307,16 @@ def blk_describe(b):
         return "no .blk"
     m = b["mask"]
     blocked = (m & BLK_BLOCK) != 0
-    return ("%d x %d at %.2f m, %.1f%% blocked, %.1f%% crushable, "
-            "%.1f%% outland, height %.1f..%.1f m"
-            % (b["n"], b["n"], b["cell_m"], 100.0 * blocked.mean(),
+    ob = b.get("obstacle")
+    return ("v%d %d x %d at %.2f m, %.1f%% blocked, %.1f%% crushable, "
+            "%.1f%% outland, height %.1f..%.1f m, %s"
+            % (b.get("ver", 1), b["n"], b["n"], b["cell_m"],
+               100.0 * blocked.mean(),
                100.0 * ((m & BLK_CRUSHABLE) != 0).mean(),
                100.0 * ((m & BLK_OUTLAND) != 0).mean(),
-               float(b["height"].min()), float(b["height"].max())))
+               float(b["height"].min()), float(b["height"].max()),
+               "no obstacle layer" if ob is None
+               else "obstacle 0..%.1f m" % float(ob.max())))
 
 
 def roads_cache_path(map_name):
