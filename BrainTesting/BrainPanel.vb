@@ -332,19 +332,6 @@ Module BrainPanel
         End If
 
         ImGui.Separator()
-        Dim lb = TryCast(BrainSim.Brain, LearnBrain)
-        If lb IsNot Nothing Then
-            ImGui.Text(String.Format("legs {0}   situations {1}",
-                                     lb.Legs, BrainMemory.Situations))
-            ImGui.Text(String.Format("last {0}  {1:0.000}", lb.LastMove, lb.LastScore))
-            If lb.LastKey <> "" Then
-                ImGui.TextDisabled(lb.LastKey & "  best " & BrainMemory.BestFor(lb.LastKey))
-            End If
-            If ImGui.Button("Save what it learned", New System.Numerics.Vector2(210, 22)) Then
-                BrainMemory.Save()
-            End If
-        End If
-        ImGui.Separator()
         ImGui.TextDisabled("alt: pin goal    arrows: step / aim")
         Dim n = If(BrainTanks.Bodies Is Nothing, 0, BrainTanks.Bodies.Count)
         ImGui.Text(String.Format("hulls {0}", n))

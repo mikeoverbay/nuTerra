@@ -10,12 +10,14 @@ Imports OpenTK.Mathematics
 '''    way. unless the rear says its worse the other. (we turn tank so we use
 '''    rear and not turn the tank completely around."
 '''
-''' NOT A CANDIDATE LIST. LearnBrain picks a move from thirteen and scores what
-''' happened; this one READS the scan and turns toward what it measured. The
-''' difference matters: a candidate list needs a hundred attempts before it
-''' knows anything, and this knows on the first scan - because the longest ray
-''' IS the answer to "which way is more open", and no amount of trying things
-''' at random discovers it faster than looking.
+''' NOT A CANDIDATE LIST. The brain this replaced picked a move from thirteen
+''' and scored what happened; this one READS the scan and turns toward what it
+''' measured. The difference matters: a candidate list needs a hundred attempts
+''' before it knows anything, and this knows on the first scan - because the
+''' longest ray IS the answer to "which way is more open", and no amount of
+''' trying things at random discovers it faster than looking. That is why the
+''' candidate brain and the memory it scored into are gone rather than kept as
+''' a baseline: git holds them, and an unreachable baseline is not one.
 '''
 ''' THE OUTSIDE RAYS, NOT THE LONGEST ANYWHERE. A long ray near the nose is the
 ''' gap you are already driving at; it tells you nothing about going ROUND.

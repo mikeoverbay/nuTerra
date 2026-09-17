@@ -92,7 +92,7 @@ Module BrainGlobals
     ''' intention.</summary>
     Public RESTORE_ON_START As Boolean = False
 
-    ''' <summary>Install LearnBrain and run, the moment the roster is up.
+    ''' <summary>Install the brain and run, the moment the roster is up.
     ''' With `restore` the goal comes back with the scenario, so there is
     ''' nothing left to press.</summary>
     Public LEARN_ON_START As Boolean = False

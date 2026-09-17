@@ -603,10 +603,8 @@ Public Class BrainWindow
 
     Private Sub go_here()
         BrainGoal.PlaceAtLookAt()
-        ' THE LEARNING ONE. SeekBrain drives straight at a point and stops at
-        ' the first thing in the way; this one tries a way round, scores it and
-        ' remembers. SeekBrain stays in the tree as the baseline any of this
-        ' has to beat.
+        ' THE BRAIN. There is one now - RangeBrain - and this is where a goal
+        ' placed by hand puts it to work.
         If Not (TypeOf BrainSim.Brain Is RangeBrain) Then
             BrainSim.Brain = New RangeBrain()
         End If
