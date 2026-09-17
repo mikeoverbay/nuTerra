@@ -318,8 +318,19 @@ Public Class RangeBrain
     ''' </summary>
     Private Const LOOK_AHEAD_M As Single = 15.0F
     Private Const VOTES_NEEDED As Integer = 3
-    Private Const VOTE_EVERY_S As Single = 0.25F
+    ' DECIDE FASTER. Three votes a quarter-second apart is 0.75 s to commit,
+    ' and at 12 m/s that is nine metres driven while thinking - most of the
+    ' room the early turn exists to preserve.
+    '
+    ' Three samples was the cure for wobble on a twenty-ray scan, where a
+    ' single reading genuinely could not be trusted. The sweep is 120 rays now
+    ' and every bearing is measured every tick, so the CONFIRMATION is still
+    ' worth having and the WAIT is not. Same three samples, 0.3 s.
+    Private Const VOTE_EVERY_S As Single = 0.1F
     Private votes As Integer = 0
+    Private voteBear As Single = 0.0F
+    Private voteScore As Single = 0.0F
+    Private voteWidth As Single = 0.0F
     Private voteLeft As Boolean
     Private voteAt As Single = 0.0F
 
@@ -780,15 +791,20 @@ Public Class RangeBrain
                 LogThis("brain: turn tested - body had {0:0.0} m, now {1:0.0} m: {2}",
                         lastOpen, bodyAhead, Why)
             End If
-            ' STOPPED WHILE IT TURNS. "i want it to stop when it finds the
-            ' wall and turn to that angle."
+            ' IT NO LONGER STOPS TO LOOK, AND THE SWEEP IS WHY.
             '
-            ' It used to roll at 0.4 through the last 50 degrees and through
-            ' the test, which meant the confirming scan was taken several
-            ' metres from where the decision was made - so it was not testing
-            ' the thing it decided on. Turning on the spot makes the second
-            ' scan comparable with the first.
-            o.throttle(DRIVER) = 0.0F
+            ' This pivoted at zero throttle because the scan was two 120-degree
+            ' arcs: the hull could not see the heading it was considering until
+            ' it pointed at it, so the turn WAS the measurement and taking it on
+            ' the move meant confirming from somewhere else. That was true and
+            ' it stopped being true when the sweep went to 360 - the rays
+            ' already hold every bearing, every tick, including the one being
+            ' turned toward.
+            '
+            ' So the stop bought nothing and cost the entire start-stop gait.
+            ' It steers to the heading while driving, braked on what the BODY
+            ' has ahead like everything else does.
+            o.throttle(DRIVER) = creep(bodyAhead)
             o.why(DRIVER) = Why
             lastThrottle = o.throttle(DRIVER)
             Return o
@@ -924,26 +940,56 @@ Public Class RangeBrain
                 voteAt += inp.dt
                 If voteAt >= VOTE_EVERY_S Then
                     voteAt = 0.0F
-                    Dim lb = Math.Max(steer(0).dist, steer(1).dist)
-                    Dim rb = Math.Max(steer(steer.Count - 1).dist,
-                                      steer(steer.Count - 2).dist)
-                    Dim thisLeft = (lb >= rb)
-                    If votes > 0 AndAlso thisLeft = voteLeft Then
-                        votes += 1
+
+                    ' AS SOON AS THERE IS DATA THAT WOULD MAKE US TURN. This
+                    ' runs while the way ahead is merely NARROWING, not once it
+                    ' is shut - which is the difference between choosing an
+                    ' opening and being forced into one.
+                    Dim ops = find_openings(steer, goalErr, h.DriveRadius * 2.0F)
+                    Dim best As Opening
+                    Dim haveBest = False
+                    For Each g In ops
+                        If Not haveBest OrElse g.score > best.score Then
+                            best = g
+                            haveBest = True
+                        End If
+                    Next
+
+                    ' STRAIGHT ON IS A CANDIDATE TOO, and it has to win on the
+                    ' same number or the hull swerves at every doorway it
+                    ' passes. Its progress is what the body has ahead, projected
+                    ' on the goal exactly like any other opening's.
+                    Dim aheadScore = bodyAhead * CSng(Math.Cos(goalErr))
+
+                    ' AND IT HAS TO BE A TURN. An opening centred on the nose
+                    ' is the way we are already pointing; committing to it
+                    ' enters Turning, spends a probe and arrives where it
+                    ' started.
+                    If haveBest AndAlso Math.Abs(best.bearing) > ALIGNED AndAlso
+                       best.score > aheadScore + BETTER_M Then
+                        Dim thisLeft = (best.bearing < 0.0F)
+                        ' The SAME opening three times, not merely the same
+                        ' side: a bearing that drifts across the arc is a
+                        ' different decision wearing the same answer.
+                        If votes > 0 AndAlso thisLeft = voteLeft AndAlso
+                           Math.Abs(wrap_pi(best.bearing - voteBear)) < SQUARE_ON Then
+                            votes += 1
+                        Else
+                            votes = 1
+                            voteLeft = thisLeft
+                        End If
+                        voteBear = best.bearing
+                        voteScore = best.score
+                        voteWidth = best.width
                     Else
-                        votes = 1
-                        voteLeft = thisLeft
+                        votes = 0
                     End If
 
                     If votes >= VOTES_NEEDED Then
-                        ' Three in a row. Commit while there is still room to
-                        ' turn in - and only if the hull actually clears it.
-                        Dim deepest = steer(0)
-                        For Each q In steer
-                            Dim ours = If(voteLeft, q.angle < 0.0F, q.angle > 0.0F)
-                            If ours AndAlso q.dist > deepest.dist Then deepest = q
-                        Next
-                        Dim head2 = wrap_pi(h.headingRad + deepest.angle)
+                        ' Three in a row on the SAME opening. Commit while
+                        ' there is still room to turn in - and only if the hull
+                        ' actually clears it.
+                        Dim head2 = wrap_pi(h.headingRad + voteBear)
                         If will_clear(h.pos, head2, h.DriveRadius,
                                       Math.Max(6.0F, h.FitRadius * 1.5F)) Then
                             wantHeading = head2
@@ -956,10 +1002,12 @@ Public Class RangeBrain
                             peeks = 0
                             state = St.Turning
                             note_probe(h.pos, "early turn")
-                            Why = String.Format("early turn {0} at {1:0.0} m ({2:0} deg, {3:0.0} m deep)",
-                                                If(voteLeft, "left", "right"), ahead,
-                                                MathHelper.RadiansToDegrees(deepest.angle),
-                                                deepest.dist)
+                            Why = String.Format("opening {0} at {1:0} deg - {2:0.0} m wide, " &
+                                                "{3:0.0} m of progress against {4:0.0} straight on",
+                                                If(voteLeft, "left", "right"),
+                                                MathHelper.RadiansToDegrees(voteBear),
+                                                voteWidth, voteScore,
+                                                bodyAhead * CSng(Math.Cos(goalErr)))
                             LogThis("brain: {0} - three samples agreed", Why)
                             o.why(DRIVER) = Why
                             lastThrottle = o.throttle(DRIVER)
@@ -1199,6 +1247,113 @@ Public Class RangeBrain
         o.why(DRIVER) = Why
         lastThrottle = o.throttle(DRIVER)
         Return o
+    End Function
+
+    ''' <summary>
+    ''' EVERY OPENING IN THE SWEEP, SCORED BY WHAT IT IS WORTH.
+    '''
+    ''' "the logic would dictate we look for the opening gaps and weight them.
+    '''  is it more direct to target or not? we need to make this decision as
+    '''  soon as we have data that makes us turn"
+    '''
+    ''' ONE RULE INSTEAD OF THREE. The side choice asked "is left or right
+    ''' deeper", the door check asked "is there a bounded gap ahead", and the
+    ''' early turn asked "which outer ray is longest" - three answers to one
+    ''' question, none of which knew where the goal was. A gap 80 degrees off
+    ''' with 20 m behind it beat a gap 10 degrees off with 18 m, every time,
+    ''' because nothing in the comparison mentioned the target.
+    '''
+    ''' THE SCORE IS METRES OF PROGRESS, which is why there are no weights to
+    ''' tune. How far the BODY can drive down a gap, times the cosine of the
+    ''' angle between that bearing and the goal, is the distance it would
+    ''' actually close - the projection of the move onto the direction that
+    ''' matters. A gap at 60 degrees keeps half its reach; one at 90 keeps
+    ''' none; one behind scores negative and is dropped. Wider and straighter
+    ''' win by arithmetic rather than by a constant somebody picked.
+    '''
+    ''' The reach is the gap's own rays' DRIVE distance, not their range, so a
+    ''' gap the rays see through and the hull cannot take scores what it is
+    ''' worth: nothing.
+    ''' </summary>
+    Private Structure Opening
+        Public bearing As Single      ' relative to the nose
+        Public width As Single        ' metres across, jamb to jamb
+        Public reach As Single        ' how far the BODY gets down it
+        Public score As Single        ' metres of progress toward the goal
+        Public bounded As Boolean     ' a jamb each side - a doorway, not an edge
+    End Structure
+
+    ''' <summary>
+    ''' Walk the sweep for runs of rays the hull can drive down, and score each.
+    '''
+    ''' A RUN IS AN OPENING when consecutive rays all clear the body. Bounded
+    ''' by returns each side it is a doorway; running off the end of the arc it
+    ''' is the way round something, which is just as useful and scores the same
+    ''' way. The distinction is kept because a doorway is worth crawling and an
+    ''' open edge is worth driving.
+    ''' </summary>
+    Private Shared Function find_openings(rays As List(Of BrainRadar.Hit),
+                                          goalErr As Single,
+                                          need As Single) As List(Of Opening)
+        Dim outp As New List(Of Opening)
+        Dim n = rays.Count
+        Dim k = 0
+        While k < n
+            If rays(k).drive < need Then
+                k += 1
+                Continue While
+            End If
+            Dim j = k
+            While j < n AndAlso rays(j).drive >= need
+                j += 1
+            End While
+
+            Dim g As Opening
+            Dim a0 = rays(k).angle, a1 = rays(j - 1).angle
+            g.bearing = wrap_pi((a0 + a1) * 0.5F)
+
+            ' REACH ALONG THE MIDDLE, AND THE WORST OF THREE - not the best of
+            ' the whole run. Taking the deepest ray anywhere in the opening
+            ' measured the luckiest line through it, while straight-on is
+            ' measured as the WORST of its three centre rays. Best case against
+            ' worst case, so any opening containing the nose beat the nose:
+            ' "opening right at 0 deg, 20.0 m of progress against 9.0 straight
+            ' on" - the same direction, scored twice, differently.
+            '
+            ' Measured the way `ahead` is measured, the two are comparable and
+            ' a turn has to earn itself.
+            Dim mid = k
+            Dim bestGap = Single.MaxValue
+            For q = k To j - 1
+                Dim d = Math.Abs(wrap_pi(rays(q).angle - g.bearing))
+                If d < bestGap Then bestGap = d : mid = q
+            Next
+            g.reach = rays(mid).drive
+            If mid > k Then g.reach = Math.Min(g.reach, rays(mid - 1).drive)
+            If mid < j - 1 Then g.reach = Math.Min(g.reach, rays(mid + 1).drive)
+            g.bounded = (k > 0) AndAlso (j < n)
+            ' WIDTH FROM THE ARC IT SUBTENDS, at the distance it is seen. Two
+            ' rays 3 degrees apart at 10 m are half a metre apart; the same two
+            ' at 2 m are a hand's breadth. A gap has to be measured where it
+            ' is, not counted in rays.
+            ' The ray spacing, from the two constants rather than a field -
+            ' a module ReadOnly here reads as zero on the first Scan of a run,
+            ' which is the bug that made the radar draw nothing.
+            Dim step_rad = MathHelper.DegreesToRadians(BrainRadar.ARC_DEG / BrainRadar.RAYS)
+            Dim span = Math.Abs(wrap_pi(a1 - a0)) + step_rad
+            ' Measured at the reach we are claiming for it, which is now the
+            ' middle's, so the width and the score describe the same line
+            ' through the opening rather than two different ones.
+            g.width = 2.0F * Math.Min(g.reach, BrainRadar.REACH_M) *
+                      CSng(Math.Sin(Math.Min(span, CSng(Math.PI)) * 0.5F))
+
+            ' METRES OF PROGRESS: the reach projected onto the goal direction.
+            Dim toward = CSng(Math.Cos(wrap_pi(g.bearing - goalErr)))
+            g.score = g.reach * toward
+            If g.score > 0.0F Then outp.Add(g)
+            k = j
+        End While
+        Return outp
     End Function
 
     Private Structure Gap
@@ -1450,7 +1605,15 @@ Public Class RangeBrain
         If ahead >= SLOW_FROM_M Then Return 1.0F
         Dim f = (ahead - BLOCK_M) / (SLOW_FROM_M - BLOCK_M)
         If f < 0.0F Then f = 0.0F
-        Return Math.Max(0.12F, f * f)
+        ' NO CRAWLING. "we need to stop creeping" - the floor was 0.12, which
+        ' is 1.4 m/s, and the squared curve sits on that floor for most of the
+        ' last ten metres. The hull spent the interesting part of every
+        ' approach at walking pace, rescanning ground it had already scanned.
+        '
+        ' The floor exists so a blocked hull keeps steerage. 0.35 is 4.2 m/s,
+        ' which is steerage without the dawdle, and the braking is still the
+        ' squared term - it comes off just as hard, it simply stops lower down.
+        Return Math.Max(0.35F, f * f)
     End Function
 
     Private Shared Function wrap_pi(a As Single) As Single

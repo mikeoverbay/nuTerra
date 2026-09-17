@@ -73,7 +73,14 @@ Public Class BrainCamera
     ''' different anchor rather than a different camera, and letting go puts
     ''' the view back under his hand with nothing to undo.
     ''' </summary>
-    Public Chase As Boolean = False
+    ''' ON BY DEFAULT since 2026-09-17. The hull throws itself a goal 300 m
+    ''' away the moment it arrives, so a parked view loses it within seconds
+    ''' and the first thing anyone did on every launch was press C.
+    '''
+    ''' It costs nothing to have on: only the orbit's CENTRE is taken, so a
+    ''' restored snapshot's yaw, pitch and distance all survive it, and the
+    ''' first mouse drag still belongs to whoever is driving.
+    Public Chase As Boolean = True
 
     ''' <summary>Swing round behind the hull as it turns, instead of holding a
     ''' compass bearing. Off by default: a view that rotates under you while
