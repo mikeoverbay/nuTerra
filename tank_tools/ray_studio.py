@@ -206,12 +206,20 @@ BLK_MAGIC = b"nBLK"
 BLK_VERSIONS = (1, 2)
 BLK_VERSION = 2
 
-# Obstacle byte: metres above ground, and the value that means "taller than
-# this byte can say". A camera does not plan to clear a spire, it plans to go
-# round one, so saturating costs nothing and the quarter-metre steps are kept
-# where they matter - the underside of a doorway.
+# Obstacle byte: metres above ground at quarter-metre steps, and 255 as a
+# STRICT SENTINEL meaning "64 m or taller, treat as wall". Strict because the
+# nuTerra lane pointed out what the loose reading costs: 255 x 0.25 is 63.75,
+# a number no measurement produced, sitting a quarter metre BELOW the true
+# floor of what it represents. 254 is a real 63.5 m and 255 is not a height at
+# all.
+#
+# Decoded as 64.0 with a companion mask rather than as infinity: 64.0 is the
+# true lower bound and therefore a true statement, it survives the arithmetic
+# the flight planner does on this field (radar_commit.py:420), and the mask is
+# how a caller knows the number is a floor and not a reading.
 BLK_OBST_STEP_M = 0.25
-BLK_OBST_MAX = 255
+BLK_OBST_TALL = 255
+BLK_OBST_TALL_M = 64.0
 
 BLK_BLOCK = 0x01
 BLK_KIND_SHIFT = 1
@@ -284,6 +292,7 @@ def load_blk(map_name):
 
             mask = np.frombuffer(fh.read(n * n), np.uint8).reshape(n, n)
             obstacle = None
+            tall = None
             if ver >= 2:
                 h16 = np.frombuffer(fh.read(n * n * 2), "<u2").reshape(n, n)
                 # METRES OUT, whatever went in. Every caller divides nothing
@@ -291,9 +300,12 @@ def load_blk(map_name):
                 height = (h_off + h16.astype(np.float32) / h_scale)
                 ob8 = np.frombuffer(fh.read(n * n), np.uint8).reshape(n, n)
                 obstacle = ob8.astype(np.float32) * BLK_OBST_STEP_M
+                tall = (ob8 == BLK_OBST_TALL)
+                obstacle[tall] = BLK_OBST_TALL_M
             else:
                 height = np.frombuffer(fh.read(n * n * 4), "<f4").reshape(n, n)
-        return dict(mask=mask, height=height, obstacle=obstacle, ver=int(ver),
+        return dict(mask=mask, height=height, obstacle=obstacle,
+                    obstacle_tall=tall, ver=int(ver),
                     n=int(n), cell_m=float(cell_m),
                     wx_min=float(wx_min), wz_max=float(wz_max))
     except Exception as exc:
@@ -316,7 +328,8 @@ def blk_describe(b):
                100.0 * ((m & BLK_OUTLAND) != 0).mean(),
                float(b["height"].min()), float(b["height"].max()),
                "no obstacle layer" if ob is None
-               else "obstacle 0..%.1f m" % float(ob.max())))
+               else "obstacle 0..%.1f m, %d cell(s) at the 64 m ceiling"
+               % (float(ob.max()), int(b["obstacle_tall"].sum()))))
 
 
 def roads_cache_path(map_name):
