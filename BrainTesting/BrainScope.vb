@@ -69,6 +69,43 @@ Module BrainScope
     Private Const ORANGE_HOT As UInteger = &HFF3399FFUI  ' brighter, for the fit
     Private Const INK As UInteger = &HFF203040UI         ' grid lines
 
+    ''' <summary>Light grey for the barrier joining adjacent returns.
+    '''
+    ''' Not orange, and the reason is what the two things ARE: a return is a
+    ''' measurement and the line between two of them is an inference - true
+    ''' only as far as "the hull does not fit between these". Drawing the
+    ''' inference in the same colour as the evidence invites reading the
+    ''' outline as if the scan had traced it, which it never did.</summary>
+    Private Const GREY As UInteger = &HFFB4B4B4UI        ' 180, 180, 180
+
+    ''' <summary>Green for a gap the hull fits through - the go areas.</summary>
+    Private Const GREEN As UInteger = &HFF40E040UI        ' 64, 224, 64
+
+    ''' <summary>A gap wide enough by its chord that the hull's corridor will
+    ''' not clear. Drawn faintly rather than dropped: "we are trying to go thru
+    ''' gaps we wont fit" was invisible precisely because the rejected ones
+    ''' left no mark.</summary>
+    Private Const GREEN_NO As UInteger = &H50406040UI     ' dim, translucent
+
+    ''' <summary>Blue for the corridor planks - the box the hull is about to
+    ''' sweep, drawn so "can we clear" can be checked by eye against the thing
+    ''' it is deciding about rather than trusted.</summary>
+    Private Const BLUE As UInteger = &HFFFFA050UI         ' 80, 160, 255
+    ''' <summary>
+    ''' YELLOW for a plank that hit.
+    '''
+    ''' It went blue-violet, then red, then this. The violet was a packing
+    ''' mistake - &HFFFF6060 is RGB(96, 96, 255), since ImGui packs ABGR and
+    ''' the red byte is the LOW one - and red was a bad pick on its own terms:
+    ''' against a near-black blue field with burnt-orange returns it goes muddy
+    ''' at line width, and it reads as an alarm when the plank is only
+    ''' reporting.
+    '''
+    ''' Yellow separates from both the orange returns and the blue planks at a
+    ''' glance, which is the entire job of this colour.
+    ''' </summary>
+    Private Const YELLOW As UInteger = &HFF3CDCFFUI       ' 255, 220, 60
+
     Public Sub Draw(displayW As Single, displayH As Single)
         If Not SHOW Then Return
 
@@ -111,7 +148,11 @@ Module BrainScope
             dl.AddCircle(New System.Numerics.Vector2(cx, cy), r * scale, INK, 48, 1.0F)
         Next
 
-        If hits IsNot Nothing Then
+        ' THE RAYS ONLY WHEN SOMETHING IS IN THE WAY. "hide the scanner rays
+        ' until plank is active" - with a clear corridor there is no decision
+        ' being made, and 120 rays drawn over the planks bury the one thing
+        ' worth watching under the thing that is merely always true.
+        If hits IsNot Nothing AndAlso BrainRadar.LANE_ACTIVE Then
             For Each q In hits
                 ' Hull frame: angle 0 is the nose, which is UP on screen.
                 Dim a = q.angle
@@ -125,6 +166,83 @@ Module BrainScope
                 End If
             Next
         End If
+
+        ' ---- THE BARRIER: NEIGHBOURS THE HULL CANNOT PASS BETWEEN ----------
+        '
+        ' Drawn before the fit and after the returns, so it reads as the shape
+        ' the returns imply rather than as decoration over them. Every segment
+        ' here is a pair of adjacent hits closer together than the tank is
+        ' wide: joined up, they are the outline of what is actually in the way,
+        ' and every place the outline BREAKS is a gap wide enough to drive
+        ' through. That is the whole point of drawing it - the openings are the
+        ' gaps in this line, and they can be seen rather than inferred.
+        If hits IsNot Nothing Then
+            For i = 0 To hits.Length - 1
+                If Not hits(i).linked Then Continue For
+                Dim j = (i + 1) Mod hits.Length
+                Dim ax2 = cx + XS * CSng(Math.Sin(hits(i).angle)) * hits(i).dist * scale
+                Dim ay2 = cy - CSng(Math.Cos(hits(i).angle)) * hits(i).dist * scale
+                Dim bx2 = cx + XS * CSng(Math.Sin(hits(j).angle)) * hits(j).dist * scale
+                Dim by2 = cy - CSng(Math.Cos(hits(j).angle)) * hits(j).dist * scale
+                dl.AddLine(New System.Numerics.Vector2(ax2, ay2),
+                           New System.Numerics.Vector2(bx2, by2), GREY, 2.2F)
+            Next
+        End If
+
+        ' ---- THE CORRIDOR: THE BOX WE ARE ABOUT TO SWEEP -------------------
+        '
+        ' Parallel planks the width of the hull plus one either side, drawn in
+        ' the hull's own frame straight up the screen because that is exactly
+        ' what they are - straight out from the corners, parallel, not fanned.
+        ' Drawn UNDER the returns so it reads as the question and they read as
+        ' the answer. A plank that stopped early goes hot, so which side is
+        ' blocked is visible without reading a log line.
+        If BrainRadar.LANE_OFF IsNot Nothing Then
+            For i = 0 To BrainRadar.LANE_OFF.Length - 1
+                Dim lx = cx + XS * BrainRadar.LANE_OFF(i) * scale
+                Dim y0 = cy
+                Dim y1 = cy - BrainRadar.LANE_LEN(i) * scale
+                dl.AddLine(New System.Numerics.Vector2(lx, y0),
+                           New System.Numerics.Vector2(lx, y1),
+                           If(BrainRadar.LANE_HIT(i), YELLOW, BLUE), 1.4F)
+                If BrainRadar.LANE_HIT(i) Then
+                    dl.AddCircleFilled(New System.Numerics.Vector2(lx, y1),
+                                       2.6F, YELLOW, 8)
+                End If
+            Next
+        End If
+
+        ' ---- THE WAYS THROUGH, AS THE SCAN RULED ON THEM -------------------
+        '
+        ' Drawn from BrainRadar.WAYS rather than re-derived here, so the
+        ' picture and the decision cannot disagree. This used to walk the hits
+        ' itself with the hull width written in as a literal - 1.65 plus 0.3 -
+        ' which was right for this tank and would have quietly lied about any
+        ' other.
+        '
+        ' GREEN is a gap the hull's own corridor cleared. GREY-GREEN is a gap
+        ' whose chord is wide enough and whose corridor is NOT clear: the case
+        ' that was sending the tank at openings it could never fit, drawn so it
+        ' can be seen being rejected instead of silently not appearing.
+        For Each wy In BrainRadar.WAYS
+            If hits Is Nothing OrElse wy.ia >= hits.Length OrElse wy.ib >= hits.Length Then
+                Continue For
+            End If
+            Dim qa = hits(wy.ia), qb = hits(wy.ib)
+            Dim ax3 = cx + XS * CSng(Math.Sin(qa.angle)) * qa.dist * scale
+            Dim ay3 = cy - CSng(Math.Cos(qa.angle)) * qa.dist * scale
+            Dim bx3 = cx + XS * CSng(Math.Sin(qb.angle)) * qb.dist * scale
+            Dim by3 = cy - CSng(Math.Cos(qb.angle)) * qb.dist * scale
+            Dim col = If(wy.fits, GREEN, GREEN_NO)
+            dl.AddLine(New System.Numerics.Vector2(ax3, ay3),
+                       New System.Numerics.Vector2(bx3, by3), col, If(wy.fits, 2.4F, 1.2F))
+            If wy.fits Then
+                Dim mx = (ax3 + bx3) * 0.5F
+                Dim my = (ay3 + by3) * 0.5F
+                dl.AddCircleFilled(New System.Numerics.Vector2(mx, my), 3.4F, GREEN, 10)
+                dl.AddCircle(New System.Numerics.Vector2(mx, my), 6.0F, GREEN, 12, 1.2F)
+            End If
+        Next
 
         ' THE WALL IT FITTED, if it fitted one. Drawn as the line the maths
         ' says is there - so a fit that is wrong is wrong ON TOP of the returns

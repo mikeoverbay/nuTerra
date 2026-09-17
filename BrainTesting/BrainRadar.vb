@@ -217,6 +217,30 @@ Module BrainRadar
         ''' from the first. That inference is what every bug tonight was.
         ''' </summary>
         Public drive As Single
+
+        ''' <summary>
+        ''' THE CHORD TO THE NEXT RAY'S ENDPOINT, and whether the hull fits
+        ''' through it.
+        '''
+        ''' "draw a line between hit points that are adjacent... measure open
+        '''  gaps only by cord length" - the owner, 2026-09-17.
+        '''
+        ''' This is the honest way to ask how wide an opening is. Counting rays
+        ''' is meaningless - three degrees is 1 m at twenty metres and 5 cm at
+        ''' one - and reading it off the drive distances describes the lane
+        ''' rather than the doorway. The straight-line distance between where
+        ''' two neighbouring rays stopped is, exactly, how much room there is
+        ''' between those two pieces of the world.
+        '''
+        ''' `linked` means the hull does NOT fit: both rays found something and
+        ''' their returns are closer together than the tank is wide, so that
+        ''' pair is one continuous barrier with no way between. Two MISSES are
+        ''' never linked however close their far ends are - open sky 1 m across
+        ''' at twenty metres is sky, not a wall, and that is the trap in
+        ''' measuring this naively.
+        ''' </summary>
+        Public chord As Single
+        Public linked As Boolean
     End Structure
 
     ''' <summary>
@@ -441,8 +465,291 @@ Module BrainRadar
             h.col = cc
             out(i) = h
         Next
+        ' ---- JOIN THE NEIGHBOURS -------------------------------------------
+        '
+        ' One pass round the circle, after every endpoint is known. The last
+        ' ray closes onto the first because the sweep IS a circle now - leaving
+        ' that pair out would put a permanent seam directly behind the hull,
+        ' which is exactly where a reversing tank looks.
+        '
+        ' Cost is a subtract and a square root per pair; the sines were spent
+        ' casting the rays and the endpoints were already stored. No table
+        ' needed at this ray count - measured, not assumed.
+        Dim gate = If(bodyR > 0.0F, bodyR * 2.0F, 0.0F)
+        For i = 0 To RAYS - 1
+            Dim j = (i + 1) Mod RAYS
+            out(i).chord = (out(i).at - out(j).at).Length
+            out(i).linked = out(i).found AndAlso out(j).found AndAlso
+                            out(i).chord < gate
+        Next
+
+        ' ---- THE WAYS THROUGH, AND WHETHER WE ACTUALLY FIT -----------------
+        '
+        ' "we are trying to go thru gaps we wont fit" - and the chord was why.
+        '
+        ' A CHORD IS NOT A DOORWAY. Between two jambs at different ranges it is
+        ' a DIAGONAL: a return at 5 m on the left and one at 18 m on the right
+        ' can be eight metres apart as a straight line while the passage
+        ' between those two obstacles is nothing like eight metres wide. The
+        ' chord measures line of sight past a corner. It was being read as
+        ' clearance, and the hull kept committing to gaps that were never
+        ' there.
+        '
+        ' So the chord stops being the test and becomes the CANDIDATE. The test
+        ' is the corridor - the hull's own width in parallel planks, cast at
+        ' the gap, exactly the same rule that decides whether to keep the
+        ' throttle down. Either the box the tank sweeps is clear or it is not,
+        ' and that question has one answer rather than an inference from two
+        ' sample points.
+        '
+        ' THE AIM POINT IS PUSHED PAST the opening's plane. Arriving at the
+        ' midpoint of a doorway leaves the hull IN the doorway.
+        WAYS.Clear()
+        If bodyR > 0.0F Then
+            Dim maxSteps = CInt(90.0F / (ARC_DEG / RAYS))
+            For i = 0 To RAYS - 1
+                If Not out(i).found OrElse out(i).linked Then Continue For
+                Dim j = -1
+                For k = 1 To RAYS - 1
+                    Dim m = (i + k) Mod RAYS
+                    If out(m).found Then
+                        j = m
+                        Exit For
+                    End If
+                Next
+                If j < 0 OrElse j = i Then Continue For
+                If (((j - i) + RAYS) Mod RAYS) > maxSteps Then Continue For
+
+                Dim wy As Way
+                wy.ia = i
+                wy.ib = j
+                wy.a = out(i).at
+                wy.b = out(j).at
+                wy.chord = (wy.a - wy.b).Length
+                If wy.chord < bodyR * 2.0F Then Continue For
+
+                Dim mid = (wy.a + wy.b) * 0.5F
+                Dim toMid = mid - pos
+                Dim reach = toMid.Length
+                If reach < 0.5F Then Continue For
+                Dim dir = toMid / reach
+                wy.mid = mid + dir * 2.0F
+                wy.bearing = wrap_to_pi(CSng(Math.Atan2(dir.X, dir.Y)) - headingRad)
+
+                ' THE HULL'S OWN CORRIDOR, AT THE GAP. Past the opening by the
+                ' same two metres the aim point is, or a gap that is clear right
+                ' up to its mouth and shut immediately behind reads as open.
+                ' Not named `bear` - Scan already has one for the bearings
+                ' array, and VB will not let a block hide it. Worth the compile
+                ' error: a silently shadowed name is what cost an evening when
+                ' a parameter called `rays` swallowed the RAYS constant.
+                Dim gapBear = CSng(Math.Atan2(dir.X, dir.Y))
+                Dim lane = Corridor(pos, gapBear, bodyR, reach + 2.0F)
+                wy.fits = Not lane.hit
+                WAYS.Add(wy)
+            Next
+        End If
+
         LAST = out
         Return out
+    End Function
+
+    ''' <summary>Angle into -pi..pi. Local, because BrainRadar cannot see the
+    ''' brain's copy and two of these drifting apart is a class of bug this
+    ''' project has already paid for once.</summary>
+    Private Function wrap_to_pi(a As Single) As Single
+        While a > Math.PI
+            a -= CSng(Math.PI * 2.0)
+        End While
+        While a < -Math.PI
+            a += CSng(Math.PI * 2.0)
+        End While
+        Return a
+    End Function
+
+    ''' <summary>
+    ''' ONE INTEGER WALK, REUSABLE. Distance from a to b until a blocked cell,
+    ''' or -1 if the whole line is clear. The ray sweep has its own copy inline
+    ''' because it needs the cell it stopped in; this is for everything else.
+    ''' </summary>
+    Private Function trace_cells(ax As Single, az As Single,
+                                 bx As Single, bz As Single) As Single
+        Dim c0 = BrainNav.ColOf(ax), r0 = BrainNav.RowOf(az)
+        Dim c1 = BrainNav.ColOf(bx), r1 = BrainNav.RowOf(bz)
+        Dim sc = Math.Sign(c1 - c0), sr = Math.Sign(r1 - r0)
+        Dim dc = Math.Abs(c1 - c0), dr = Math.Abs(r1 - r0)
+        Dim cc = c0, rr = r0
+        Dim err = dc - dr
+        Dim guard = dc + dr + 2
+        While guard > 0
+            guard -= 1
+            If (cc <> c0 OrElse rr <> r0) AndAlso BrainNav.BlockedCell(cc, rr) Then
+                Dim gc = cc - c0, gr = rr - r0
+                Return CSng(Math.Sqrt(CDbl(gc) * gc + CDbl(gr) * gr)) * BrainNav.CellSize
+            End If
+            If cc = c1 AndAlso rr = r1 Then Exit While
+            Dim e2 = err * 2
+            If e2 > -dr AndAlso cc <> c1 Then
+                err -= dr
+                cc += sc
+            ElseIf rr <> r1 Then
+                err += dc
+                rr += sr
+            Else
+                Exit While
+            End If
+        End While
+        Return -1.0F
+    End Function
+
+    ''' <summary>
+    ''' A WAY THROUGH, once something has actually been driven at it.
+    ''' </summary>
+    Public Structure Way
+        ''' <summary>Which rays the jambs are. The scope plots in the hull's
+        ''' frame and already has every ray's angle and range, so handing it
+        ''' indices costs nothing and spares it a world-to-hull transform it
+        ''' would otherwise have to keep in step with this file.</summary>
+        Public ia As Integer
+        Public ib As Integer
+        Public a As Vector2         ' the near jamb, where a ray stopped
+        Public b As Vector2         ' the far jamb
+        Public mid As Vector2       ' aim point, pushed PAST the opening
+        Public chord As Single      ' jamb to jamb, straight line
+        Public fits As Boolean      ' the hull's own corridor cleared it
+        Public bearing As Single    ' relative to the nose
+    End Structure
+
+    ''' <summary>Every gap the last scan found, with the ones the hull actually
+    ''' fits through marked. Read by the scope and by the brain, so both are
+    ''' looking at one answer.</summary>
+    Public WAYS As New List(Of Way)
+
+    ''' <summary>
+    ''' THE LAST CORRIDOR, IN THE HULL'S OWN FRAME, for the scope to draw.
+    '''
+    ''' Lateral offset and forward length rather than world points, because
+    ''' that is what the scope plots in - handing it world coordinates would
+    ''' make it reconstruct a transform it does not otherwise need, and a
+    ''' second copy of that transform is a second thing to get wrong.
+    ''' </summary>
+    Public LANE_OFF As Single() = Nothing     ' metres left(-) / right(+) of the centreline
+    Public LANE_LEN As Single() = Nothing     ' metres forward before it stopped
+    Public LANE_HIT As Boolean() = Nothing
+
+    ''' <summary>True while any plank is touching something. The scope uses it
+    ''' to decide whether the full scan is worth showing: when nothing is in
+    ''' the corridor there is no decision being made and 120 rays are just
+    ''' noise over the top of the thing that matters.</summary>
+    Public LANE_ACTIVE As Boolean = False
+
+    ''' <summary>What the corridor test found.</summary>
+    Public Structure Lane
+        Public hit As Boolean
+        Public dist As Single       ' nearest plank return, REACH if none
+        Public leftHit As Boolean   ' which side of the centreline it was on
+        Public rightHit As Boolean
+        Public planks As Integer
+        Public blocked As Integer
+    End Structure
+
+    ''' <summary>
+    ''' CAN WE KEEP GOING STRAIGHT? A block of parallel rays the width of the
+    ''' tank, cast straight out from the corners.
+    '''
+    ''' "shot block of rays the width of our tank, straight out from corners.
+    '''  we want to be one plk left and right of fenders and fill all between.
+    '''  if one hits, we trigger scanning" - the owner, 2026-09-17.
+    '''
+    ''' PARALLEL, NOT FANNED, and that is the whole idea. A fan from the hull's
+    ''' centre answers "what is out there"; a block of parallel lines the width
+    ''' of the tank answers the only question that decides whether to keep the
+    ''' throttle down - does the box I am about to sweep contain anything. They
+    ''' are different questions and the fan has been standing in for this one
+    ''' all along, which is why a ray down a gap two metres across kept
+    ''' reporting twenty clear metres.
+    '''
+    ''' ONE PLANK PROUD OF EACH FENDER, so the corridor is slightly wider than
+    ''' the hull. A tank that clears by nothing clears until it yaws.
+    '''
+    ''' AND IT SAYS WHICH SIDE. A swept-box test returns one bit and throws
+    ''' that away; knowing the left planks are the blocked ones is what lets
+    ''' the answer be "go right" rather than "stop and think".
+    ''' </summary>
+    Public Function Corridor(pos As Vector2, headingRad As Single,
+                             halfWidth As Single, reach As Single) As Lane
+        Dim lane As Lane
+        Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
+        Dim px = -dz, pz = dx                      ' unit perpendicular
+        Dim cell = BrainNav.CellSize
+        Dim edge = halfWidth + cell                ' one plank proud of the fender
+        Dim n = CInt(Math.Ceiling(edge * 2.0F / cell)) + 1
+        If n < 3 Then n = 3
+
+        lane.dist = reach
+        lane.planks = n
+        LANE_ACTIVE = False
+        If LANE_OFF Is Nothing OrElse LANE_OFF.Length <> n Then
+            ReDim LANE_OFF(n - 1)
+            ReDim LANE_LEN(n - 1)
+            ReDim LANE_HIT(n - 1)
+        End If
+        For i = 0 To n - 1
+            Dim off = -edge + (2.0F * edge) * i / (n - 1)
+            Dim ax = pos.X + px * off, az = pos.Y + pz * off
+            Dim d = trace_cells(ax, az, ax + dx * reach, az + dz * reach)
+            LANE_OFF(i) = off
+            LANE_LEN(i) = If(d >= 0.0F, d, reach)
+            LANE_HIT(i) = (d >= 0.0F)
+            If d >= 0.0F Then
+                lane.hit = True
+                LANE_ACTIVE = True
+                lane.blocked += 1
+                If d < lane.dist Then lane.dist = d
+                If off < -cell * 0.5F Then lane.leftHit = True
+                If off > cell * 0.5F Then lane.rightHit = True
+            End If
+        Next
+        Return lane
+    End Function
+
+    ''' <summary>
+    ''' THE WIDEST WAY OUT, measured jamb to jamb.
+    '''
+    ''' "we scan and look for the widest way out of the hits. we scan, find
+    '''  center of cord and aim for it."
+    '''
+    ''' Walks the sweep for returns that are NOT joined to their neighbour - a
+    ''' break in the barrier - and takes the chord from there to the next
+    ''' return. The widest such chord that the hull fits through, and whose
+    ''' jambs are inside the 90-degree rule, is the way out. Its centre is a
+    ''' POINT in the world, not a bearing: a bearing is only true from where it
+    ''' was measured and the hull is moving while it turns.
+    ''' </summary>
+    Public Function WidestGap(hits As Hit(), needM As Single,
+                              ByRef widthOut As Single) As Vector2
+        widthOut = 0.0F
+        Dim best As Vector2 = Vector2.Zero
+        If hits Is Nothing OrElse hits.Length < 3 Then Return best
+        Dim maxSteps = CInt(90.0F / (ARC_DEG / RAYS))
+        For i = 0 To hits.Length - 1
+            If Not hits(i).found OrElse hits(i).linked Then Continue For
+            Dim j = -1
+            For k = 1 To hits.Length - 1
+                Dim m = (i + k) Mod hits.Length
+                If hits(m).found Then
+                    j = m
+                    Exit For
+                End If
+            Next
+            If j < 0 OrElse j = i Then Continue For
+            If (((j - i) + hits.Length) Mod hits.Length) > maxSteps Then Continue For
+            Dim span = (hits(i).at - hits(j).at).Length
+            If span < needM OrElse span <= widthOut Then Continue For
+            widthOut = span
+            best = (hits(i).at + hits(j).at) * 0.5F
+        Next
+        Return best
     End Function
 
     ''' <summary>Rebuild the line buffer from the current hull.</summary>
