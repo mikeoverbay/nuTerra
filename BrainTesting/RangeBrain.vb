@@ -86,10 +86,16 @@ Public Class RangeBrain
     ''' <summary>Reverse for this long once the rear wins.</summary>
     Private Const BACK_S As Single = 2.0F
 
+    ''' <summary>What the wedge entry brakes against on its one frame, before
+    ''' St.Backing measures the room behind for itself. A wedged hull has by
+    ''' definition just failed to move, so it gets the crawl.</summary>
+    Private Const BACK_ROOM_M As Single = 4.0F
+
     Private Enum St
         Seek = 0
         Turning        ' swinging toward a longer ray, not yet re-scanned
         Follow         ' the turn panned out: hold it until the goal opens up
+        Door           ' hits both sides, open in the middle: line up and go through
         Backing
     End Enum
 
@@ -145,6 +151,57 @@ Public Class RangeBrain
     ' a reversal that has nothing to do with what is behind. So the winning
     ' ray's bearing is recorded, not just that the rear won: an outer one is
     ' the bug, a middle one is a real answer.
+    ' ---- the doorway ----------------------------------------------------
+    '
+    ' "now we need to deal with left and right hits and center being open.
+    '  find center and aim if we can fit. if we cant back up using same logic
+    '  as going forward. go around or go though."
+    '
+    ' A DOOR IS NOT A WALL WITH A LONG RAY BESIDE IT. The blocked branch asks
+    ' which SIDE is deeper and turns that way - and nose-on to a gateway both
+    ' sides are equally shut, so it would pick one at random and drive round a
+    ' building it could have gone through. The gap is a different shape in the
+    ' scan and it deserves a different answer: returns on the left, returns on
+    ' the right, and a run of rays in the middle that go straight past both.
+    '
+    ' THE CENTRE IS AIMED AT AS A PLACE, not as a bearing. A bearing is only
+    ' true from where it was measured, and a hull lining up on a gateway is
+    ' moving the whole time. The world point between the two jambs stays put.
+    Private doorAt As Vector2
+    Private doorW As Single = 0.0F
+    Private doorFor As Single = 0.0F
+    Private doors As Integer = 0
+
+    ''' <summary>
+    ''' HOW MUCH OF THE REAR ARC GETS A VOTE ON REVERSING.
+    '''
+    ''' Sixty degrees, so thirty either side of dead astern. The rear sweep is
+    ''' 120 degrees wide like the front, which puts rays 55 degrees off the
+    ''' tail looking SIDEWAYS - and a tank reverses along its own axis, so
+    ''' those describe ground it will never back into.
+    '''
+    ''' The record caught it on the first run that went 120: "REAR TRIGGER 1 -
+    ''' rear is better (20.0 m vs 4.5), winning ray -56 deg off the tail." A
+    ''' ray at the very edge of the arc saw nothing for its full 20 m, beat the
+    ''' 4.5 m ahead, and ordered a reversal about ground that was beside the
+    ''' hull rather than behind it. Range went 83 m to 130 m and never came
+    ''' back. Same mistake as letting the outer FRONT rays into the surface
+    ''' fit, one arc round.
+    ''' </summary>
+    Private Const REAR_ARC_DEG As Single = 60.0F
+
+    ''' <summary>How much further an open ray must read than the nearest thing
+    ''' in the scan before it counts as going PAST it rather than at it.</summary>
+    Private Const DOOR_OPEN_M As Single = 4.0F
+
+    ''' <summary>Clearance wanted beyond the hull, over the whole opening. Half
+    ''' a metre each side: a gateway taken at a crawl does not need a lane.</summary>
+    Private Const DOOR_MARGIN_M As Single = 1.0F
+
+    ''' <summary>Keep driving at a door this long after losing sight of it -
+    ''' the jambs leave the arc before the hull is through them.</summary>
+    Private Const DOOR_S As Single = 4.0F
+
     Private rearTrigs As Integer = 0
     Private rearLastDeg As Single = 0.0F
 
@@ -246,6 +303,15 @@ Public Class RangeBrain
 
     Public Sub Start(first As BrainInput) Implements IBrain.Start
         state = St.Seek
+        If first.hulls IsNot Nothing AndAlso first.hulls.Length > DRIVER Then
+            Dim hv = first.hulls(DRIVER)
+            ' ON SCREEN, because these two numbers decide whether the hull can
+            ' move at all and neither of them was ever printed.
+            LogThis("brain: hull {0:0.0} x {1:0.0} m - drive radius {2:0.00} m " &
+                    "(needs a {3:0.0} m lane), rotate radius {4:0.00} m",
+                    hv.halfX * 2.0F, hv.halfZ * 2.0F, hv.DriveRadius,
+                    hv.DriveRadius * 2.0F, hv.FitRadius)
+        End If
         LogThis("brain: RangeBrain on hull {0} - turning by range, not by guess",
                 DRIVER)
     End Sub
@@ -296,9 +362,10 @@ Public Class RangeBrain
             wedgedFor = 0.0F
             holdAt = 0.0F
             Why = "wedged - backing out"
-            o.throttle(DRIVER) = -0.6F
+            ' A nudge, not a retreat - see the reverse curve in St.Backing.
+            o.throttle(DRIVER) = -creep(BACK_ROOM_M)
             o.why(DRIVER) = Why
-            lastThrottle = -0.6F
+            lastThrottle = o.throttle(DRIVER)
             Return o
         End If
 
@@ -307,12 +374,13 @@ Public Class RangeBrain
             beat = 0.0F
             LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
                     "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
-                    "| probes {10} (dbl {11}) rear-trig {12}{13}",
+                    "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14}",
                     state.ToString(), Why, lastThrottle, h.speed, range,
                     surf.verdict, surf.valid, surf.oneSurface, surf.turns,
                     MathHelper.RadiansToDegrees(surf.normalRad),
                     probes, dblTaps, rearTrigs,
-                    If(rearTrigs > 0, String.Format(" (last {0:0} deg)", rearLastDeg), ""))
+                    If(rearTrigs > 0, String.Format(" (last {0:0} deg)", rearLastDeg), ""),
+                    doors)
         End If
 
         ' ---- what the scan says --------------------------------------------
@@ -331,11 +399,54 @@ Public Class RangeBrain
         Dim ahead = Math.Min(front(mid).dist, Math.Min(front(mid - 1).dist,
                                                       front(Math.Min(mid + 1, front.Count - 1)).dist))
 
+        ' AND WHAT THE BODY HAS, which is the number anything about DRIVING has
+        ' to be decided on. `ahead` is three rays - lines, measured at TRACE_R -
+        ' and every state that braked or gated on it drove the hull into things
+        ' the rays could see past. Computed once, here, so no state can go back
+        ' to asking the cheaper question.
+        '
+        ' USE IT EVERYWHERE OR NOWHERE. Gating on the body while the branch
+        ' below still compared against `ahead` was worse than either: it
+        ' entered "blocked" with five real metres of room and then measured
+        ' every alternative against a 20 m ray, so nothing could ever beat
+        ' straight on and every path fell through to "boxed in". The record
+        ' said it plainly - "rays 20.0 m ahead but the BODY has 5.0 m" - while
+        ' the hull sat there reversing to move a sensor that was working.
+        Dim bodyAhead = body_ahead(h.pos, h.headingRad, h.DriveRadius, ahead)
+
         ' ---- backing out ---------------------------------------------------
         If state = St.Backing Then
             backFor -= inp.dt
+
+            ' THE SAME LOGIC GOING BACKWARDS. "if we cant back up using same
+            ' logic as going forward."
+            '
+            ' Reversing was the one move made blind - a fixed throttle for a
+            ' fixed time, with nothing asking whether there was anywhere to
+            ' reverse INTO. A hull that backs into the wall behind it has not
+            ' bought itself any room, and the wedge detector cannot see it
+            ' because the wedge detector only watches forward throttle.
+            Dim behind = body_ahead(h.pos, wrap_pi(h.headingRad + CSng(Math.PI)),
+                                    h.DriveRadius, 8.0F)
+            If behind < 2.0F Then
+                backFor = 0.0F
+                LogThis("brain: nothing behind either - {0:0.0} m of room, stopping the " &
+                        "reverse", behind)
+            End If
+
             If backFor > 0.0F Then
-                o.throttle(DRIVER) = -0.6F
+                ' THE FORWARD CURVE, BACKWARDS. "using same logic as going
+                ' forward" - so literally creep(), on the room the body has
+                ' behind it, with the sign flipped.
+                '
+                ' It used to be a flat -0.6, which at 12 m/s top speed over the
+                ' two-second BACK_S is FOURTEEN METRES of reverse. The record
+                ' shows what that cost: range to the goal went 83, 86, 94, 97,
+                ' 102, 107 ... 130, gaining seven or eight metres of separation
+                ' per wedge and never getting them back. A backup is meant to
+                ' buy enough room to turn in - three metres or so - not to
+                ' retreat half the map.
+                o.throttle(DRIVER) = -creep(behind)
                 Why = "backing - rear was better"
                 o.why(DRIVER) = Why
                 Return o
@@ -403,7 +514,7 @@ Public Class RangeBrain
             End If
 
             If testFor <= 0.0F OrElse peeks >= PEEK_SAMPLES Then
-                If ahead > lastOpen + BETTER_M OrElse ahead > BLOCK_M * 2.0F Then
+                If bodyAhead > lastOpen + BETTER_M OrElse bodyAhead > BLOCK_M * 2.0F Then
                     Why = "it panned out"
                     ' TURN BACK UNTIL THE BODY IS CLEAR. Sweep from the heading
                     ' we looked along, back toward the goal, and keep the LAST
@@ -421,8 +532,18 @@ Public Class RangeBrain
                         Dim f = k / CSng(steps)
                         Dim test = wrap_pi(wantHeading +
                                            wrap_pi(wantGoal - wantHeading) * f)
-                        ' What does the scan see along that heading?
-                        If ray_toward(front, wrap_pi(test - h.headingRad)) >= need Then
+                        ' WHAT THE SCAN SEES **AND** WHAT THE HULL FITS.
+                        '
+                        ' Ray-only, this loop handed the whole turn straight
+                        ' back: "turning to -13 deg" then "turned back 13 deg
+                        ' toward the goal and still clear" - which is the goal
+                        ' heading, the one that had just wedged it. The rays
+                        ' were telling the truth and describing somewhere the
+                        ' hull cannot go, so the widen below had to undo the
+                        ' sweep every single time, and when it could not, Seek
+                        ' drove back into the wall. Fifteen wedges in 55 s.
+                        If ray_toward(front, wrap_pi(test - h.headingRad)) >= need AndAlso
+                           will_clear(h.pos, test, h.DriveRadius, need) Then
                             settled = test
                         Else
                             Exit For
@@ -472,13 +593,13 @@ Public Class RangeBrain
 
                     Dim widened = 0
                     Do While widened < WIDEN_MAX AndAlso widened < cands.Count AndAlso
-                             Not will_clear(h.pos, settled, h.FitRadius, need)
+                             Not will_clear(h.pos, settled, h.DriveRadius, need)
                         settled = cands(widened)
                         widened += 1
                     Loop
 
                     If widened > 0 Then
-                        If will_clear(h.pos, settled, h.FitRadius, need) Then
+                        If will_clear(h.pos, settled, h.DriveRadius, need) Then
                             LogThis("brain: body would not clear - grabbed the ray {0:0} deg " &
                                     "further {1}, which does",
                                     MathHelper.RadiansToDegrees(Math.Abs(wrap_pi(settled - wantHeading))),
@@ -510,8 +631,8 @@ Public Class RangeBrain
                     Why = "it did not pan out"
                     state = St.Seek
                 End If
-                LogThis("brain: turn tested - open was {0:0.0} m, now {1:0.0} m: {2}",
-                        lastOpen, ahead, Why)
+                LogThis("brain: turn tested - body had {0:0.0} m, now {1:0.0} m: {2}",
+                        lastOpen, bodyAhead, Why)
             End If
             ' STOPPED WHILE IT TURNS. "i want it to stop when it finds the
             ' wall and turn to that angle."
@@ -525,6 +646,51 @@ Public Class RangeBrain
             o.why(DRIVER) = Why
             lastThrottle = o.throttle(DRIVER)
             Return o
+        End If
+
+        ' ---- going through it ------------------------------------------------
+        If state = St.Door Then
+            Dim d2 = find_door(front, h.pos, h.headingRad, h.DriveRadius)
+            If d2.found AndAlso d2.fits Then
+                doorAt = d2.at
+                doorW = d2.width
+                doorFor = DOOR_S
+            Else
+                ' The jambs leave the arc before the hull is between them, so
+                ' losing sight of a door is the NORMAL end of one. Carry on to
+                ' the point it was last seen at.
+                doorFor -= inp.dt
+            End If
+
+            Dim toDoor = doorAt - h.pos
+            Dim doorLeft = toDoor.Length
+            If doorLeft < 2.0F OrElse doorFor <= 0.0F Then
+                state = St.Seek
+                LogThis("brain: through the door ({0:0.0} m of it left, {1:0.0} m wide)",
+                        doorLeft, doorW)
+            Else
+                Dim wantD = CSng(Math.Atan2(toDoor.X, toDoor.Y))
+                Dim dErr = wrap_pi(wantD - h.headingRad)
+                o.steer(DRIVER) = Math.Clamp(dErr / FULL_LOCK, -1.0F, 1.0F)
+                If Math.Abs(dErr) > SQUARE_ON Then
+                    ' LINE UP FIRST, STANDING STILL. A gateway entered on a
+                    ' diagonal is a gateway the hull's corner catches.
+                    Why = String.Format("lining up on the door ({0:0} deg off)",
+                                        MathHelper.RadiansToDegrees(Math.Abs(dErr)))
+                Else
+                    Dim room = body_ahead(h.pos, h.headingRad, h.DriveRadius,
+                                          Math.Min(ahead, doorLeft + 4.0F))
+                    ' At a walk. The margin is half a metre a side and the
+                    ' braking curve cannot save a hull that is already in the
+                    ' jamb.
+                    o.throttle(DRIVER) = Math.Min(creep(room), 0.35F)
+                    Why = String.Format("through the door ({0:0.0} m wide, {1:0.0} m to go)",
+                                        doorW, doorLeft)
+                End If
+                o.why(DRIVER) = Why
+                lastThrottle = o.throttle(DRIVER)
+                Return o
+            End If
         End If
 
         ' ---- seeking --------------------------------------------------------
@@ -549,7 +715,6 @@ Public Class RangeBrain
             ' where Standable clears at its FIT radius. Running alongside a
             ' wall is exactly where those two disagree: the rays point down the
             ' gap and the corner of the hull is already in it.
-            Dim bodyAhead = body_ahead(h.pos, h.headingRad, h.FitRadius, ahead)
             If bodyAhead <= BLOCK_M Then
                 ' Something new in front. Decide again from this scan.
                 state = St.Seek
@@ -602,7 +767,7 @@ Public Class RangeBrain
             End If
         End If
 
-        If ahead > BLOCK_M Then
+        If bodyAhead > BLOCK_M Then
             ' ---- looking ahead, before it becomes a problem ----------------
             If ahead < LOOK_AHEAD_M Then
                 voteAt += inp.dt
@@ -628,10 +793,10 @@ Public Class RangeBrain
                             If ours AndAlso q.dist > deepest.dist Then deepest = q
                         Next
                         Dim head2 = wrap_pi(h.headingRad + deepest.angle)
-                        If will_clear(h.pos, head2, h.FitRadius,
+                        If will_clear(h.pos, head2, h.DriveRadius,
                                       Math.Max(6.0F, h.FitRadius * 1.5F)) Then
                             wantHeading = head2
-                            lastOpen = ahead
+                            lastOpen = bodyAhead
                             testFor = TEST_S
                             followLeft = voteLeft
                             holdAt = 0.0F
@@ -661,7 +826,7 @@ Public Class RangeBrain
             If Math.Abs(goalErr) > TURN_FIRST Then
                 Why = "turning"
             Else
-                Dim thr = creep(ahead)
+                Dim thr = creep(bodyAhead)
                 If range < 20.0F Then thr = Math.Min(thr, Math.Max(0.25F, range / 20.0F))
                 o.throttle(DRIVER) = thr
                 Why = "seeking"
@@ -669,6 +834,37 @@ Public Class RangeBrain
             o.why(DRIVER) = Why
             lastThrottle = o.throttle(DRIVER)
             Return o
+        End If
+
+        ' ---- blocked: IS IT A DOOR? -----------------------------------------
+        '
+        ' Asked FIRST, because going through beats going round whenever the
+        ' hull fits: the side logic below would see both sides equally shut and
+        ' pick one at random, which is how it drove round a building it could
+        ' have driven through.
+        Dim gap = find_door(front, h.pos, h.headingRad, h.DriveRadius)
+        If gap.found Then
+            If gap.fits Then
+                doorAt = gap.at
+                doorW = gap.width
+                doorFor = DOOR_S
+                doors += 1
+                state = St.Door
+                Why = String.Format("door {0:0.0} m wide - going through", gap.width)
+                LogThis("brain: DOOR {0} at {1:0.0} m ahead - {2:0.0} m wide, hull needs " &
+                        "{3:0.0}. Going through.",
+                        doors, ahead, gap.width, h.DriveRadius * 2.0F + DOOR_MARGIN_M)
+                o.why(DRIVER) = Why
+                lastThrottle = o.throttle(DRIVER)
+                Return o
+            Else
+                ' TOO NARROW. Say so and fall through to going round - the gap
+                ' is real, the hull is just wider than it. This is the line
+                ' that tells the two failures apart in the record.
+                LogThis("brain: door at {0:0.0} m is only {1:0.0} m wide, hull needs " &
+                        "{2:0.0} - going round instead",
+                        ahead, gap.width, h.DriveRadius * 2.0F + DOOR_MARGIN_M)
+            End If
         End If
 
         ' ---- blocked: decide by RANGE ---------------------------------------
@@ -682,10 +878,10 @@ Public Class RangeBrain
         ' of it is meaningfully longer than the middle - there is nothing to
         ' turn toward.
         Dim wallAcross = surf.valid AndAlso surf.oneSurface AndAlso
-                         (bestOut < ahead + BETTER_M)
+                         (bestOut < bodyAhead + BETTER_M)
         ' will_clear below may promote this to True when no side fits.
 
-        If bestOut > ahead + BETTER_M AndAlso Not wallAcross Then
+        If bestOut > bodyAhead + BETTER_M AndAlso Not wallAcross Then
             Dim goLeft = (leftBest >= rightBest)
 
             ' TEST THE SIDE BEFORE COMMITTING TO IT. The longer ray is only a
@@ -695,8 +891,8 @@ Public Class RangeBrain
             Dim probe = Math.Max(8.0F, h.FitRadius * 2.0F)
             Dim headL = wrap_pi(h.headingRad + front(0).angle)
             Dim headR = wrap_pi(h.headingRad + front(front.Count - 1).angle)
-            Dim okL = will_clear(h.pos, headL, h.FitRadius, probe)
-            Dim okR = will_clear(h.pos, headR, h.FitRadius, probe)
+            Dim okL = will_clear(h.pos, headL, h.DriveRadius, probe)
+            Dim okR = will_clear(h.pos, headR, h.DriveRadius, probe)
             If goLeft AndAlso Not okL AndAlso okR Then
                 goLeft = False
                 LogThis("brain: left looked longer but the hull will not clear it - going right")
@@ -767,7 +963,7 @@ Public Class RangeBrain
                 wantHeading = wrap_pi(h.headingRad + pick.angle)
             End If
 
-            lastOpen = ahead
+            lastOpen = bodyAhead
             testFor = TEST_S
             followLeft = goLeft
             holdAt = 0.0F           ' taken from the first side reading
@@ -793,24 +989,40 @@ Public Class RangeBrain
         ' ---- the front is shut. IS THE REAR BETTER? --------------------------
         Dim rearBest = 0.0F
         Dim rearWin As Single = 0.0F        ' the winning ray's bearing off the TAIL
+        Dim tailCone = MathHelper.DegreesToRadians(REAR_ARC_DEG * 0.5F)
         For Each q In rear
+            ' Rear bearings come back near +/-PI; off-the-tail is what a person
+            ' can read, and what says whether it is a sideways ray.
+            Dim off = wrap_pi(q.angle - CSng(Math.PI))
+            If Math.Abs(off) > tailCone Then Continue For
             If q.dist > rearBest Then
                 rearBest = q.dist
-                ' Rear bearings come back near +/-PI; off-the-tail is what a
-                ' person can read, and what says whether it is a sideways ray.
-                rearWin = wrap_pi(q.angle - CSng(Math.PI))
+                rearWin = off
             End If
         Next
-        If rearBest > ahead + BETTER_M Then
+
+        ' AND THE BODY HAS TO HAVE THE ROOM. "if we cant back up using same
+        ' logic as going forward" - the rays behind are lines like the rays in
+        ' front, and the hull reversing is the same 3.3 m wide box it is going
+        ' forward. Asked HERE and not only once the reverse is running, so a
+        ' reversal that cannot happen is never entered.
+        Dim roomBack = body_ahead(h.pos, wrap_pi(h.headingRad + CSng(Math.PI)),
+                                  h.DriveRadius, 8.0F)
+
+        If rearBest > bodyAhead + BETTER_M AndAlso roomBack < 2.0F Then
+            LogThis("brain: rear rays say {0:0.0} m but the body has {1:0.0} m behind it - " &
+                    "not reversing", rearBest, roomBack)
+        ElseIf rearBest > bodyAhead + BETTER_M Then
             state = St.Backing
             backFor = BACK_S
             rearTrigs += 1
             rearLastDeg = MathHelper.RadiansToDegrees(rearWin)
-            Why = String.Format("rear is better ({0:0.0} m vs {1:0.0})", rearBest, ahead)
+            Why = String.Format("rear is better ({0:0.0} m vs {1:0.0} of body room)",
+                                rearBest, bodyAhead)
             LogThis("brain: REAR TRIGGER {0} - {1}, winning ray {2:0} deg off the tail. " &
                     "Reversing rather than turning round.",
                     rearTrigs, Why, rearLastDeg)
-            o.throttle(DRIVER) = -0.6F
+            o.throttle(DRIVER) = -creep(roomBack)
             o.why(DRIVER) = Why
             lastThrottle = o.throttle(DRIVER)
             Return o
@@ -827,13 +1039,114 @@ Public Class RangeBrain
         ' changes the answer.
         state = St.Backing
         backFor = BACK_S
-        o.throttle(DRIVER) = -0.6F
+        o.throttle(DRIVER) = -creep(roomBack)
         Why = "boxed in - backing up to see more"
-        LogThis("brain: boxed in at {0:0.0} m ahead, rear {1:0.0} m - reversing to " &
-                "move the sensor", ahead, rearBest)
+        LogThis("brain: boxed in - rays {0:0.0} m ahead but the BODY has {1:0.0} m " &
+                "(needs {2:0.00} radius, widest that fits here is {3:0.00}), rear {4:0.0} m",
+                ahead, bodyAhead, h.DriveRadius,
+                widest_clear(h.pos, h.headingRad, h.DriveRadius), rearBest)
         o.why(DRIVER) = Why
         lastThrottle = o.throttle(DRIVER)
         Return o
+    End Function
+
+    Private Structure Gap
+        Public found As Boolean
+        Public fits As Boolean
+        Public width As Single      ' metres between the jambs
+        Public at As Vector2        ' world point in the middle of the opening
+    End Structure
+
+    ''' <summary>
+    ''' HITS BOTH SIDES, OPEN IN THE MIDDLE.
+    '''
+    ''' Walk the front arc for the widest run of rays that go PAST the nearest
+    ''' thing in the scan, with a return on both sides of the run. Those two
+    ''' returns are the jambs; the distance between where they landed is the
+    ''' opening, measured rather than inferred from an angle.
+    '''
+    ''' THE RUN MUST BE BOUNDED AT BOTH ENDS. An open run that reaches the edge
+    ''' of the arc is not a door - it is the scan running out, which is the
+    ''' ordinary "go round the end of it" case the side logic already handles.
+    ''' Requiring a jamb each side is the whole difference between the two.
+    ''' </summary>
+    Private Shared Function find_door(front As List(Of BrainRadar.Hit),
+                                      pos As Vector2, headingRad As Single,
+                                      fitR As Single) As Gap
+        Dim g As Gap
+        Dim near = BrainRadar.REACH_M
+        For Each q In front
+            If q.found Then near = Math.Min(near, q.dist)
+        Next
+        If near >= BrainRadar.REACH_M Then Return g    ' nothing there at all
+
+        Dim n = front.Count
+        Dim isOpen(n - 1) As Boolean
+        For k = 0 To n - 1
+            isOpen(k) = (Not front(k).found) OrElse front(k).dist > near + DOOR_OPEN_M
+        Next
+
+        Dim bi0 = -1, bi1 = -1
+        Dim k2 = 1
+        While k2 < n - 1
+            If isOpen(k2) AndAlso Not isOpen(k2 - 1) Then
+                Dim j = k2
+                While j < n - 1 AndAlso isOpen(j)
+                    j += 1
+                End While
+                ' j is the first closed ray after the run - a jamb, because the
+                ' loop stopped before the arc's edge.
+                If Not isOpen(j) Then
+                    If bi0 < 0 OrElse (j - k2) > (bi1 - bi0) Then
+                        bi0 = k2
+                        bi1 = j - 1
+                    End If
+                End If
+                k2 = j
+            Else
+                k2 += 1
+            End If
+        End While
+        If bi0 < 0 Then Return g
+
+        g.found = True
+        Dim jambL = front(bi0 - 1).at
+        Dim jambR = front(bi1 + 1).at
+        g.width = (jambL - jambR).Length
+        ' The middle of the two jambs, pushed a little past the line of them so
+        ' the hull aims THROUGH the opening and not at the plane of it.
+        Dim mid = (jambL + jambR) * 0.5F
+        Dim reach = (mid - pos).Length
+        Dim dir = If(reach > 0.01F, (mid - pos) / reach, New Vector2(0.0F, 1.0F))
+        g.at = mid + dir * 2.0F
+
+        Dim bear = CSng(Math.Atan2(dir.X, dir.Y))
+        g.fits = (g.width >= fitR * 2.0F + DOOR_MARGIN_M) AndAlso
+                 will_clear(pos, bear, fitR, reach + 2.0F)
+        Return g
+    End Function
+
+    ''' <summary>
+    ''' THE WIDEST BODY THAT WOULD GET ONE METRE THIS WAY.
+    '''
+    ''' Standable takes a RADIUS and tests an axis-aligned box of that half
+    ''' size, so the radar's rays clear a 1 m box (TRACE_R 0.5) while the hull
+    ''' asks for a 3.9 m one. When those two disagree the only useful question
+    ''' is BY HOW MUCH - a lane that fits 1.2 m but not 1.94 is a real lane the
+    ''' margin is refusing, and a lane that fits 0.2 m has a wall in it.
+    '''
+    ''' Diagnostic only. Nothing steers on this.
+    ''' </summary>
+    Private Shared Function widest_clear(pos As Vector2, headingRad As Single,
+                                         upTo As Single) As Single
+        Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
+        Dim px = pos.X + dx, pz = pos.Y + dz
+        Dim r = upTo
+        While r > 0.1F
+            If BrainNav.Standable(px, pz, r) Then Return r
+            r -= 0.1F
+        End While
+        Return 0.0F
     End Function
 
     ''' <summary>

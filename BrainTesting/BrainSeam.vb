@@ -85,17 +85,39 @@ Public Structure BrainHull
     Public gunPitchDeg As Single
 
     ''' <summary>
-    ''' Half the DIAGONAL plus a margin - the radius that answers "will this
-    ''' hull fit through that gap".
+    ''' Half the DIAGONAL plus a margin - the radius a hull needs to ROTATE ON
+    ''' THE SPOT without catching anything.
     '''
-    ''' Diagonal, not width, because a hull ROTATES while it drives: a
-    ''' width-only test passes gaps a turning tank wedges in. Precomputed here
-    ''' so the +0.3 m margin is one number in one place rather than a constant
-    ''' every brain picks for itself.
+    ''' THIS IS NOT THE RADIUS FOR DRIVING, and using it as one froze a tank
+    ''' solid. See DriveRadius.
     ''' </summary>
     Public ReadOnly Property FitRadius As Single
         Get
             Return CSng(Math.Sqrt(halfX * halfX + halfZ * halfZ)) + 0.3F
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' HALF THE WIDTH plus a margin - the radius a hull needs to go FORWARD.
+    '''
+    ''' A tank driving down a lane sweeps a box its own width, not a circle its
+    ''' own length. FitRadius was doing both jobs and it is roughly 4.2 m on
+    ''' these hulls, so every forward step was asking for an 8.5 m clear circle
+    ''' to move a 3.4 m wide vehicle one metre.
+    '''
+    ''' THE SYMPTOM WAS TOTAL. Restored into a spot near a wall, the hull
+    ''' wedged 0.8 s after the sim started, having never moved: forward refused,
+    ''' backward refused, and six rays of widening refused, all with the scan
+    ''' reading 20 m of open ground. Throttle 1.00, speed 0.00, 34 probes and
+    ''' 33 of them from the same square metre. Nothing was wrong with the brain
+    ''' - it was asking a question no place on the map could answer yes to.
+    '''
+    ''' The diagonal still matters, but only where the hull actually turns in
+    ''' place, which is what FitRadius is now for and only for.
+    ''' </summary>
+    Public ReadOnly Property DriveRadius As Single
+        Get
+            Return halfX + 0.3F
         End Get
     End Property
 End Structure

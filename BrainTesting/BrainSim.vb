@@ -185,7 +185,12 @@ Module BrainSim
             If step_m <> 0.0F Then
                 Dim fwd As New Vector2(CSng(Math.Sin(b.headingRad)), CSng(Math.Cos(b.headingRad)))
                 Dim want = b.spawn + fwd * step_m
-                If BrainNav.Standable(want.X, want.Y, inp.hulls(i).FitRadius) Then
+                ' THE DRIVING RADIUS, not the rotating one. This line asked
+                ' for a clear circle the size of the hull's DIAGONAL before it
+                ' would let it move a metre forward, which on these hulls is an
+                ' 8.5 m circle for a 3.4 m tank - and near any wall there is no
+                ' such circle, so the hull could not move at all.
+                If BrainNav.Standable(want.X, want.Y, inp.hulls(i).DriveRadius) Then
                     b.spawn = want
                 Else
                     speeds(i) = 0.0F
