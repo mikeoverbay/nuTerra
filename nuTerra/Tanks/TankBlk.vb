@@ -37,7 +37,33 @@ Public Class TankBlk
     ''' <summary>Half a metre. His number.</summary>
     Public Const CELL_M As Single = 0.5F
 
-    Public Const VERSION As UInteger = 1UI
+    ''' <summary>
+    ''' 2: heights quantised to uint16, and an obstacle plane added.
+    '''
+    ''' THE HEADER IS STILL 32 BYTES. v1 spent its last eight on two pad
+    ''' words; height_offset and height_scale are eight bytes and go exactly
+    ''' there. So a reader takes 32 bytes whatever the version and branches on
+    ''' the version only for the planes - the header length never becomes
+    ''' version-dependent, which is the thing that makes a format painful to
+    ''' read years later.
+    ''' </summary>
+    Public Const VERSION As UInteger = 2UI
+
+    ''' <summary>
+    ''' Metres a step in the obstacle plane, and the value that means "taller
+    ''' than this plane can say".
+    '''
+    ''' 0.25 m because the precision matters at a doorway lintel and nowhere
+    ''' else. 255 is a STRICT SENTINEL, not 63.75 m: a reader must treat it as
+    ''' a wall rather than compute a height from it, or the 206 m dam on
+    ''' monastery becomes a 64 m one that a camera thinks it can clear. 254 is
+    ''' a real 63.5 m.
+    '''
+    ''' Tank AI work's reasoning for saturating at all, and it is right: a
+    ''' camera does not plan to clear a spire, it plans to go round it.
+    ''' </summary>
+    Public Const OBSTACLE_STEP_M As Single = 0.25F
+    Public Const OBSTACLE_TALLER As Byte = 255
 
     ''' <summary>
     ''' The mask, one byte a cell.
@@ -90,8 +116,10 @@ Public Class TankBlk
 
         Dim tex_per_m = MapFlightBake.SIZE / span
         Dim mask(n * n - 1) As Byte
-        Dim height(n * n - 1) As Single
+        Dim height(n * n - 1) As UShort
+        Dim obstacle(n * n - 1) As Byte
         Dim blocked = 0
+        Dim saturated = 0
 
         For cz = 0 To n - 1
             Dim r0 = CInt(Math.Floor(cz * CELL_M * tex_per_m))
@@ -109,6 +137,13 @@ Public Class TankBlk
                 Dim outland = False
                 Dim pick = -1            ' the texel that decides this cell
                 Dim tallest = Single.MinValue
+                ' THE TALLEST OBSTACLE IN THE CELL, not the representative
+                ' one. The mask bits come from the texel that decided the cell,
+                ' which answers "what is here"; a camera has to clear the
+                ' HIGHEST thing in the cell, so a max is the only safe
+                ' reduction - a representative pick would under-report a lintel
+                ' standing beside open floor.
+                Dim obs_max = 0.0F
 
                 For r = r0 To r1 - 1
                     Dim row = r * MapFlightBake.SIZE
@@ -117,6 +152,9 @@ Public Class TankBlk
                         Dim k = b.kind_b(i)
 
                         If (k And MapFlightBake.OUTLAND_BIT) <> 0 Then outland = True
+
+                        Dim oh = b.top_m(i) - b.floor_m(i)
+                        If oh > obs_max Then obs_max = oh
 
                         ' The same rule TankSquares cuts by, and deliberately
                         ' the same call - MapFlightBake.Crushable - so the two
@@ -176,7 +214,29 @@ Public Class TankBlk
                 ' of a wall is not that.
                 Dim mr = Math.Min(MapFlightBake.SIZE - 1, (r0 + r1) \ 2)
                 Dim mc = Math.Min(MapFlightBake.SIZE - 1, (c0 + c1) \ 2)
-                height(idx) = b.floor_m(mr * MapFlightBake.SIZE + mc)
+                ' QUANTISED THE WAY _floor.r16 ALREADY IS, same offset and
+                ' scale, so the two are directly comparable and a reader that
+                ' knows one knows the other. 1/64 m is 1.6 cm - over a half
+                ' metre cell that is about 0.03 of slope against a 0.84
+                ' threshold, which is noise.
+                Dim gy = b.floor_m(mr * MapFlightBake.SIZE + mc)
+                Dim q = CInt(Math.Round((gy - b.h_offset) * MapFlightBake.HEIGHT_SCALE))
+                height(idx) = CUShort(Math.Min(Math.Max(q, 0), 65535))
+
+                ' SATURATE ON THE METRES, NOT ON THE ROUNDED STEP, so the
+                ' sentinel has a bound that can be stated exactly. Testing the
+                ' rounded value made 255 mean "taller than 63.625 m" - the
+                ' round pulled the boundary half a step below the top of the
+                ' range - and a reader quoting any round number for it would
+                ' have been wrong. It now means >= 63.75 m and nothing else.
+                If obs_max >= OBSTACLE_TALLER * OBSTACLE_STEP_M Then
+                    obstacle(idx) = OBSTACLE_TALLER
+                    saturated += 1
+                ElseIf obs_max <= 0.0F Then
+                    obstacle(idx) = 0
+                Else
+                    obstacle(idx) = CByte(Math.Round(obs_max / OBSTACLE_STEP_M))
+                End If
             Next
         Next
 
@@ -193,23 +253,27 @@ Public Class TankBlk
                 w.Write(CELL_M)
                 w.Write(wx0)
                 w.Write(b.wz_max)
-                w.Write(0UI)
-                w.Write(0UI)
+                ' The two v1 pad words, now carrying what the height plane
+                ' needs to be read back as metres.
+                w.Write(b.h_offset)
+                w.Write(MapFlightBake.HEIGHT_SCALE)
 
                 w.Write(mask, 0, mask.Length)
-                Dim hb(height.Length * 4 - 1) As Byte
+                Dim hb(height.Length * 2 - 1) As Byte
                 Buffer.BlockCopy(height, 0, hb, 0, hb.Length)
                 w.Write(hb, 0, hb.Length)
+                w.Write(obstacle, 0, obstacle.Length)
             End Using
         Catch ex As Exception
             LogThis("tank blk: could not write {0} - {1}", p, ex.Message)
             Return -1
         End Try
 
-        LogThis("tank blk: {0}x{0} of {1:0.##} m in {2} ms, {3:N0} blocked ({4:0.0}%), " &
-                "{5:0.0} MB -> {6}",
-                n, CELL_M, sw.ElapsedMilliseconds, blocked, 100.0 * blocked / (n * n),
-                (32.0 + mask.Length + height.Length * 4.0) / 1048576.0, p)
+        LogThis("tank blk: v{0} {1}x{1} of {2:0.##} m in {3} ms, {4:N0} blocked ({5:0.0}%), " &
+                "{6:N0} cell(s) taller than the obstacle plane can say, {7:0.0} MB -> {8}",
+                VERSION, n, CELL_M, sw.ElapsedMilliseconds, blocked,
+                100.0 * blocked / (n * n), saturated,
+                (32.0 + mask.Length + height.Length * 2.0 + obstacle.Length) / 1048576.0, p)
         Return blocked
     End Function
 
