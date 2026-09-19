@@ -117,6 +117,9 @@ Public Class GraphBrain
     ''' <summary>The aim last chosen, kept whether or not a plan is held.
     ''' Deciding every tick is right; deciding DIFFERENTLY every tick is
     ''' not, and those are separable.</summary>
+    ''' <summary>Set when the hull is nose-in and already pointed at its
+    ''' aim: the next choice has to be one that swings it.</summary>
+    Private needTurn As Boolean = False
     Private lastAim As Vector2
     Private haveLast As Boolean = False
     Private planPoint As Vector2
@@ -305,7 +308,7 @@ Public Class GraphBrain
         ' next one cannot begin from the same spot on the same reading.
         Dim backingNow = (state = GSt.Backing)
         If wasBacking AndAlso Not backingNow Then
-            backCool = BrainTune.Get_("backcool", 0.0F)
+            backCool = BrainTune.Get_("backcool", 2.0F)
         End If
         wasBacking = backingNow
         If backCool > 0.0F Then backCool -= dt
@@ -727,41 +730,26 @@ Public Class GraphBrain
                 Dim c = pulled(id, "clear")
                 v = CObj(Not as_bool(c, Not corridor().hit))
             Case "Rear Better"
-                ' AND THE FRONT HAS TO BE BLOCKED. Deeper behind than ahead is
-                ' true constantly in close country, and on its own it had the
-                ' board reversing with clear road in front of it - drive,
-                ' reverse, drive, reverse, twice a tick for the whole run.
-                ' Backing up is for when forward is not an option.
-                ' rear=0 turns reversing off entirely, which is a real
-                ' question: it has never once been shown to help.
-                ' LAST RESORT, and now it has to prove it. Asking the
-                ' go-around first - cached for the tick, so this costs
-                ' nothing when the rung above already asked - means Rear
-                ' Better can only be true when every turn has been tried
-                ' and none of them works.
+                ' REVERSING IS FOR WHEN NO TURN GETS US OUT. Nothing else.
+                '
+                ' "reversing is only an option when we can't turn to get out"
+                ' - and the walk now says exactly that. Trapped means every
+                ' end of every chain was tried, both sides, and none of them
+                ' both cleared the hull and left it somewhere it could move.
+                '
+                ' The first version asked whether the walk had found nothing,
+                ' which deadlocked: it nearly always finds SOMETHING, and a
+                ' route the hull cannot reach disqualified the only move that
+                ' would have helped. Trapped is the honest version of that
+                ' question, because the nose-in rule makes the walk decline
+                ' when it is pointed at what is stopping it.
                 If Not roundDone Then
                     roundDone = True
                     roundVal = round_the_end(goal_bearing(), 0.6F)
                 End If
-                ' NOSE AGAINST SOMETHING BEATS "a way past exists".
-                '
-                ' Requiring the walk to have found nothing deadlocked it: the
-                ' walk nearly always finds a way past, so reversing was
-                ' disqualified by the existence of a route the hull could not
-                ' reach. Measured - aimed correctly at a point 5.7 m away,
-                ' 1.0 m of clearance, throttle 0 because that is inside the
-                ' standoff, steer 0 because it was already pointed at it.
-                ' Nothing could change, for as many ticks as were pressed.
-                '
-                ' If the hull physically cannot go forward, backing up is the
-                ' move whether or not a route exists on paper.
-                Dim noRoom = body_ahead() <= BrainTune.Get_("standoff", 1.5F) + 0.5F
-                v = CObj((roundVal Is Nothing OrElse noRoom) AndAlso
+                v = CObj(Trapped AndAlso
                          BrainTune.On_("rear", True) AndAlso
-                         backCool <= 0.0F AndAlso
-                         body_ahead() < BrainTune.Get_("blockat", BLOCK_M) AndAlso
-                         rear_deepest() > body_ahead() +
-                                          BrainTune.Get_("better", BETTER_M))
+                         backCool <= 0.0F)
             Case "Is Seek" : v = CObj(state = GSt.Seek)
             Case "Is Backing" : v = CObj(state = GSt.Backing)
             Case "Is Turning" : v = CObj(state = GSt.Turning)
@@ -1350,8 +1338,17 @@ Public Class GraphBrain
                                                     planPoint.Y - h.pos.Y)) -
                                     h.headingRad), goalB)
             If Math.Abs(aimRel) < 0.15F Then
+                ' NOSE IN AND POINTED AT IT: TURN, DO NOT BACK UP.
+                '
+                ' "we dont need to back up. we need to go around it" - so
+                ' rather than declining the tick and letting reversing have
+                ' it, drop the aim we cannot drive and insist on one that
+                ' actually swings the hull. Throttle is already zero at this
+                ' range, and zero throttle with lock on is a pivot, which is
+                ' the one command the sim never refuses.
                 PlanOn = False
-                Return Nothing
+                haveLast = False
+                needTurn = True
             End If
         End If
 
@@ -1424,6 +1421,49 @@ Public Class GraphBrain
 
         ' The ends of every chain of returns in the forward half. Index order
         ' is angle order - the radar guarantees it and the brain relies on it.
+        ' ---- WHICH CHAIN IS THE PLANK STOPPED BY ------------------------
+        '
+        ' Every run of linked returns is one object; number them, then find
+        ' the return the plank actually ran into - within the hull's width
+        ' of the centreline, at about the range the plank stopped. Its
+        ' chain is the thing in the way, and going round THAT is the job.
+        Dim chainOf(hits.Length - 1) As Integer
+        Dim cid = 0
+        For i = 0 To hits.Length - 1
+            chainOf(i) = -1
+        Next
+        For i = 0 To hits.Length - 1
+            If Not hits(i).found OrElse chainOf(i) >= 0 Then Continue For
+            cid += 1
+            Dim k = i
+            chainOf(k) = cid
+            ' forward along the links
+            While hits(k).linked
+                Dim nx = (k + 1) Mod hits.Length
+                If Not hits(nx).found OrElse chainOf(nx) >= 0 Then Exit While
+                chainOf(nx) = cid
+                k = nx
+            End While
+        Next
+
+        Dim blockChain = -1
+        Dim lanes = corridor()
+        If lanes.hit Then
+            Dim bestGap = Single.MaxValue
+            For i = 0 To hits.Length - 1
+                If Not hits(i).found Then Continue For
+                Dim za = CSng(Math.Cos(hits(i).angle)) * hits(i).dist
+                If za <= 0.0F Then Continue For
+                Dim xa = Math.Abs(CSng(Math.Sin(hits(i).angle)) * hits(i).dist)
+                If xa > h.DriveRadius + 0.6F Then Continue For
+                Dim gap = Math.Abs(hits(i).dist - lanes.dist)
+                If gap < bestGap Then
+                    bestGap = gap
+                    blockChain = chainOf(i)
+                End If
+            Next
+        End If
+
         ' Each end carries WHICH SIDE of it is open: index order is angle
         ' order, so a chain linked to the ray before it extends to lower
         ' angles and the clear side is the higher one. Zero means a lone
@@ -1513,6 +1553,8 @@ Public Class GraphBrain
         Dim bestB = 0.0F, bestOff = Single.MaxValue
         Dim bestAim As Vector2 = h.pos
         Dim got = False, tried = 0
+        Dim minSwing = If(needTurn, BrainTune.Get_("minswing", 0.35F), 0.0F)
+        needTurn = False
 
         ' THE GOAL IS JUST ANOTHER CANDIDATE. "we are always looking for the
         ' green" - so straight at the goal is not a separate rule with its own
@@ -1588,6 +1630,8 @@ Public Class GraphBrain
                 If toAim.Length < 1.0F Then Continue For
                 Dim b = wrap_pi(CSng(Math.Atan2(toAim.X, toAim.Y)) - h.headingRad)
                 If Math.Abs(b) > 1.5F Then Continue For
+                ' Nose-in: only a candidate that really turns us is any use.
+                If Math.Abs(b) < minSwing Then Continue For
                 tried += 1
 
                 If Not can_pivot(b, margin) Then
@@ -1610,6 +1654,16 @@ Public Class GraphBrain
                 ' - but deciding DIFFERENTLY every tick is not, and those two
                 ' are separable. Same candidate as last time wins outright.
                 Dim off = time_via(b, aim)
+
+                ' ROUND THE THING IN FRONT OF US, not the cheapest end in
+                ' view. An end belonging to the chain the plank ran into is
+                ' what actually unblocks the tank; one forty metres away
+                ' may be quicker on paper and leaves the nose where it was.
+                If blockChain > 0 AndAlso chainOf(i) = blockChain Then
+                    off -= 500.0F
+                End If
+
+                ' And the aim we are already on beats both.
                 If haveLast AndAlso (aim - lastAim).Length <
                    BrainTune.Get_("stickm", 6.0F) Then
                     off -= 1000.0F
