@@ -323,6 +323,8 @@ Module BrainPanel
         If ImGui.Checkbox("Scope", scope) Then BrainScope.SHOW = scope
         Dim graph = BrainNodes.SHOW
         If ImGui.Checkbox("Brain graph  (G)", graph) Then BrainNodes.SHOW = graph
+        Dim card = BrainTankState.SHOW
+        If ImGui.Checkbox("Hover Info Board", card) Then BrainTankState.SHOW = card
         ' WHICH BRAIN IS DRIVING. Swapped live rather than on restart, so
         ' the same goal and the same spot can be handed to both - two runs
         ' from different places do not compare.

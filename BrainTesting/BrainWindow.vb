@@ -532,7 +532,17 @@ Public Class BrainWindow
                 ' and the reset is half undone before it is seen.
                 If BrainSim.Running Then BrainSim.Halt()
                 BrainPanel.RestoreSpawns()
-                BrainGoal.Clear()
+                ' THE GOAL STAYS. It is not run state, it is the question being
+                ' asked - and a reset that also forgets where we were going
+                ' means pressing Run does nothing, because the board's first
+                ' rule is No Goal -> Stop. Keeping it makes reset-then-run a
+                ' repeatable experiment: same start, same destination, so two
+                ' runs can actually be compared. Alt still moves it.
+                ' AND THE BRAIN'S OWN STATE. Putting the tank back without this
+                ' left it believing it was part way through backing out of
+                ' something that is no longer in front of it.
+                Dim gb = TryCast(BrainSim.Brain, GraphBrain)
+                If gb IsNot Nothing Then gb.ResetState()
             Case BrainPanel.Action.Shot
                 Capture(BrainPanel.ShotPath())
             Case BrainPanel.Action.Snapshot

@@ -150,7 +150,10 @@ Module BrainRadar
     ''' about forty cells a ray instead of twenty, and cells do not register on
     ''' the tick.
     ''' </summary>
-    Public Const REACH_M As Single = 40.0F
+    ''' <summary>How far a ray goes, metres. NOT a Const any more: the Ray
+    ''' Scan node carries it as a setting, so it has to be assignable. Still
+    ''' one value for the whole app - a scan is a scan.</summary>
+    Public REACH_M As Single = 40.0F
 
     ''' <summary>How far the per-ray DRIVE walk bothers to look. Beyond this a
     ''' heading is a direction rather than a plan - the hull will have rescanned

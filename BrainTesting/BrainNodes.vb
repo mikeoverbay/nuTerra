@@ -41,6 +41,10 @@ Module BrainNodes
     ''' </summary>
     Public Hosted As Boolean = False
 
+    ''' <summary>The pin-help panel is open. Remembered, so closing it
+    ''' stays closed until it is asked for again.</summary>
+    Public HELP_SHOW As Boolean = True
+
     ''' <summary>
     ''' HOW FAR THE WINDOW HAS BEEN DRAGGED THIS FRAME, for the form to
     ''' move by. The form has no border, so ImGui's title bar is the only
@@ -99,6 +103,9 @@ Module BrainNodes
     Private Const ANS_YES As UInteger = &HFF40E040UI
     Private Const ANS_NO As UInteger = &HFF4040FFUI        ' ABGR, so red
     Private Const VAL_TXT As UInteger = &HFF9FE0FFUI       ' the live value
+    Private Const WIRE_PICK As UInteger = &HFFD070FFUI     ' ABGR, so pink
+    Private Const WIRE_LIVE As UInteger = &HFF3B3BFFUI     ' ABGR, so red
+
     Private Const HOVER As UInteger = &HFFBFD9EBUI         ' pale, one step under selected
     Private Const PIN_OK As UInteger = &HFF40E040UI        ' will take this wire
     Private Const PIN_NO As UInteger = &HFF4040FFUI        ' will not - ABGR, so red
@@ -124,9 +131,26 @@ Module BrainNodes
         Public group As String
         Public ins As String()
         Public outs As String()
-        Public Sub New(g As String, n As String, i As String(), o As String())
+
+        ''' <summary>What this kind can be set to, and to what by default.
+        ''' Empty for most - a node with nothing to tune should not grow a
+        ''' settings box that says so.</summary>
+        Public setNames As String()
+        Public setDefs As Single()
+
+        Public Sub New(g As String, n As String, i As String(), o As String(),
+                       Optional sn As String() = Nothing,
+                       Optional sd As Single() = Nothing)
             group = g : name = n : ins = i : outs = o
+            setNames = If(sn, New String() {})
+            setDefs = If(sd, New Single() {})
         End Sub
+
+        Public Function DefaultFor(setting As String) As Single
+            Dim i = Array.IndexOf(setNames, setting)
+            If i < 0 OrElse i >= setDefs.Length Then Return 0.0F
+            Return setDefs(i)
+        End Function
     End Class
 
     ''' <summary>
@@ -148,35 +172,38 @@ Module BrainNodes
     Private ReadOnly KINDS As Kind() = {
         New Kind("sense", "Tick", {}, {"out"}),
         New Kind("sense", "Goal", {}, {"bearing", "range"}),
-        New Kind("sense", "Ray Scan", {}, {"hits", "ahead"}),
+        New Kind("sense", "Ray Scan", {}, {"hits", "ahead"},
+                 {"reach"}, {40.0F}),
         New Kind("sense", "Rear Scan", {"hits"}, {"deepest", "bearing"}),
         New Kind("sense", "Body Ahead", {}, {"metres"}),
         New Kind("sense", "Speed", {}, {"metres"}),
-        New Kind("sense", "Corridor", {"reach"}, {"clear", "dist", "side"}),
+        New Kind("sense", "Corridor", {"reach"}, {"clear", "dist", "side"},
+                 {"length", "margin"}, {30.0F, 0.3F}),
         New Kind("sense", "Gaps", {"hits"}, {"ways"}),
-        New Kind("test", "Arrived", {"range"}, {"yes"}),
-        New Kind("test", "Is Wedged", {}, {"yes"}),
-        New Kind("test", "Not Moving", {}, {"yes"}),
-        New Kind("test", "Backed Enough", {}, {"yes"}),
-        New Kind("test", "No Goal", {}, {"yes"}),
-        New Kind("test", "Too Few Rays", {"hits"}, {"yes"}),
-        New Kind("test", "Has Way", {"way"}, {"yes"}),
-        New Kind("test", "Will Clear", {"bearing", "metres"}, {"yes"}),
-        New Kind("test", "Is Clear", {"dist"}, {"yes"}),
-        New Kind("test", "Nearer Than", {"metres"}, {"yes"}),
-        New Kind("test", "Plank Hit", {"clear"}, {"yes"}),
-        New Kind("test", "Rear Better", {"metres"}, {"yes"}),
-        New Kind("test", "Is Seek", {}, {"yes"}),
-        New Kind("test", "Is Backing", {}, {"yes"}),
-        New Kind("test", "Is Turning", {}, {"yes"}),
-        New Kind("test", "Is Door", {}, {"yes"}),
-        New Kind("test", "Is Follow", {}, {"yes"}),
-        New Kind("pick", "Widest", {"ways"}, {"way"}),
+        New Kind("test", "Arrived", {"range"}, {"True"}, {"metres"}, {5.0F}),
+        New Kind("test", "Is Wedged", {}, {"True"}),
+        New Kind("test", "Not Moving", {}, {"True"}),
+        New Kind("test", "Backed Enough", {}, {"True"}, {"seconds"}, {1.2F}),
+        New Kind("test", "No Goal", {}, {"True"}),
+        New Kind("test", "Too Few Rays", {"hits"}, {"True"}),
+        New Kind("test", "Hit Count", {"hits"}, {"True"}, {"count"}, {3.0F}),
+        New Kind("test", "Has Way", {"way"}, {"True"}),
+        New Kind("test", "Will Clear", {"bearing", "metres"}, {"True"}),
+        New Kind("test", "Is Clear", {"dist"}, {"True"}, {"metres"}, {5.0F}),
+        New Kind("test", "Nearer Than", {"metres"}, {"True"}),
+        New Kind("test", "Plank Hit", {"clear"}, {"True"}),
+        New Kind("test", "Rear Better", {"metres"}, {"True"}),
+        New Kind("test", "Is Seek", {}, {"True"}),
+        New Kind("test", "Is Backing", {}, {"True"}),
+        New Kind("test", "Is Turning", {}, {"True"}),
+        New Kind("test", "Is Door", {}, {"True"}),
+        New Kind("test", "Is Follow", {}, {"True"}),
+        New Kind("pick", "Widest Gap", {"ways"}, {"way"}),
         New Kind("pick", "Best Progress", {"ways", "bearing"}, {"way"}),
-        New Kind("pick", "Door Gap", {"ways"}, {"way"}),
         New Kind("pick", "Deeper Side", {"hits"}, {"bearing"}),
         New Kind("pick", "Vote", {"way"}, {"way"}),
-        New Kind("pick", "Commit", {"way"}, {"way"}),
+        New Kind("pick", "Commit", {"way"}, {"way"},
+                 {"patience", "gained"}, {0.6F, 1.0F}),
         New Kind("pick", "Way Bearing", {"way"}, {"bearing"}),
         New Kind("act", "Stop", {"in"}, {}),
         New Kind("act", "New Goal", {"in"}, {}),
@@ -195,7 +222,7 @@ Module BrainNodes
         New Kind("act", "Follow Wall", {"in", "side"}, {}),
         New Kind("flow", "Priority", {"in"}, {"a", "b", "c", "d"}),
         New Kind("flow", "Sequence", {"in"}, {"a", "b", "c"}),
-        New Kind("flow", "Gate", {"in", "when"}, {"out"})
+        New Kind("flow", "Gate", {"in", "True"}, {"out"})
     }
 
     ''' <summary>
@@ -212,6 +239,199 @@ Module BrainNodes
     ''' is data. Keeping those two apart is what stops a graph rotting, and it
     ''' is cheap now and miserable to retrofit.
     ''' </summary>
+    ''' <summary>
+    ''' WHAT A PIN CARRIES, in a sentence.
+    '''
+    ''' Keyed on the pin NAME rather than on the node, because the names are
+    ''' the vocabulary - every node that says `ways` means the same thing by
+    ''' it, and writing it once per node would be forty chances to say it
+    ''' forty slightly different ways.
+    ''' </summary>
+    Private Function pin_help(name As String) As String
+        Select Case name
+            Case "in" : Return "run this when the rule above picks it"
+            Case "out" : Return "runs whatever is wired here"
+            Case "a", "b", "c", "d" : Return "tried in order - first one that acts wins"
+            Case "True" : Return "the condition - run the branch when this is true"
+            Case "hits" : Return "every ray from the last scan"
+            Case "ways" : Return "every gap found between the rays"
+            Case "way" : Return "one gap - where it is, how wide, whether we fit"
+            Case "bearing" : Return "an angle off the nose. left is negative"
+            Case "range" : Return "metres to the goal"
+            Case "metres", "dist" : Return "a distance in metres"
+            Case "ahead" : Return "clear metres straight in front"
+            Case "deepest" : Return "metres to the furthest thing behind"
+            Case "reach" : Return "how far to look, in metres"
+            Case "clear" : Return "true when nothing is in the corridor"
+            Case "side" : Return "which side the wall is on"
+            Case "throttle" : Return "0 to 1. leave it unwired to pick its own"
+            Case Else : Return pin_type(name)
+        End Select
+    End Function
+
+    ''' <summary>What a node is for, in a line. Enough to tell two similar ones
+    ''' apart without opening the source.</summary>
+    Private Function kind_help(name As String) As String
+        Select Case name
+            Case "Tick" : Return "the start. everything runs from here"
+            Case "Goal" : Return "where we are trying to get to"
+            Case "Ray Scan" : Return "the radar sweep, once a tick"
+            Case "Rear Scan" : Return "the deepest way out behind us"
+            Case "Body Ahead" : Return "clear metres for the WHOLE HULL, not a ray"
+            Case "Speed" : Return "how fast we are actually going"
+            Case "Corridor" : Return "planks a hull wide, straight out. the fit test"
+            Case "Gaps" : Return "openings between the rays"
+            Case "Arrived" : Return "close enough to the goal to call it done"
+            Case "No Goal" : Return "nothing to drive toward"
+            Case "Is Wedged" : Return "asked to move, went nowhere, for most of a second"
+            Case "Not Moving" : Return "asked to move and went nowhere, right now"
+            Case "Too Few Rays" : Return "the scan came back with almost nothing"
+            Case "Hit Count" : Return "at least `count` rays found something"
+            Case "Will Clear" : Return "the hull fits along this bearing for this far"
+            Case "Is Clear" : Return "more than a hull length of room"
+            Case "Nearer Than" : Return "closer than the block distance"
+            Case "Plank Hit" : Return "something is in the corridor. START SCANNING"
+            Case "Rear Better" : Return "more room behind than ahead, and ahead is shut"
+            Case "Has Way" : Return "there is a gap to aim at"
+            Case "Backed Enough" : Return "been reversing long enough, look again"
+            Case "Is Seek" : Return "no plan - looking for one"
+            Case "Is Backing" : Return "reversing out of something"
+            Case "Is Turning" : Return "swinging onto a new heading"
+            Case "Is Door" : Return "lined up on a gap, going through"
+            Case "Is Follow" : Return "running along a wall"
+            Case "Widest Gap" : Return "the widest opening we fit through, any direction"
+            Case "Best Progress" : Return "the gap that GAINS most ground toward the goal"
+            Case "Deeper Side" : Return "the bearing of the furthest ray in front"
+            Case "Vote" : Return "only passes a gap seen two ticks running"
+            Case "Commit" : Return "holds one gap until we stop gaining ground on it"
+            Case "Way Bearing" : Return "the angle to a gap"
+            Case "Stop" : Return "throttle and steering to nothing"
+            Case "New Goal" : Return "throw the next goal, somewhere standable"
+            Case "Rescan" : Return "raise the scan. claims nothing, so the chain goes on"
+            Case "Mark Trap" : Return "remember this block as one not to drive into"
+            Case "Set Seek", "Set Turning", "Set Follow", "Set Door", "Set Backing"
+                Return "change what state we are in"
+            Case "Reverse" : Return "back up, steering off the TAIL"
+            Case "Turn To" : Return "swing to a bearing. no throttle"
+            Case "Drive Heading" : Return "go. eases off so the turn fits the room"
+            Case "Drive To Point" : Return "head for a gap"
+            Case "Through Door" : Return "drive through a gap"
+            Case "Follow Wall" : Return "run along the wall on one side"
+            Case "Priority" : Return "try a, b, c, d in order. stop at the first that acts"
+            Case "Sequence" : Return "run all of them"
+            Case "Gate" : Return "pass the run on only if `when` is true"
+            Case Else : Return ""
+        End Select
+    End Function
+
+    ''' <summary>
+    ''' THE HELP PANEL, pinned to the top right of the board.
+    '''
+    ''' "Can I have hints of what in and outs do when I select a node?"
+    '''
+    ''' Inside the canvas rather than in a window of its own, so it cannot end
+    ''' up behind anything or off on another monitor - it is part of the board,
+    ''' at the corner of the board.
+    '''
+    ''' NO CLOSE BOX OF ITS OWN. It had one, with a small dot in the same corner
+    ''' to undo it, and that is the awkward pair: the only way back was the
+    ''' place it had just vanished from, over a board that is covered in other
+    ''' things to click. The palette checkbox switches it, from somewhere that
+    ''' is always on screen and never moves.
+    ''' </summary>
+    Private Sub help_panel()
+        Dim wp = ImGui.GetWindowPos()
+        Dim ws = ImGui.GetWindowSize()
+        Const W As Single = 330.0F
+        Dim x = wp.X + ws.X - W - 10.0F
+
+        ' Switched from the palette, and only from there. See below.
+        If Not HELP_SHOW Then Return
+
+        Dim n = find(selected)
+        ' ---- SETTINGS, above the pin help ------------------------------
+        '
+        ' Its own panel rather than a section inside the other one: what a pin
+        ' carries is reference, and these are controls. Only drawn for a node
+        ' that HAS something to tune, so an empty box never appears to say
+        ' there is nothing to say.
+        If n IsNot Nothing AndAlso n.kind.setNames.Length > 0 Then
+            Dim sh = 30.0F + n.kind.setNames.Length * 24.0F
+            ImGui.SetCursorScreenPos(New System.Numerics.Vector2(x, wp.Y + 10.0F))
+            ImGui.BeginChild("##nodesets", New System.Numerics.Vector2(W, sh),
+                             CType(1, ImGuiChildFlags))
+            ImGui.TextDisabled("SETTINGS")
+            For Each sn In n.kind.setNames
+                Dim v = Setting(n.id, sn, 0.0F)
+                Dim was = v
+                ImGui.SetNextItemWidth(W - 120.0F)
+                If ImGui.DragFloat(sn, v, 0.1F, 0.0F, 400.0F, "%.2f") Then
+                    ' BACK TO THE DEFAULT MEANS NO OVERRIDE. Storing a value
+                    ' equal to the default would pin it there for good - a
+                    ' later change to the default would never reach this board
+                    ' and nobody would know why.
+                    If Math.Abs(v - n.kind.DefaultFor(sn)) < 0.0001F Then
+                        n.sets.Remove(sn)
+                    Else
+                        n.sets(sn) = v
+                    End If
+                    If Math.Abs(v - was) > 0.0F Then Changed = True
+                End If
+            Next
+            ImGui.EndChild()
+            ImGui.SetCursorScreenPos(New System.Numerics.Vector2(x, wp.Y + 16.0F + sh))
+        Else
+            ImGui.SetCursorScreenPos(New System.Numerics.Vector2(x, wp.Y + 10.0F))
+        End If
+
+        ' Two lines a pin now the description wraps under the name, plus the
+        ' node's own line and the headings.
+        Dim rows = 5
+        If n IsNot Nothing Then rows += (n.kind.ins.Length + n.kind.outs.Length) * 2 + 3
+        Dim h = Math.Min(420.0F, 34.0F + rows * 16.0F)
+
+        ImGui.BeginChild("##nodehelp", New System.Numerics.Vector2(W, h),
+                         CType(1, ImGuiChildFlags))
+
+        If n Is Nothing Then
+            ImGui.TextDisabled("Click a node")
+            ImGui.Spacing()
+            ImGui.TextWrapped("Drag an output to an input to wire them. " &
+                              "RIGHT-CLICK a pin to cut its wires.")
+        Else
+            ImGui.TextColored(New System.Numerics.Vector4(1.0F, 0.78F, 0.33F, 1.0F),
+                              n.kind.name)
+            Dim kh = kind_help(n.kind.name)
+            If kh <> "" Then ImGui.TextWrapped(kh)
+            ImGui.Separator()
+
+            ' THE DESCRIPTION WRAPS UNDER THE NAME, not beside it. Beside it,
+            ' anything longer than the space left ran off the right edge and the
+            ' end was gone - and the end of a description is the part that
+            ' explains it. Under it, no panel width is ever wrong.
+            If n.kind.ins.Length > 0 Then
+                ImGui.TextDisabled("IN")
+                For Each p In n.kind.ins
+                    ImGui.TextColored(New System.Numerics.Vector4(0.5F, 0.78F, 1.0F, 1.0F), p)
+                    ImGui.Indent(10.0F)
+                    ImGui.TextWrapped(pin_help(p))
+                    ImGui.Unindent(10.0F)
+                Next
+            End If
+            If n.kind.outs.Length > 0 Then
+                ImGui.TextDisabled("OUT")
+                For Each p In n.kind.outs
+                    ImGui.TextColored(New System.Numerics.Vector4(0.25F, 0.88F, 0.25F, 1.0F), p)
+                    ImGui.Indent(10.0F)
+                    ImGui.TextWrapped(pin_help(p))
+                    ImGui.Unindent(10.0F)
+                Next
+            End If
+        End If
+
+        ImGui.EndChild()
+    End Sub
+
     Private Function pin_type(name As String) As String
         Select Case name
             Case "hits" : Return "hits"
@@ -219,7 +439,7 @@ Module BrainNodes
             Case "way" : Return "way"
             Case "bearing" : Return "angle"
             Case "metres", "dist", "reach", "range", "ahead", "deepest" : Return "length"
-            Case "clear", "yes", "when" : Return "bool"
+            Case "clear", "True" : Return "bool"
             Case "side" : Return "side"
             Case "throttle" : Return "number"
             Case "a", "b", "c", "d", "in", "out" : Return "flow"
@@ -249,6 +469,12 @@ Module BrainNodes
         Public id As Integer
         Public kind As Kind
         Public pos As System.Numerics.Vector2
+
+        ''' <summary>ONLY what has been changed from the kind's default. A node
+        ''' that has never been touched carries nothing, so a default altered
+        ''' in code reaches every board that never overrode it - which is what
+        ''' makes it a default rather than a starting value.</summary>
+        Public ReadOnly sets As New Dictionary(Of String, Single)
         Public ReadOnly Property w As Single
             Get
                 Return 150.0F
@@ -276,6 +502,7 @@ Module BrainNodes
     ''' string for both, so it is spelt once here rather than twice at the
     ''' call sites, where a typo would silently open nothing.</summary>
     Private Const LOAD_ASK As String = "Load a graph"
+    Private Const SIMPLE_ASK As String = "Build the simple test?"
 
     ''' <summary>What Save writes to, and what the box under the buttons
     ''' edits. Shown rather than assumed - see the note there.</summary>
@@ -368,6 +595,22 @@ Module BrainNodes
     ' Ids and PIN NAMES, never indices, for the same reason the save format
     ' uses names: an index is only true until a kind gains a pin.
 
+    ''' <summary>
+    ''' A node's setting: its own override, or the kind's default.
+    '''
+    ''' The fallback argument is for a caller that wants its own value when the
+    ''' kind declares none - so a node can gain a setting later without every
+    ''' reader having to learn about it first.
+    ''' </summary>
+    Public Function Setting(id As Integer, name As String, fallback As Single) As Single
+        Dim n = find(id)
+        If n Is Nothing Then Return fallback
+        Dim v As Single
+        If n.sets.TryGetValue(name, v) Then Return v
+        If Array.IndexOf(n.kind.setNames, name) >= 0 Then Return n.kind.DefaultFor(name)
+        Return fallback
+    End Function
+
     ''' <summary>The kind of a node, or "" if there is no such node.</summary>
     Public Function NodeKind(id As Integer) As String
         Dim n = find(id)
@@ -456,6 +699,51 @@ Module BrainNodes
     ''' inferred from what happened next.</summary>
     Public ReadOnly Vals As New Dictionary(Of Integer, String)
 
+    ''' <summary>
+    ''' Wires the walk went down this tick, packed as from:pin>to:pin.
+    '''
+    ''' A Long rather than a string because this is rebuilt sixty times a
+    ''' second over a hundred wires, and a hundred short-lived strings a frame
+    ''' is garbage for nothing.
+    ''' </summary>
+    Public ReadOnly LitWires As New HashSet(Of Long)
+
+    Private Function wire_key(fromId As Integer, fromPin As Integer,
+                                     toId As Integer, toPin As Integer) As Long
+        Return (CLng(fromId) << 40) Or (CLng(fromPin) << 32) Or
+               (CLng(toId) << 8) Or CLng(toPin)
+    End Function
+
+    ''' <summary>Mark the flow wire out of this output as taken. Called only
+    ''' when the branch ACTED, so what lights up is the chain that won rather
+    ''' than every branch that was tried.</summary>
+    Public Sub LitFlow(fromId As Integer, outName As String, toId As Integer)
+        Dim a = find(fromId)
+        If a Is Nothing Then Return
+        Dim i = Array.IndexOf(a.kind.outs, outName)
+        If i < 0 Then Return
+        For Each l In links
+            If l.fromNode = fromId AndAlso l.fromPin = i AndAlso l.toNode = toId Then
+                LitWires.Add(wire_key(l.fromNode, l.fromPin, l.toNode, l.toPin))
+                Return
+            End If
+        Next
+    End Sub
+
+    ''' <summary>Mark the data wire feeding this input as read.</summary>
+    Public Sub LitData(toId As Integer, inName As String)
+        Dim b = find(toId)
+        If b Is Nothing Then Return
+        Dim j = Array.IndexOf(b.kind.ins, inName)
+        If j < 0 Then Return
+        For Each l In links
+            If l.toNode = toId AndAlso l.toPin = j Then
+                LitWires.Add(wire_key(l.fromNode, l.fromPin, l.toNode, l.toPin))
+                Return
+            End If
+        Next
+    End Sub
+
     Public ActedNode As Integer = -1
 
     Private lastPath As String = ""
@@ -464,6 +752,7 @@ Module BrainNodes
         Fired.Clear()
         Tested.Clear()
         Vals.Clear()
+        LitWires.Clear()
         ActedNode = -1
     End Sub
 
@@ -616,9 +905,8 @@ Module BrainNodes
         Dim tFit = spawn("Will Clear", 210.0F, 990.0F)
         Dim tRearB = spawn("Rear Better", 210.0F, 1120.0F)
 
-        Dim pWide = spawn("Widest", 420.0F, 870.0F)
+        Dim pWide = spawn("Widest Gap", 420.0F, 870.0F)
         Dim pVote = spawn("Vote", 420.0F, 980.0F)
-        Dim pDoorG = spawn("Door Gap", 420.0F, 1090.0F)
         Dim pDeep = spawn("Deeper Side", 420.0F, 1200.0F)
         Dim pProg = spawn("Best Progress", 420.0F, 1320.0F)
 
@@ -628,7 +916,7 @@ Module BrainNodes
         join_pins(scan, "hits", gaps, "hits")
         join_pins(scan, "hits", pDeep, "hits")
         join_pins(gaps, "ways", pWide, "ways")
-        join_pins(gaps, "ways", pDoorG, "ways")
+        join_pins(gaps, "ways", pWide, "ways")
         ' VOTE SITS BETWEEN THE PICK AND THE COMMIT. On Widest it fed
         ' nothing; here it is the damper that stops the board changing its
         ' mind every tick between going through a gap and reversing away
@@ -673,7 +961,7 @@ Module BrainNodes
         Dim aSpin2 = spawn("Turn To", 1090.0F, 250.0F)
         join_pins(p1, "d", pStuck2, "in")
         join_pins(pStuck2, "a", gStuck2, "in")
-        join_pins(tStuck2, "yes", gStuck2, "when")
+        join_pins(tStuck2, "True", gStuck2, "True")
         join_pins(gStuck2, "out", aSpin2, "in")
         ' Toward the most open direction there is - the deepest ray - because
         ' when nothing fits, "furthest from anything" is the only honest
@@ -688,13 +976,13 @@ Module BrainNodes
         Dim tNoGoal = spawn("No Goal", 650.0F, -60.0F)
         Dim aStop = spawn("Stop", 1090.0F, 40.0F)
         join_pins(p1, "a", gNoGoal, "in")
-        join_pins(tNoGoal, "yes", gNoGoal, "when")
+        join_pins(tNoGoal, "True", gNoGoal, "True")
         join_pins(gNoGoal, "out", aStop, "in")
 
         Dim gArr = spawn("Gate", 870.0F, 150.0F)
         Dim aGoal = spawn("New Goal", 1090.0F, 150.0F)
         join_pins(p1, "b", gArr, "in")
-        join_pins(tArr, "yes", gArr, "when")
+        join_pins(tArr, "True", gArr, "True")
         join_pins(gArr, "out", aGoal, "in")
 
         Dim gWed = spawn("Gate", 870.0F, 260.0F)
@@ -702,7 +990,7 @@ Module BrainNodes
         Dim aMark = spawn("Mark Trap", 1310.0F, 260.0F)
         Dim aSet = spawn("Set Backing", 1310.0F, 370.0F)
         join_pins(p1, "c", gWed, "in")
-        join_pins(tWed, "yes", gWed, "when")
+        join_pins(tWed, "True", gWed, "True")
         join_pins(gWed, "out", sq, "in")
         join_pins(sq, "a", aMark, "in")
         join_pins(sq, "b", aSet, "in")
@@ -711,7 +999,7 @@ Module BrainNodes
         Dim gScan = spawn("Gate", 870.0F, 480.0F)
         Dim aRescan = spawn("Rescan", 1090.0F, 480.0F)
         join_pins(p2, "a", gScan, "in")
-        join_pins(tRay, "yes", gScan, "when")
+        join_pins(tRay, "True", gScan, "True")
         join_pins(gScan, "out", aRescan, "in")
 
         ' BACKING, AND THE WAY OUT OF IT. The first cut of this board could
@@ -733,11 +1021,11 @@ Module BrainNodes
         Dim aSeek = spawn("Set Seek", 1530.0F, 530.0F)
         Dim aRev = spawn("Reverse", 1310.0F, 650.0F)
         join_pins(p2, "b", gBack, "in")
-        join_pins(tBack, "yes", gBack, "when")
+        join_pins(tBack, "True", gBack, "True")
         join_pins(gBack, "out", pBack, "in")
         join_pins(pBack, "a", gBackOut, "in")
         join_pins(body, "metres", tRoom, "dist")
-        join_pins(tRoom, "yes", gBackOut, "when")
+        join_pins(tRoom, "True", gBackOut, "True")
         join_pins(gBackOut, "out", aSeek, "in")
         ' SPIN BEFORE REVERSING. The sim turns the hull before it tests where
         ' the hull wants to go, so rotation is the one command that is never
@@ -754,11 +1042,11 @@ Module BrainNodes
         Dim gBacked = spawn("Gate", 1310.0F, 470.0F)
         Dim aSeek2 = spawn("Set Seek", 1530.0F, 470.0F)
         join_pins(pBack, "b", gBacked, "in")
-        join_pins(tBacked, "yes", gBacked, "when")
+        join_pins(tBacked, "True", gBacked, "True")
         join_pins(gBacked, "out", aSeek2, "in")
 
         join_pins(pBack, "c", gStuck, "in")
-        join_pins(tStuck, "yes", gStuck, "when")
+        join_pins(tStuck, "True", gStuck, "True")
         join_pins(gStuck, "out", aSpin, "in")
         join_pins(pDeep, "bearing", aSpin, "bearing")
         join_pins(pBack, "d", aRev, "in")
@@ -767,19 +1055,19 @@ Module BrainNodes
         Dim gTurn = spawn("Gate", 870.0F, 710.0F)
         Dim aTurn = spawn("Turn To", 1090.0F, 710.0F)
         join_pins(p2, "c", gTurn, "in")
-        join_pins(tTurn, "yes", gTurn, "when")
+        join_pins(tTurn, "True", gTurn, "True")
         join_pins(gTurn, "out", aTurn, "in")
 
         Dim gDoor = spawn("Gate", 870.0F, 840.0F)
         Dim aDoor = spawn("Through Door", 1090.0F, 840.0F)
         join_pins(p3, "a", gDoor, "in")
-        join_pins(tDoor, "yes", gDoor, "when")
+        join_pins(tDoor, "True", gDoor, "True")
         join_pins(gDoor, "out", aDoor, "in")
 
         Dim gFoll = spawn("Gate", 870.0F, 960.0F)
         Dim aWall = spawn("Follow Wall", 1090.0F, 960.0F)
         join_pins(p3, "b", gFoll, "in")
-        join_pins(tFoll, "yes", gFoll, "when")
+        join_pins(tFoll, "True", gFoll, "True")
         join_pins(gFoll, "out", aWall, "in")
         join_pins(corr, "side", aWall, "side")
 
@@ -804,7 +1092,7 @@ Module BrainNodes
         Dim pWayB = spawn("Way Bearing", 1310.0F, 1300.0F)
         Dim aGo = spawn("Drive Heading", 1750.0F, 1120.0F)
         join_pins(p3, "c", gPlank, "in")
-        join_pins(tPlank, "yes", gPlank, "when")
+        join_pins(tPlank, "True", gPlank, "True")
         join_pins(gPlank, "out", sqPlank, "in")
 
         ' Scanning is the SIDE EFFECT of noticing, so it sits in a Sequence
@@ -836,7 +1124,7 @@ Module BrainNodes
         ' toward is the one that still leads onward, not the roomiest one
         ' off to the side.
         join_pins(pHold, "way", tWay, "way")
-        join_pins(tWay, "yes", gWay, "when")
+        join_pins(tWay, "True", gWay, "True")
         join_pins(pHold, "way", pWayB, "way")
         join_pins(pWayB, "bearing", aGo, "bearing")
         join_pins(gWay, "out", aGo, "in")
@@ -853,7 +1141,7 @@ Module BrainNodes
         Dim gFit = spawn("Gate", 870.0F, 1190.0F)
         Dim aDrive = spawn("Drive Heading", 1090.0F, 1190.0F)
         join_pins(p4, "a", gFit, "in")
-        join_pins(tFit, "yes", gFit, "when")
+        join_pins(tFit, "True", gFit, "True")
         join_pins(gFit, "out", aDrive, "in")
         ' THE BEARING IT TESTED. Will Clear asks about the GOAL direction,
         ' so this has to drive the goal direction - it drove the deepest ray
@@ -866,7 +1154,7 @@ Module BrainNodes
         Dim aDoor2 = spawn("Through Door", 1090.0F, 1320.0F)
         join_pins(p4, "b", gDoor2, "in")
         join_pins(pHold, "way", tHasDoor, "way")
-        join_pins(tHasDoor, "yes", gDoor2, "when")
+        join_pins(tHasDoor, "True", gDoor2, "True")
         join_pins(gDoor2, "out", aDoor2, "in")
         join_pins(pHold, "way", aDoor2, "way")
 
@@ -885,7 +1173,7 @@ Module BrainNodes
         join_pins(pAnyW, "way", tAnyW, "way")
         join_pins(pAnyW, "way", pAnyB, "way")
         join_pins(pAnyW, "way", aAnyW, "way")
-        join_pins(tAnyW, "yes", gAnyW, "when")
+        join_pins(tAnyW, "True", gAnyW, "True")
         join_pins(p4, "c", gAnyW, "in")
         join_pins(gAnyW, "out", aAnyW, "in")
 
@@ -896,7 +1184,7 @@ Module BrainNodes
         Dim gRear = spawn("Gate", 870.0F, 1440.0F)
         Dim aRev2 = spawn("Reverse", 1090.0F, 1440.0F)
         join_pins(p5, "a", gRear, "in")
-        join_pins(tRearB, "yes", gRear, "when")
+        join_pins(tRearB, "True", gRear, "True")
         join_pins(gRear, "out", aRev2, "in")
         join_pins(rear, "bearing", aRev2, "bearing")
 
@@ -997,11 +1285,23 @@ Module BrainNodes
             b.AppendLine("  " & q & "nodes" & q & ": [")
             For i = 0 To nodes.Count - 1
                 Dim n = nodes(i)
+                ' The overrides, and only when there are some. A `set` block
+                ' on every node would double the size of a file to say
+                ' nothing, and a reader can tell absent from empty.
+                Dim setsTxt = ""
+                If n.sets.Count > 0 Then
+                    Dim parts As New List(Of String)
+                    For Each kv In n.sets
+                        parts.Add(q & esc(kv.Key) & q & ": " &
+                                  kv.Value.ToString("0.###"))
+                    Next
+                    setsTxt = ", " & q & "set" & q & ": {" & String.Join(", ", parts) & "}"
+                End If
                 b.AppendLine(String.Format(
                     "    {{ " & q & "id" & q & ": {0}, " & q & "kind" & q & ": " & q &
                     "{1}" & q & ", " & q & "x" & q & ": {2:0.##}, " & q & "y" & q &
-                    ": {3:0.##} }}{4}",
-                    n.id, esc(n.kind.name), n.pos.X, n.pos.Y,
+                    ": {3:0.##}{4} }}{5}",
+                    n.id, esc(n.kind.name), n.pos.X, n.pos.Y, setsTxt,
                     If(i = nodes.Count - 1, "", ",")))
             Next
             b.AppendLine("  ],")
@@ -1087,6 +1387,16 @@ Module BrainNodes
                         n.kind = k
                         n.pos = New System.Numerics.Vector2(e.GetProperty("x").GetSingle(),
                                                             e.GetProperty("y").GetSingle())
+                        ' Settings are OPTIONAL and always have been - a file
+                        ' written before they existed simply has none, and every
+                        ' node falls back to its kind's default.
+                        Dim st As JsonElement = Nothing
+                        If e.TryGetProperty("set", st) Then
+                            For Each sp In st.EnumerateObject()
+                                n.sets(sp.Name) = sp.Value.GetSingle()
+                            Next
+                        End If
+
                         nodes.Add(n)
                         byOld(n.id) = n
                         nextId = Math.Max(nextId, n.id + 1)
@@ -1145,6 +1455,52 @@ Module BrainNodes
         If nodes.Count > 0 Then Return
         If LoadGraph("brain") Then Return
         BuildCurrentAI()
+    End Sub
+
+    ''' <summary>
+    ''' THE SMALLEST BOARD THAT DRIVES: go, and stop on three returns.
+    '''
+    ''' Seven nodes, one Priority, two rules. It exercises the whole chain - a
+    ''' sense, a test, an ordered choice and two acts - so when the big board
+    ''' does something strange this is the one to come back to and ask whether
+    ''' the machinery itself is still working.
+    '''
+    ''' Read it as: stop if three rays found something, otherwise drive at the
+    ''' goal. The stop is FIRST because a Priority takes the first rule that
+    ''' acts, and a stop that came second would never be reached - Drive
+    ''' Heading always acts.
+    ''' </summary>
+    Public Sub BuildSimpleTest()
+        nodes.Clear()
+        links.Clear()
+        nextId = 1
+        selected = -1
+        scroll = New System.Numerics.Vector2(0.0F, 0.0F)
+
+        Dim tick = spawn("Tick", 0.0F, 40.0F)
+        Dim scan = spawn("Ray Scan", 0.0F, 180.0F)
+        Dim goal = spawn("Goal", 0.0F, 320.0F)
+
+        Dim three = spawn("Hit Count", 230.0F, 180.0F)
+        join_pins(scan, "hits", three, "hits")
+
+        Dim pri = spawn("Priority", 460.0F, 40.0F)
+        join_pins(tick, "out", pri, "in")
+
+        Dim gate = spawn("Gate", 690.0F, 40.0F)
+        Dim stopIt = spawn("Stop", 920.0F, 40.0F)
+        join_pins(pri, "a", gate, "in")
+        join_pins(three, "True", gate, "True")
+        join_pins(gate, "out", stopIt, "in")
+
+        ' d, not b: it is the fall-through, and it has no test in front of it
+        ' because there is nothing left to ask by the time it is reached.
+        Dim drive = spawn("Drive Heading", 690.0F, 200.0F)
+        join_pins(pri, "d", drive, "in")
+        join_pins(goal, "bearing", drive, "bearing")
+
+        Changed = False
+        LogThis("brain: simple board - {0} nodes, {1} wires", nodes.Count, links.Count)
     End Sub
 
     Public Sub Add(k As Kind, at As System.Numerics.Vector2)
@@ -1448,6 +1804,32 @@ Module BrainNodes
         If ImGui.IsItemHovered() Then
             ImGui.SetTooltip("Lay out RangeBrain as it runs today")
         End If
+        If ImGui.Button("Simple test", New System.Numerics.Vector2(134.0F, 0.0F)) Then
+            ImGui.OpenPopup(SIMPLE_ASK)
+        End If
+        If ImGui.IsItemHovered() Then
+            ImGui.SetTooltip("Drive, and stop on three returns. Seven nodes.")
+        End If
+
+        Dim smid = ImGui.GetIO().DisplaySize
+        ImGui.SetNextWindowPos(New System.Numerics.Vector2(smid.X * 0.5F, smid.Y * 0.5F),
+                               ImGuiCond.Appearing, New System.Numerics.Vector2(0.5F, 0.5F))
+        If ImGui.BeginPopupModal(SIMPLE_ASK) Then
+            ImGui.Text("Replace the board with the simple test?")
+            ImGui.TextDisabled(String.Format("{0} node(s) and {1} wire(s) go.",
+                                             nodes.Count, links.Count))
+            ImGui.Spacing()
+            If ImGui.Button("Build it", New System.Numerics.Vector2(100.0F, 24.0F)) Then
+                BuildSimpleTest()
+                ImGui.CloseCurrentPopup()
+            End If
+            ImGui.SameLine()
+            If ImGui.Button("Cancel", New System.Numerics.Vector2(100.0F, 24.0F)) OrElse
+               ImGui.IsKeyPressed(ImGuiKey.Escape) Then
+                ImGui.CloseCurrentPopup()
+            End If
+            ImGui.EndPopup()
+        End If
 
         Dim mmid = ImGui.GetIO().DisplaySize
         ImGui.SetNextWindowPos(New System.Numerics.Vector2(mmid.X * 0.5F, mmid.Y * 0.5F),
@@ -1469,6 +1851,14 @@ Module BrainNodes
             ImGui.EndPopup()
         End If
         ImGui.Separator()
+        ' THE PIN HELP SWITCH LIVES HERE TOO. Its X is in the corner of the
+        ' board and the only way back was a small ? in the same spot - a
+        ' control whose route back is where it vanished from is one you can
+        ' lose. The palette is always on screen and never moves.
+        Dim hp = HELP_SHOW
+        If ImGui.Checkbox("Pin help", hp) Then HELP_SHOW = hp
+        ImGui.Separator()
+
         ImGui.TextDisabled("ADD")
         Dim lastGroup = ""
         For Each k In KINDS
@@ -1588,15 +1978,54 @@ Module BrainNodes
         End If
 
         ' ---- the wires, under the nodes ------------------------------------
+        '
+        ' A CLICK ON A WIRE SELECTS IT. ImGui cannot hit-test a curve, so the
+        ' curve is walked here at the resolution it is drawn at and the nearest
+        ' sample to the cursor wins. Only when the click did not land on
+        ' something ImGui owns: a node or a pin under the cursor takes it, so a
+        ' wire passing behind a node cannot steal the grab.
+        ' EVERYTHING THE SELECTED NODE IS JOINED TO, lit pink and thickened.
+        ' Both directions, because "what feeds this and what does it feed" is
+        ' one question and the board is worst at answering it by eye.
+        '
+        ' Drawn in two passes so the lit ones land ON TOP. In one pass a
+        ' highlighted wire can be buried under the dozen ordinary ones crossing
+        ' it, which is exactly the case this is for.
+        ' Three passes, dimmest first, so the thing you are looking for is
+        ' never buried under the dozen wires crossing it.
         For Each l In links
+            If l.fromNode = selected OrElse l.toNode = selected Then Continue For
+            If LitWires.Contains(wire_key(l.fromNode, l.fromPin, l.toNode, l.toPin)) Then Continue For
             Dim a = find(l.fromNode), b = find(l.toNode)
             If a Is Nothing OrElse b Is Nothing Then Continue For
-            Dim ao = to_screen(p0, a.pos)
-            Dim bo = to_screen(p0, b.pos)
-            Dim pa = pin_pos(a, ao, l.fromPin, False)
-            Dim pb = pin_pos(b, bo, l.toPin, True)
+            Dim pa = pin_pos(a, to_screen(p0, a.pos), l.fromPin, False)
+            Dim pb = pin_pos(b, to_screen(p0, b.pos), l.toPin, True)
             bez(dl, pa, pb, WIRE)
         Next
+
+        ' WHAT THE BRAIN JUST DID. The route it took and the values it read,
+        ' this tick - the path was the one thing the board still made you trace
+        ' by eye.
+        For Each l In links
+            If l.fromNode = selected OrElse l.toNode = selected Then Continue For
+            If Not LitWires.Contains(wire_key(l.fromNode, l.fromPin, l.toNode, l.toPin)) Then Continue For
+            Dim a = find(l.fromNode), b = find(l.toNode)
+            If a Is Nothing OrElse b Is Nothing Then Continue For
+            Dim pa = pin_pos(a, to_screen(p0, a.pos), l.fromPin, False)
+            Dim pb = pin_pos(b, to_screen(p0, b.pos), l.toPin, True)
+            bez(dl, pa, pb, WIRE_LIVE, 3.0F)
+        Next
+
+        If selected >= 0 Then
+            For Each l In links
+                If l.fromNode <> selected AndAlso l.toNode <> selected Then Continue For
+                Dim a = find(l.fromNode), b = find(l.toNode)
+                If a Is Nothing OrElse b Is Nothing Then Continue For
+                Dim pa = pin_pos(a, to_screen(p0, a.pos), l.fromPin, False)
+                Dim pb = pin_pos(b, to_screen(p0, b.pos), l.toPin, True)
+                bez(dl, pa, pb, WIRE_PICK, 3.0F)
+            Next
+        End If
 
         ' the wire being pulled right now
         If wireNode >= 0 Then
@@ -1750,6 +2179,19 @@ Module BrainNodes
                 If ImGui.IsMouseDragging(ImGuiMouseButton.Left, 3.0F) Then selected = -1
             End If
 
+            ' AND A PLAIN CLICK LETS GO. This is what was missing: the only
+            ' clear was the drag above, so clicking empty board did nothing at
+            ' all - and since nudging the board to check fires the drag, it read
+            ' as a deselect that had worked and failed to repaint.
+            '
+            ' On release rather than press, and only when the board was not
+            ' dragged in between, or every pan would throw the selection away at
+            ' the moment it started.
+            If ImGui.IsItemDeactivated() AndAlso
+               Not ImGui.IsMouseDragging(ImGuiMouseButton.Left, 3.0F) Then
+                selected = -1
+            End If
+
             ' DOUBLE CLICK ON EMPTY BOARD FRAMES EVERYTHING. It can live inside
             ' this block with no test of its own: the block only exists when
             ' nothing is hovered, dragged or being wired, so "on the pan button"
@@ -1766,6 +2208,8 @@ Module BrainNodes
         If selected >= 0 AndAlso ImGui.IsWindowHovered(ImGuiHoveredFlags.ChildWindows) Then
             If ImGui.IsKeyPressed(ImGuiKey.Delete) Then Remove(selected)
         End If
+
+        help_panel()
 
         ImGui.EndChild()
     End Sub
@@ -1831,6 +2275,20 @@ Module BrainNodes
         ImGui.SetCursorScreenPos(New System.Numerics.Vector2(at.X - grab, at.Y - grab))
         ImGui.InvisibleButton("##p" & n.id.ToString() & If(isIn, "i", "o") & idx.ToString(),
                               New System.Numerics.Vector2(grab * 2.0F, grab * 2.0F))
+        ' RIGHT-CLICK CUTS. Dragging a wire off an input and dropping it on
+        ' nothing already disconnected it, but only if you dragged far
+        ' enough - release on the pin you started from and it reconnects,
+        ' which reads as the editor ignoring you. This needs no gesture.
+        If ImGui.IsItemClicked(ImGuiMouseButton.Right) Then
+            Dim cut = 0
+            If isIn Then
+                cut = links.RemoveAll(Function(l) l.toNode = n.id AndAlso l.toPin = idx)
+            Else
+                cut = links.RemoveAll(Function(l) l.fromNode = n.id AndAlso l.fromPin = idx)
+            End If
+            If cut > 0 Then Changed = True
+        End If
+
         If ImGui.IsItemActive() AndAlso wireNode < 0 Then
             ' PICKING UP A CONNECTED INPUT TAKES THE WIRE WITH IT. The link is
             ' removed now and the drag continues from its SOURCE output, so the
@@ -1845,15 +2303,40 @@ Module BrainNodes
                 wirePin = held.fromPin
                 wireFromOut = True
             Else
+                ' AN OUTPUT GIVES UP ITS WIRES TOO. "I should be able to break a
+                ' route by dragging its out to no where and releasing" - so they
+                ' come away on pickup, and the drag either re-makes one on a
+                ' valid input or, released over nothing, leaves the route cut.
+                If Not isIn Then
+                    Dim gone = links.RemoveAll(
+                        Function(l) l.fromNode = n.id AndAlso l.fromPin = idx)
+                    If gone > 0 Then Changed = True
+                End If
                 wireNode = n.id
                 wirePin = idx
                 wireFromOut = Not isIn
             End If
         End If
-        If wireNode >= 0 AndAlso ImGui.IsItemHovered() Then
-            hoverNode = n.id
-            hoverPin = idx
-            hoverIn = isIn
+        ' ALLOW WHEN BLOCKED BY ACTIVE ITEM, and this is the whole reason
+        ' dragging a wire never connected anything. The pin the drag STARTED on
+        ' is the active item for the length of the drag, and by default ImGui
+        ' refuses to report any other item as hovered while that is true. Every
+        ' target pin said "not me", hoverNode stayed -1, and the drop had
+        ' nowhere to land - with no error, because nothing had gone wrong as
+        ' far as any one line of it was concerned.
+        If wireNode >= 0 Then
+            If ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem) Then
+                hoverNode = n.id
+                hoverPin = idx
+                hoverIn = isIn
+            ElseIf hoverNode = n.id AndAlso hoverPin = idx AndAlso hoverIn = isIn Then
+                ' AND FORGET IT ON THE WAY OUT. This was only ever cleared when
+                ' a wire was dropped, so a cursor that brushed a pin and moved
+                ' on still counted as being over it - releasing on empty space
+                ' would have wired up whatever was last touched.
+                hoverNode = -1
+                hoverPin = -1
+            End If
         End If
     End Sub
 
@@ -1925,10 +2408,11 @@ Module BrainNodes
     End Sub
 
     Private Sub bez(dl As ImDrawListPtr, a As System.Numerics.Vector2,
-                    b As System.Numerics.Vector2, col As UInteger)
+                    b As System.Numerics.Vector2, col As UInteger,
+                    Optional thick As Single = 2.0F)
         Dim dx = Math.Max(40.0F, Math.Abs(b.X - a.X) * 0.5F)
         dl.AddBezierCubic(a, New System.Numerics.Vector2(a.X + dx, a.Y),
-                          New System.Numerics.Vector2(b.X - dx, b.Y), b, col, 2.0F)
+                          New System.Numerics.Vector2(b.X - dx, b.Y), b, col, thick)
     End Sub
 
 End Module

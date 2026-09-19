@@ -24,7 +24,11 @@ Imports OpenTK.Mathematics
 ''' </summary>
 Module BrainTankState
 
-    Public SHOW As Boolean = True
+    ''' <summary>OFF. The card sits over the tank, which is the thing it is
+    ''' describing - worth having while chasing a decision, in the way the
+    ''' rest of the time. Switched on from the panel beside Radar and
+    ''' Scope.</summary>
+    Public SHOW As Boolean = False
 
     ''' <summary>How tall the card stands in the world. Roughly a hull length,
     ''' which keeps it legible without burying the tank it describes.</summary>

@@ -121,6 +121,34 @@ Public Class GraphBrain
         LogThis("brain: graph brain started")
     End Sub
 
+    ''' <summary>
+    ''' Back to how it started, without rebuilding it.
+    '''
+    ''' Everything here is something the brain BELIEVES rather than something
+    ''' it can see: which state it is in, how long it has been backing, which
+    ''' gap it committed to. Put the tank back at the start without clearing
+    ''' these and the next run begins mid-thought - reversing out of something
+    ''' that is no longer there, holding a way that is now behind it.
+    '''
+    ''' What is NOT cleared: the goal, which Reset deals with, and the board,
+    ''' which is the design and has nothing to do with a run.
+    ''' </summary>
+    Public Sub ResetState()
+        state = GSt.Seek
+        wedgedFor = 0.0F
+        stuckFor = 0.0F
+        backingFor = 0.0F
+        heldFor = 0.0F
+        holding = False
+        votes = 0
+        lastThr = 0.0F
+        thr = 0.0F
+        steerOut = 0.0F
+        why = "reset"
+        BrainNodes.TraceBegin()
+        LogThis("brain: graph brain state cleared")
+    End Sub
+
     Public Function Tick(inp As BrainInput) As BrainOutput Implements IBrain.Tick
         Dim n = If(inp.hulls Is Nothing, 0, inp.hulls.Length)
         Dim o = BrainOutput.ForHulls(n)
@@ -159,6 +187,12 @@ Public Class GraphBrain
         ' ONE SCAN A TICK, kept here rather than in the Ray Scan node. Several
         ' nodes ask for hits and the pull would run the scan once each - and a
         ' scan is the most expensive thing the brain does.
+        ' HOW FAR THE RAYS GO, from the Ray Scan node. Set before the scan
+        ' because REACH_M is read inside it - and it is one value for the whole
+        ' app, so a second Ray Scan node on a board would be the last one to
+        ' set it winning, which is at least predictable.
+        Dim sn2 = BrainNodes.FirstOfKind("Ray Scan")
+        If sn2 >= 0 Then BrainRadar.REACH_M = BrainNodes.Setting(sn2, "reach", 40.0F)
         hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
         laneDone = False
 
@@ -250,14 +284,20 @@ Public Class GraphBrain
         Select Case BrainNodes.NodeKind(id)
             Case "Priority"
                 For Each p In {"a", "b", "c", "d"}
-                    If run(BrainNodes.Downstream(id, p)) Then
+                    Dim nxt = BrainNodes.Downstream(id, p)
+                    If run(nxt) Then
+                        BrainNodes.LitFlow(id, p, nxt)
                         did = True
                         Exit For
                     End If
                 Next
             Case "Sequence"
                 For Each p In {"a", "b", "c"}
-                    If run(BrainNodes.Downstream(id, p)) Then did = True
+                    Dim nxt = BrainNodes.Downstream(id, p)
+                    If run(nxt) Then
+                        BrainNodes.LitFlow(id, p, nxt)
+                        did = True
+                    End If
                 Next
             Case "Gate"
                 ' AN UNWIRED `when` DECLINES. It reads backwards - surely a
@@ -271,8 +311,10 @@ Public Class GraphBrain
                 ' An unconditional rung does not need a Gate at all: wire the
                 ' Priority straight to the act, which is what the boxed-in
                 ' Reverse at the bottom of the board does.
-                If as_bool(pulled(id, "when"), False) Then
-                    did = run(BrainNodes.Downstream(id, "out"))
+                If as_bool(pulled(id, "True"), False) Then
+                    Dim nxt = BrainNodes.Downstream(id, "out")
+                    did = run(nxt)
+                    If did Then BrainNodes.LitFlow(id, "out", nxt)
                 End If
             Case Else
                 did = act(id)
@@ -387,6 +429,9 @@ Public Class GraphBrain
     Private Function pulled(id As Integer, inName As String) As Object
         Dim src = BrainNodes.UpstreamNode(id, inName)
         If src < 0 Then Return Nothing
+        ' Every value the walk actually asked for. Without this the data half
+        ' of a decision leaves no mark at all - a pull does not touch the flow.
+        BrainNodes.LitData(id, inName)
         Return value_of(src, BrainNodes.UpstreamPin(id, inName))
     End Function
 
@@ -419,13 +464,14 @@ Public Class GraphBrain
             Case "Gaps"
                 v = CObj(BrainRadar.WAYS)
             Case "Arrived"
-                v = CObj(as_num(pulled(id, "range"), (goal - h.pos).Length) <= ARRIVE_M)
+                v = CObj(as_num(pulled(id, "range"), (goal - h.pos).Length) <=
+                         BrainNodes.Setting(id, "metres", ARRIVE_M))
             Case "Backed Enough"
                 ' Long enough. RangeBrain backs for a set time and then looks
                 ' again rather than waiting for the world to open up, and a
                 ' state whose exit needs the world to improve is one that can be
                 ' entered and never left.
-                v = CObj(backingFor > 1.2F)
+                v = CObj(backingFor > BrainNodes.Setting(id, "seconds", 1.2F))
             Case "Not Moving"
                 ' ASKED FOR MOVEMENT AND DID NOT GET IT. Not simply "the speed is
                 ' low" - the branch this gates is Turn To, which commands zero
@@ -445,6 +491,17 @@ Public Class GraphBrain
                 '' commanded half the time. The tank never builds speed, so the
                 '' wedge never clears. It reverses forever without moving.
                 v = CObj(wedgedFor > 0.8F AndAlso state <> GSt.Backing)
+            Case "Hit Count"
+                ' Returns, not rays: how many of them FOUND something. The
+                ' whole sweep, not just ahead - "three hits on radar" is about
+                ' what the radar can see, and it sees all the way round.
+                Dim seen = 0
+                If hits IsNot Nothing Then
+                    For Each q In hits
+                        If q.found Then seen += 1
+                    Next
+                End If
+                v = CObj(seen >= CInt(BrainNodes.Setting(id, "count", 3.0F)))
             Case "Too Few Rays"
                 ' The RULE is "rescan when there are fewer than four returns",
                 ' so the test has to be the shortage, not the sufficiency. As
@@ -461,7 +518,8 @@ Public Class GraphBrain
                 Dim m = as_num(pulled(id, "metres"), LOOK_AHEAD_M)
                 v = CObj(will_clear(b, m))
             Case "Is Clear"
-                v = CObj(as_num(pulled(id, "dist"), 0.0F) > BLOCK_M)
+                v = CObj(as_num(pulled(id, "dist"), 0.0F) >
+                         BrainNodes.Setting(id, "metres", BLOCK_M))
             Case "Nearer Than"
                 v = CObj(as_num(pulled(id, "metres"), 999.0F) < BLOCK_M)
             Case "Plank Hit"
@@ -480,10 +538,8 @@ Public Class GraphBrain
             Case "Is Turning" : v = CObj(state = GSt.Turning)
             Case "Is Door" : v = CObj(state = GSt.Door)
             Case "Is Follow" : v = CObj(state = GSt.Follow)
-            Case "Widest"
-                v = widest(False)
-            Case "Door Gap"
-                v = widest(True)
+            Case "Widest Gap"
+                v = widest()
             Case "Best Progress"
                 v = best_progress()
             Case "Deeper Side"
@@ -491,7 +547,9 @@ Public Class GraphBrain
             Case "Vote"
                 v = vote(pulled(id, "way"))
             Case "Commit"
-                v = commit(pulled(id, "way"))
+                v = commit(pulled(id, "way"),
+                           BrainNodes.Setting(id, "patience", 0.6F),
+                           BrainNodes.Setting(id, "gained", 1.0F))
             Case "Way Bearing"
                 Dim wb = pulled(id, "way")
                 If wb IsNot Nothing Then v = CObj(CType(wb, BrainRadar.Way).bearing)
@@ -520,8 +578,15 @@ Public Class GraphBrain
             ' LANE_OFF/LEN/HIT and raises LANE_ACTIVE when it is recording,
             ' and the scope will not draw returns unless one of those or
             ' SCANNING is up.
-            lane = BrainRadar.Corridor(h.pos, h.headingRad, h.halfX + 0.3F,
-                                       LOOK_AHEAD_M, True)
+            ' FROM THE CORRIDOR NODE'S OWN SETTINGS. Looked up by kind rather
+            ' than passed in, because this is cached per tick and several
+            ' callers want it - the first one through should not get to decide
+            ' how long the planks are.
+            Dim cn = BrainNodes.FirstOfKind("Corridor")
+            Dim reach = BrainNodes.Setting(cn, "length", LOOK_AHEAD_M)
+            Dim margin = BrainNodes.Setting(cn, "margin", 0.3F)
+            lane = BrainRadar.Corridor(h.pos, h.headingRad, h.halfX + margin,
+                                       reach, True)
             laneDone = True
         End If
         Return lane
@@ -600,11 +665,23 @@ Public Class GraphBrain
 
     ''' <summary>The widest way, optionally only ones the hull actually fits
     ''' through. Nothing when there is none, so the Gate above it declines.</summary>
-    Private Function widest(mustFit As Boolean) As Object
+    ''' <summary>
+    ''' The widest opening the hull FITS THROUGH, any direction.
+    '''
+    ''' No longer optional. This took a mustFit flag and the caller that mattered
+    ''' passed False - so the rung whose whole job is "find any gap we fit
+    ''' through" was handed the widest gap whether we fit or not, and could
+    ''' commit the tank to an opening narrower than itself.
+    '''
+    ''' A way the hull cannot pass is not a way. `fits` is already measured at
+    ''' scan time by casting the hull's own corridor at the opening, so there is
+    ''' nothing to weigh up here.
+    ''' </summary>
+    Private Function widest() As Object
         Dim best As BrainRadar.Way = Nothing
         Dim got = False
         For Each w In BrainRadar.WAYS
-            If mustFit AndAlso Not w.fits Then Continue For
+            If Not w.fits Then Continue For
             If Not got OrElse w.chord > best.chord Then
                 best = w
                 got = True
@@ -691,7 +768,8 @@ Public Class GraphBrain
     ''' instantly and judging a decision on the frame after it was made throws
     ''' away every decision.
     ''' </summary>
-    Private Function commit(offered As Object) As Object
+    Private Function commit(offered As Object, patience As Single,
+                            needGain As Single) As Object
         If holding Then
             ' ONLY WHILE WE ARE ASKING TO MOVE. Turning on the spot gains no
             ' ground by design - since badly misaligned means zero throttle,
@@ -700,10 +778,10 @@ Public Class GraphBrain
             ' toward a way is not failing to reach it.
             If Math.Abs(lastThr) > 0.1F Then heldFor += dt
             Dim gained = (h.pos - heldFrom).Length
-            If heldFor < 0.6F OrElse gained > 1.0F Then
+            If heldFor < patience OrElse gained > needGain Then
                 ' Working, or too early to say. Either way, keep going and do
                 ' not look for anything else.
-                If gained > 1.0F Then
+                If gained > needGain Then
                     heldFrom = h.pos
                     heldFor = 0.0F
                 End If
@@ -797,7 +875,7 @@ Public Class GraphBrain
     ''' a number you have to go and look up.</summary>
     Private Function shown(v As Object) As String
         If v Is Nothing Then Return "-"
-        If TypeOf v Is Boolean Then Return If(CBool(v), "yes", "no")
+        If TypeOf v Is Boolean Then Return If(CBool(v), "True", "False")
         If TypeOf v Is Single Then Return CSng(v).ToString("0.0")
         If TypeOf v Is BrainRadar.Way Then
             Dim w = CType(v, BrainRadar.Way)

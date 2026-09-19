@@ -195,7 +195,7 @@ Module BrainNodeForm
             ' BrainNodes reported how far its window drifted while it was being
             ' dragged, and put itself back. The Form makes that real.
             If BrainNodes.HostDX <> 0.0F OrElse BrainNodes.HostDY <> 0.0F Then
-                form.Location = New Drawing.Point(
+                form.Location = keep_on_screen(
                     form.Location.X + CInt(BrainNodes.HostDX),
                     form.Location.Y + CInt(BrainNodes.HostDY))
                 BrainNodes.HostDX = 0.0F
@@ -261,6 +261,26 @@ Module BrainNodeForm
             LogThis("brain: node window command - {0}", ex.Message)
         End Try
     End Sub
+
+    ''' <summary>
+    ''' Somewhere the title bar can still be reached.
+    '''
+    ''' The ImGui title bar is the only handle this window has, so a drag that
+    ''' puts it above the desktop strands the window - nothing left to grab,
+    ''' and only a restart brings it back.
+    '''
+    ''' The TOP is the only hard edge. Pushed off the left, right or bottom the
+    ''' title bar is still on screen and can be dragged home; pushed off the
+    ''' top it is gone. A strip is kept visible on the other three so the
+    ''' window cannot be posted into a corner either.
+    ''' </summary>
+    Private Function keep_on_screen(x As Integer, y As Integer) As Drawing.Point
+        Const STRIP As Integer = 90      ' enough title bar to get hold of
+        Dim v = SystemInformation.VirtualScreen
+        Dim nx = Math.Max(v.Left - form.Width + STRIP, Math.Min(v.Right - STRIP, x))
+        Dim ny = Math.Max(v.Top, Math.Min(v.Bottom - STRIP, y))
+        Return New Drawing.Point(nx, ny)
+    End Function
 
     ''' <summary>Close it for good, at shutdown.</summary>
     Public Sub Stop_()

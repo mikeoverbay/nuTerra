@@ -194,14 +194,23 @@ Module BrainScope
             Next
         End If
 
-        ' ---- the returns: while SCANNING, or while a plank is touching ------
+        ' ---- the returns: ALWAYS ------------------------------------------
         '
-        ' Held for the whole of scan mode rather than re-decided each frame.
-        ' Gating this on LANE_ACTIVE alone made the rays flash off the moment
-        ' the hull turned enough for its planks to come clear - which is
-        ' precisely when the scan is doing the work worth watching.
-        If hits IsNot Nothing AndAlso
-           (BrainRadar.SCANNING OrElse BrainRadar.LANE_ACTIVE) Then
+        ' These used to be hidden unless SCANNING or a plank was touching -
+        ' "hide the scanner rays until plank is active" - which was right when
+        ' a scan was an occasional event. It is not any more: the brain scans
+        ' every tick, so the rays are always this frame's truth, and the gate
+        ' blanked the scope exactly while the tank was driving along fine.
+        '
+        ' It had also become unsatisfiable from one side. SCANNING is
+        ' state = Door, and the board has no Set Door node at all, so that half
+        ' was permanently false and the whole thing hung on a plank being in
+        ' contact - which on open ground it never is.
+        '
+        ' The PLANK display above keeps its gate. Planks are only meaningful
+        ' while they are being cast; the rays are meaningful whenever there are
+        ' rays.
+        If hits IsNot Nothing Then
             For Each q In hits
                 live.Line(Mid, Mid, sx(q.angle, q.dist), sy(q.angle, q.dist),
                           If(q.found, ORANGE, ORANGE_DIM))
