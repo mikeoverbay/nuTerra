@@ -316,8 +316,19 @@ Module BrainPanel
                               BrainNodes.ActedNode))
         End If
         ImGui.TextWrapped("why  " & BrainReport.LastWhy)
-        ImGui.Text(String.Format("thr {0:0.00}   speed {1:0.0} m/s",
-                                 BrainReport.LastThrottle, BrainReport.LastSpeed))
+        ImGui.Text(String.Format("thr {0:0.00}  steer {1:+0.00;-0.00}  speed {2:0.0} m/s",
+                                 BrainReport.LastThrottle, BrainReport.LastSteer,
+                                 BrainReport.LastSpeed))
+        ' THE TURN RADIUS, which is what a complaint about turning is about
+        ' and the one number nothing was showing. radius = v / (steer * rate),
+        ' so a wide circle at low speed means the steer is not at full lock.
+        Dim st = Math.Abs(BrainReport.LastSteer)
+        If st > 0.01F AndAlso Math.Abs(BrainReport.LastSpeed) > 0.05F Then
+            ImGui.Text(String.Format("turn radius {0:0.0} m",
+                Math.Abs(BrainReport.LastSpeed) / (st * BrainSim.TURN_RATE)))
+        Else
+            ImGui.TextDisabled("turn radius  -  (pivot or straight)")
+        End If
         Dim gb2 = TryCast(BrainSim.Brain, GraphBrain)
         If gb2 IsNot Nothing Then
             ImGui.TextDisabled(String.Format("ticks {0}   scans {1}   walks {2}",

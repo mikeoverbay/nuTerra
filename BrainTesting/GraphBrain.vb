@@ -107,10 +107,17 @@ Public Class GraphBrain
     ''' <summary>The move already chosen: a WORLD heading and how much
     ''' road it still has. Kept in world terms because a plan stored off
     ''' the nose runs away from you as you turn toward it.</summary>
+    ''' <summary>The aim point being chased, in WORLD coordinates so it
+    ''' stays put while the hull turns toward it - and so the next scan
+    ''' can recognise the same thing from a few metres further on.</summary>
+    Public PlanAim As Vector2
+    ' ONE field. VB is case-insensitive, so PlanOn and PlanOn are the same
+    ' identifier - the trap this project has now hit three times.
+    Public PlanOn As Boolean = False
+    Private planPoint As Vector2
     Private planHeading As Single = 0.0F
     Private planLeft As Single = 0.0F
-    Private planOn As Boolean = False
-    Private planAt As Single = 0.0F
+        Private planAt As Single = 0.0F
     ''' <summary>Sweeps taken this run, against ticks - the saving, measured
     ''' rather than assumed.</summary>
     Public scans As Integer = 0
@@ -264,7 +271,7 @@ Public Class GraphBrain
         ' thinks of it - so drop the plan and scan again from here rather
         ' than spending the remaining metres pushing at it.
         If BrainSim.Refused Then
-            planOn = False
+            PlanOn = False
             BrainSim.Refused = False
         End If
 
@@ -279,10 +286,12 @@ Public Class GraphBrain
         ' Scan, decide, turn and move, scan again. The sweep is the most
         ' expensive thing the brain does and it was being paid for on every
         ' tick of a move that had already been decided.
-        If Not planOn OrElse hits Is Nothing Then
-            hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
-            scans += 1
-        End If
+        ' EVERY TICK, because the aim point cannot move if nothing is
+        ' looking at it. Skipping the sweep while a plan ran was the right
+        ' saving for a plan that was a fixed heading; it is exactly wrong
+        ' for one that follows a point.
+        hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
+        scans += 1
         laneDone = False
         aheadDone = False
         roundDone = False
@@ -359,6 +368,7 @@ Public Class GraphBrain
         ' drives without filing this drives invisibly, and two scorecards where
         ' one of them is blank are not a comparison.
         BrainNodes.TraceLogIfChanged()
+        BrainReport.LastSteer = steerOut
         BrainReport.Heartbeat(dt, state.ToString(), why, thr, h.speed,
                               (goal - h.pos).Length, BrainRadar.FitSurface(hits))
 
@@ -489,7 +499,14 @@ Public Class GraphBrain
                 why = String.Format("turning to {0:0} deg",
                                     MathHelper.RadiansToDegrees(b))
             Case "Drive Heading"
-                Dim b = as_num(pulled(id, "bearing"), goal_bearing())
+                Dim pin = pulled(id, "bearing")
+                Dim b = as_num(pin, goal_bearing())
+                If driveSay < 5 Then
+                    driveSay += 1
+                    LogThis("brain: drive#{0} bearing-pin {1}, using {2:0} deg",
+                            id, If(pin Is Nothing, "EMPTY", "wired"),
+                            MathHelper.RadiansToDegrees(b))
+                End If
                 Dim t = as_num(pulled(id, "throttle"), 0.0F)
                 Dim room = body_ahead()
                 ' REFUSED SEVERAL TIMES RUNNING: stop asking. Forward is not
@@ -721,7 +738,20 @@ Public Class GraphBrain
                     roundDone = True
                     roundVal = round_the_end(goal_bearing(), 0.6F)
                 End If
-                v = CObj(roundVal Is Nothing AndAlso
+                ' NOSE AGAINST SOMETHING BEATS "a way past exists".
+                '
+                ' Requiring the walk to have found nothing deadlocked it: the
+                ' walk nearly always finds a way past, so reversing was
+                ' disqualified by the existence of a route the hull could not
+                ' reach. Measured - aimed correctly at a point 5.7 m away,
+                ' 1.0 m of clearance, throttle 0 because that is inside the
+                ' standoff, steer 0 because it was already pointed at it.
+                ' Nothing could change, for as many ticks as were pressed.
+                '
+                ' If the hull physically cannot go forward, backing up is the
+                ' move whether or not a route exists on paper.
+                Dim noRoom = body_ahead() <= BrainTune.Get_("standoff", 1.5F) + 0.5F
+                v = CObj((roundVal Is Nothing OrElse noRoom) AndAlso
                          BrainTune.On_("rear", True) AndAlso
                          backCool <= 0.0F AndAlso
                          body_ahead() < BrainTune.Get_("blockat", BLOCK_M) AndAlso
@@ -1242,51 +1272,62 @@ Public Class GraphBrain
     Private ReadOnly doorClock As New Stopwatch()
 
     ''' <summary>
-    ''' STEER PAST THE EDGE OF WHAT IS IN THE WAY.
+    ''' SECONDS TO THE GOAL VIA THIS WAY PAST.
     '''
-    ''' A door needs two jambs and will not exist until the hull can see
-    ''' both sides of one. In the open there is no far side - there is an
-    ''' object with edges - so the board sat looking at a scope full of
-    ''' returns with nothing it was willing to steer at. Rounding an end
-    ''' needs ONE edge and some room past it, and that exists from the
-    ''' very first return.
+    ''' Turn to face it, run to it at the speed the clearance and the turn
+    ''' radius permit, then the rest in a straight line. Width, depth and
+    ''' angle stop being three criteria with no exchange rate between them:
+    ''' a wide gap wins by allowing more speed, a skirted end wins by
+    ''' shaving travel, a poor angle loses twice over.
     '''
-    ''' IT IS ALLOWED TO BE WRONG. Aim past the edge, drive, see more of
-    ''' the thing, aim again. The chain grows as the hull closes and the
-    ''' bearing follows it. A decision revised sixty times a second only
-    ''' has to be roughly right and stable, which is a much easier thing
-    ''' to build than one that has to be correct first time.
+    ''' The last leg is optimistic, and deliberately so - every candidate
+    ''' gets the same optimism, so it cannot bias the comparison and enters
+    ''' only as ground lost.
     '''
-    ''' THE SIDE NEAREST THE GOAL, not the roomier side. Picking room is
-    ''' how a hull goes the long way round a hedge it could have rounded
-    ''' in ten metres. The other edge is tried only if the first will not
-    ''' clear.
+    ''' v comes from the SAME speed_for_squares the throttle uses, or this
+    ''' would promise speeds the hull is never given.
     ''' </summary>
-    ''' <summary>
-    ''' WALK THE CHAINS AND FIND THE WAY PAST - the owner's rule, exactly.
-    '''
-    ''' A run of consecutive returns IS an object. Where the run stops is
-    ''' where the object stops. So: take each end of each chain, aim past it
-    ''' by the hull's own half width - the smallest turn that clears it - and
-    ''' ask whether the plank is open on the far side. If it is, that is the
-    ''' way round. If it is not, try the other end, then the next chain.
-    '''
-    ''' AND IT FINISHES. When every end of every chain has been tried and
-    ''' none of them clears, there is no way past and the board can stop
-    ''' looking - "we are dead and there is no point in looking any more".
-    ''' My previous version swept bearings every ten degrees, which can find
-    ''' a direction but never finds the way PAST anything: it does not know
-    ''' what it is going round, so it cannot tell open ground from the one
-    ''' gap in a wall, and it can never conclude there is no way through. It
-    ''' just returns the least bad bearing, forever.
-    '''
-    ''' Ordered by cost against the goal, so of two ways past one object it
-    ''' takes the one that loses less ground.
-    ''' </summary>
+    Private Function time_via(b As Single, aim As Vector2) As Single
+        Const SIM_TOP As Single = 12.0F
+        ' The plank sets the speed here too, or this would price candidates
+        ' against a speed the throttle will never give them.
+        Dim v = Math.Max(0.6F, Math.Min(SIM_TOP,
+                                        throttle_for(body_ahead()) * SIM_TOP))
+        Return Math.Abs(wrap_pi(b)) / SIM_TURN_RATE +
+               (aim - h.pos).Length / v +
+               (goal - aim).Length / SIM_TOP
+    End Function
+
     Private Function way_past(goalB As Single) As Object
         Trapped = False
         walkRan += 1
         If hits Is Nothing Then Return Nothing
+
+        ' ---- NOSE IN, POINTING AT IT: DECLINE THE TICK -------------------
+        '
+        ' If the plank is shut inside the standoff there is no forward speed
+        ' to be had, and if the hull is ALREADY pointed where it wants to go
+        ' there is no turn to make either. Throttle zero, steer zero, aim
+        ' held, position frozen - for as many ticks as anyone presses.
+        '
+        ' Returning a bearing here is what caused that: this rung sits on
+        ' pGo.a and Rear Better sits on p5, so answering at all means the
+        ' board never reaches the one move that could help. Declining hands
+        ' the tick down the chain to reversing.
+        '
+        ' Only when ALIGNED. Blocked but pointed elsewhere is a pivot, and a
+        ' pivot is worth having.
+        Dim standNow = BrainTune.Get_("standoff", 1.5F) + 0.5F
+        If body_ahead() <= standNow Then
+            Dim aimRel = If(PlanOn,
+                            wrap_pi(CSng(Math.Atan2(planPoint.X - h.pos.X,
+                                                    planPoint.Y - h.pos.Y)) -
+                                    h.headingRad), goalB)
+            If Math.Abs(aimRel) < 0.15F Then
+                PlanOn = False
+                Return Nothing
+            End If
+        End If
 
         ' ---- THE PLAN WE ALREADY HAVE --------------------------------
         '
@@ -1297,15 +1338,43 @@ Public Class GraphBrain
         '
         ' While it holds, the whole walk is skipped: nineteen plank casts a
         ' tick, and a decision re-made at a heading the last one did not see.
-        Dim step_ = Math.Abs(h.speed) * dt
-        If planOn Then
-            planLeft -= step_
-            Dim rel = wrap_pi(planHeading - h.headingRad)
-            If planLeft > 0.0F AndAlso box_verdict(rel, 6.0F, planAt) <> 2 Then
-                Return CObj(rel)
+        ' The point we were following is re-found below, from this scan.
+        Dim fwdNow = New Vector2(CSng(Math.Sin(h.headingRad)),
+                                 CSng(Math.Cos(h.headingRad)))
+        If PlanOn AndAlso Vector2.Dot(planPoint - h.pos, fwdNow) <= 0.0F Then
+            ' Abeam or behind: we are past whatever we were going round.
+            PlanOn = False
+        End If
+
+        ' ---- HOLD THE POINT WE ARE ON --------------------------------
+        '
+        ' The sticky bonus was only a ranking PREFERENCE: if the two ends of
+        ' a chain sit more than stickm apart it never applied at all, and
+        ' nothing anywhere actually steered to the stored point. So the aim
+        ' flipped between one end of a chain and the other, and the hull
+        ' turned toward whichever had won this tick - 312 degrees of turning
+        ' in six metres.
+        '
+        ' While a plan is live and the way to it is not shut, steer to THAT
+        ' POINT. Turning then reduces the error, because the point does not
+        ' move when the hull does. Re-choose only when it is reached, passed,
+        ' or blocked - which is what "one scan per move" was always about.
+        If PlanOn Then
+            Dim toPlan = planPoint - h.pos
+            Dim dPlan = toPlan.Length
+            If dPlan > BrainTune.Get_("arriveaim", 3.0F) Then
+                Dim relPlan = wrap_pi(CSng(Math.Atan2(toPlan.X, toPlan.Y)) -
+                                      h.headingRad)
+                Dim atPlan As Single = 0.0F
+                If box_verdict(relPlan, Math.Min(dPlan, 10.0F), atPlan) <> 2 Then
+                    ' NOT Begin() - the last walk's chains, ends and cubes are
+                    ' still true and still what this plan was chosen from.
+                    BrainWalkView.RePick(h.pos, planPoint)
+                    Return CObj(relPlan)
+                End If
             End If
-            ' Spent, or the way shut. Look again from here.
-            planOn = False
+            ' Arrived, or the way shut. Look again from here.
+            PlanOn = False
         End If
 
         BrainWalkView.Begin()
@@ -1316,7 +1385,11 @@ Public Class GraphBrain
 
         ' The ends of every chain of returns in the forward half. Index order
         ' is angle order - the radar guarantees it and the brain relies on it.
-        Dim ends As New List(Of Integer)
+        ' Each end carries WHICH SIDE of it is open: index order is angle
+        ' order, so a chain linked to the ray before it extends to lower
+        ' angles and the clear side is the higher one. Zero means a lone
+        ' return with open ground both ways.
+        Dim ends As New List(Of Tuple(Of Integer, Single))
         For i = 0 To hits.Length - 1
             If Not hits(i).found Then Continue For
             ' ENDS ALL ROUND, not just ahead. An object beside the hull has
@@ -1329,8 +1402,27 @@ Public Class GraphBrain
             Dim after_ = (i + 1) Mod hits.Length
             ' An end is a return whose neighbour on one side found nothing:
             ' that is where the object stops and open ground begins.
-            If Not hits(before_).found OrElse Not hits(after_).found Then
-                ends.Add(i)
+            ' THE CHAIN BREAKS ON DISTANCE, not on whether the next ray found
+            ' something. "the chain distance is ignored. if it is wide enough
+            '  to go thru, the hit chain ends".
+            '
+            ' This used to end a chain only where a neighbouring RAY returned
+            ' nothing - so two adjacent rays that both hit, but hit things
+            ' twenty metres apart, counted as one unbroken object. The chain
+            ' ran straight through gaps the hull could drive between, and the
+            ' only ends it ever found were at the edges of what it could see.
+            '
+            ' `linked` is the radar's own answer to "are these two returns
+            ' closer together than the hull is wide" - which is exactly the
+            ' question. Where they are not linked, the object stops and a way
+            ' through begins.
+            Dim joinedBack = hits(before_).found AndAlso hits(before_).linked
+            Dim joinedOn = hits(after_).found AndAlso hits(i).linked
+            If Not joinedBack OrElse Not joinedOn Then
+                Dim openSide = 0.0F
+                If joinedBack AndAlso Not joinedOn Then openSide = 1.0F
+                If joinedOn AndAlso Not joinedBack Then openSide = -1.0F
+                ends.Add(Tuple.Create(i, openSide))
                 BrainWalkView.EndPoint(hits(i).at)
             End If
             ' The chain itself: `linked` is the radar's own answer to
@@ -1350,6 +1442,9 @@ Public Class GraphBrain
         ' where it fits AND the plank through the middle is open - a real
         ' door. Amber where it fits but the way through is not clear, which is
         ' a gap you can see through and not drive through.
+        ' Every gap the hull could fit through. One list, because a door
+        ' and a way round an end are the same thing at different widths.
+        Dim gaps As New List(Of Tuple(Of Integer, Integer))
         Dim fitW = h.DriveRadius * 2.0F
         For i = 0 To hits.Length - 1
             If Not hits(i).found Then Continue For
@@ -1363,18 +1458,11 @@ Public Class GraphBrain
             Next
             If j < 0 OrElse j = i Then Continue For
             Dim chord = (hits(i).at - hits(j).at).Length
-            Dim mid2 = (hits(i).at + hits(j).at) * 0.5F
             If chord < fitW Then
-                BrainWalkView.Mark(mid2, 2)
+                ' The hull will not fit between these two at all.
+                BrainWalkView.Mark((hits(i).at + hits(j).at) * 0.5F, 2)
             Else
-                ' Wide enough on paper. Is it open for the box?
-                Dim to2 = mid2 - h.pos
-                Dim r2 = to2.Length
-                If r2 > 0.5F Then
-                    Dim b2 = wrap_pi(CSng(Math.Atan2(to2.X, to2.Y)) - h.headingRad)
-                    Dim at2 As Single = 0.0F
-                    BrainWalkView.Mark(mid2, box_verdict(b2, r2 + 2.0F, at2))
-                End If
+                gaps.Add(Tuple.Create(i, j))
             End If
         Next
 
@@ -1384,6 +1472,7 @@ Public Class GraphBrain
         ' side the object is NOT. Both signs are tried - "we try the other
         ' side of that point".
         Dim bestB = 0.0F, bestOff = Single.MaxValue
+        Dim bestAim As Vector2 = h.pos
         Dim got = False, tried = 0
 
         ' THE GOAL IS JUST ANOTHER CANDIDATE. "we are always looking for the
@@ -1413,33 +1502,74 @@ Public Class GraphBrain
             bestOff = 0.0F
             got = True
         End If
-        For Each i In ends
+        ' ---- GO AROUND, ONLY. No door midpoints. -------------------------
+        '
+        ' Aim past the END of a chain by the angle that clears the hull at
+        ' that range, and try both sides of it. This is what ran before the
+        ' door and the go-around were merged, and it worked: plank-ok 6 of 19
+        ' candidates, picking forty degrees left into a ninety-three degree
+        ' open arc. The merged version has scored zero open verdicts on every
+        ' frame since.
+        '
+        ' A narrow door is still taken, because aiming past one of its jambs
+        ' puts the hull in the middle of it - there is nowhere else to be.
+        ' That was the right observation; merging the code paths was not.
+        For Each e In ends
+            Dim i = e.Item1
             Dim d = Math.Max(2.0F, hits(i).dist)
-            Dim swing = CSng(Math.Atan2(h.halfX + margin, d))
-            For Each sgn In {-1.0F, 1.0F}
-                Dim b = wrap_pi(hits(i).angle + sgn * swing)
+            ' THE CLEARANCE IS MEASURED AT THE END, NOT AT THE AIM POINT.
+            '
+            ' This used to take an angle - atan2(clearance, range) - and then
+            ' place the aim at min(range, 12 m). For an end thirty metres off
+            ' that is a 4.8 degree offset planted at twelve metres, which is
+            ' one metre of clearance: less than the hull is wide. The further
+            ' the end, the less clearance survived, and the aim ended up all
+            ' but on top of the last hit in the chain.
+            '
+            ' Stepping sideways from the end itself is exact at any range.
+            Dim toEnd = hits(i).at - h.pos
+            Dim dLen = Math.Max(0.5F, toEnd.Length)
+            Dim u = toEnd / dLen
+            Dim perp = New Vector2(u.Y, -u.X)
+            ' TWICE THE CLEARANCE, on the side that is actually open. One
+            ' hull width past the end leaves nothing for the turn itself to
+            ' eat; the owner wants room to get by, not to graze it.
+            ' THREE HULL WIDTHS, up from two. The owner's call and he named
+            ' the risk himself: more clearance means fewer ways past will
+            ' qualify, and in a tight spot that can mean none at all. But an
+            ' aim that only just clears leaves nothing for the turn itself to
+            ' eat, and the hull kept stopping short of a gap it should have
+            ' made.
+            Dim clear_ = (h.DriveRadius + margin) *
+                         BrainTune.Get_("clearx", 3.0F)
+            For Each sgn In If(e.Item2 = 0.0F, {-1.0F, 1.0F},
+                               New Single() {e.Item2})
+                Dim aim = hits(i).at + perp * (sgn * clear_)
+                Dim toAim = aim - h.pos
+                If toAim.Length < 1.0F Then Continue For
+                Dim b = wrap_pi(CSng(Math.Atan2(toAim.X, toAim.Y)) - h.headingRad)
                 If Math.Abs(b) > 1.5F Then Continue For
                 tried += 1
+
                 If Not can_pivot(b, margin) Then
-                    ' Cannot even swing to face it - the corners foul.
-                    BrainWalkView.Mark(hits(i).at, 2)
+                    BrainWalkView.Mark(aim, 2)
                     Continue For
                 End If
-
-                ' The far side, for the HULL, not a line - and which kind
-                ' of answer it gives, marked where the plank actually stops.
                 Dim atM As Single = 0.0F
                 Dim verdict = box_verdict(b, Math.Min(need, reach), atM)
-                Dim hd2 = h.headingRad + b
-                Dim where_ = h.pos + New Vector2(CSng(Math.Sin(hd2)) * atM,
-                                                CSng(Math.Cos(hd2)) * atM)
-                BrainWalkView.Mark(where_, verdict)
-                ' A graze is a GO: the hull clears it by carrying on.
+                BrainWalkView.Mark(aim, verdict)
                 If verdict = 2 Then Continue For
-                Dim off = Math.Abs(wrap_pi(b - goalB))
+
+                ' Seconds to the goal this way, not degrees off it.
+                Dim off = time_via(b, aim)
+                If PlanOn AndAlso (aim - planPoint).Length <
+                   BrainTune.Get_("stickm", 6.0F) Then
+                    off -= BrainTune.Get_("sticks", 1.5F)
+                End If
                 If off < bestOff Then
                     bestOff = off
                     bestB = b
+                    bestAim = aim
                     got = True
                 End If
             Next
@@ -1447,26 +1577,40 @@ Public Class GraphBrain
 
         If turnSay < 6 Then
             turnSay += 1
-            LogThis("brain: chain walk - ends {0}, tried {1}, picked {2:0} deg " &
+            LogThis("brain: walk - ends {5}, tried {1}, picked {2:0} deg " &
                     "(goal {3:0} deg){4}", ends.Count, tried,
                     MathHelper.RadiansToDegrees(bestB),
                     MathHelper.RadiansToDegrees(goalB),
-                    If(got, "", "  - TRAPPED"))
+                    If(got, "", "  - TRAPPED"), ends.Count)
         End If
 
         If got Then
             ' Remember it in world terms and run it for a set distance
             ' before asking again.
-            planHeading = h.headingRad + bestB
-            planLeft = BrainTune.Get_("planm", 10.0F)
-            planOn = True
+            ' Follow the POINT. Next tick it will have moved, and the nose
+            ' follows it round - which is the turn out and the turn back.
+            ' HALF THE VECTOR. Find the way past at full range, commit to
+            ' travelling only half way to it before looking again.
+            '
+            ' "we find it but only travel 1/2 the vector". Arriving is what
+            ' ends a plan, so chasing a point twenty metres off means twenty
+            ' metres of orbiting it; chasing one ten metres off means
+            ' arriving, re-scanning, and choosing again from somewhere the
+            ' picture has genuinely changed.
+            '
+            ' The bearing is identical either way - direction does not change
+            ' with range - so it costs nothing and buys a shorter commitment.
+            Dim half_ = h.pos + (bestAim - h.pos) *
+                        BrainTune.Get_("aimfrac", 0.5F)
+            planPoint = half_
+            PlanAim = half_
+            PlanOn = True
 
-            ' Drawn from the hull out along the bearing it will steer, so a
-            ' wrong choice shows as a line pointing at the wrong thing.
-            Dim hd = h.headingRad + bestB
-            BrainWalkView.Pick(h.pos,
-                h.pos + New Vector2(CSng(Math.Sin(hd)) * need,
-                                    CSng(Math.Cos(hd)) * need))
+            ' THE POINT BEING CHASED, drawn where it actually is rather than as
+            ' a ray along a bearing. Watching it slide sideways as the hull
+            ' closes on the obstacle IS the turn - and watching it jump to a
+            ' different object is the bug, on sight.
+            BrainWalkView.Pick(h.pos, half_)
         End If
 
         If Not got Then
@@ -1484,6 +1628,7 @@ Public Class GraphBrain
     Public Trapped As Boolean = False
 
     Private turnSay As Integer = 0
+    Private driveSay As Integer = 0
 
     Private Function round_the_end(goalB As Single, margin As Single) As Object
         If hits Is Nothing Then Return Nothing
@@ -1506,78 +1651,20 @@ Public Class GraphBrain
         ' The chain in the way: forward returns near enough to matter, and
         ' close enough to the lane we would actually drive. A tree thirty
         ' metres off the shoulder is not what we are going round.
-        Dim lo = Single.MaxValue, hi = -Single.MaxValue
-        Dim nearest = Single.MaxValue
-        Dim any = False
-        Dim band = h.halfX + margin + BrainTune.Get_("band", 2.5F)
-        For Each q In hits
-            If Not q.found Then Continue For
-            Dim a = wrap_pi(q.angle)
-            If Math.Abs(a) > 1.2F Then Continue For
-            If q.dist > BrainRadar.REACH_M * 0.6F Then Continue For
-            If Math.Abs(CSng(Math.Sin(a)) * q.dist) > band Then Continue For
-            any = True
-            If a < lo Then lo = a
-            If a > hi Then hi = a
-            If q.dist < nearest Then nearest = q.dist
-        Next
-        If Not any Then Return Nothing
-
-        ' How far off the edge we have to aim to take the hull past it. At
-        ' two metres that is a big angle, at twenty it is a small one, which
-        ' is why it comes off the range rather than being a constant.
-        Dim swing = CSng(Math.Atan2(h.halfX + margin, Math.Max(2.0F, nearest)))
-        Dim leftB = wrap_pi(lo - swing)
-        Dim rightB = wrap_pi(hi + swing)
-
-        ' ---- AND THEN COMMIT TO A SIDE -------------------------------
+        ' ONE ALGORITHM. The chain walk decides; there is nothing else here.
         '
-        ' "its like going around a blind corner. we dont know whats there but
-        '  we have to turn so don't wait. check if we can and if we can't turn."
+        ' This function used to hold its own older way of going round - a
+        ' band scan for the angular extent of what was ahead, a left and a
+        ' right bearing past it, and a committed side - and it fell through to
+        ' the chain walk only when that failed. So BOTH ran, and the board
+        ' steered by whichever answered first.
         '
-        ' Choosing the better side EVERY TICK is what put the hull in a loop of
-        ' forward and back: the two sides are near enough equal in the middle,
-        ' so a centimetre of movement swaps the answer, the nose swings the
-        ' other way, and that centimetre comes back. The same knife edge as the
-        ' backing threshold, one level up.
+        ' The step journal caught it: the walk's aim point sat perfectly still
+        ' at -112.4,-277.5 for fifty ticks while the steering bearing flipped
+        ' -6 deg, +4 deg, -6 deg, +4 deg against a heading moving one degree.
+        ' A fixed aim cannot do that. Two algorithms can.
         '
-        ' So the side is chosen ONCE and then owed COMMIT_M metres of road. The
-        ' bearing is still recomputed every tick - it has to be, or it could
-        ' not track the edge as the hull closes on it and the chain grows -
-        ' but WHICH EDGE is not up for reconsideration until the debt is paid.
-        '
-        ' The commitment breaks early for exactly one reason: the side we chose
-        ' stopped being drivable. That is the "if we can't" half - do not sit
-        ' there insisting on a turn the ground will not give.
-        Dim probe = Math.Min(nearest + 6.0F, 18.0F)
-        roundHold -= Math.Abs(h.speed) * dt
-
-        If roundSide <> 0 AndAlso roundHold > 0.0F Then
-            Dim held = If(roundSide < 0, leftB, rightB)
-            If box_clear(held, probe) Then Return CObj(held)
-            ' It shut. Drop it and choose again this tick rather than next.
-            roundSide = 0
-        End If
-
-        Dim leftFirst = Math.Abs(wrap_pi(leftB - goalB)) <=
-                        Math.Abs(wrap_pi(rightB - goalB))
-        Dim first_ = If(leftFirst, leftB, rightB)
-        Dim other_ = If(leftFirst, rightB, leftB)
-
-        If box_clear(first_, probe) Then
-            roundSide = If(leftFirst, -1, 1)
-            roundHold = BrainTune.Get_("commit", 0.0F)
-            Return CObj(first_)
-        End If
-        If box_clear(other_, probe) Then
-            roundSide = If(leftFirst, 1, -1)
-            roundHold = BrainTune.Get_("commit", 0.0F)
-            Return CObj(other_)
-        End If
-        roundSide = 0
-        ' The edges of what we can see did not offer anything. Before giving
-        ' the tick to Reverse, ask the harder question: is there ANY bearing
-        ' the hull can turn to and then move along.
+        ' I added the walk and never deleted what it replaced.
         Return way_past(goalB)
     End Function
 
@@ -1619,10 +1706,22 @@ Public Class GraphBrain
         If Not lane.hit Then Return 0
         ' One edge, and most of the width still open, is something the
         ' hull passes alongside rather than something in the way.
+        ' A GRAZE HAS TO BE FAR ENOUGH AWAY TO BE A GRAZE.
+        '
+        ' Graze-against-blocked was judged purely on WHICH edges were touched
+        ' and what share of the planks were shut - never on how far away the
+        ' touch was. A graze at twenty metres is fine, because the hull will
+        ' have steered long before it arrives. A graze at a metre and a half
+        ' is a wall, and calling it passable is the same mistake as flooring
+        ' the throttle at CREEP in front of one.
+        '
+        ' Found by the owner watching it stop at an amber cube.
+        Dim tooClose = lane.dist < h.halfZ +
+                       BrainTune.Get_("grazem", 4.0F)
         Dim bothSides = lane.leftHit AndAlso lane.rightHit
         Dim mostShut = lane.planks > 0 AndAlso
                        lane.blocked * 3 > lane.planks
-        If bothSides OrElse mostShut Then Return 2
+        If bothSides OrElse mostShut OrElse tooClose Then Return 2
         Return 1
     End Function
 
@@ -1690,73 +1789,29 @@ Public Class GraphBrain
     ''' crept forward regardless.
     ''' </summary>
     ''' <summary>
-    ''' THE WIDEST TURNING CIRCLE THAT STILL MISSES THE SQUARES.
+    ''' THE PLANK CONTROLS THE SPEED. Not the rays.
     '''
-    ''' "not tight enough turn. We have squares at each ray to get around."
+    ''' "plank should control speed. it is directly in front of the tank.
+    '''  try that and not ray its" - the owner, and he is right.
     '''
-    ''' A tank turning traces a circle of radius v / TURN_RATE, and at twelve
-    ''' metres a second that circle is TWENTY-SEVEN METRES across. No amount
-    ''' of lock takes it round a square four metres away - the only thing
-    ''' that tightens a turn is going slower. So the squares set the speed.
+    ''' This used to take the plank's answer and then cap it with a turning
+    ''' circle derived from every ray - which is a second opinion about
+    ''' obstacles the hull was never going to hit, and it always won
+    ''' because it was a minimum. A return beside the tank capped the speed
+    ''' at a tenth of a metre a second; the hull would clear the turn
+    ''' easily and stopped anyway.
     '''
-    ''' Turning right, the circle's centre is at (r, 0) in the hull's frame.
-    ''' A return at (x, z) is cleared when it lies more than r + w from that
-    ''' centre, w being half the hull plus a margin:
+    ''' The plank IS the swept box, cast straight ahead. If it is clear the
+    ''' tank can go, and if it is short the tank must slow - there is no
+    ''' third thing to consult. The pivot case needs no special rule
+    ''' either: inside the standoff throttle_for returns zero on its own,
+    ''' and a zero throttle with full lock is a pivot.
     '''
-    '''     (x - r)^2 + z^2  >  (r + w)^2
-    '''     x^2 + z^2 - w^2  >  2r(x + w)
-    '''     r  <  (x^2 + z^2 - w^2) / (2(x + w))
-    '''
-    ''' Turning left is the mirror, so one sign flip covers both. The
-    ''' tightest constraint over every return is the circle we are allowed,
-    ''' and v = r * TURN_RATE is the speed that draws it.
-    '''
-    ''' A return whose numerator is negative is already inside the swept
-    ''' width - no circle clears it at any speed, and the answer is to stop
-    ''' and pivot rather than to go slowly into it.
+    ''' speed_for_squares is left in the file - it is what Can Pivot To
+    ''' reasons with - but it no longer touches the throttle.
     ''' </summary>
-    Private Function speed_for_squares(dir_ As Single) As Single
-        If hits Is Nothing Then Return Single.MaxValue
-        Dim w = h.halfX + BrainTune.Get_("sqmargin", 0.5F)
-        Dim rMin = Single.MaxValue
-        For Each q In hits
-            If Not q.found Then Continue For
-            ' Only what is ahead of the axle can be driven into while turning.
-            Dim z = CSng(Math.Cos(q.angle)) * q.dist
-            If z <= 0.0F Then Continue For
-            If q.dist > BrainRadar.REACH_M * 0.5F Then Continue For
-            Dim x = CSng(Math.Sin(q.angle)) * q.dist
-            Dim den = 2.0F * (x * dir_ + w)
-            If den <= 0.01F Then Continue For        ' the other side of the turn
-            Dim num = x * x + z * z - w * w
-            If num <= 0.0F Then Return 0.0F          ' already inside the sweep
-            Dim r = num / den
-            If r < rMin Then rMin = r
-        Next
-        If rMin = Single.MaxValue Then Return Single.MaxValue
-        Return rMin * SIM_TURN_RATE
-    End Function
-
     Private Function throttle_for_turn(bearing As Single, room As Single) As Single
-        Const SIM_TOP As Single = 12.0F                  ' m/s at full throttle
-        Dim swing = Math.Abs(wrap_pi(bearing))
-        If swing < 0.05F Then Return throttle_for(room)
-
-        ' Nothing ahead to clear: the turn has all the room it needs.
-        Dim r = Math.Max(0.1F, room)
-        If r >= BrainRadar.REACH_M Then Return throttle_for(room)
-
-        ' The swing has to happen before we arrive...
-        Dim vMax = SIM_TURN_RATE * r / swing
-        ' ...and the circle it traces has to miss the squares on the way round.
-        ' The second is usually the binding one: the arc limit says how soon,
-        ' this says how tight, and a tank only turns tight by going slowly.
-        vMax = Math.Min(vMax, speed_for_squares(CSng(Math.Sign(wrap_pi(bearing)))))
-        ' Below a walking pace the turn is not being taken at speed, it is
-        ' being taken standing still. Say so rather than creeping into it.
-        If vMax < BrainTune.Get_("pivotunder", 1.5F) Then Return 0.0F
-
-        Return Math.Min(throttle_for(room), vMax / SIM_TOP)
+        Return throttle_for(room)
     End Function
 
     ''' <summary>

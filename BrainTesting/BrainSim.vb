@@ -182,7 +182,64 @@ Module BrainSim
         Tick(1.0F / 60.0F)
         If Not wasRunning Then Running = False
         stepping = False
-        LogThis("brain: step - frame {0}", Frame)
+        journal()
+    End Sub
+
+    ''' <summary>
+    ''' ONE LINE PER HAND-STEPPED TICK.
+    '''
+    ''' The owner steps through a turn and can see what went wrong; this
+    ''' session cannot see his screen. Without a record the conversation
+    ''' becomes him describing a picture and me guessing at numbers, which
+    ''' has cost hours tonight.
+    '''
+    ''' Everything a turn is decided by, on one line: what won the tick and
+    ''' why, the throttle and steer commanded against the speed actually
+    ''' delivered - a gap between those two IS the world refusing - the
+    ''' radius that comes out of them, and the point being chased.
+    '''
+    ''' Only hand steps. Sixty lines a second is noise; a stepped tick is a
+    ''' decision somebody chose to look at.
+    ''' </summary>
+    Private Sub journal()
+        Try
+            Dim pos As Vector2, hdg As Single
+            If BrainTanks.Bodies IsNot Nothing AndAlso
+               BrainTanks.Bodies.Count > BrainRadar.HULL Then
+                pos = BrainTanks.Bodies(BrainRadar.HULL).spawn
+                hdg = BrainTanks.Bodies(BrainRadar.HULL).headingRad
+            End If
+            Dim st = Math.Abs(BrainReport.LastSteer)
+            Dim v = Math.Abs(BrainReport.LastSpeed)
+            Dim rad = "  -  "
+            If st > 0.01F AndAlso v > 0.05F Then
+                rad = (v / (st * TURN_RATE)).ToString("0.0") & " m"
+            End If
+            Dim act = "-"
+            If BrainNodes.ActedNode >= 0 Then
+                act = BrainNodes.NodeKind(BrainNodes.ActedNode) & "#" &
+                      BrainNodes.ActedNode.ToString()
+            End If
+            Dim aim = "none"
+            Dim gb = TryCast(Brain, GraphBrain)
+            If gb IsNot Nothing AndAlso gb.PlanOn Then
+                aim = String.Format(Globalization.CultureInfo.InvariantCulture,
+                                    "{0:0.0},{1:0.0}", gb.PlanAim.X, gb.PlanAim.Y)
+            End If
+            Dim line = String.Format(Globalization.CultureInfo.InvariantCulture,
+                "tick {0,4} | pos {1,7:0.0},{2,7:0.0} hdg {3,4:0} | {4,-20} | " &
+                "thr {5,5:0.00} steer {6,6:+0.00;-0.00} speed {7,5:0.0} | radius {8,7} | " &
+                "aim {9,-16} | {10}",
+                Frame, pos.X, pos.Y, MathHelper.RadiansToDegrees(hdg),
+                act, BrainReport.LastThrottle, BrainReport.LastSteer,
+                BrainReport.LastSpeed, rad, aim, BrainReport.LastWhy)
+            LogThis("brain: {0}", line)
+            IO.Directory.CreateDirectory("C:/nuTerra_shared/tank_logs/sweep")
+            IO.File.AppendAllText("C:/nuTerra_shared/tank_logs/sweep/steps.txt",
+                                  line & Environment.NewLine)
+        Catch ex As Exception
+            LogThis("brain: step journal - {0}", ex.Message)
+        End Try
     End Sub
 
     Public Sub Halt()

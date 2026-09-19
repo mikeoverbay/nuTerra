@@ -271,6 +271,11 @@ Module BrainReport
     ''' produces them once a tick.</summary>
     Public LastWhy As String = "-"
     Public LastThrottle As Single = 0.0F
+    ''' <summary>Last steer command, -1..1. Published so the TURN RADIUS
+    ''' can be read off the screen: radius = v / (steer * TURN_RATE). A
+    ''' radius is the thing being complained about and it was the one
+    ''' number nothing displayed.</summary>
+    Public LastSteer As Single = 0.0F
     Public LastSpeed As Single = 0.0F
 
     Private probeFrom As Vector2

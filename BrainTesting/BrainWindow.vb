@@ -573,7 +573,7 @@ Public Class BrainWindow
                 BrainSim.StepOnce()
                 holdClock.Restart()
             ElseIf k.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then
-                If holdClock.Elapsed.TotalSeconds >= 0.25 Then
+                If holdClock.Elapsed.TotalSeconds >= 0.1 Then
                     BrainSim.StepOnce()
                     holdClock.Restart()
                 End If

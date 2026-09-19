@@ -46,19 +46,22 @@ Module BrainWalkView
     Private Const CUBE As Single = 0.9F
 
     ''' <summary>How tall the end and pick posts stand.</summary>
-    Private Const POST As Single = 3.5F
+    Private Const POST As Single = 9.0F
 
     Private ReadOnly CHAIN_RGB As New Vector3(0.35F, 0.95F, 1.00F)   ' neon blue
     Private ReadOnly END_RGB As New Vector3(1.00F, 0.90F, 0.15F)   ' yellow
     ' THREE KINDS OF BLOCKED, because they lead to three different moves.
-    Private ReadOnly OPEN_RGB As New Vector3(0.15F, 1.00F, 0.30F)   ' green
+    ' NOT GREEN. The map is grass and several thousand trees, so the one
+    ' colour that cannot be spotted on it is the one a way through was drawn
+    ' in. White and magenta appear nowhere in the terrain.
+    Private ReadOnly OPEN_RGB As New Vector3(1.00F, 1.00F, 1.00F)   ' white
     Private ReadOnly GRAZE_RGB As New Vector3(1.00F, 0.62F, 0.05F)   ' amber
     Private ReadOnly BLOCK_RGB As New Vector3(1.00F, 0.12F, 0.12F)   ' red
-    Private ReadOnly PICK_RGB As New Vector3(0.20F, 1.00F, 0.35F)   ' green
+    Private ReadOnly PICK_RGB As New Vector3(1.00F, 0.10F, 1.00F)   ' magenta
 
     Private shader As BrainShader
     Private vaoL, vboL, vaoP, vboP, vaoC, vboC, vaoK, vboK As Integer
-    Private vaoO, vboO, vaoG, vboG As Integer
+    Private vaoO, vboO, vaoG, vboG, vaoM, vboM As Integer
 
     ' Lines: the chains. Posts: chain ends. Picks: the chosen way past.
     ' Cubes: rejected ends, as triangles.
@@ -68,7 +71,9 @@ Module BrainWalkView
     Private ReadOnly cubesOpen As New List(Of Single)
     Private ReadOnly cubesGraze As New List(Of Single)
     Private ReadOnly cubes As New List(Of Single)
+    Private ReadOnly cubePick As New List(Of Single)
     Private dirty As Boolean = False
+    Private saySoFar As Integer = 0
 
     Public Sub Init()
         shader = New BrainShader("line")
@@ -78,6 +83,7 @@ Module BrainWalkView
         vaoK = GL.GenVertexArray() : vboK = GL.GenBuffer() : setup(vaoK, vboK)
         vaoO = GL.GenVertexArray() : vboO = GL.GenBuffer() : setup(vaoO, vboO)
         vaoG = GL.GenVertexArray() : vboG = GL.GenBuffer() : setup(vaoG, vboG)
+        vaoM = GL.GenVertexArray() : vboM = GL.GenBuffer() : setup(vaoM, vboM)
     End Sub
 
     Private Sub setup(vao As Integer, vbo As Integer)
@@ -99,6 +105,7 @@ Module BrainWalkView
         cubes.Clear()
         cubesOpen.Clear()
         cubesGraze.Clear()
+        cubePick.Clear()
         dirty = True
     End Sub
 
@@ -138,8 +145,38 @@ Module BrainWalkView
     ''' <summary>The way past it chose, drawn from the hull out along the
     ''' bearing it will actually steer - so a wrong choice is visible as a line
     ''' pointing at the wrong thing rather than as a number to be trusted.</summary>
+    ''' <summary>
+    ''' THE CHOSEN WAY, AS SOLID GEOMETRY.
+    '''
+    ''' It was drawn as a thick line and that did nothing: glLineWidth is
+    ''' capped at 1.0 in an OpenGL CORE profile, so every width set in this
+    ''' file has been silently ignored. Six-pixel chains and a seven-pixel
+    ''' pick were all one pixel, which is why making it thicker never helped
+    ''' and why the owner kept reporting the aim point missing when it was
+    ''' in the buffer every frame.
+    '''
+    ''' So it gets a CUBE, larger than a blocked marker and in a colour
+    ''' nothing in grass or trees shares, drawn last through everything.
+    ''' </summary>
+    ''' <summary>
+    ''' MOVE THE AIM WITHOUT WIPING THE PICTURE.
+    '''
+    ''' On ticks where the plan holds, the brain does not walk the chains
+    ''' again - so calling Begin() there cleared every chain, end and cube
+    ''' and left only the aim. The cubes appeared on the ticks that walked
+    ''' and vanished on the ticks that did not, which reads as a flicker and
+    ''' is really the view being told the world is empty.
+    ''' </summary>
+    Public Sub RePick(from_ As Vector2, toward As Vector2)
+        If Not SHOW Then Return
+        picks.Clear()
+        cubePick.Clear()
+        Pick(from_, toward)
+    End Sub
+
     Public Sub Pick(from_ As Vector2, toward As Vector2)
         If Not SHOW Then Return
+        big_box(cubePick, toward)
         push(picks, from_, LIFT)
         push(picks, toward, LIFT)
         push(picks, toward, 0.0F)
@@ -158,15 +195,25 @@ Module BrainWalkView
     ''' <summary>A solid cube as twelve triangles. Solid rather than wireframe
     ''' because these are the answer to "why did it not go there" and they have
     ''' to be readable against a forest at fifty metres.</summary>
+    ''' <summary>Half again the size, so the answer is never one of the
+    ''' crowd.</summary>
+    Private Sub big_box(into As List(Of Single), p As Vector2)
+        box(into, p, CUBE * 1.7F)
+    End Sub
+
     Private Sub box(into As List(Of Single), p As Vector2)
+        box(into, p, CUBE)
+    End Sub
+
+    Private Sub box(into As List(Of Single), p As Vector2, half As Single)
         Dim y = 0.0F
         Try
             y = get_Y_at_XZ(p.X, p.Y)
         Catch
         End Try
-        Dim x0 = p.X - CUBE, x1 = p.X + CUBE
-        Dim z0 = p.Y - CUBE, z1 = p.Y + CUBE
-        Dim y0 = y + 0.2F, y1 = y + 0.2F + CUBE * 2.0F
+        Dim x0 = p.X - half, x1 = p.X + half
+        Dim z0 = p.Y - half, z1 = p.Y + half
+        Dim y0 = y + 0.2F, y1 = y + 0.2F + half * 2.0F
 
         ' Eight corners, then the six faces as pairs of triangles.
         Dim c = New Single(,) {
@@ -191,6 +238,7 @@ Module BrainWalkView
         If Not SHOW OrElse shader Is Nothing OrElse Not shader.Ready Then Return
         If lines_.Count = 0 AndAlso posts.Count = 0 AndAlso cubes.Count = 0 AndAlso
            cubesOpen.Count = 0 AndAlso cubesGraze.Count = 0 AndAlso
+           cubePick.Count = 0 AndAlso
            picks.Count = 0 Then Return
 
         If dirty Then
@@ -200,9 +248,18 @@ Module BrainWalkView
             upload(vaoK, vboK, cubes)
             upload(vaoO, vboO, cubesOpen)
             upload(vaoG, vboG, cubesGraze)
+            upload(vaoM, vboM, cubePick)
             dirty = False
         End If
 
+        If saySoFar < 4 Then
+            saySoFar += 1
+            LogThis("brain: walkview - chains {0}, posts {1}, picks {2}, " &
+                    "cubes {3}/{4}/{5}, show {6}, ready {7}",
+                    lines_.Count \ 3, posts.Count \ 3, picks.Count \ 3,
+                    cubesOpen.Count \ 3, cubesGraze.Count \ 3, cubes.Count \ 3,
+                    SHOW, shader.Ready)
+        End If
         shader.Use()
         shader.SetMat4("viewProj", viewProj)
         ' Depth test on so a hill hides what is behind it; depth write off for
@@ -225,12 +282,6 @@ Module BrainWalkView
             GL.BindVertexArray(vaoP)
             GL.DrawArrays(PrimitiveType.Lines, 0, posts.Count \ 3)
         End If
-        If picks.Count > 0 Then
-            GL.LineWidth(3.5F)
-            shader.SetVec3("colour", PICK_RGB)
-            GL.BindVertexArray(vaoC)
-            GL.DrawArrays(PrimitiveType.Lines, 0, picks.Count \ 3)
-        End If
 
         GL.LineWidth(1.0F)
         GL.DepthMask(True)
@@ -249,6 +300,30 @@ Module BrainWalkView
             shader.SetVec3("colour", BLOCK_RGB)
             GL.BindVertexArray(vaoK)
             GL.DrawArrays(PrimitiveType.Triangles, 0, cubes.Count \ 3)
+        End If
+
+        ' THE CHOSEN WAY, LAST AND THROUGH EVERYTHING.
+        '
+        ' It was drawn third of six, thin, with depth testing on - so two
+        ' green segments sat behind fifty-two solid red cubes and the owner
+        ' reported no aim point at all. It was in the buffer the whole time.
+        ' The one thing that must never be hidden is the answer.
+        If cubePick.Count > 0 Then
+            GL.Disable(EnableCap.DepthTest)
+            shader.SetVec3("colour", PICK_RGB)
+            GL.BindVertexArray(vaoM)
+            GL.DrawArrays(PrimitiveType.Triangles, 0, cubePick.Count \ 3)
+            GL.Enable(EnableCap.DepthTest)
+        End If
+
+        If picks.Count > 0 Then
+            GL.Disable(EnableCap.DepthTest)
+            GL.LineWidth(7.0F)
+            shader.SetVec3("colour", PICK_RGB)
+            GL.BindVertexArray(vaoC)
+            GL.DrawArrays(PrimitiveType.Lines, 0, picks.Count \ 3)
+            GL.LineWidth(1.0F)
+            GL.Enable(EnableCap.DepthTest)
         End If
 
         GL.BindVertexArray(0)
