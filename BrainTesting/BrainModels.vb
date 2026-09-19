@@ -192,13 +192,18 @@ Module BrainModels
             Next
             ' index_buffer32 holds TRIANGLES - three indices each - which is
             ' why its element count is a third of the index count.
-            If MODELS_N_ONLY AndAlso rs.primitiveGroups IsNot Nothing AndAlso
+            ' PER GROUP WHENEVER THERE ARE GROUPS, not only when the
+            ' destructible filter is on. The else branch emitted the whole
+            ' index buffer, no_draw groups included - and the render-set test
+            ' above only catches a set where EVERY group is no_draw, so a
+            ' mixed set came through it and had its boundary slabs drawn.
+            If rs.primitiveGroups IsNot Nothing AndAlso
                rs.primitiveGroups.Count > 0 Then
                 ' Per group, so a model that is half destructible keeps its
                 ' solid half. The vertices all go in either way - a few
                 ' unreferenced ones cost nothing and keep base_v valid.
                 For Each pg In rs.primitiveGroups.Values
-                    If pg Is Nothing OrElse Not is_n(pg) Then Continue For
+                    If Not draws(pg) Then Continue For
                     Dim t0 = Math.Max(0, pg.startIndex \ 3)
                     Dim t1 = Math.Min(ib.Length, t0 + Math.Max(0, pg.nPrimitives))
                     For k = t0 To t1 - 1
@@ -208,6 +213,7 @@ Module BrainModels
                     Next
                 Next
             Else
+                ' No groups at all, so nothing to filter by: the buffer whole.
                 For Each t In ib
                     allI.Add(base_v + t.x)
                     allI.Add(base_v + t.y)
@@ -407,6 +413,48 @@ Module BrainModels
     End Function
 
     ''' <summary>
+    ''' DOES THIS GROUP GET DRAWN? Everything except destructible, and never a
+    ''' no_draw group.
+    '''
+    ''' THE RULE WAS ONE CATEGORY TOO WIDE. The owner asked to hide the d_ half
+    ''' - "for a brain testbed the d_ half is scenery that a tank drives
+    ''' through... shows a wall where the nav grid has open ground". This kept
+    ''' only n_, which is not the same rule: a map's geometry splits three ways
+    ''' and s_ is STATIC STRUCTURE, most of a building. Measured across the
+    ''' packages: s_ 42,956 materials, n_ 5,685, d_ 4,739 - so keeping only n_
+    ''' threw away the walls and the ramps, the geometry that actually blocks,
+    ''' and left the buildings in pieces.
+    '''
+    ''' IT FAILS OPEN NOW. space_material_id below zero, an empty identifier,
+    ''' or a cBSMA lookup that throws all used to return False - so any group
+    ''' whose material could not be resolved vanished, silently. A part that
+    ''' cannot be classified is drawn: a visible thing that should not be there
+    ''' is a bug someone reports, an invisible one that should is a bug nobody
+    ''' can see.
+    '''
+    ''' NO_DRAW IS TESTED HERE, PER GROUP, AND MUST BE. The render-set check in
+    ''' build_one only skips a set where EVERY group is no_draw; a mixed set
+    ''' passes it. While this function kept only n_ it was hiding those groups
+    ''' by accident, because boundary volumes and occluder proxies are not n_.
+    ''' Widen the rule without testing no_draw and they come back - "two
+    ''' map-boundary slabs stood across the whole play field in purple".
+    ''' </summary>
+    Private Function draws(pg As PrimitiveGroup) As Boolean
+        If pg Is Nothing Then Return False
+        If pg.no_draw Then Return False
+        If Not MODELS_N_ONLY Then Return True
+        If pg.space_material_id < 0 Then Return True
+        Dim id As String
+        Try
+            id = cBSMA.MaterialItem(pg.space_material_id).identifier
+        Catch
+            Return True
+        End Try
+        If String.IsNullOrEmpty(id) Then Return True
+        Return Not id.StartsWith("d_", StringComparison.OrdinalIgnoreCase)
+    End Function
+
+    ''' <summary>
     ''' Bucket one primitive group by its identifier prefix.
     '''
     ''' THE PREFIX IS DOUBLED ON SOME NAMES - the havok bodies show
@@ -415,31 +463,6 @@ Module BrainModels
     ''' LEADING two characters are read, so a doubled name buckets the same
     ''' as a single one.
     ''' </summary>
-    ''' <summary>
-    ''' ONLY THE n_ PARTS, when MODELS_N_ONLY is set.
-    '''
-    ''' The owner asked three times for this and it never landed: a map's
-    ''' geometry is split by material identifier - d_ destructible, n_ not,
-    ''' s_ static structure - and for a brain testbed the d_ half is scenery
-    ''' that a tank drives through. Drawing it costs frames and, worse,
-    ''' shows a wall where the nav grid has open ground.
-    '''
-    ''' The split is per PRIMITIVE GROUP, not per model: monastery's own
-    ''' building carries 81 d_ groups and 97 n_ ones in the same mesh, so
-    ''' this cannot be done by skipping files. startIndex and nPrimitives
-    ''' are the group's own triangle range in the shared index buffer.
-    ''' </summary>
-    Private Function is_n(pg As PrimitiveGroup) As Boolean
-        If pg Is Nothing OrElse pg.space_material_id < 0 Then Return False
-        Try
-            Dim id = cBSMA.MaterialItem(pg.space_material_id).identifier
-            Return Not String.IsNullOrEmpty(id) AndAlso
-                   id.StartsWith("n_", StringComparison.OrdinalIgnoreCase)
-        Catch
-            Return False
-        End Try
-    End Function
-
     Private Sub count_prefix(pg As PrimitiveGroup, ByRef m As Mesh)
         If pg Is Nothing OrElse pg.space_material_id < 0 Then
             m.pOther += 1
