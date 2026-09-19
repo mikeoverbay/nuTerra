@@ -332,7 +332,7 @@ Public Class GraphBrain
                 why = "stopped"
             Case "New Goal"
                 throw_goal()
-            Case "Rescan"
+            Case "Scanning"
                 ' SCANNING IS A SIDE EFFECT, NOT A DECISION. This raises the
                 ' flag and reports that it did NOT act, so the chain carries
                 ' on to the rules that actually steer.
@@ -395,14 +395,13 @@ Public Class GraphBrain
                 thr = If(t > 0.0F, t, throttle_for_turn(b, room))
                 why = String.Format("driving {0:0} deg, {1:0.0} m clear, thr {2:0.00}",
                                     MathHelper.RadiansToDegrees(b), room, thr)
-            Case "Drive To Point", "Through Door"
-                Dim w = pulled(id, "way")
+            Case "Through Door"
+                Dim w = pulled(id, "door")
                 If w Is Nothing Then Return False
                 Dim way = CType(w, BrainRadar.Way)
                 steerOut = turn_to(way.bearing)
                 thr = throttle_for(body_ahead())
                 why = String.Format("{0} - {1:0.0} m wide at {2:0} deg",
-                                    If(k = "Through Door", "through the door", "heading for the gap"),
                                     way.chord, MathHelper.RadiansToDegrees(way.bearing))
             Case "Follow Wall"
                 Dim sd = as_num(pulled(id, "side"), 0.0F)
@@ -458,10 +457,10 @@ Public Class GraphBrain
                 Dim l = corridor()
                 Select Case outName
                     Case "clear" : v = CObj(Not l.hit)
-                    Case "dist" : v = CObj(l.dist)
+                    Case "metres" : v = CObj(l.dist)
                     Case Else : v = CObj(If(l.leftHit, -1.0F, If(l.rightHit, 1.0F, 0.0F)))
                 End Select
-            Case "Gaps"
+            Case "Doors"
                 v = CObj(BrainRadar.WAYS)
             Case "Arrived"
                 v = CObj(as_num(pulled(id, "range"), (goal - h.pos).Length) <=
@@ -511,14 +510,14 @@ Public Class GraphBrain
                 v = CObj(front_count() < 4)
             Case "No Goal"
                 v = CObj(Not BrainGoal.HasTarget)
-            Case "Has Way"
-                v = CObj(pulled(id, "way") IsNot Nothing)
-            Case "Will Clear"
+            Case "Has Door"
+                v = CObj(pulled(id, "door") IsNot Nothing)
+            Case "Path Clear"
                 Dim b = as_num(pulled(id, "bearing"), goal_bearing())
                 Dim m = as_num(pulled(id, "metres"), LOOK_AHEAD_M)
                 v = CObj(will_clear(b, m))
-            Case "Is Clear"
-                v = CObj(as_num(pulled(id, "dist"), 0.0F) >
+            Case "Enough Room"
+                v = CObj(as_num(pulled(id, "metres"), 0.0F) >
                          BrainNodes.Setting(id, "metres", BLOCK_M))
             Case "Nearer Than"
                 v = CObj(as_num(pulled(id, "metres"), 999.0F) < BLOCK_M)
@@ -538,20 +537,20 @@ Public Class GraphBrain
             Case "Is Turning" : v = CObj(state = GSt.Turning)
             Case "Is Door" : v = CObj(state = GSt.Door)
             Case "Is Follow" : v = CObj(state = GSt.Follow)
-            Case "Widest Gap"
+            Case "Widest Door"
                 v = widest()
-            Case "Best Progress"
+            Case "Best Door"
                 v = best_progress()
-            Case "Deeper Side"
+            Case "Deepest Ray"
                 v = CObj(deeper_side())
-            Case "Vote"
-                v = vote(pulled(id, "way"))
+            Case "Confirm"
+                v = vote(pulled(id, "door"))
             Case "Commit"
-                v = commit(pulled(id, "way"),
+                v = commit(pulled(id, "door"),
                            BrainNodes.Setting(id, "patience", 0.6F),
                            BrainNodes.Setting(id, "gained", 1.0F))
-            Case "Way Bearing"
-                Dim wb = pulled(id, "way")
+            Case "Door Bearing"
+                Dim wb = pulled(id, "door")
                 If wb IsNot Nothing Then v = CObj(CType(wb, BrainRadar.Way).bearing)
         End Select
         ' A test's answer is the interesting half of a walk - the reason it

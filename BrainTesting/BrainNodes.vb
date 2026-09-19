@@ -177,9 +177,9 @@ Module BrainNodes
         New Kind("sense", "Rear Scan", {"hits"}, {"deepest", "bearing"}),
         New Kind("sense", "Body Ahead", {}, {"metres"}),
         New Kind("sense", "Speed", {}, {"metres"}),
-        New Kind("sense", "Corridor", {"reach"}, {"clear", "dist", "side"},
+        New Kind("sense", "Corridor", {"reach"}, {"clear", "metres", "side"},
                  {"length", "margin"}, {30.0F, 0.3F}),
-        New Kind("sense", "Gaps", {"hits"}, {"ways"}),
+        New Kind("sense", "Doors", {"hits"}, {"doors"}),
         New Kind("test", "Arrived", {"range"}, {"True"}, {"metres"}, {5.0F}),
         New Kind("test", "Is Wedged", {}, {"True"}),
         New Kind("test", "Not Moving", {}, {"True"}),
@@ -187,10 +187,9 @@ Module BrainNodes
         New Kind("test", "No Goal", {}, {"True"}),
         New Kind("test", "Too Few Rays", {"hits"}, {"True"}),
         New Kind("test", "Hit Count", {"hits"}, {"True"}, {"count"}, {3.0F}),
-        New Kind("test", "Has Way", {"way"}, {"True"}),
-        New Kind("test", "Will Clear", {"bearing", "metres"}, {"True"}),
-        New Kind("test", "Is Clear", {"dist"}, {"True"}, {"metres"}, {5.0F}),
-        New Kind("test", "Nearer Than", {"metres"}, {"True"}),
+        New Kind("test", "Has Door", {"door"}, {"True"}),
+        New Kind("test", "Path Clear", {"bearing", "metres"}, {"True"}),
+        New Kind("test", "Enough Room", {"metres"}, {"True"}, {"metres"}, {5.0F}),
         New Kind("test", "Plank Hit", {"clear"}, {"True"}),
         New Kind("test", "Rear Better", {"metres"}, {"True"}),
         New Kind("test", "Is Seek", {}, {"True"}),
@@ -198,16 +197,16 @@ Module BrainNodes
         New Kind("test", "Is Turning", {}, {"True"}),
         New Kind("test", "Is Door", {}, {"True"}),
         New Kind("test", "Is Follow", {}, {"True"}),
-        New Kind("pick", "Widest Gap", {"ways"}, {"way"}),
-        New Kind("pick", "Best Progress", {"ways", "bearing"}, {"way"}),
-        New Kind("pick", "Deeper Side", {"hits"}, {"bearing"}),
-        New Kind("pick", "Vote", {"way"}, {"way"}),
-        New Kind("pick", "Commit", {"way"}, {"way"},
+        New Kind("pick", "Widest Door", {"doors"}, {"door"}),
+        New Kind("pick", "Best Door", {"doors", "bearing"}, {"door"}),
+        New Kind("pick", "Deepest Ray", {"hits"}, {"bearing"}),
+        New Kind("pick", "Confirm", {"door"}, {"door"}),
+        New Kind("pick", "Commit", {"door"}, {"door"},
                  {"patience", "gained"}, {0.6F, 1.0F}),
-        New Kind("pick", "Way Bearing", {"way"}, {"bearing"}),
+        New Kind("pick", "Door Bearing", {"door"}, {"bearing"}),
         New Kind("act", "Stop", {"in"}, {}),
         New Kind("act", "New Goal", {"in"}, {}),
-        New Kind("act", "Rescan", {"in"}, {}),
+        New Kind("act", "Scanning", {"in"}, {}),
         New Kind("act", "Mark Trap", {"in"}, {}),
         New Kind("act", "Set Seek", {"in"}, {}),
         New Kind("act", "Set Turning", {"in"}, {}),
@@ -217,8 +216,7 @@ Module BrainNodes
         New Kind("act", "Reverse", {"in", "bearing"}, {}),
         New Kind("act", "Turn To", {"in", "bearing"}, {}),
         New Kind("act", "Drive Heading", {"in", "bearing", "throttle"}, {}),
-        New Kind("act", "Drive To Point", {"in", "way"}, {}),
-        New Kind("act", "Through Door", {"in", "way"}, {}),
+        New Kind("act", "Through Door", {"in", "door"}, {}),
         New Kind("act", "Follow Wall", {"in", "side"}, {}),
         New Kind("flow", "Priority", {"in"}, {"a", "b", "c", "d"}),
         New Kind("flow", "Sequence", {"in"}, {"a", "b", "c"}),
@@ -254,11 +252,11 @@ Module BrainNodes
             Case "a", "b", "c", "d" : Return "tried in order - first one that acts wins"
             Case "True" : Return "the condition - run the branch when this is true"
             Case "hits" : Return "every ray from the last scan"
-            Case "ways" : Return "every gap found between the rays"
-            Case "way" : Return "one gap - where it is, how wide, whether we fit"
+            Case "doors" : Return "every gap found between the rays"
+            Case "door" : Return "one gap - where it is, how wide, whether we fit"
             Case "bearing" : Return "an angle off the nose. left is negative"
             Case "range" : Return "metres to the goal"
-            Case "metres", "dist" : Return "a distance in metres"
+            Case "metres", "metres" : Return "a distance in metres"
             Case "ahead" : Return "clear metres straight in front"
             Case "deepest" : Return "metres to the furthest thing behind"
             Case "reach" : Return "how far to look, in metres"
@@ -280,41 +278,39 @@ Module BrainNodes
             Case "Body Ahead" : Return "clear metres for the WHOLE HULL, not a ray"
             Case "Speed" : Return "how fast we are actually going"
             Case "Corridor" : Return "planks a hull wide, straight out. the fit test"
-            Case "Gaps" : Return "openings between the rays"
+            Case "Doors" : Return "openings between the rays"
             Case "Arrived" : Return "close enough to the goal to call it done"
             Case "No Goal" : Return "nothing to drive toward"
             Case "Is Wedged" : Return "asked to move, went nowhere, for most of a second"
             Case "Not Moving" : Return "asked to move and went nowhere, right now"
             Case "Too Few Rays" : Return "the scan came back with almost nothing"
             Case "Hit Count" : Return "at least `count` rays found something"
-            Case "Will Clear" : Return "the hull fits along this bearing for this far"
-            Case "Is Clear" : Return "more than a hull length of room"
-            Case "Nearer Than" : Return "closer than the block distance"
+            Case "Path Clear" : Return "the hull fits along this bearing for this far"
+            Case "Enough Room" : Return "more than a hull length of room"
             Case "Plank Hit" : Return "something is in the corridor. START SCANNING"
             Case "Rear Better" : Return "more room behind than ahead, and ahead is shut"
-            Case "Has Way" : Return "there is a gap to aim at"
+            Case "Has Door" : Return "there is a gap to aim at"
             Case "Backed Enough" : Return "been reversing long enough, look again"
             Case "Is Seek" : Return "no plan - looking for one"
             Case "Is Backing" : Return "reversing out of something"
             Case "Is Turning" : Return "swinging onto a new heading"
             Case "Is Door" : Return "lined up on a gap, going through"
             Case "Is Follow" : Return "running along a wall"
-            Case "Widest Gap" : Return "the widest opening we fit through, any direction"
-            Case "Best Progress" : Return "the gap that GAINS most ground toward the goal"
-            Case "Deeper Side" : Return "the bearing of the furthest ray in front"
-            Case "Vote" : Return "only passes a gap seen two ticks running"
+            Case "Widest Door" : Return "the widest opening we fit through, any direction"
+            Case "Best Door" : Return "the gap that GAINS most ground toward the goal"
+            Case "Deepest Ray" : Return "the bearing of the furthest ray in front"
+            Case "Confirm" : Return "only passes a gap seen two ticks running"
             Case "Commit" : Return "holds one gap until we stop gaining ground on it"
-            Case "Way Bearing" : Return "the angle to a gap"
+            Case "Door Bearing" : Return "the angle to a gap"
             Case "Stop" : Return "throttle and steering to nothing"
             Case "New Goal" : Return "throw the next goal, somewhere standable"
-            Case "Rescan" : Return "raise the scan. claims nothing, so the chain goes on"
+            Case "Scanning" : Return "raise the scan. claims nothing, so the chain goes on"
             Case "Mark Trap" : Return "remember this block as one not to drive into"
             Case "Set Seek", "Set Turning", "Set Follow", "Set Door", "Set Backing"
                 Return "change what state we are in"
             Case "Reverse" : Return "back up, steering off the TAIL"
             Case "Turn To" : Return "swing to a bearing. no throttle"
             Case "Drive Heading" : Return "go. eases off so the turn fits the room"
-            Case "Drive To Point" : Return "head for a gap"
             Case "Through Door" : Return "drive through a gap"
             Case "Follow Wall" : Return "run along the wall on one side"
             Case "Priority" : Return "try a, b, c, d in order. stop at the first that acts"
@@ -435,10 +431,10 @@ Module BrainNodes
     Private Function pin_type(name As String) As String
         Select Case name
             Case "hits" : Return "hits"
-            Case "ways" : Return "ways"
-            Case "way" : Return "way"
+            Case "doors" : Return "doors"
+            Case "door" : Return "door"
             Case "bearing" : Return "angle"
-            Case "metres", "dist", "reach", "range", "ahead", "deepest" : Return "length"
+            Case "metres", "metres", "reach", "range", "ahead", "deepest" : Return "length"
             Case "clear", "True" : Return "bool"
             Case "side" : Return "side"
             Case "throttle" : Return "number"
@@ -891,7 +887,7 @@ Module BrainNodes
         Dim body = spawn("Body Ahead", 0.0F, 510.0F)
         Dim spd = spawn("Speed", 0.0F, 620.0F)
         Dim corr = spawn("Corridor", 0.0F, 730.0F)
-        Dim gaps = spawn("Gaps", 0.0F, 870.0F)
+        Dim gaps = spawn("Doors", 0.0F, 870.0F)
 
         ' ---- what it makes of that ------------------------------------------
         Dim tArr = spawn("Arrived", 210.0F, 110.0F)
@@ -902,21 +898,21 @@ Module BrainNodes
         Dim tDoor = spawn("Is Door", 210.0F, 660.0F)
         Dim tFoll = spawn("Is Follow", 210.0F, 770.0F)
         Dim tPlank = spawn("Plank Hit", 210.0F, 880.0F)
-        Dim tFit = spawn("Will Clear", 210.0F, 990.0F)
+        Dim tFit = spawn("Path Clear", 210.0F, 990.0F)
         Dim tRearB = spawn("Rear Better", 210.0F, 1120.0F)
 
-        Dim pWide = spawn("Widest Gap", 420.0F, 870.0F)
-        Dim pVote = spawn("Vote", 420.0F, 980.0F)
-        Dim pDeep = spawn("Deeper Side", 420.0F, 1200.0F)
-        Dim pProg = spawn("Best Progress", 420.0F, 1320.0F)
+        Dim pWide = spawn("Widest Door", 420.0F, 870.0F)
+        Dim pVote = spawn("Confirm", 420.0F, 980.0F)
+        Dim pDeep = spawn("Deepest Ray", 420.0F, 1200.0F)
+        Dim pProg = spawn("Best Door", 420.0F, 1320.0F)
 
         join_pins(goal, "range", tArr, "range")
         join_pins(scan, "hits", rear, "hits")
         join_pins(scan, "hits", tRay, "hits")
         join_pins(scan, "hits", gaps, "hits")
         join_pins(scan, "hits", pDeep, "hits")
-        join_pins(gaps, "ways", pWide, "ways")
-        join_pins(gaps, "ways", pWide, "ways")
+        join_pins(gaps, "doors", pWide, "doors")
+        join_pins(gaps, "doors", pWide, "doors")
         ' VOTE SITS BETWEEN THE PICK AND THE COMMIT. On Widest it fed
         ' nothing; here it is the damper that stops the board changing its
         ' mind every tick between going through a gap and reversing away
@@ -925,16 +921,16 @@ Module BrainNodes
         ' opening is off the goal bearing: metres actually gained toward
         ' where we are going. Widest picks the biggest hole even when it
         ' leads away, which is how a tank ends up touring the map.
-        join_pins(gaps, "ways", pProg, "ways")
-        join_pins(gaps, "ways", pWide, "ways")
+        join_pins(gaps, "doors", pProg, "doors")
+        join_pins(gaps, "doors", pWide, "doors")
         join_pins(goal, "bearing", pProg, "bearing")
-        join_pins(pProg, "way", pVote, "way")
+        join_pins(pProg, "door", pVote, "door")
         ' COMMIT HOLDS THE CHOICE. Vote says the way was there two ticks
         ' running; Commit says we are going to it and keeps saying so until
         ' the tank stops gaining ground. Everything downstream reads the
         ' committed way, so a choice cannot be re-made every frame.
         Dim pHold = spawn("Commit", 640.0F, 1400.0F)
-        join_pins(pVote, "way", pHold, "way")
+        join_pins(pVote, "door", pHold, "door")
         join_pins(goal, "bearing", tFit, "bearing")
         join_pins(body, "metres", tFit, "metres")
         join_pins(body, "metres", tRearB, "metres")
@@ -997,7 +993,7 @@ Module BrainNodes
 
         ' ---- rule 4 and the states ------------------------------------------
         Dim gScan = spawn("Gate", 870.0F, 480.0F)
-        Dim aRescan = spawn("Rescan", 1090.0F, 480.0F)
+        Dim aRescan = spawn("Scanning", 1090.0F, 480.0F)
         join_pins(p2, "a", gScan, "in")
         join_pins(tRay, "True", gScan, "True")
         join_pins(gScan, "out", aRescan, "in")
@@ -1017,14 +1013,14 @@ Module BrainNodes
         ' rule that put us in Backing marked this square a trap, so anything
         ' that traces out of it is false by construction - the state had no
         ' exit at all and the tank reversed until something else stopped it.
-        Dim tRoom = spawn("Is Clear", 1310.0F, 410.0F)
+        Dim tRoom = spawn("Enough Room", 1310.0F, 410.0F)
         Dim aSeek = spawn("Set Seek", 1530.0F, 530.0F)
         Dim aRev = spawn("Reverse", 1310.0F, 650.0F)
         join_pins(p2, "b", gBack, "in")
         join_pins(tBack, "True", gBack, "True")
         join_pins(gBack, "out", pBack, "in")
         join_pins(pBack, "a", gBackOut, "in")
-        join_pins(body, "metres", tRoom, "dist")
+        join_pins(body, "metres", tRoom, "metres")
         join_pins(tRoom, "True", gBackOut, "True")
         join_pins(gBackOut, "out", aSeek, "in")
         ' SPIN BEFORE REVERSING. The sim turns the hull before it tests where
@@ -1085,11 +1081,11 @@ Module BrainNodes
         ' through to driving.
         Dim gPlank = spawn("Gate", 870.0F, 1080.0F)
         Dim sqPlank = spawn("Priority", 1090.0F, 1080.0F)
-        Dim aScan = spawn("Rescan", 1310.0F, 1020.0F)
+        Dim aScan = spawn("Scanning", 1310.0F, 1020.0F)
         Dim pTurn = spawn("Priority", 1310.0F, 1120.0F)
         Dim gWay = spawn("Gate", 1530.0F, 1120.0F)
-        Dim tWay = spawn("Has Way", 1090.0F, 1260.0F)
-        Dim pWayB = spawn("Way Bearing", 1310.0F, 1300.0F)
+        Dim tWay = spawn("Has Door", 1090.0F, 1260.0F)
+        Dim pWayB = spawn("Door Bearing", 1310.0F, 1300.0F)
         Dim aGo = spawn("Drive Heading", 1750.0F, 1120.0F)
         join_pins(p3, "c", gPlank, "in")
         join_pins(tPlank, "True", gPlank, "True")
@@ -1123,9 +1119,9 @@ Module BrainNodes
         ' Same pick here. When a plank touches, the opening worth swinging
         ' toward is the one that still leads onward, not the roomiest one
         ' off to the side.
-        join_pins(pHold, "way", tWay, "way")
+        join_pins(pHold, "door", tWay, "door")
         join_pins(tWay, "True", gWay, "True")
-        join_pins(pHold, "way", pWayB, "way")
+        join_pins(pHold, "door", pWayB, "door")
         join_pins(pWayB, "bearing", aGo, "bearing")
         join_pins(gWay, "out", aGo, "in")
 
@@ -1150,13 +1146,13 @@ Module BrainNodes
         join_pins(goal, "bearing", aDrive, "bearing")
 
         Dim gDoor2 = spawn("Gate", 870.0F, 1320.0F)
-        Dim tHasDoor = spawn("Has Way", 650.0F, 1320.0F)
+        Dim tHasDoor = spawn("Has Door", 650.0F, 1320.0F)
         Dim aDoor2 = spawn("Through Door", 1090.0F, 1320.0F)
         join_pins(p4, "b", gDoor2, "in")
-        join_pins(pHold, "way", tHasDoor, "way")
+        join_pins(pHold, "door", tHasDoor, "door")
         join_pins(tHasDoor, "True", gDoor2, "True")
         join_pins(gDoor2, "out", aDoor2, "in")
-        join_pins(pHold, "way", aDoor2, "way")
+        join_pins(pHold, "door", aDoor2, "door")
 
         ' ---- ANY GAP THAT FITS, EVEN A SIDEWAYS ONE --------------------
         '
@@ -1165,14 +1161,14 @@ Module BrainNodes
         ' chain went from "no good gap" straight to "reverse" - past the gaps.
         ' The out of a pocket is a gap; it just is not one pointing at the goal.
         Dim pAnyW = spawn("Commit", 640.0F, 1520.0F)
-        Dim tAnyW = spawn("Has Way", 870.0F, 1520.0F)
-        Dim pAnyB = spawn("Way Bearing", 870.0F, 1620.0F)
+        Dim tAnyW = spawn("Has Door", 870.0F, 1520.0F)
+        Dim pAnyB = spawn("Door Bearing", 870.0F, 1620.0F)
         Dim gAnyW = spawn("Gate", 1090.0F, 1520.0F)
         Dim aAnyW = spawn("Through Door", 1310.0F, 1520.0F)
-        join_pins(pWide, "way", pAnyW, "way")
-        join_pins(pAnyW, "way", tAnyW, "way")
-        join_pins(pAnyW, "way", pAnyB, "way")
-        join_pins(pAnyW, "way", aAnyW, "way")
+        join_pins(pWide, "door", pAnyW, "door")
+        join_pins(pAnyW, "door", tAnyW, "door")
+        join_pins(pAnyW, "door", pAnyB, "door")
+        join_pins(pAnyW, "door", aAnyW, "door")
         join_pins(tAnyW, "True", gAnyW, "True")
         join_pins(p4, "c", gAnyW, "in")
         join_pins(gAnyW, "out", aAnyW, "in")
