@@ -612,15 +612,6 @@ Public Module TankNavLimits
     ''' OBSTACLE_MIN_H so 'blocked' means one thing across the app.</summary>
     Public Const MAX_OBSTACLE As Single = 1.0F
 
-    ''' <summary>
-    ''' Steepest ground a tank will take, as rise over run.
-    '''
-    ''' 0.7 is about 35 degrees, which is the usual figure for a tracked
-    ''' vehicle and comfortably past anything a road or a firing position is
-    ''' cut at. Expressed as a RATIO rather than as a height per cell, because
-    ''' a height only means a slope while the cell size stays put - and the
-    ''' cell size follows the map's span, so it does not.
-    ''' </summary>
     ''' <summary>Forty degrees off the horizontal, as a gradient. The owner,
     ''' 2026-09-12: "we can not climb more than tank specs and we have no driver
     ''' on the fly, lets use a constant angle. 40 off bottom plane."
@@ -628,7 +619,17 @@ Public Module TankNavLimits
     ''' It was 0.7 - 35 degrees - while ray_studio's marcher used 1.0 and the
     ''' square grid tested nothing, so three parts of the same project disagreed
     ''' about what a tank can climb. One number now, matched by
-    ''' ray_studio.MAX_SLOPE_TAN and maze.MAX_CLIMB_TAN.</summary>
+    ''' ray_studio.MAX_SLOPE_TAN and maze.MAX_CLIMB_TAN.
+    '''
+    ''' A RATIO, not a height per cell: a height only means a slope while the
+    ''' cell size stays put, and the cell size follows the map's span.
+    '''
+    ''' THIS CONSTANT CARRIED TWO SUMMARY BLOCKS until 2026-09-19, and the
+    ''' first one still described 0.7 as 'about 35 degrees' directly above the
+    ''' 0.8391 it does not describe. PathFinder spotted it. That stale block is
+    ''' the likeliest reason 0.7 came back in BrainNav on 2026-09-16 and made
+    ''' a brain refuse ground the planner routes over - a reader who scrolled
+    ''' to the constant found the retired value explained above it.</summary>
     Public Const MAX_SLOPE As Single = 0.8391F
 
     ''' <summary>How far inside the arena's edge a tank must stay. About a
