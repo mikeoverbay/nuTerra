@@ -107,6 +107,11 @@ Module BrainGlobals
     ''' walk runs, so a halted sim holds its picture.</summary>
     Public TICK_LIMIT As Integer = 0
 
+    ''' <summary>Metres above the hull for the top-down chase view, or zero
+    ''' for the ordinary camera. Applied AFTER the snapshot restores, because
+    ''' LookAt hard-sets pitch and distance and would throw it away.</summary>
+    Public TOP_DOWN_M As Single = 0.0F
+
     ''' <summary>x, z, distance - where to point the camera. Nothing means
     ''' frame the whole map.</summary>
     Public LOOK_AT As Single() = Nothing

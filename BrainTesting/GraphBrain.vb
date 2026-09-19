@@ -1401,8 +1401,17 @@ Public Class GraphBrain
             If dPlan > BrainTune.Get_("arriveaim", 3.0F) Then
                 Dim relPlan = wrap_pi(CSng(Math.Atan2(toPlan.X, toPlan.Y)) -
                                       h.headingRad)
+                ' CAN WE STILL SPIN TO IT? A plan is chosen once and then
+                ' steered for many ticks, and can_pivot was only ever asked of
+                ' CANDIDATES - never of the bearing actually being driven. So
+                ' the hull committed to a turn, began it, and fouled a corner
+                ' partway round with nothing re-checking.
+                '
+                ' "we got stuck trying to turn to get out... we need to check
+                '  if we can spin and clear".
                 Dim atPlan As Single = 0.0F
-                If box_verdict(relPlan, Math.Min(dPlan, 10.0F), atPlan) <> 2 Then
+                If can_pivot(relPlan, BrainTune.Get_("pivmargin", 0.3F)) AndAlso
+                   box_verdict(relPlan, Math.Min(dPlan, 10.0F), atPlan) <> 2 Then
                     ' NOT Begin() - the last walk's chains, ends and cubes are
                     ' still true and still what this plan was chosen from.
                     BrainWalkView.RePick(h.pos, planPoint)

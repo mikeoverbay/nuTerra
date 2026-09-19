@@ -275,6 +275,17 @@ Public Class BrainWindow
                 ' what Reset is FOR on an evening of one scenario tried
                 ' twenty ways.
                 If RESTORE_ON_START Then BrainPanel.RestoreSnapshot()
+                ' AFTER the restore, not before. LookAt sets pitch to -0.45
+                ' and takes the distance from the snapshot, so a top-down view
+                ' asked for on the command line was applied and then quietly
+                ' overwritten by the scenario being loaded.
+                If TOP_DOWN_M > 0.0F Then
+                    BrainRender.Cam.Chase = True
+                    BrainRender.Cam.ChaseTrail = True
+                    BrainRender.Cam.PitchRad = -1.5708F
+                    BrainRender.Cam.Dist = TOP_DOWN_M
+                    BrainTrail.SHOW = True
+                End If
                 ' Before anything can drive: once it does, Body.spawn is
                 ' the LIVE position and the opening one is gone.
                 BrainPanel.RememberSpawns()

@@ -1,4 +1,4 @@
-﻿''' <summary>
+''' <summary>
 ''' Entry point and command line.
 '''
 ''' THE SAME ARGUMENTS AS nuTerra, on the owner's instruction - "all the same
@@ -196,10 +196,6 @@ Module Program
                 ' watching WHERE it goes rather than what it can see - a stall
                 ' from above shows the shape of the ground that caused it.
                 ' topdown=60 sets the height; bare topdown takes 55 m.
-                BrainRender.Cam.Chase = True
-                BrainRender.Cam.ChaseTrail = True
-                BrainRender.Cam.PitchRad = -1.45F      ' all but straight down
-                BrainTrail.SHOW = True
                 Dim eq2 = a.IndexOf("="c)
                 Dim hgt As Single = 55.0F
                 If eq2 > 0 Then
@@ -207,7 +203,7 @@ Module Program
                                     Globalization.NumberStyles.Float,
                                     Globalization.CultureInfo.InvariantCulture, hgt)
                 End If
-                BrainRender.Cam.Dist = hgt
+                TOP_DOWN_M = hgt
 
             ElseIf a.Equals("pingoal", StringComparison.OrdinalIgnoreCase) Then
                 BrainGoal.Pinned = True
