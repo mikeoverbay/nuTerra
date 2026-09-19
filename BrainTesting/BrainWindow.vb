@@ -334,6 +334,50 @@ Public Class BrainWindow
         If RUN_SECS > 0.0F AndAlso Not scored Then
             If BrainSim.Running Then
                 If Not runClock.IsRunning Then runClock.Start()
+
+                ' LANDING ON THE GOAL ENDS THE RUN.
+                '
+                ' "land on base should end it" - the owner. The board does fire
+                ' on arrival (Arrived -> Gate -> New Goal), but pingoal refuses
+                ' the move, so the tank arrives, is refused a fresh goal, and
+                ' drives on until the clock. Arriving IS the answer the run was
+                ' asking for; every second after it is noise in the score.
+                If BrainReport.Goals > 0 Then
+                    LogThis("brain: arrived - ending the run")
+                    score_and_quit()
+                End If
+
+                ' AND A STALL ENDS IT. "2 exact same moves is a stall".
+                '
+                ' IDENTICAL COMMANDS ALONE ARE NOT A STALL - driving straight
+                ' repeats the same throttle and steer every tick and is the
+                ' healthiest thing the tank does. What makes it a stall is the
+                ' same command while the hull has neither MOVED nor TURNED:
+                ' the brain re-deciding to do exactly what already achieved
+                ' nothing. Turning on the spot is excluded by the heading test,
+                ' which is the one case that looks stopped and is not.
+                '
+                ' A grace at the start, because a hull sits still for a moment
+                ' before the first move is accepted and that is not a stall.
+                If runClock.Elapsed.TotalSeconds > 2.0 AndAlso
+                   BrainTanks.Bodies IsNot Nothing AndAlso
+                   BrainTanks.Bodies.Count > BrainRadar.HULL Then
+                    Dim bd = BrainTanks.Bodies(BrainRadar.HULL)
+                    Dim same = Math.Abs(BrainReport.LastThrottle - lastThr) < 0.0001F AndAlso
+                               Math.Abs(BrainReport.LastSteer - lastSteer) < 0.0001F AndAlso
+                               (bd.spawn - lastPos).Length < 0.001F AndAlso
+                               Math.Abs(bd.headingRad - lastHeading) < 0.0001F
+                    If same Then stillTicks += 1 Else stillTicks = 0
+                    lastThr = BrainReport.LastThrottle
+                    lastSteer = BrainReport.LastSteer
+                    lastPos = bd.spawn
+                    lastHeading = bd.headingRad
+                    If stillTicks >= CInt(BrainTune.Get_("stallticks", 2.0F)) Then
+                        LogThis("brain: stalled - {0} identical moves with no motion",
+                                stillTicks)
+                        score_and_quit()
+                    End If
+                End If
                 If runClock.Elapsed.TotalSeconds >= RUN_SECS Then score_and_quit()
                 ' Or give up on it: no ground gained for BAIL_S, after a
                 ' fair start. The row still gets written - a failure that
@@ -536,6 +580,14 @@ Public Class BrainWindow
     Private pressTravel As Single
     ''' <summary>The start marker has the pointer this frame, so neither
     ''' the camera nor the picker may also act on it.</summary>
+    ''' <summary>The stall watch: how many consecutive ticks have repeated
+    ''' the same command while the hull neither moved nor turned.</summary>
+    Private stillTicks As Integer = 0
+    Private lastThr As Single = Single.NaN
+    Private lastSteer As Single = Single.NaN
+    Private lastHeading As Single = Single.NaN
+    Private lastPos As OpenTK.Mathematics.Vector2
+
     Private markerHasMouse As Boolean = False
     Private wasDown As Boolean
 

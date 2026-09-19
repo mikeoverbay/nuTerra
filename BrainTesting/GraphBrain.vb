@@ -88,6 +88,21 @@ Public Class GraphBrain
     Private hits As BrainRadar.Hit()
     Private lane As BrainRadar.Lane
     Private laneDone As Boolean
+
+    ''' <summary>Prefer the farthest CLEAR aim along the goal bearing over the
+    ''' soonest one, and never take a graze while a clear run exists. The
+    ''' owner's strategy, 2026-09-19, behind tune=farwhite=1 so both behaviours
+    ''' live in one binary and an A/B is the same build twice.</summary>
+    Private FARWHITE As Boolean = False
+
+    ''' <summary>The best WHITE aim the last walk found - a candidate whose
+    ''' corridor came back completely clear, kept even when the scoring let an
+    ''' amber win. "if there is no opening marker, backup until we have one"
+    ''' needs to ask whether one EXISTS, which is not the same question as
+    ''' which one was chosen.</summary>
+    Private hasOpen As Boolean = False
+    Private openBear As Single = 0.0F
+    Private openAim As Vector2
     Private roundDone As Boolean
     Private roundVal As Object = Nothing
     ''' <summary>-1 left, +1 right, 0 free. Which way round we said we
@@ -317,6 +332,10 @@ Public Class GraphBrain
         ' looking at it. Skipping the sweep while a plan ran was the right
         ' saving for a plan that was a fixed heading; it is exactly wrong
         ' for one that follows a point.
+        ' READ ONCE A TICK, not per candidate: way_past asks it inside two
+        ' nested loops and BrainTune.Get_ is a dictionary probe each time.
+        FARWHITE = BrainTune.On_("farwhite", False)
+
         hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
         scans += 1
         laneDone = False
@@ -680,6 +699,22 @@ Public Class GraphBrain
                 ' Last tick's throttle, because this tick's is cleared before any
                 ' node is evaluated.
                 v = CObj(stuckFor > 0.25F)
+            Case "Front Shut"
+                v = CObj(front_shut())
+
+            Case "Opening"
+                ' The walk is what fills this, so make sure it has run this
+                ' tick - asking before it does reports last tick's world.
+                If Not roundDone Then
+                    roundDone = True
+                    roundVal = round_the_end(goal_bearing(), 0.6F)
+                End If
+                If outName = "True" Then
+                    v = CObj(hasOpen)
+                Else
+                    v = If(hasOpen, CObj(openBear), Nothing)
+                End If
+
             Case "Is Wedged"
                 '' NOT WHILE ALREADY BACKING - RangeBrain gates this the same way
                 '' (state <> St.Backing) and the reason is structural: the wedge
@@ -853,6 +888,38 @@ Public Class GraphBrain
             If q.dist < near Then near = q.dist
         Next
         Return If(near = Single.MaxValue, best, near)
+    End Function
+
+    ''' <summary>
+    ''' IS THE WHOLE FRONT ARC ONE BARRIER? -90 to +90 of the nose.
+    '''
+    ''' "if every hit from -90 to +90 of our heading has no gap" - the owner.
+    '''
+    ''' Asked of `linked`, which is the radar's own word for it: both rays
+    ''' found something and their returns are closer together than the tank is
+    ''' wide, so that PAIR is one continuous barrier. Two misses are never
+    ''' linked however close their far ends are - open sky a metre across at
+    ''' twenty metres is sky, not a wall, and measuring this off distances
+    ''' rather than chords is the trap that invites.
+    '''
+    ''' False when there are no front rays at all: nothing seen is not the same
+    ''' as a wall, and reporting shut on an empty scan would reverse the tank
+    ''' away from open ground.
+    ''' </summary>
+    Private Function front_shut() As Boolean
+        ' ON THE BOARD EITHER WAY, so there is ONE board shape to read and to
+        ' debug. The knob silences the test rather than removing the rung -
+        ' tune=frontshut=0 gives the old behaviour for an A/B without building
+        ' a second graph that can drift from this one.
+        If Not BrainTune.On_("frontshut", True) Then Return False
+        If hits Is Nothing OrElse hits.Length < 2 Then Return False
+        Dim pairs = 0
+        For i = 0 To hits.Length - 2
+            If Not hits(i).front OrElse Not hits(i + 1).front Then Continue For
+            pairs += 1
+            If Not hits(i).linked Then Return False
+        Next
+        Return pairs > 0
     End Function
 
     Private Function front_count() As Integer
@@ -1332,6 +1399,10 @@ Public Class GraphBrain
     End Function
 
     Private Function way_past(goalB As Single) As Object
+        ' Cleared per walk: an opening found two seconds ago is not evidence
+        ' about the world in front of the hull now.
+        hasOpen = False
+        Dim openOff = Single.MaxValue
         Trapped = False
         walkRan += 1
         If hits Is Nothing Then Return Nothing
@@ -1666,8 +1737,16 @@ Public Class GraphBrain
                     BrainWalkView.MarkTry(aim, 2)
                     Continue For
                 End If
+                ' HOW FAR TO TEST THE CORRIDOR.
+                '
+                ' Normally as far as the scan reached. Under farwhite, ALL THE
+                ' WAY TO THE AIM - "also check the path to the white opening is
+                ' actually clear". Corridor walks nav cells rather than rays, so
+                ' it can answer past the sweep's own reach; a white verdict then
+                ' means clear to the aim, not merely clear as far as we looked.
+                Dim testM = If(FARWHITE, toAim.Length, Math.Min(need, reach))
                 Dim atM As Single = 0.0F
-                Dim verdict = box_verdict(b, Math.Min(need, reach), atM)
+                Dim verdict = box_verdict(b, testM, atM)
                 BrainWalkView.MarkTry(aim, verdict)
                 If verdict = 2 Then Continue For
 
@@ -1681,21 +1760,63 @@ Public Class GraphBrain
                 ' the hull notices the world changing while the plank slows it
                 ' - but deciding DIFFERENTLY every tick is not, and those two
                 ' are separable. Same candidate as last time wins outright.
-                Dim off = time_via(b, aim)
+                Dim off As Single
+                If FARWHITE Then
+                    ' FARTHEST ALONG THE GOAL, NOT SOONEST TO IT.
+                    '
+                    ' "we can drive to the one farthest away and closest to base
+                    ' direction, I think we should take that". time_via scores
+                    ' SECONDS and is therefore minimised, which quietly prefers
+                    ' the NEAR candidate - the opposite of what is wanted here.
+                    '
+                    ' This projects the aim onto the goal direction, so one
+                    ' measure carries both halves of the ask: far, and pointing
+                    ' the right way. An aim ninety degrees off projects to
+                    ' nothing however distant, and one straight at the goal
+                    ' scores its full length.
+                    Dim gv = goal - h.pos
+                    Dim gl = Math.Max(0.001F, gv.Length)
+                    off = -Vector2.Dot(aim - h.pos, gv / gl)
+
+                    ' WHITE BEATS AMBER OUTRIGHT, rather than competing with it.
+                    ' "we should take that and not the pink blocks" - a clear
+                    ' corridor is a different KIND of answer from a graze, and
+                    ' letting a near graze outscore a far clear run is what put
+                    ' them in the same currency in the first place.
+                    If verdict <> 0 Then off += BrainTune.Get_("amberpen", 1000.0F)
+                Else
+                    ' Seconds to the goal this way, not degrees off it.
+                    off = time_via(b, aim)
+                End If
 
                 ' ROUND THE THING IN FRONT OF US, not the cheapest end in
                 ' view. An end belonging to the chain the plank ran into is
                 ' what actually unblocks the tank; one forty metres away
                 ' may be quicker on paper and leaves the nose where it was.
+                ' IN THE SCORE'S OWN UNITS. Under farwhite the score is METRES
+                ' along the goal, so a 500 of anything would swamp it - the two
+                ' overrides below were sized against seconds and have to be
+                ' restated, or the new objective never decides anything.
                 If blockChain > 0 AndAlso chainOf(i) = blockChain Then
-                    off -= 500.0F
+                    off -= If(FARWHITE, BrainTune.Get_("chainm", 15.0F), 500.0F)
                 End If
 
                 ' And the aim we are already on beats both.
                 If haveLast AndAlso (aim - lastAim).Length <
                    BrainTune.Get_("stickm", 6.0F) Then
-                    off -= 1000.0F
+                    off -= If(FARWHITE, BrainTune.Get_("stickmet", 8.0F), 1000.0F)
                 End If
+                ' AN OPENING EXISTS, whether or not it wins the scoring. Kept
+                ' separately so "is there a way through" can be asked without
+                ' re-running the walk, and so a run that scores an amber higher
+                ' still knows a clear one was there.
+                If verdict = 0 AndAlso (Not hasOpen OrElse off < openOff) Then
+                    hasOpen = True
+                    openOff = off
+                    openBear = b
+                    openAim = aim
+                End If
+
                 If off < bestOff Then
                     bestOff = off
                     bestB = b

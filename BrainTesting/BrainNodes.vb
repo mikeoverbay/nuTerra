@@ -188,6 +188,8 @@ Module BrainNodes
                  {"metres", "min gain"}, {0.0F, 6.0F}),
         New Kind("test", "Arrived", {"range"}, {"True"}, {"metres"}, {5.0F}),
         New Kind("test", "Is Wedged", {}, {"True"}),
+        New Kind("test", "Front Shut", {}, {"True"}),
+        New Kind("sense", "Opening", {}, {"bearing", "True"}),
         New Kind("test", "Not Moving", {}, {"True"}),
         New Kind("test", "Backed Enough", {}, {"True"}, {"seconds"}, {1.2F}),
         New Kind("test", "No Goal", {}, {"True"}),
@@ -296,6 +298,8 @@ Module BrainNodes
             Case "Look Ahead" : Return "both viewpoints merged - more returns, fewer blind spots"
             Case "Way Out" : Return "a bearing that OPENS UP from up the road, or nothing"
             Case "Arrived" : Return "close enough to the goal to call it done"
+            Case "Front Shut" : Return "every adjacent pair from -90 to +90 is one barrier - no gap the hull fits"
+            Case "Opening" : Return "the best CLEAR aim the last walk found, and whether there was one"
             Case "No Goal" : Return "nothing to drive toward"
             Case "Is Wedged" : Return "asked to move, went nowhere, for most of a second"
             Case "Not Moving" : Return "asked to move and went nowhere, right now"
@@ -1113,7 +1117,50 @@ Module BrainNodes
         join_pins(pDeep, "bearing", aSpin2, "bearing")
         join_pins(pStuck2, "d", p2, "in")
         join_pins(p2, "d", p3, "in")
-        join_pins(p3, "d", p4, "in")
+        ' ---- THE FRONT IS SHUT: TAKE AN OPENING, OR BACK OUT ----------------
+        '
+        ' "if every hit from -90 to +90 of our heading has no gap, we need to
+        '  use the opening marker, if there is no opening maker, backup until
+        '  we have on and turn to it and go" - the owner, 2026-09-19.
+        '
+        ' ABOVE THE DOOR AND ABOVE ROUND-THE-END, which is the whole point:
+        ' "pink chase only is a fail every time". Those two live at p4.b and
+        ' p5.a, so this is spliced between p3 and p4 rather than hung off a
+        ' spare pin further down, where it would only be reached after the very
+        ' rungs it is meant to pre-empt had already acted.
+        '
+        ' The else-if is a Priority, not a NOT node: a takes the opening when
+        ' there is one, d falls through to backing when there is not.
+        Dim pShut = spawn("Priority", 650.0F, 1980.0F)
+        Dim tShut = spawn("Front Shut", 210.0F, 1980.0F)
+        Dim nOpen = spawn("Opening", 210.0F, 2090.0F)
+        Dim gShut = spawn("Gate", 870.0F, 1980.0F)
+        Dim pOpen = spawn("Priority", 1090.0F, 1980.0F)
+        Dim gHaveOpen = spawn("Gate", 1310.0F, 1940.0F)
+        Dim aDriveOpen = spawn("Drive Heading", 1530.0F, 1940.0F)
+        Dim sqBackOut = spawn("Sequence", 1310.0F, 2090.0F)
+        Dim aSetB3 = spawn("Set Backing", 1530.0F, 2050.0F)
+        Dim aRev3 = spawn("Reverse", 1530.0F, 2160.0F)
+
+        join_pins(p3, "d", pShut, "in")
+        join_pins(pShut, "a", gShut, "in")
+        join_pins(tShut, "True", gShut, "True")
+        join_pins(gShut, "out", pOpen, "in")
+
+        ' The opening, when the walk found one.
+        join_pins(pOpen, "a", gHaveOpen, "in")
+        join_pins(nOpen, "True", gHaveOpen, "True")
+        join_pins(gHaveOpen, "out", aDriveOpen, "in")
+        join_pins(nOpen, "bearing", aDriveOpen, "bearing")
+
+        ' And when it did not: back out until one appears. No test in front of
+        ' it - reaching pOpen.d IS the test, because a means there was one.
+        join_pins(pOpen, "d", sqBackOut, "in")
+        join_pins(sqBackOut, "a", aSetB3, "in")
+        join_pins(sqBackOut, "b", aRev3, "in")
+
+        ' Everything that was below p3 still is - this only gets first refusal.
+        join_pins(pShut, "d", p4, "in")
 
         ' ---- rule 1-3: the guards -------------------------------------------
         Dim gNoGoal = spawn("Gate", 870.0F, 40.0F)
