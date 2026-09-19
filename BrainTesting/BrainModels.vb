@@ -135,6 +135,48 @@ Module BrainModels
                 built, sw.ElapsedMilliseconds, skipped, outlandOnly, tris, String.Join(", ", parts))
 
         If MODEL_INDEX_LIST IsNot Nothing Then Total = MODEL_INDEX_LIST.Length
+        ' ---- WHAT EACH RULE COSTS, ON THE REAL PLACEMENTS -----------------
+        '
+        ' Counted once, here, because this is the first moment every box
+        ' exists - build_one is what produces bbMin/bbMax, so nothing earlier
+        ' can ask. Three buckets, and they are the three answers anyone would
+        ' argue about: wholly on the terrain, crossing the rim, or nowhere
+        ' near it. Printing all three means the strict rule and the lenient
+        ' one can be compared without a rebuild.
+        If MODEL_INDEX_LIST IsNot Nothing AndAlso meshes IsNot Nothing Then
+            Dim x0, x1, z0, z1 As Single
+            If map_square(x0, x1, z0, z1) Then
+                Dim nIn = 0, nEdge = 0, nOff = 0, nNo = 0
+                For Each inst In MODEL_INDEX_LIST
+                    If inst.model_index < 0 OrElse inst.model_index >= meshes.Length Then
+                        nNo += 1
+                        Continue For
+                    End If
+                    Dim mm = meshes(inst.model_index)
+                    If Not mm.ok Then
+                        nNo += 1
+                        Continue For
+                    End If
+                    Dim mat = inst.matrix
+                    Dim bx0, bz0, bx1, bz1 As Single
+                    box_world_xz(mat, mm.bbMin, mm.bbMax, bx0, bz0, bx1, bz1)
+                    If bx1 < x0 OrElse bx0 > x1 OrElse bz1 < z0 OrElse bz0 > z1 Then
+                        nOff += 1
+                    ElseIf bx0 < x0 OrElse bx1 > x1 OrElse bz0 < z0 OrElse bz1 > z1 Then
+                        nEdge += 1
+                    Else
+                        nIn += 1
+                    End If
+                Next
+                Dim mode = BrainTune.Get_("modelbox", 2.0F)
+                Dim dropped = If(mode < 0.5F, 0, If(mode < 1.5F, nOff, nEdge + nOff))
+                LogThis("brain: placement boxes vs the {0:0} x {1:0} m terrain - " &
+                        "{2:N0} wholly on it, {3:N0} crossing the rim, {4:N0} off it, " &
+                        "{5:N0} never built. modelbox={6:0} drops {7:N0}.",
+                        x1 - x0, z1 - z0, nIn, nEdge, nOff, nNo, mode, dropped)
+            End If
+        End If
+
         LogThis("brain: {0:N0} placement(s) on the map", Total)
     End Sub
 
@@ -257,29 +299,121 @@ Module BrainModels
     End Function
 
     ''' <summary>
-    ''' The map's own square, corner to corner, in the frame the placements
-    ''' are in.
+    ''' The terrain's own square, corner to corner, in the frame the
+    ''' placements are in.
     '''
-    ''' THE BAKE'S OWN FORMULA, not a second one: MapFlightBake derives its
-    ''' extent as 100 * b_x_min to 100 * (b_x_max + 1), and those chunk bounds
-    ''' are globals this app already links. Anything placed outside that
-    ''' square is outland scenery - the mountain ring - and the owner does not
-    ''' want it drawn: "remove outland models.. just check if they are outside
-    ''' the total map corner locations".
+    ''' THE SIZE IS STORED, NOT MEASURED HERE. "the chunks give the total map
+    ''' size. we can find a point anywhere on it. that size is stored" - the
+    ''' owner, 2026-09-19. ChunkFunctions accumulates b_x_min/b_x_max and
+    ''' b_y_min/b_y_max as it reads the chunks, and this is the same formula
+    ''' MapFlightBake uses at MapFlightBake.vb:521 to derive the .blk's
+    ''' wx_min / wz_max. One definition of the map, three readers.
     '''
-    ''' A MARGIN, because a building ON the edge has its pivot inside and its
-    ''' geometry hanging over, and dropping those would eat the map's own rim.
+    ''' NOT MAP_SIZE DIRECTLY, and that is a real trap: MAP_SIZE is
+    ''' b_x_max - b_x_min, a count of the GAPS between chunks rather than of
+    ''' the chunks, so every caller that wants a real span adds one -
+    ''' ChunkFunctions.vb:661 does exactly that. Using it raw loses 100 m off
+    ''' each axis. Monastery: b_x_min -7, b_x_max 6, so the square is
+    ''' -700..700, which is what the .blk header says it is.
+    '''
+    ''' AND IT IS EXACTLY THE TERRAIN THIS APP DRAWS. issue_terrain issues
+    ''' all_chunks_vao and nothing else - outland_vao is built because
+    ''' ChunkFunctions builds it, and never drawn. So beyond this square
+    ''' there is no ground at all, which is what makes "off the map" and "off
+    ''' the terrain mesh" the same question here.
+    ''' </summary>
+    Private Function map_square(ByRef x0 As Single, ByRef x1 As Single,
+                                ByRef z0 As Single, ByRef z1 As Single) As Boolean
+        x0 = 100.0F * b_x_min
+        x1 = 100.0F * (b_x_max + 1.0F)
+        z0 = 100.0F * (b_y_min - 1.0F)
+        z1 = 100.0F * b_y_max
+        Return (x1 - x0) >= 1.0F AndAlso (z1 - z0) >= 1.0F
+    End Function
+
+    ''' <summary>
+    ''' A margin for the BUILD-TIME pre-filter, and only for that.
+    '''
+    ''' Build has to decide which models to parse and upload BEFORE any of
+    ''' them has a bounding box - the box falls out of build_one, which is the
+    ''' very work being skipped. So the only thing it can test there is the
+    ''' pivot, and the only safe direction to be wrong in is KEEPING
+    ''' something the real test will drop later.
     ''' </summary>
     Private Const EDGE_MARGIN As Single = 25.0F
 
+    ''' <summary>Pivot only. Build's pre-filter - see EDGE_MARGIN. Everything
+    ''' that has a box by the time it asks uses box_off_map instead.</summary>
     Private Function outside_map(ByRef m As Matrix4) As Boolean
-        Dim x0 = 100.0F * b_x_min - EDGE_MARGIN
-        Dim x1 = 100.0F * (b_x_max + 1.0F) + EDGE_MARGIN
-        Dim z0 = 100.0F * (b_y_min - 1.0F) - EDGE_MARGIN
-        Dim z1 = 100.0F * b_y_max + EDGE_MARGIN
-        If x1 - x0 < 1.0F OrElse z1 - z0 < 1.0F Then Return False   ' no bounds: keep everything
+        Dim x0, x1, z0, z1 As Single
+        If Not map_square(x0, x1, z0, z1) Then Return False   ' no bounds: keep everything
         Dim p = m.Row3
-        Return p.X < x0 OrElse p.X > x1 OrElse p.Z < z0 OrElse p.Z > z1
+        Return p.X < x0 - EDGE_MARGIN OrElse p.X > x1 + EDGE_MARGIN OrElse
+               p.Z < z0 - EDGE_MARGIN OrElse p.Z > z1 + EDGE_MARGIN
+    End Function
+
+    ''' <summary>
+    ''' The world-XZ extent of a placement's box.
+    '''
+    ''' ALL EIGHT CORNERS. A rotated placement's axis-aligned extent is not
+    ''' the rotation of its local one, so transforming two opposite corners
+    ''' and calling the result a box is correct only for an axis-aligned
+    ''' matrix - and map placements are rotated. The frustum test next door
+    ''' takes all eight for the same reason.
+    ''' </summary>
+    Private Sub box_world_xz(ByRef m As Matrix4, lo As Vector3, hi As Vector3,
+                             ByRef bx0 As Single, ByRef bz0 As Single,
+                             ByRef bx1 As Single, ByRef bz1 As Single)
+        bx0 = Single.MaxValue : bz0 = Single.MaxValue
+        bx1 = Single.MinValue : bz1 = Single.MinValue
+        For i = 0 To 7
+            Dim v As New Vector3(If((i And 1) = 0, lo.X, hi.X),
+                                 If((i And 2) = 0, lo.Y, hi.Y),
+                                 If((i And 4) = 0, lo.Z, hi.Z))
+            Dim r = New Vector4(v, 1.0F) * m
+            If r.X < bx0 Then bx0 = r.X
+            If r.X > bx1 Then bx1 = r.X
+            If r.Z < bz0 Then bz0 = r.Z
+            If r.Z > bz1 Then bz1 = r.Z
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' Is this placement's BOX off the terrain?
+    '''
+    ''' "i want to remove any models that have a bounding box outside of the
+    '''  terrain mesh" - the owner, 2026-09-19.
+    '''
+    ''' THE BOX, NOT THE PIVOT, and that is the whole change. A pivot is a
+    ''' proxy for where a model IS: a building whose origin sits inside the
+    ''' square can have most of its geometry hanging over the void, and a
+    ''' boundary slab whose origin is out in the ring can reach back in. The
+    ''' old test answered about the origin and carried a 25 m margin to paper
+    ''' over the difference - a guess at how far geometry might extend, in
+    ''' place of the extent the mesh already knows.
+    '''
+    ''' STRICT BY DEFAULT: the box must be CONTAINED. There is no terrain
+    ''' outside the square to stand on, so a model crossing the rim is a model
+    ''' hanging over nothing.
+    '''
+    ''' tune=modelbox=1 is the looser rule - drop only what is ENTIRELY
+    ''' outside, keep anything that overlaps at all - and modelbox=0 turns the
+    ''' cull off. Build logs what each rule costs on the real placements, so
+    ''' the choice is made on counts rather than on argument.
+    ''' </summary>
+    Private Function box_off_map(ByRef m As Matrix4, lo As Vector3, hi As Vector3) As Boolean
+        Dim mode = BrainTune.Get_("modelbox", 2.0F)
+        If mode < 0.5F Then Return False
+        Dim x0, x1, z0, z1 As Single
+        If Not map_square(x0, x1, z0, z1) Then Return False
+        Dim bx0, bz0, bx1, bz1 As Single
+        box_world_xz(m, lo, hi, bx0, bz0, bx1, bz1)
+        If mode < 1.5F Then
+            ' Lenient: gone only when the two boxes do not touch at all.
+            Return bx1 < x0 OrElse bx0 > x1 OrElse bz1 < z0 OrElse bz0 > z1
+        End If
+        ' Strict: gone unless the box is wholly on the terrain.
+        Return bx0 < x0 OrElse bx1 > x1 OrElse bz0 < z0 OrElse bz1 > z1
     End Function
 
     ''' <summary>
@@ -298,7 +432,6 @@ Module BrainModels
         If meshes Is Nothing OrElse MODEL_INDEX_LIST Is Nothing Then Return
 
         Dim planes = BrainFrustum.FromViewProj(viewProj)
-        Dim skippedOutland = 0
 
         shader.Use()
         shader.SetMat4("viewProj", viewProj)
@@ -310,12 +443,9 @@ Module BrainModels
             If Not m.ok Then Continue For
 
             Dim mat = inst.matrix
-            ' Outland first: it is a cheaper test than the frustum and it
+            ' OFF THE TERRAIN FIRST: cheaper than the frustum test and it
             ' removes the biggest things on screen.
-            If outside_map(mat) Then
-                skippedOutland += 1
-                Continue For
-            End If
+            If box_off_map(mat, m.bbMin, m.bbMax) Then Continue For
             If Not BrainFrustum.BoxVisible(planes, mat, m.bbMin, m.bbMax) Then Continue For
 
             If m.vao <> boundVao Then
@@ -350,7 +480,7 @@ Module BrainModels
             Dim m = meshes(inst.model_index)
             If Not m.ok Then Continue For
             Dim mat = inst.matrix
-            If outside_map(mat) Then Continue For
+            If box_off_map(mat, m.bbMin, m.bbMax) Then Continue For
             Dim t = BrainPick.RayBox(origin, dir, mat, m.bbMin, m.bbMax)
             If t < 0.0F OrElse t >= res.dist Then Continue For
             res.dist = t
