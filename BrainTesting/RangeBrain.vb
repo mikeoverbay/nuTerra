@@ -1553,7 +1553,7 @@ Public Class RangeBrain
                 Dim a = CSng(rng.NextDouble() * Math.PI * 2.0)
                 Dim p = h.pos + New Vector2(CSng(Math.Sin(a)), CSng(Math.Cos(a))) * want
                 If BrainNav.Standable(p.X, p.Y, h.DriveRadius) Then
-                    BrainGoal.Target = p
+                    If Not BrainGoal.TryMove(p) Then Return
                     BrainGoal.HasTarget = True
                     ' PIN IT. Follow rides the camera and would drag the goal
                     ' back under the owner's view on the very next frame.

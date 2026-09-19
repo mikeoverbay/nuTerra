@@ -142,6 +142,11 @@ Public Class BrainWindow
                     If(near.Count = 0, "", " - did you mean: " & String.Join(", ", near)))
         End If
 
+        ' MAXIMISED BEFORE THE PANEL IS SIZED, or ImGui is initialised against
+        ' the pre-maximise client size and every hit test is out until the
+        ' first resize event happens to arrive.
+        If MAXIMIZED_WINDOW Then WindowState = WindowState.Maximized
+
         BrainRender.Init()
         BrainPanel.Init(ClientSize.X, ClientSize.Y)
 
@@ -180,7 +185,7 @@ Public Class BrainWindow
                 ' app reading anything else would be two maps for one question.
                 ' The footprint rasteriser is the fallback for a map with no
                 ' bake yet, and the log says which one answered.
-                If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
+                If Not BrainNav.LoadMap(STARTUP_MAP) Then BrainNav.Build()
 
                 ' NOW the trees can be drawn by whether a hull gets through
                 ' them. Built earlier, decided here - the grid did not exist
@@ -275,13 +280,38 @@ Public Class BrainWindow
                 ' what Reset is FOR on an evening of one scenario tried
                 ' twenty ways.
                 If RESTORE_ON_START Then BrainPanel.RestoreSnapshot()
+                ' THE COMMAND LINE BEATS THE SNAPSHOT, and must come after
+                ' it to do so: a restore carries a goal of its own, so a
+                ' scenario asked for by name would otherwise be overwritten
+                ' by whatever pin the newest snapshot happened to hold.
+                If GOAL_ARG <> "" Then BrainGoal.SetFromArg(GOAL_ARG)
+                ' AFTER the restore, not before. LookAt sets pitch to -0.45
+                ' and takes the distance from the snapshot, so a top-down view
+                ' asked for on the command line was applied and then quietly
+                ' overwritten by the scenario being loaded.
+                ' FOLLOW CAM, TRAILING HEADING, PITCH UNTOUCHED. Before the
+                ' topdown block so that asking for both still gets the
+                ' bird's eye - one of them has to lose and topdown is the
+                ' more specific request.
+                If TRAIL_M > 0.0F Then
+                    BrainRender.Cam.Chase = True
+                    BrainRender.Cam.ChaseTrail = True
+                    BrainRender.Cam.Dist = TRAIL_M
+                End If
+                If TOP_DOWN_M > 0.0F Then
+                    BrainRender.Cam.Chase = True
+                    BrainRender.Cam.ChaseTrail = True
+                    BrainRender.Cam.PitchRad = -1.5708F
+                    BrainRender.Cam.Dist = TOP_DOWN_M
+                    BrainTrail.SHOW = True
+                End If
                 ' Before anything can drive: once it does, Body.spawn is
                 ' the LIVE position and the opening one is gone.
                 BrainPanel.RememberSpawns()
                 If LEARN_ON_START Then
                     ' Straight into it. The goal came back with the
                     ' scenario, so there is nothing to place.
-                    BrainSim.Brain = New RangeBrain()
+                    BrainSim.Brain = pick_brain()
                     If Not BrainGoal.HasTarget Then
                         LogThis("brain: learning asked for but no goal in the " &
                                 "snapshot - press alt to place one")
@@ -293,16 +323,129 @@ Public Class BrainWindow
             End If
         End If
 
+        ' ---- the timed run, if one was asked for -------------------------
+        If RUN_SECS > 0.0F AndAlso Not scored Then
+            If BrainSim.Running Then
+                If Not runClock.IsRunning Then runClock.Start()
+                If runClock.Elapsed.TotalSeconds >= RUN_SECS Then score_and_quit()
+                ' Or give up on it: no ground gained for BAIL_S, after a
+                ' fair start. The row still gets written - a failure that
+                ' reports itself is worth as much as a success.
+                If BAIL_S > 0.0F AndAlso
+                   runClock.Elapsed.TotalSeconds > 12.0 AndAlso
+                   BrainReport.SinceGain > BAIL_S Then
+                    LogThis("brain: giving up - no ground gained for {0:0}s",
+                            BrainReport.SinceGain)
+                    score_and_quit()
+                End If
+            ElseIf runClock.IsRunning Then
+                ' It stopped early - arrived, or threw. Score what there is
+                ' rather than waiting out a clock nothing is driving.
+                score_and_quit()
+            ElseIf boot.Elapsed.TotalSeconds > RUN_SECS + 40.0F Then
+                LogThis("brain: timed run - the sim never started")
+                score_and_quit()
+            End If
+        End If
+
         ' The shot waits for the roster. Capturing at frame 3 would photograph
         ' a map with two tanks on it and call it thirty.
         If SHOT_PATH <> "" AndAlso Not BrainTanks.Loading AndAlso frames >= 3 Then
-            Capture(SHOT_PATH)
-            Close()
+            If shot_due() Then
+                Capture(SHOT_PATH)
+                Close()
+            End If
         End If
     End Sub
 
     Private frames As Integer = 0
     Private ReadOnly boot As Stopwatch = Stopwatch.StartNew()
+
+    ''' <summary>Counts only while the sim is actually running.</summary>
+    Private ReadOnly shotClock As New Stopwatch()
+    Private ReadOnly runClock As New Stopwatch()
+    ''' <summary>Time since the last held-space step.</summary>
+    Private ReadOnly holdClock As New Stopwatch()
+    Private scored As Boolean = False
+
+    ''' <summary>One scorecard line, then out. Written to the log rather
+    ''' than to a file, because the thing comparing two runs is reading
+    ''' stdout and a file would be one more thing to keep in step.</summary>
+    Private Sub score_and_quit()
+        scored = True
+        Dim at = BrainReport.StartPos
+        If BrainTanks.Bodies IsNot Nothing AndAlso
+           BrainTanks.Bodies.Count > BrainRadar.HULL Then
+            at = BrainTanks.Bodies(BrainRadar.HULL).spawn
+        End If
+        ' "brain: " IS NOT DECORATION. LogThis gates on the FORMAT STRING's
+        ' prefix, not on the finished line, so LogThis("{0}", card) built the
+        ' scorecard, matched nothing in LOG_KEEP and dropped it - four scored
+        ' runs that printed no score and left no error.
+        LogThis("brain: {0}", BrainReport.Scorecard(
+            If(BrainSim.Brain Is Nothing, "none", BrainSim.Brain.Name),
+            CSng(runClock.Elapsed.TotalSeconds), at, BrainGoal.Target, 5.0F))
+        write_row(at)
+        BrainSim.Halt()
+        Close()
+    End Sub
+
+    ''' <summary>Append this run to the sweep's file, header first if the
+    ''' file is new. Failure here must not lose the run - the console line
+    ''' is already out.</summary>
+    Private Sub write_row(at As Vector2)
+        If SCORE_FILE = "" Then Return
+        Try
+            Dim dir_ = IO.Path.GetDirectoryName(IO.Path.GetFullPath(SCORE_FILE))
+            IO.Directory.CreateDirectory(dir_)
+            If Not IO.File.Exists(SCORE_FILE) Then
+                IO.File.AppendAllText(SCORE_FILE,
+                                      BrainReport.ROW_HEADER & Environment.NewLine)
+            End If
+            IO.File.AppendAllText(SCORE_FILE, BrainReport.ScoreRow(
+                If(BrainSim.Brain Is Nothing, "none", BrainSim.Brain.Name),
+                CSng(runClock.Elapsed.TotalSeconds), at, BrainGoal.Target) &
+                Environment.NewLine)
+        Catch ex As Exception
+            LogThis("brain: could not write the score row - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Is it time for the shot.
+    '''
+    ''' `shotat=` exists because most of this HUD is empty until a brain
+    ''' tick has happened. BrainRadar.LAST starts Nothing and only Scan
+    ''' fills it, so the scope, the ahead view and everything else built on
+    ''' the returns draw nothing at all before the first tick - and a shot
+    ''' taken then looks exactly like a view that does not work.
+    '''
+    ''' THE CEILING IS NOT OPTIONAL. Without a goal there is nothing to
+    ''' drive at and BrainSim never starts, so a clock that waits for it
+    ''' waits forever - and a shot that never arrives reads as a hang. It
+    ''' fires anyway and says why, because a photograph of a stopped sim is
+    ''' still an answer and silence is not.
+    ''' </summary>
+    Private Function shot_due() As Boolean
+        If SHOT_AFTER_S <= 0.0F Then Return True
+
+        If BrainSim.Running Then
+            If Not shotClock.IsRunning Then
+                shotClock.Start()
+                LogThis("brain: shot armed - holding {0:0.0}s of running sim",
+                        SHOT_AFTER_S)
+            End If
+            If shotClock.Elapsed.TotalSeconds >= SHOT_AFTER_S Then Return True
+        End If
+
+        ' Waited the whole time over again and it never started.
+        If boot.Elapsed.TotalSeconds > SHOT_AFTER_S + 40.0F Then
+            LogThis("brain: shot no longer waiting - sim running={0}",
+                    BrainSim.Running)
+            Return True
+        End If
+        Return False
+    End Function
 
     ''' <summary>
     ''' The back buffer to a PNG, and a COUNT of how much of it is not the
@@ -377,6 +520,7 @@ Public Class BrainWindow
         ' instrument rather than part of the scene, so nothing in the world
         ' should ever be in front of it.
         BrainScope.Draw(SCR_WIDTH, SCR_HEIGHT)
+        BrainAheadScope.Draw(SCR_WIDTH, SCR_HEIGHT)
     End Sub
 
     ''' <summary>Where the left button went down, and how far the cursor has
@@ -447,7 +591,26 @@ Public Class BrainWindow
             Return
         End If
 
-        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then toggle_sim()
+        ' SPACE STEPS WHEN WE ARE STEPPING. With ticks= set the whole point
+        ' is to look at one decision at a time, and the key that normally
+        ' starts the sim would throw away the picture being looked at. Without
+        ' ticks= it is the run/stop toggle it has always been.
+        If TICK_LIMIT > 0 Then
+            ' HOLD TO KEEP STEPPING, a tick every quarter second. Tapping
+            ' space a hundred times to find where it went wrong is how a
+            ' thing that only happens at tick forty never gets seen.
+            If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then
+                BrainSim.StepOnce()
+                holdClock.Restart()
+            ElseIf k.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then
+                If holdClock.Elapsed.TotalSeconds >= 0.025 Then
+                    BrainSim.StepOnce()
+                    holdClock.Restart()
+                End If
+            End If
+        ElseIf k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then
+            toggle_sim()
+        End If
         ' ALT PLACES THE GOAL. "shift messes with mouse so use alt to place
         ' a goal spot" - the owner: the camera already takes shift, and a
         ' modifier that does two things is a modifier you cannot use.
@@ -474,6 +637,11 @@ Public Class BrainWindow
         ' STEP THE TANK, one square at a time. The camera owns WASD and
         ' E/Q, so the arrows are free - and they are the right shape for
         ' this: up and down walk, left and right aim.
+        ' T steps the BRAIN one tick and stops again - the walk view holds
+        ' that tick's picture, so a single decision can be looked at.
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.T) Then
+            BrainSim.StepOnce()
+        End If
         If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Up) Then step_tank(1.0F)
         If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Down) Then step_tank(-1.0F)
         If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Left) Then turn_tank(-15.0F)
@@ -532,7 +700,21 @@ Public Class BrainWindow
                 ' and the reset is half undone before it is seen.
                 If BrainSim.Running Then BrainSim.Halt()
                 BrainPanel.RestoreSpawns()
-                BrainGoal.Clear()
+                ' THE GOAL STAYS. It is not run state, it is the question being
+                ' asked - and a reset that also forgets where we were going
+                ' means pressing Run does nothing, because the board's first
+                ' rule is No Goal -> Stop. Keeping it makes reset-then-run a
+                ' repeatable experiment: same start, same destination, so two
+                ' runs can actually be compared. Alt still moves it.
+                ' AND THE BRAIN'S OWN STATE. Putting the tank back without this
+                ' left it believing it was part way through backing out of
+                ' something that is no longer in front of it.
+                ' UNCONDITIONALLY, because these are the SIM's and survive a
+                ' brain swap. RangeBrain reads them too.
+                BrainSim.Refused = False
+                BrainSim.RefusedRun = 0
+                Dim gb = TryCast(BrainSim.Brain, GraphBrain)
+                If gb IsNot Nothing Then gb.ResetState()
             Case BrainPanel.Action.Shot
                 Capture(BrainPanel.ShotPath())
             Case BrainPanel.Action.Snapshot
@@ -601,12 +783,20 @@ Public Class BrainWindow
                 MathHelper.RadiansToDegrees(b.headingRad), s.verdict)
     End Sub
 
+    ''' <summary>Whichever brain is switched on. One place, so the two
+    ''' call sites cannot drift apart and leave the checkbox lying about
+    ''' which one is driving.</summary>
+    Private Function pick_brain() As IBrain
+        If USE_GRAPH Then Return New GraphBrain()
+        Return New RangeBrain()
+    End Function
+
     Private Sub go_here()
         BrainGoal.PlaceAtLookAt()
         ' THE BRAIN. There is one now - RangeBrain - and this is where a goal
         ' placed by hand puts it to work.
         If Not (TypeOf BrainSim.Brain Is RangeBrain) Then
-            BrainSim.Brain = New RangeBrain()
+            BrainSim.Brain = pick_brain()
         End If
         If Not BrainSim.Running Then BrainSim.Start()
     End Sub
@@ -621,7 +811,7 @@ Public Class BrainWindow
         End If
 
         Dim before = BrainNav.Marked
-        If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
+        If Not BrainNav.LoadMap(STARTUP_MAP) Then BrainNav.Build()
         BrainTrees.MarkDrivable()
         LogThis("brain: reloaded - {0:N0} blocked cell(s), was {1:N0}{2}",
                 BrainNav.Marked, before,

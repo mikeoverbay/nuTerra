@@ -18,6 +18,8 @@
 param(
     [string]$Map = "19_monastery",
     [switch]$NoLaunch,
+    # Start with the node board driving instead of RangeBrain.
+    [switch]$Graph,
     [int]$Keep = 30
 )
 
@@ -72,10 +74,15 @@ if ($errors.Count -gt 0) {
 }
 Write-Output "build ok"
 
+# -Graph starts with the node board driving instead of RangeBrain, which is
+# what a scorecard run against it needs - see the graph arg in Program.vb.
+$launchArgs = @($Map, "perteam=1", "restore", "learn")
+if ($Graph) { $launchArgs += "graph" }
+
 if (-not $NoLaunch) {
     $exe = Join-Path $here "bin\x64\Debug\net8.0-windows\BrainTesting.exe"
     Start-Process -FilePath $exe `
-        -ArgumentList $Map, "perteam=1", "restore", "learn", "owner=Tank AI work" `
+        -ArgumentList ($launchArgs + @("owner=Tank AI work")) `
         -WorkingDirectory (Split-Path -Parent $exe)
     Start-Sleep -Milliseconds 1500
     $p = @(Get-Process BrainTesting -ErrorAction SilentlyContinue)

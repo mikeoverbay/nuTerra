@@ -50,6 +50,10 @@ Module BrainNodeForm
     ''' Frame returns or the panel draws into the wrong one.</summary>
     Private ctx As IntPtr = IntPtr.Zero
 
+    ''' <summary>Where the window was before it was maximised, to put it back.
+    ''' Kept here and not read off the form, which by then has been moved.</summary>
+    Private restoreTo As Drawing.Rectangle = Drawing.Rectangle.Empty
+
     Private started As Boolean = False
     Private shown As Boolean = False
 
@@ -92,6 +96,11 @@ Module BrainNodeForm
             ctl = New ImGuiController(START_W, START_H)
             ctx = ImGui.GetCurrentContext()
 
+            ' HERE, and not on the first frame that draws them. A GL texture
+            ' belongs to the context that made it, and this is the only moment
+            ' this window's context is current with nothing else going on.
+            BrainIcons.Warm("window-min", "window-max", "window-restore")
+
             ' CLOSE THE FRAME THE CONSTRUCTOR OPENED. Its last two lines are
             ' NewFrame and _frameBegun = True, because its normal caller drives
             ' it through Update, which ends the previous frame before starting
@@ -105,6 +114,9 @@ Module BrainNodeForm
             mainWnd.MakeCurrent()
 
             BrainNodes.Hosted = True
+            ' Something on the board from the very first frame - see
+            ' EnsureSomething. An empty editor reads as a broken one.
+            BrainNodes.EnsureSomething()
             LogThis("brain: node window up - own context, {0}x{1}", START_W, START_H)
         Catch ex As Exception
             LogThis("brain: node window failed - {0}", ex.Message)
@@ -134,6 +146,13 @@ Module BrainNodeForm
             form.Show()
             shown = True
         End If
+
+        do_window_cmd()
+
+        ' MINIMISED MEANS NO CLIENT AREA. Drawing into a zero-sized window
+        ' wastes a frame at best; ImGui also has to be told a display size, and
+        ' zero is not one it accepts.
+        If form.WindowState = FormWindowState.Minimized Then Return
 
         Dim mainCtx = ImGui.GetCurrentContext()
 
@@ -176,7 +195,7 @@ Module BrainNodeForm
             ' BrainNodes reported how far its window drifted while it was being
             ' dragged, and put itself back. The Form makes that real.
             If BrainNodes.HostDX <> 0.0F OrElse BrainNodes.HostDY <> 0.0F Then
-                form.Location = New Drawing.Point(
+                form.Location = keep_on_screen(
                     form.Location.X + CInt(BrainNodes.HostDX),
                     form.Location.Y + CInt(BrainNodes.HostDY))
                 BrainNodes.HostDX = 0.0F
@@ -209,6 +228,59 @@ Module BrainNodeForm
             End Try
         End Try
     End Sub
+
+    ''' <summary>
+    ''' Carry out whatever the window buttons asked for.
+    '''
+    ''' Maximise goes to the WORKING AREA of the monitor the window is actually
+    ''' on - not the primary one, and not the full bounds, which would put it
+    ''' under the taskbar with its own close box beneath the clock.
+    ''' </summary>
+    Private Sub do_window_cmd()
+        Dim cmd = BrainNodes.HostCmd
+        If cmd = 0 Then Return
+        BrainNodes.HostCmd = 0
+        Try
+            If cmd = 1 Then
+                form.WindowState = FormWindowState.Minimized
+                Return
+            End If
+
+            If BrainNodes.HostMaxed Then
+                If restoreTo.Width > 0 Then form.Bounds = restoreTo
+                BrainNodes.HostMaxed = False
+            Else
+                restoreTo = form.Bounds
+                form.Bounds = Screen.FromControl(form).WorkingArea
+                BrainNodes.HostMaxed = True
+            End If
+            ' The form moved itself, so the window has to follow for one frame
+            ' instead of the other way round.
+            BrainNodes.HostResync = True
+        Catch ex As Exception
+            LogThis("brain: node window command - {0}", ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Somewhere the title bar can still be reached.
+    '''
+    ''' The ImGui title bar is the only handle this window has, so a drag that
+    ''' puts it above the desktop strands the window - nothing left to grab,
+    ''' and only a restart brings it back.
+    '''
+    ''' The TOP is the only hard edge. Pushed off the left, right or bottom the
+    ''' title bar is still on screen and can be dragged home; pushed off the
+    ''' top it is gone. A strip is kept visible on the other three so the
+    ''' window cannot be posted into a corner either.
+    ''' </summary>
+    Private Function keep_on_screen(x As Integer, y As Integer) As Drawing.Point
+        Const STRIP As Integer = 90      ' enough title bar to get hold of
+        Dim v = SystemInformation.VirtualScreen
+        Dim nx = Math.Max(v.Left - form.Width + STRIP, Math.Min(v.Right - STRIP, x))
+        Dim ny = Math.Max(v.Top, Math.Min(v.Bottom - STRIP, y))
+        Return New Drawing.Point(nx, ny)
+    End Function
 
     ''' <summary>Close it for good, at shutdown.</summary>
     Public Sub Stop_()

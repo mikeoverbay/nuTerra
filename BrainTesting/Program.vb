@@ -37,6 +37,16 @@ Module Program
     Sub Main(args As String())
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
 
+        ' THE LOG POLICY, BEFORE ANYTHING LOGS.
+        '
+        ' LOG_KEEP ships as the tank-path tags and was narrowed to "brain:"
+        ' inside BrainWindow - which is built AFTER this, so every brain: line
+        ' written during startup was matched against {"tank:", ...}, kept
+        ' nothing, and vanished at the sink. Arguments that parsed correctly
+        ' looked like arguments that were never seen, and two probes written
+        ' to find out why were themselves swallowed by the same gate.
+        LOG_KEEP = New String() {"brain:"}
+
         Dim ignored As New List(Of String)
 
         For Each a In args
@@ -76,6 +86,14 @@ Module Program
             ElseIf a.Equals("restore", StringComparison.OrdinalIgnoreCase) Then
                 RESTORE_ON_START = True
 
+            ElseIf a.Equals("graph", StringComparison.OrdinalIgnoreCase) Then
+                ' DRIVE FROM THE NODE BOARD. The checkbox does the same
+                ' thing, but a scorecard run has to be repeatable without
+                ' anybody remembering to tick it - and a run that was
+                ' supposed to be the graph and quietly was not is a
+                ' measurement of the wrong brain.
+                USE_GRAPH = True
+
             ElseIf a.Equals("sim", StringComparison.OrdinalIgnoreCase) Then
                 ' START THE SIM FROM THE COMMAND LINE. The owner's ask,
                 ' 2026-09-15: "It should be able to start the sim with a arg."
@@ -101,6 +119,19 @@ Module Program
 
             ElseIf a.Equals("fullscreen", StringComparison.OrdinalIgnoreCase) Then
                 FULLSCREEN_WINDOW = True
+
+            ElseIf a.StartsWith("trail=", StringComparison.OrdinalIgnoreCase) Then
+                ' trail=<metres> - follow cam, trailing heading, no pitch change.
+                Dim tm As Single
+                If Single.TryParse(a.Substring(6), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, tm) Then
+                    TRAIL_M = tm
+                End If
+
+            ElseIf a.Equals("maximized", StringComparison.OrdinalIgnoreCase) OrElse
+                   a.Equals("maximised", StringComparison.OrdinalIgnoreCase) OrElse
+                   a.Equals("max", StringComparison.OrdinalIgnoreCase) Then
+                MAXIMIZED_WINDOW = True
 
             ElseIf a.Equals("clean", StringComparison.OrdinalIgnoreCase) Then
                 CLEAN_VIEW = True
@@ -139,6 +170,80 @@ Module Program
                 ' front of the owner without a window taking his screen.
                 SHOT_PATH = a.Substring(5)
 
+            ElseIf a.StartsWith("shotat=", StringComparison.OrdinalIgnoreCase) Then
+                ' Hold that shot until the brain has been driving this long.
+                ' A picture of the HUD taken before the first scan is a
+                ' picture of an empty corner, and it gets read as a broken
+                ' view rather than an early one.
+                Dim secs As Single
+                If Single.TryParse(a.Substring(7), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, secs) Then
+                    SHOT_AFTER_S = secs
+                End If
+
+            ElseIf a.StartsWith("runfor=", StringComparison.OrdinalIgnoreCase) Then
+                ' Drive for this long, score it, quit. The point is that two
+                ' brains get the SAME window - a comparison where one side
+                ' ran longer is not a comparison.
+                Dim secs As Single
+                If Single.TryParse(a.Substring(7), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, secs) Then
+                    RUN_SECS = secs
+                End If
+
+            ElseIf a.StartsWith("bailafter=", StringComparison.OrdinalIgnoreCase) Then
+                Dim secs As Single
+                If Single.TryParse(a.Substring(10), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, secs) Then
+                    BAIL_S = secs
+                End If
+
+            ElseIf a.StartsWith("ticks=", StringComparison.OrdinalIgnoreCase) Then
+                Dim n As Integer
+                If Integer.TryParse(a.Substring(6), n) AndAlso n > 0 Then
+                    TICK_LIMIT = n
+                End If
+
+            ElseIf a.StartsWith("topdown", StringComparison.OrdinalIgnoreCase) Then
+                ' Straight down on the hull, chasing it, trail on. The view for
+                ' watching WHERE it goes rather than what it can see - a stall
+                ' from above shows the shape of the ground that caused it.
+                ' topdown=60 sets the height; bare topdown takes 55 m.
+                Dim eq2 = a.IndexOf("="c)
+                Dim hgt As Single = 55.0F
+                If eq2 > 0 Then
+                    Single.TryParse(a.Substring(eq2 + 1),
+                                    Globalization.NumberStyles.Float,
+                                    Globalization.CultureInfo.InvariantCulture, hgt)
+                End If
+                TOP_DOWN_M = hgt
+
+            ElseIf a.Equals("pingoal", StringComparison.OrdinalIgnoreCase) Then
+                BrainGoal.Pinned = True
+                BrainGoal.Follow = False
+
+            ElseIf a.StartsWith("goal=", StringComparison.OrdinalIgnoreCase) Then
+                ' goal=base1 | goal=base2 | goal=x,z
+                ' Resolved AFTER the arena is read - base1 means nothing
+                ' until the arena_def has been parsed.
+                GOAL_ARG = a.Substring(5)
+
+            ElseIf a.StartsWith("tune=", StringComparison.OrdinalIgnoreCase) Then
+                LogThis("brain: tune arg seen - [{0}]", a.Substring(5))
+                BrainTune.Parse(a.Substring(5))
+
+            ElseIf a.StartsWith("score=", StringComparison.OrdinalIgnoreCase) Then
+                ' One CSV row per run, appended. A sweep reads a file; it does
+                ' not scrape a console, which is one encoding away from lying.
+                SCORE_FILE = a.Substring(6)
+
+            ElseIf a.Equals("ahead", StringComparison.OrdinalIgnoreCase) Then
+                ' TEMPORARY, with BrainAheadScope itself. The test view is
+                ' off by default and lives behind a checkbox; there is no
+                ' way to tick a checkbox from a command line, and a shot of
+                ' it is the whole reason the shot exists.
+                BrainAheadScope.SHOW = True
+
             ElseIf is_inert(a) Then
                 ignored.Add(a)
 
@@ -160,6 +265,9 @@ Module Program
                 "ignored {0} argument(s) - no subsystem here for them: {1}",
                 ignored.Count, String.Join(" ", ignored))
         End If
+
+        ' The sweep's knobs, if a sweep left any.
+        BrainTune.LoadFile()
 
         Using w As New BrainWindow()
             w.Run()

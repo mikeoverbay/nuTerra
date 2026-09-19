@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports ImGuiNET
 Imports OpenTK.Mathematics
 Imports OpenTK.Windowing.Desktop
@@ -58,7 +58,19 @@ Module BrainPanel
 
     ''' <summary>Where pictures and snapshots go. The shared folder, so another
     ''' session can read what happened without being handed it.</summary>
-    Public Const OUT_DIR As String = "C:\nuTerra_shared\tank_ai_work\brain"
+    ''' <summary>The shared folder itself. The owner, 2026-09-19:
+    ''' "move its output the the shared folder", then "C:\nuTerra_shared".
+    '''
+    ''' It used to be tank_ai_work\brain, which was the right home while
+    ''' Tank AI owned this app and the wrong one the moment it did not - a
+    ''' retired lane's drop box that nobody would come looking in.
+    '''
+    ''' RESTORESNAPSHOT READS THIS TOO, taking the newest *_snap.txt it
+    ''' finds, so moving the folder moves what "restore" restores. The
+    ''' snapshots in the old folder were copied across when it changed, or
+    ''' the next restore would have come up with no goal at all.
+    ''' </summary>
+    Public Const OUT_DIR As String = "C:\nuTerra_shared"
 
     Public Sub Init(width As Integer, height As Integer)
         ctl = New ImGuiController(width, height)
@@ -304,6 +316,36 @@ Module BrainPanel
         ' THE RATES, right under the state. They were at the bottom of a long
         ' panel, which is the same as not being there.
         ImGui.Text(String.Format("{0:0} fps   ai {1:0.00} ms", fps, BrainSim.TickMs))
+
+        ' WHAT IT DECIDED AND WHY, on screen rather than in a log nobody is
+        ' watching. "it stopped moving and I don't know why" - and the answer
+        ' was in the board trace all along, going past at four hundred lines a
+        ' second in a console behind a fullscreen window.
+        If BrainNodes.ActedNode >= 0 Then
+            ImGui.TextColored(New System.Numerics.Vector4(0.55F, 0.85F, 1.0F, 1.0F),
+                String.Format("act  {0}#{1}",
+                              BrainNodes.NodeKind(BrainNodes.ActedNode),
+                              BrainNodes.ActedNode))
+        End If
+        ImGui.TextWrapped("why  " & BrainReport.LastWhy)
+        ImGui.Text(String.Format("thr {0:0.00}  steer {1:+0.00;-0.00}  speed {2:0.0} m/s",
+                                 BrainReport.LastThrottle, BrainReport.LastSteer,
+                                 BrainReport.LastSpeed))
+        ' THE TURN RADIUS, which is what a complaint about turning is about
+        ' and the one number nothing was showing. radius = v / (steer * rate),
+        ' so a wide circle at low speed means the steer is not at full lock.
+        Dim st = Math.Abs(BrainReport.LastSteer)
+        If st > 0.01F AndAlso Math.Abs(BrainReport.LastSpeed) > 0.05F Then
+            ImGui.Text(String.Format("turn radius {0:0.0} m",
+                Math.Abs(BrainReport.LastSpeed) / (st * BrainSim.TURN_RATE)))
+        Else
+            ImGui.TextDisabled("turn radius  -  (pivot or straight)")
+        End If
+        Dim gb2 = TryCast(BrainSim.Brain, GraphBrain)
+        If gb2 IsNot Nothing Then
+            ImGui.TextDisabled(String.Format("ticks {0}   scans {1}   walks {2}",
+                                             BrainSim.Frame, gb2.scans, gb2.walkRan))
+        End If
         ImGui.Separator()
 
         If ImGui.Button(If(BrainSim.Running, "Stop  [space]", "Run  [space]"),
@@ -321,8 +363,23 @@ Module BrainPanel
         If ImGui.Checkbox("Radar", show) Then BrainRadar.SHOW = show
         Dim scope = BrainScope.SHOW
         If ImGui.Checkbox("Scope", scope) Then BrainScope.SHOW = scope
+        Dim ahead = BrainAheadScope.SHOW
+        If ImGui.Checkbox("Ahead test", ahead) Then BrainAheadScope.SHOW = ahead
         Dim graph = BrainNodes.SHOW
         If ImGui.Checkbox("Brain graph  (G)", graph) Then BrainNodes.SHOW = graph
+        Dim card = BrainTankState.SHOW
+        If ImGui.Checkbox("Hover Info Board", card) Then BrainTankState.SHOW = card
+        ' WHICH BRAIN IS DRIVING. Swapped live rather than on restart, so
+        ' the same goal and the same spot can be handed to both - two runs
+        ' from different places do not compare.
+        Dim ong = USE_GRAPH
+        If ImGui.Checkbox("Drive from the board", ong) Then
+            USE_GRAPH = ong
+            BrainSim.Brain = If(USE_GRAPH, CType(New GraphBrain(), IBrain),
+                                           CType(New RangeBrain(), IBrain))
+        End If
+        ImGui.TextDisabled("  " & BrainSim.Brain.Name)
+
         Dim chase = BrainRender.Cam.Chase
         If ImGui.Checkbox("Chase cam  (C)", chase) Then BrainRender.Cam.Chase = chase
         Dim trail = BrainRender.Cam.ChaseTrail

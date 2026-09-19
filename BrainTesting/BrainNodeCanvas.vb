@@ -126,7 +126,9 @@ Public Class Canvas
         ' title bar and close box, so an OS caption would be a second one.
         FormBorderStyle = FormBorderStyle.None
         StartPosition = FormStartPosition.Manual
-        ShowInTaskbar = False
+        ' IN THE TASKBAR, because it can now be minimised. Minimising a window
+        ' that is not there is a window with no way back short of the G key.
+        ShowInTaskbar = True
         Text = "Brain graph"
         KeyPreview = True
         ' The GL context owns every pixel. Letting WinForms paint the

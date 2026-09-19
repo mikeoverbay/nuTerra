@@ -1,0 +1,476 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -60 1540 1726" width="954.8" height="1070.12">
+<rect x="-40" y="-60" width="1540" height="1726" fill="#0e1218"/>
+<text x="-20" y="-26" fill="#d8e2ee" font-family="Consolas,monospace" font-size="22">RangeBrain as it runs today - 54 nodes, 58 wires</text>
+<path d="M150 159 C180 159 180 141 210 141" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 271 C217.5 271 -67.5 401 0 401" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 271 C180 271 180 361 210 361" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 271 C217.5 271 -67.5 901 0 901" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 271 C271.5 271 298.5 1231 420 1231" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 901 C271.5 901 298.5 901 420 901" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 901 C271.5 901 298.5 1121 420 1121" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M570 901 C637.5 901 352.5 1011 420 1011" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 141 C180 141 180 1021 210 1021" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 541 C180 541 180 1039 210 1039" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 541 C180 541 180 1151 210 1151" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 761 C180 761 180 911 210 911" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M150 31 C375 31 425 91 650 91" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 145 C867.5 145 582.5 451 650 451" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 505 C867.5 505 582.5 811 650 811" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 865 C867.5 865 582.5 1171 650 1171" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 91 C831.5 91 838.5 71 870 71" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 71 C1051.5 71 1058.5 71 1090 71" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 109 C831.5 109 838.5 181 870 181" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 141 C589.5 141 640.5 199 870 199" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 181 C1051.5 181 1058.5 181 1090 181" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 127 C831.5 127 838.5 291 870 291" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 251 C589.5 251 640.5 309 870 309" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 291 C1051.5 291 1058.5 291 1090 291" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1240 291 C1271.5 291 1278.5 291 1310 291" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1240 309 C1271.5 309 1278.5 401 1310 401" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 451 C831.5 451 838.5 511 870 511" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 361 C589.5 361 640.5 529 870 529" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 511 C1051.5 511 1058.5 511 1090 511" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 469 C831.5 469 838.5 621 870 621" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 471 C589.5 471 640.5 639 870 639" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 621 C1051.5 621 1058.5 621 1090 621" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M150 419 C573 419 667 639 1090 639" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M800 487 C831.5 487 838.5 741 870 741" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 581 C589.5 581 640.5 759 870 759" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 741 C1051.5 741 1058.5 741 1090 741" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 811 C831.5 811 838.5 871 870 871" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 691 C589.5 691 640.5 889 870 889" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 871 C1051.5 871 1058.5 871 1090 871" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 829 C831.5 829 838.5 991 870 991" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 801 C589.5 801 640.5 1009 870 1009" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 991 C1051.5 991 1058.5 991 1090 991" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M150 797 C573 797 667 1009 1090 1009" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M800 847 C831.5 847 838.5 1111 870 1111" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 911 C589.5 911 640.5 1129 870 1129" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 1111 C1051.5 1111 1058.5 1111 1090 1111" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M800 1171 C831.5 1171 838.5 1221 870 1221" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 1021 C589.5 1021 640.5 1239 870 1239" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 1221 C1051.5 1221 1058.5 1221 1090 1221" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M570 1231 C804 1231 856 1239 1090 1239" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M800 1189 C831.5 1189 838.5 1351 870 1351" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 1351 C1051.5 1351 1058.5 1351 1090 1351" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M570 1121 C804 1121 856 1369 1090 1369" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M800 1207 C831.5 1207 838.5 1471 870 1471" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M360 1151 C589.5 1151 640.5 1489 870 1489" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M1020 1471 C1051.5 1471 1058.5 1471 1090 1471" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<path d="M150 401 C573 401 667 1489 1090 1489" fill="none" stroke="#4a7fa8" stroke-width="1.6" opacity="0.85"/>
+<path d="M800 1225 C930.5 1225 959.5 1591 1090 1591" fill="none" stroke="#e0b050" stroke-width="2.4" opacity="0.85"/>
+<rect x="0" y="0" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 22 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="15" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Tick</text>
+<circle cx="150" cy="31" r="4" fill="#40e040"/>
+<text x="142" y="34" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="0" y="110" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 132 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="125" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Goal</text>
+<circle cx="150" cy="141" r="4" fill="#40e040"/>
+<text x="142" y="144" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">bearing</text>
+<circle cx="150" cy="159" r="4" fill="#40e040"/>
+<text x="142" y="162" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">range</text>
+<rect x="0" y="240" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 262 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="255" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Ray Scan</text>
+<circle cx="150" cy="271" r="4" fill="#40e040"/>
+<text x="142" y="274" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">hits</text>
+<circle cx="150" cy="289" r="4" fill="#40e040"/>
+<text x="142" y="292" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">ahead</text>
+<rect x="0" y="370" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 392 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="385" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Rear Scan</text>
+<circle cx="0" cy="401" r="4" fill="#80c8ff"/>
+<text x="8" y="404" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">hits</text>
+<circle cx="150" cy="401" r="4" fill="#40e040"/>
+<text x="142" y="404" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">deepest</text>
+<circle cx="150" cy="419" r="4" fill="#40e040"/>
+<text x="142" y="422" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">bearing</text>
+<rect x="0" y="510" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 532 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="525" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Body Ahead</text>
+<circle cx="150" cy="541" r="4" fill="#40e040"/>
+<text x="142" y="544" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">metres</text>
+<rect x="0" y="620" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 642 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="635" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Speed</text>
+<circle cx="150" cy="651" r="4" fill="#40e040"/>
+<text x="142" y="654" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">metres</text>
+<rect x="0" y="730" width="150" height="84" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 752 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="745" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Corridor</text>
+<circle cx="0" cy="761" r="4" fill="#80c8ff"/>
+<text x="8" y="764" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">reach</text>
+<circle cx="150" cy="761" r="4" fill="#40e040"/>
+<text x="142" y="764" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">clear</text>
+<circle cx="150" cy="779" r="4" fill="#40e040"/>
+<text x="142" y="782" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">dist</text>
+<circle cx="150" cy="797" r="4" fill="#40e040"/>
+<text x="142" y="800" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">side</text>
+<rect x="0" y="870" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M0 892 h150 v-18 h-150 z" fill="#3f6b8f"/>
+<text x="7" y="885" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gaps</text>
+<circle cx="0" cy="901" r="4" fill="#80c8ff"/>
+<text x="8" y="904" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">hits</text>
+<circle cx="150" cy="901" r="4" fill="#40e040"/>
+<text x="142" y="904" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">ways</text>
+<rect x="210" y="110" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 132 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="125" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Arrived</text>
+<circle cx="210" cy="141" r="4" fill="#80c8ff"/>
+<text x="218" y="144" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">range</text>
+<circle cx="360" cy="141" r="4" fill="#40e040"/>
+<text x="352" y="144" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="220" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 242 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="235" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Is Wedged</text>
+<circle cx="360" cy="251" r="4" fill="#40e040"/>
+<text x="352" y="254" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="330" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 352 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="345" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Enough Rays</text>
+<circle cx="210" cy="361" r="4" fill="#80c8ff"/>
+<text x="218" y="364" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">hits</text>
+<circle cx="360" cy="361" r="4" fill="#40e040"/>
+<text x="352" y="364" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="440" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 462 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="455" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Is Backing</text>
+<circle cx="360" cy="471" r="4" fill="#40e040"/>
+<text x="352" y="474" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="550" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 572 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="565" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Is Turning</text>
+<circle cx="360" cy="581" r="4" fill="#40e040"/>
+<text x="352" y="584" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="660" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 682 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="675" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Is Door</text>
+<circle cx="360" cy="691" r="4" fill="#40e040"/>
+<text x="352" y="694" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="770" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 792 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="785" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Is Follow</text>
+<circle cx="360" cy="801" r="4" fill="#40e040"/>
+<text x="352" y="804" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="880" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 902 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="895" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Plank Hit</text>
+<circle cx="210" cy="911" r="4" fill="#80c8ff"/>
+<text x="218" y="914" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">clear</text>
+<circle cx="360" cy="911" r="4" fill="#40e040"/>
+<text x="352" y="914" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="990" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 1012 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="1005" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Will Clear</text>
+<circle cx="210" cy="1021" r="4" fill="#80c8ff"/>
+<text x="218" y="1024" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">bearing</text>
+<circle cx="210" cy="1039" r="4" fill="#80c8ff"/>
+<text x="218" y="1042" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">metres</text>
+<circle cx="360" cy="1021" r="4" fill="#40e040"/>
+<text x="352" y="1024" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="210" y="1120" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M210 1142 h150 v-18 h-150 z" fill="#7a5c3a"/>
+<text x="217" y="1135" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Rear Better</text>
+<circle cx="210" cy="1151" r="4" fill="#80c8ff"/>
+<text x="218" y="1154" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">metres</text>
+<circle cx="360" cy="1151" r="4" fill="#40e040"/>
+<text x="352" y="1154" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">yes</text>
+<rect x="420" y="870" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M420 892 h150 v-18 h-150 z" fill="#4a6b45"/>
+<text x="427" y="885" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Widest</text>
+<circle cx="420" cy="901" r="4" fill="#80c8ff"/>
+<text x="428" y="904" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">ways</text>
+<circle cx="570" cy="901" r="4" fill="#40e040"/>
+<text x="562" y="904" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">way</text>
+<rect x="420" y="980" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M420 1002 h150 v-18 h-150 z" fill="#4a6b45"/>
+<text x="427" y="995" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Vote</text>
+<circle cx="420" cy="1011" r="4" fill="#80c8ff"/>
+<text x="428" y="1014" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">way</text>
+<circle cx="570" cy="1011" r="4" fill="#40e040"/>
+<text x="562" y="1014" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">way</text>
+<rect x="420" y="1090" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M420 1112 h150 v-18 h-150 z" fill="#4a6b45"/>
+<text x="427" y="1105" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Door Gap</text>
+<circle cx="420" cy="1121" r="4" fill="#80c8ff"/>
+<text x="428" y="1124" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">ways</text>
+<circle cx="570" cy="1121" r="4" fill="#40e040"/>
+<text x="562" y="1124" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">way</text>
+<rect x="420" y="1200" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M420 1222 h150 v-18 h-150 z" fill="#4a6b45"/>
+<text x="427" y="1215" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Deeper Side</text>
+<circle cx="420" cy="1231" r="4" fill="#80c8ff"/>
+<text x="428" y="1234" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">hits</text>
+<circle cx="570" cy="1231" r="4" fill="#40e040"/>
+<text x="562" y="1234" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">bearing</text>
+<rect x="420" y="1320" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M420 1342 h150 v-18 h-150 z" fill="#4a6b45"/>
+<text x="427" y="1335" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Best Progress</text>
+<circle cx="420" cy="1351" r="4" fill="#80c8ff"/>
+<text x="428" y="1354" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">ways</text>
+<circle cx="420" cy="1369" r="4" fill="#80c8ff"/>
+<text x="428" y="1372" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">bearing</text>
+<circle cx="570" cy="1351" r="4" fill="#40e040"/>
+<text x="562" y="1354" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">way</text>
+<rect x="650" y="60" width="150" height="102" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M650 82 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="657" y="75" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Priority</text>
+<circle cx="650" cy="91" r="4" fill="#80c8ff"/>
+<text x="658" y="94" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="800" cy="91" r="4" fill="#40e040"/>
+<text x="792" y="94" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">a</text>
+<circle cx="800" cy="109" r="4" fill="#40e040"/>
+<text x="792" y="112" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">b</text>
+<circle cx="800" cy="127" r="4" fill="#40e040"/>
+<text x="792" y="130" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">c</text>
+<circle cx="800" cy="145" r="4" fill="#40e040"/>
+<text x="792" y="148" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">d</text>
+<rect x="650" y="420" width="150" height="102" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M650 442 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="657" y="435" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Priority</text>
+<circle cx="650" cy="451" r="4" fill="#80c8ff"/>
+<text x="658" y="454" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="800" cy="451" r="4" fill="#40e040"/>
+<text x="792" y="454" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">a</text>
+<circle cx="800" cy="469" r="4" fill="#40e040"/>
+<text x="792" y="472" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">b</text>
+<circle cx="800" cy="487" r="4" fill="#40e040"/>
+<text x="792" y="490" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">c</text>
+<circle cx="800" cy="505" r="4" fill="#40e040"/>
+<text x="792" y="508" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">d</text>
+<rect x="650" y="780" width="150" height="102" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M650 802 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="657" y="795" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Priority</text>
+<circle cx="650" cy="811" r="4" fill="#80c8ff"/>
+<text x="658" y="814" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="800" cy="811" r="4" fill="#40e040"/>
+<text x="792" y="814" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">a</text>
+<circle cx="800" cy="829" r="4" fill="#40e040"/>
+<text x="792" y="832" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">b</text>
+<circle cx="800" cy="847" r="4" fill="#40e040"/>
+<text x="792" y="850" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">c</text>
+<circle cx="800" cy="865" r="4" fill="#40e040"/>
+<text x="792" y="868" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">d</text>
+<rect x="650" y="1140" width="150" height="102" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M650 1162 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="657" y="1155" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Priority</text>
+<circle cx="650" cy="1171" r="4" fill="#80c8ff"/>
+<text x="658" y="1174" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="800" cy="1171" r="4" fill="#40e040"/>
+<text x="792" y="1174" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">a</text>
+<circle cx="800" cy="1189" r="4" fill="#40e040"/>
+<text x="792" y="1192" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">b</text>
+<circle cx="800" cy="1207" r="4" fill="#40e040"/>
+<text x="792" y="1210" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">c</text>
+<circle cx="800" cy="1225" r="4" fill="#40e040"/>
+<text x="792" y="1228" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">d</text>
+<rect x="870" y="40" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 62 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="55" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="71" r="4" fill="#80c8ff"/>
+<text x="878" y="74" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="89" r="4" fill="#80c8ff"/>
+<text x="878" y="92" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="71" r="4" fill="#40e040"/>
+<text x="1012" y="74" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="40" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 62 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="55" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Stop</text>
+<circle cx="1090" cy="71" r="4" fill="#80c8ff"/>
+<text x="1098" y="74" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<rect x="870" y="150" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 172 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="165" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="181" r="4" fill="#80c8ff"/>
+<text x="878" y="184" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="199" r="4" fill="#80c8ff"/>
+<text x="878" y="202" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="181" r="4" fill="#40e040"/>
+<text x="1012" y="184" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="150" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 172 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="165" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">New Goal</text>
+<circle cx="1090" cy="181" r="4" fill="#80c8ff"/>
+<text x="1098" y="184" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<rect x="870" y="260" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 282 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="275" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="291" r="4" fill="#80c8ff"/>
+<text x="878" y="294" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="309" r="4" fill="#80c8ff"/>
+<text x="878" y="312" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="291" r="4" fill="#40e040"/>
+<text x="1012" y="294" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="260" width="150" height="84" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 282 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="1097" y="275" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Sequence</text>
+<circle cx="1090" cy="291" r="4" fill="#80c8ff"/>
+<text x="1098" y="294" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1240" cy="291" r="4" fill="#40e040"/>
+<text x="1232" y="294" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">a</text>
+<circle cx="1240" cy="309" r="4" fill="#40e040"/>
+<text x="1232" y="312" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">b</text>
+<circle cx="1240" cy="327" r="4" fill="#40e040"/>
+<text x="1232" y="330" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">c</text>
+<rect x="1310" y="260" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1310 282 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1317" y="275" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Mark Trap</text>
+<circle cx="1310" cy="291" r="4" fill="#80c8ff"/>
+<text x="1318" y="294" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<rect x="1310" y="370" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1310 392 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1317" y="385" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Set State</text>
+<circle cx="1310" cy="401" r="4" fill="#80c8ff"/>
+<text x="1318" y="404" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<rect x="870" y="480" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 502 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="495" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="511" r="4" fill="#80c8ff"/>
+<text x="878" y="514" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="529" r="4" fill="#80c8ff"/>
+<text x="878" y="532" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="511" r="4" fill="#40e040"/>
+<text x="1012" y="514" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="480" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 502 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="495" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Rescan</text>
+<circle cx="1090" cy="511" r="4" fill="#80c8ff"/>
+<text x="1098" y="514" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<rect x="870" y="590" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 612 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="605" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="621" r="4" fill="#80c8ff"/>
+<text x="878" y="624" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="639" r="4" fill="#80c8ff"/>
+<text x="878" y="642" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="621" r="4" fill="#40e040"/>
+<text x="1012" y="624" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="590" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 612 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="605" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Reverse</text>
+<circle cx="1090" cy="621" r="4" fill="#80c8ff"/>
+<text x="1098" y="624" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="639" r="4" fill="#80c8ff"/>
+<text x="1098" y="642" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">bearing</text>
+<rect x="870" y="710" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 732 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="725" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="741" r="4" fill="#80c8ff"/>
+<text x="878" y="744" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="759" r="4" fill="#80c8ff"/>
+<text x="878" y="762" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="741" r="4" fill="#40e040"/>
+<text x="1012" y="744" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="710" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 732 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="725" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Turn To</text>
+<circle cx="1090" cy="741" r="4" fill="#80c8ff"/>
+<text x="1098" y="744" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="759" r="4" fill="#80c8ff"/>
+<text x="1098" y="762" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">bearing</text>
+<rect x="870" y="840" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 862 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="855" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="871" r="4" fill="#80c8ff"/>
+<text x="878" y="874" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="889" r="4" fill="#80c8ff"/>
+<text x="878" y="892" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="871" r="4" fill="#40e040"/>
+<text x="1012" y="874" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="840" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 862 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="855" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Through Door</text>
+<circle cx="1090" cy="871" r="4" fill="#80c8ff"/>
+<text x="1098" y="874" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="889" r="4" fill="#80c8ff"/>
+<text x="1098" y="892" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">way</text>
+<rect x="870" y="960" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 982 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="975" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="991" r="4" fill="#80c8ff"/>
+<text x="878" y="994" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="1009" r="4" fill="#80c8ff"/>
+<text x="878" y="1012" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="991" r="4" fill="#40e040"/>
+<text x="1012" y="994" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="960" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 982 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="975" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Follow Wall</text>
+<circle cx="1090" cy="991" r="4" fill="#80c8ff"/>
+<text x="1098" y="994" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="1009" r="4" fill="#80c8ff"/>
+<text x="1098" y="1012" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">side</text>
+<rect x="870" y="1080" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 1102 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="1095" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="1111" r="4" fill="#80c8ff"/>
+<text x="878" y="1114" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="1129" r="4" fill="#80c8ff"/>
+<text x="878" y="1132" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="1111" r="4" fill="#40e040"/>
+<text x="1012" y="1114" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="1080" width="150" height="48" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 1102 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="1095" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Rescan</text>
+<circle cx="1090" cy="1111" r="4" fill="#80c8ff"/>
+<text x="1098" y="1114" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<rect x="870" y="1190" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 1212 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="1205" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="1221" r="4" fill="#80c8ff"/>
+<text x="878" y="1224" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="1239" r="4" fill="#80c8ff"/>
+<text x="878" y="1242" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="1221" r="4" fill="#40e040"/>
+<text x="1012" y="1224" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="1190" width="150" height="84" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 1212 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="1205" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Drive Heading</text>
+<circle cx="1090" cy="1221" r="4" fill="#80c8ff"/>
+<text x="1098" y="1224" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="1239" r="4" fill="#80c8ff"/>
+<text x="1098" y="1242" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">bearing</text>
+<circle cx="1090" cy="1257" r="4" fill="#80c8ff"/>
+<text x="1098" y="1260" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">throttle</text>
+<rect x="870" y="1320" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 1342 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="1335" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="1351" r="4" fill="#80c8ff"/>
+<text x="878" y="1354" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="1369" r="4" fill="#80c8ff"/>
+<text x="878" y="1372" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="1351" r="4" fill="#40e040"/>
+<text x="1012" y="1354" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="1320" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 1342 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="1335" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Through Door</text>
+<circle cx="1090" cy="1351" r="4" fill="#80c8ff"/>
+<text x="1098" y="1354" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="1369" r="4" fill="#80c8ff"/>
+<text x="1098" y="1372" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">way</text>
+<rect x="870" y="1440" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M870 1462 h150 v-18 h-150 z" fill="#4b4370"/>
+<text x="877" y="1455" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Gate</text>
+<circle cx="870" cy="1471" r="4" fill="#80c8ff"/>
+<text x="878" y="1474" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="870" cy="1489" r="4" fill="#80c8ff"/>
+<text x="878" y="1492" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">when</text>
+<circle cx="1020" cy="1471" r="4" fill="#40e040"/>
+<text x="1012" y="1474" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9" text-anchor="end">out</text>
+<rect x="1090" y="1440" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 1462 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="1455" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Reverse</text>
+<circle cx="1090" cy="1471" r="4" fill="#80c8ff"/>
+<text x="1098" y="1474" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="1489" r="4" fill="#80c8ff"/>
+<text x="1098" y="1492" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">bearing</text>
+<rect x="1090" y="1560" width="150" height="66" rx="4" fill="#2a3340" stroke="#151b23"/>
+<path d="M1090 1582 h150 v-18 h-150 z" fill="#7a3f4a"/>
+<text x="1097" y="1575" fill="#eef4fb" font-family="Segoe UI,sans-serif" font-size="11" font-weight="600">Reverse</text>
+<circle cx="1090" cy="1591" r="4" fill="#80c8ff"/>
+<text x="1098" y="1594" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">in</text>
+<circle cx="1090" cy="1609" r="4" fill="#80c8ff"/>
+<text x="1098" y="1612" fill="#9fb3c8" font-family="Segoe UI,sans-serif" font-size="9">bearing</text>
+</svg>

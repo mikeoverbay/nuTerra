@@ -22,6 +22,8 @@ Module BrainRender
         BrainModels.Init()
         BrainTankDraw.Init()
         BrainRings.Init()
+        BrainTrail.Init()
+        BrainWalkView.Init()
         BrainRadar.Init()
         BrainGoal.Init()
 
@@ -80,6 +82,8 @@ Module BrainRender
         ' one less thing hidden behind a canopy on a base.
         BrainTrees.Draw(vp)
         BrainRings.Draw(vp)
+        BrainTrail.Draw(vp)
+        BrainWalkView.Draw(vp)
         BrainTankDraw.Draw(vp)
 
         ' THE RADAR OVER THE HULLS, because it is about the hull and the

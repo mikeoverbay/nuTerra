@@ -20,9 +20,70 @@ Module BrainSim
 
     ''' <summary>The installed brain. NullBrain until something replaces it.
     ''' Public so Tank AI's code can set it without touching this file.</summary>
+    Private drivingName As String = ""
+
+    ''' <summary>
+    ''' WHO IS DRIVING, said once each time it changes.
+    '''
+    ''' A run's log has to name the brain that produced it. Two scorecards
+    ''' that do not say which brain they came from are not a comparison,
+    ''' they are two numbers - and the switch is a checkbox, so getting it
+    ''' wrong leaves no trace anywhere else.
+    ''' </summary>
+    Private refuseIn As Single = 0.0F
+
+    ''' <summary>
+    ''' WHY THE HULL DID NOT MOVE.
+    '''
+    ''' The refusal above is silent, and it is the end of every stuck run: the
+    ''' brain commands full throttle, the speed reads zero, and nothing says
+    ''' what failed. The numbers are the answer, so this prints them rather
+    ''' than a count - but twice a second, because one a frame is sixty a
+    ''' second and that is a window nobody can read.
+    '''
+    ''' It also asks whether a SMALLER box would have passed. That one extra
+    ''' question separates the two cases, and they have nothing in common:
+    ''' either the hull is somewhere tighter than its own drive box, which no
+    ''' amount of brain work fixes, or the destination is fine for a hull and
+    ''' we are asking for more room than we need.
+    ''' </summary>
+    ''' <summary>
+    ''' THE WORLD SAID NO, and how many times in a row.
+    '''
+    ''' The refusal used to be a log line and nothing else, so a brain
+    ''' could command the same impossible move on every tick of a seventy
+    ''' second run and never learn anything from it. Measured: thr 0.10,
+    ''' speed 0.0, for the last eighteen seconds of a run.
+    ''' </summary>
+    Public Refused As Boolean = False
+    Public RefusedRun As Integer = 0
+
+    Private Sub say_refused(h As BrainHull, want As Vector2, dt As Single)
+        Refused = True
+        RefusedRun += 1
+        refuseIn -= dt
+        If refuseIn > 0.0F Then Return
+        refuseIn = 0.5F
+
+        Dim r = h.DriveRadius
+        Dim half = BrainNav.Standable(want.X, want.Y, r * 0.5F)
+        Dim here = BrainNav.Standable(h.pos.X, h.pos.Y, r)
+        LogThis("brain: MOVE REFUSED at ({0:0.0}, {1:0.0}) -> ({2:0.0}, {3:0.0}) " &
+                "r {4:0.00} | half-r {5} | standing where we are {6}",
+                h.pos.X, h.pos.Y, want.X, want.Y, r, half, here)
+    End Sub
+
+    Public Sub NoteDriver()
+        Dim n = If(Brain Is Nothing, "none", Brain.Name)
+        If n = drivingName Then Return
+        drivingName = n
+        LogThis("brain: driving with the {0} brain", n)
+    End Sub
+
     Public Brain As IBrain = New NullBrain()
 
     Public Running As Boolean = False
+    Private stepping As Boolean = False
     Public Frame As Integer = 0
 
     ''' <summary>How long the BRAIN took last tick, smoothed, in
@@ -63,7 +124,12 @@ Module BrainSim
     ''' runs down during the swing but is only read after the hull is aligned,
     ''' where PEEK_SAMPLES holds the decision anyway.
     ''' </summary>
-    Private Const TURN_RATE As Single = 0.45F      ' rad/s at full steer
+    ''' <summary>Radians a second at full steer - about 26 deg/s.
+    ''' PUBLIC because a brain that plans a turn should plan it against
+    ''' the rate it will actually get. The look-ahead distance is derived
+    ''' from this, and a second copy of the number in the brain would be a
+    ''' second thing to forget to change.</summary>
+    Public Const TURN_RATE As Single = 0.45F      ' rad/s at full steer
 
     Private speeds() As Single
 
@@ -74,12 +140,106 @@ Module BrainSim
         End If
         Frame = 0
         ReDim speeds(BrainTanks.Bodies.Count - 1)
+        ' A fresh run starts from nothing, or the second brain of a duel
+        ' inherits the first one's tally and the comparison is a fiction.
+        BrainReport.Reset()
+        BrainTrail.Reset()
 
+        ' THE OPENING GAP, before anything moves. A scorecard written at the
+        ' end cannot ask this - by then the start is wherever the hull
+        ' happens to be standing.
+        If BrainTanks.Bodies.Count > BrainRadar.HULL Then
+            BrainReport.StartPos = BrainTanks.Bodies(BrainRadar.HULL).spawn
+            BrainReport.StartGap = If(BrainGoal.HasTarget,
+                                      (BrainGoal.Target - BrainReport.StartPos).Length,
+                                      -1.0F)
+        End If
         BrainLog.StartRun(MAP_NAME_NO_PATH, Brain.Name)
         Brain.Start(Gather(0.0F))
         Running = True
         LogThis("brain: sim started with brain '{0}', {1} hull(s)",
                 Brain.Name, BrainTanks.Bodies.Count)
+    End Sub
+
+    ''' <summary>
+    ''' ONE TICK, then stop again. For looking at a single decision.
+    '''
+    ''' Tick refuses to run when the sim is halted, which is right - but it
+    ''' means a stopped sim cannot be nudged forward, and a single decision
+    ''' is the only thing small enough to actually study. dt is a nominal
+    ''' frame rather than the real one, so stepping is repeatable.
+    ''' </summary>
+    Public Sub StepOnce()
+        If BrainTanks.Bodies Is Nothing OrElse BrainTanks.Bodies.Count = 0 Then Return
+        Dim wasRunning = Running
+        stepping = True
+        If Not wasRunning Then
+            If speeds Is Nothing OrElse speeds.Length <> BrainTanks.Bodies.Count Then
+                ReDim speeds(BrainTanks.Bodies.Count - 1)
+            End If
+            Running = True
+        End If
+        Tick(1.0F / 60.0F)
+        If Not wasRunning Then Running = False
+        stepping = False
+        journal()
+    End Sub
+
+    ''' <summary>
+    ''' ONE LINE PER HAND-STEPPED TICK.
+    '''
+    ''' The owner steps through a turn and can see what went wrong; this
+    ''' session cannot see his screen. Without a record the conversation
+    ''' becomes him describing a picture and me guessing at numbers, which
+    ''' has cost hours tonight.
+    '''
+    ''' Everything a turn is decided by, on one line: what won the tick and
+    ''' why, the throttle and steer commanded against the speed actually
+    ''' delivered - a gap between those two IS the world refusing - the
+    ''' radius that comes out of them, and the point being chased.
+    '''
+    ''' Only hand steps. Sixty lines a second is noise; a stepped tick is a
+    ''' decision somebody chose to look at.
+    ''' </summary>
+    Private Sub journal()
+        Try
+            Dim pos As Vector2, hdg As Single
+            If BrainTanks.Bodies IsNot Nothing AndAlso
+               BrainTanks.Bodies.Count > BrainRadar.HULL Then
+                pos = BrainTanks.Bodies(BrainRadar.HULL).spawn
+                hdg = BrainTanks.Bodies(BrainRadar.HULL).headingRad
+            End If
+            Dim st = Math.Abs(BrainReport.LastSteer)
+            Dim v = Math.Abs(BrainReport.LastSpeed)
+            Dim rad = "  -  "
+            If st > 0.01F AndAlso v > 0.05F Then
+                rad = (v / (st * TURN_RATE)).ToString("0.0") & " m"
+            End If
+            Dim act = "-"
+            If BrainNodes.ActedNode >= 0 Then
+                act = BrainNodes.NodeKind(BrainNodes.ActedNode) & "#" &
+                      BrainNodes.ActedNode.ToString()
+            End If
+            Dim aim = "none"
+            Dim gb = TryCast(Brain, GraphBrain)
+            If gb IsNot Nothing AndAlso gb.PlanOn Then
+                aim = String.Format(Globalization.CultureInfo.InvariantCulture,
+                                    "{0:0.0},{1:0.0}", gb.PlanAim.X, gb.PlanAim.Y)
+            End If
+            Dim line = String.Format(Globalization.CultureInfo.InvariantCulture,
+                "tick {0,4} | pos {1,7:0.0},{2,7:0.0} hdg {3,4:0} | {4,-20} | " &
+                "thr {5,5:0.00} steer {6,6:+0.00;-0.00} speed {7,5:0.0} | radius {8,7} | " &
+                "aim {9,-16} | {10}",
+                Frame, pos.X, pos.Y, MathHelper.RadiansToDegrees(hdg),
+                act, BrainReport.LastThrottle, BrainReport.LastSteer,
+                BrainReport.LastSpeed, rad, aim, BrainReport.LastWhy)
+            LogThis("brain: {0}", line)
+            IO.Directory.CreateDirectory("C:/nuTerra_shared/tank_logs/sweep")
+            IO.File.AppendAllText("C:/nuTerra_shared/tank_logs/sweep/steps.txt",
+                                  line & Environment.NewLine)
+        Catch ex As Exception
+            LogThis("brain: step journal - {0}", ex.Message)
+        End Try
     End Sub
 
     Public Sub Halt()
@@ -110,7 +270,8 @@ Module BrainSim
         Dim outp As BrainOutput
         Try
             think.Restart()
-            outp = Brain.Tick(inp)
+            NoteDriver()
+        outp = Brain.Tick(inp)
             think.Stop()
             Dim ms = think.Elapsed.TotalMilliseconds
             TickMs = If(TickMs = 0.0, ms, TickMs * 0.9 + ms * 0.1)
@@ -118,7 +279,17 @@ Module BrainSim
             ' A brain that throws stops the SIM, not the app. The owner is
             ' looking at a window; losing it to someone's null reference tells
             ' him nothing and costs him the state he was watching.
-            LogThis("brain: '{0}' threw - {1}. Sim stopped.", Brain.Name, ex.Message)
+            '
+            ' AND WHERE. A message on its own names the failure and not
+            ' the place - "Index must be greater than or equal to zero"
+            ' fits every array and every String.Format in the project
+            ' equally well. The top of the stack is the difference
+            ' between a fix and an afternoon of grep.
+            LogThis("brain: '{0}' threw - {1}: {2}. Sim stopped.",
+                    Brain.Name, ex.GetType().Name, ex.Message)
+            For Each fr In top_frames(ex, 6)
+                LogThis("brain:     {0}", fr)
+            Next
             Halt()
             Return
         End Try
@@ -126,8 +297,41 @@ Module BrainSim
         LastWhy = outp.why
         Apply(inp, outp, dt)
         BrainLog.Note(inp, outp, Frame * CDbl(dt))
+        ' SCORED AS IT HAPPENS. A goal that respawns on arrival cannot be
+        ' scored at the whistle - by then the distance is to a goal the run
+        ' never saw the start of.
+        If BrainGoal.HasTarget AndAlso BrainTanks.Bodies IsNot Nothing AndAlso
+           BrainTanks.Bodies.Count > BrainRadar.HULL Then
+            Dim me_ = BrainTanks.Bodies(BrainRadar.HULL)
+            BrainReport.NoteProgress((BrainGoal.Target - me_.spawn).Length,
+                                     speeds(BrainRadar.HULL), dt, me_.spawn)
+            BrainTrail.Note(me_.spawn, me_.headingRad)
+        End If
         Frame += 1
+        ' Asked for a fixed number of ticks: stop with the last one still
+        ' drawn, rather than running on and overwriting the picture.
+        ' Only the FREE-RUNNING sim stops itself at the limit. A deliberate
+        ' step has already decided it wants one more.
+        If TICK_LIMIT > 0 AndAlso Frame >= TICK_LIMIT AndAlso Not stepping Then
+            LogThis("brain: stopping after {0} tick(s) - the picture stays",
+                    Frame)
+            Halt()
+        End If
     End Sub
+
+    ''' <summary>The first few stack frames, trimmed. Enough to name the
+    ''' line without printing the whole harness underneath it.</summary>
+    Private Function top_frames(ex As Exception, n As Integer) As List(Of String)
+        Dim got As New List(Of String)
+        Dim st = ex.StackTrace
+        If st Is Nothing Then Return got
+        For Each ln In st.Split(New String() {Environment.NewLine},
+                                StringSplitOptions.RemoveEmptyEntries)
+            got.Add(ln.Trim())
+            If got.Count >= n Then Exit For
+        Next
+        Return got
+    End Function
 
     ''' <summary>The world, as the brain sees it.</summary>
     Private Function Gather(dt As Single) As BrainInput
@@ -195,8 +399,11 @@ Module BrainSim
                 ' such circle, so the hull could not move at all.
                 If BrainNav.Standable(want.X, want.Y, inp.hulls(i).DriveRadius) Then
                     b.spawn = want
+                    ' It moved. Whatever was refusing has stopped.
+                    RefusedRun = 0
                 Else
                     speeds(i) = 0.0F
+                    say_refused(inp.hulls(i), want, dt)
                 End If
             End If
 

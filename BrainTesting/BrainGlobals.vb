@@ -77,6 +77,57 @@ Module BrainGlobals
     ''' <summary>Write one frame here and quit. Empty means run normally.</summary>
     Public SHOT_PATH As String = ""
 
+    ''' <summary>
+    ''' Hold the shot until the sim has been RUNNING this many seconds.
+    '''
+    ''' Zero keeps the old behaviour - the first frame with the roster on
+    ''' it, which answers "does it draw". Anything above zero answers a
+    ''' different question: what does an INSTRUMENT look like. Most of them
+    ''' here show nothing at all until the brain has scanned once, because
+    ''' they read BrainRadar.LAST and only a brain tick ever fills it.
+    ''' </summary>
+    Public SHOT_AFTER_S As Single = 0.0F
+
+    ''' <summary>Drive this many seconds, print a scorecard, quit. Zero
+    ''' runs normally. `runfor=` on the command line, and the whole point
+    ''' of it is that two brains get the same window.</summary>
+    Public RUN_SECS As Single = 0.0F
+
+    ''' <summary>Append one CSV row here when a timed run ends.</summary>
+    Public SCORE_FILE As String = ""
+
+    ''' <summary>
+    ''' FOLLOW CAM AT THIS DISTANCE, with the trailing heading on. Metres.
+    '''
+    ''' Separate from topdown= on purpose. That one turns the trail on too,
+    ''' but forces pitch to -1.5708 and gives a bird's eye that rotates under
+    ''' you - which is the view ChaseTrail's own comment warns about. This
+    ''' leaves the pitch alone, so the camera sits behind the hull rather
+    ''' than over it.
+    ''' </summary>
+    Public TRAIL_M As Single = 0.0F
+
+    ''' <summary>Start maximised. NOT fullscreen: the border and title bar
+    ''' stay, and with several sessions running this app the title is how
+    ''' the owner tells the windows apart.</summary>
+    Public MAXIMIZED_WINDOW As Boolean = False
+
+    ''' <summary>End a run that has not improved its closest approach for
+    ''' this many seconds. Zero waits the whole clock out. A failure that
+    ''' costs twenty seconds instead of seventy is three times as many
+    ''' questions asked in an hour.</summary>
+    Public BAIL_S As Single = 0.0F
+
+    ''' <summary>Run this many brain ticks and then stop, leaving the last
+    ''' one on screen to be looked at. The walk view only clears when the
+    ''' walk runs, so a halted sim holds its picture.</summary>
+    Public TICK_LIMIT As Integer = 0
+
+    ''' <summary>Metres above the hull for the top-down chase view, or zero
+    ''' for the ordinary camera. Applied AFTER the snapshot restores, because
+    ''' LookAt hard-sets pitch and distance and would throw it away.</summary>
+    Public TOP_DOWN_M As Single = 0.0F
+
     ''' <summary>x, z, distance - where to point the camera. Nothing means
     ''' frame the whole map.</summary>
     Public LOOK_AT As Single() = Nothing
@@ -92,10 +143,30 @@ Module BrainGlobals
     ''' intention.</summary>
     Public RESTORE_ON_START As Boolean = False
 
+    ''' <summary>
+    ''' WHERE TO DRIVE, from the command line: base1, base2, or a bare x,z.
+    '''
+    ''' "start and green base" - the owner, 2026-09-19. A scenario named on
+    ''' the command line is repeatable; a goal placed by hand is not, and the
+    ''' snapshot holding the last one is whatever file happened to be newest
+    ''' in the shared folder.
+    ''' </summary>
+    Public GOAL_ARG As String = ""
+
     ''' <summary>Install the brain and run, the moment the roster is up.
     ''' With `restore` the goal comes back with the scenario, so there is
     ''' nothing left to press.</summary>
     Public LEARN_ON_START As Boolean = False
+
+    ''' <summary>
+    ''' Drive from the node board instead of RangeBrain.
+    '''
+    ''' OFF. The graph is drawn FROM RangeBrain, so the only way to know
+    ''' whether it drives as well as the thing it describes is to run both
+    ''' and compare scorecards - which needs the incumbent still there.
+    ''' </summary>
+    Public USE_GRAPH As Boolean = False
+
 
 
     ''' <summary>Heightmap edge in samples. nuTerra keeps this in MapLoader.vb,

@@ -68,6 +68,31 @@ Module BrainNav
     ''' <summary>nuTerra's own OUTLAND_MARGIN, from MapLoader.</summary>
     Private Const OUTLAND_MARGIN As Single = 25.0F
 
+    ''' <summary>
+    ''' The .blk version this reader accepts, and it accepts ONE.
+    '''
+    ''' v3 is the version whose block bit includes ground too steep to climb.
+    ''' A reader that quietly took v2 as well would answer the same question
+    ''' two different ways depending on which file it happened to find, which
+    ''' is worse than not starting - so an unknown version is refused out loud.
+    ''' </summary>
+    Private Const BLK_VERSION As UInteger = 3UI
+
+    ''' <summary>Loaded from the .blk rather than the square map. The block bit
+    ''' then already carries slope, and bits 1-3 carry the kind.</summary>
+    Public FromBlk As Boolean = False
+
+    ''' <summary>The ground plane, quantised: metres = h_off + v / h_scale.
+    ''' Only filled from a .blk - the square map has no heights.</summary>
+    Private gnd() As UShort
+    Private h_off As Single = 0.0F
+    Private h_scale As Single = 1.0F
+
+    ''' <summary>Metres of whatever stands in the cell, 0.25 m a step. 255 is a
+    ''' STRICT SENTINEL meaning ">= 63.75 m" - treat it as a wall, never as a
+    ''' height, or monastery's 206 m dam becomes a 64 m one.</summary>
+    Private obst() As Byte
+
     Private occ() As Byte              ' 1 = something solid stands here
     Private w, h As Integer
     Private x0, z0 As Single           ' world position of cell (0,0)
@@ -295,8 +320,13 @@ Module BrainNav
             ' also says the label used to claim wz_min, "which is the opposite
             ' and cost a reader an hour". Worth reading twice.
             z_top = wzmax
+            ' MASK THE BIT, DO NOT TEST NON-ZERO. Identical on squares.u8,
+            ' where a byte is 1 or 0 - and inverted on a .blk, where open
+            ' ground carrying a kind is a non-zero byte. Counting that way
+            ' fills the map in rather than emptying it, and it reads as a bad
+            ' bake rather than a bad decode.
             For Each b In bytes
-                If b <> 0 Then Marked += 1
+                If (b And BLOCK_BIT) <> 0 Then Marked += 1
             Next
             Ready = True
             FromBake = True
@@ -307,6 +337,183 @@ Module BrainNav
             LogThis("brain: square map would not load - {0}", ex.Message)
             Return False
         End Try
+    End Function
+
+    ''' <summary>
+    ''' THE .blk - mask, ground and obstacle height in one binary file at
+    ''' half-metre cells, in preference to the square map.
+    '''
+    ''' "we moved to a single binary file" - the owner, 2026-09-19.
+    '''
+    ''' WHAT IT BUYS OVER squares.u8, which is one bit a metre: that file can
+    ''' say THAT a cell is blocked and never WHAT, so water, a fence and a
+    ''' cliff all arrive identical - which is how a goal came to be placed in a
+    ''' lake with nothing in the app able to object. This carries the kind in
+    ''' bits 1-3, the ground in a u16 plane, and from v3 its block bit already
+    ''' includes ground too steep to climb. So nothing here consults a slope
+    ''' constant: the decision was made in nuTerra and baked, which is the
+    ''' owner's ruling - "if it blocks is determined in nuTerra and the .blk
+    ''' file".
+    '''
+    ''' THE VERSION IS REFUSED, NOT COERCED. A reader that quietly took v2 as
+    ''' well would answer the same question two different ways depending on
+    ''' which file it happened to find. Not starting is the better failure, and
+    ''' it is what nuTerra work's own reader does.
+    ''' </summary>
+    Public Function LoadBlk(map As String) As Boolean
+        Ready = False
+        Marked = 0
+        FromBake = False
+        FromBlk = False
+        Try
+            Dim p = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "flight", map & ".blk")
+            If Not IO.File.Exists(p) Then
+                LogThis("brain: no .blk for {0} - trying the square map", map)
+                Return False
+            End If
+
+            Dim ver As UInteger, nn As Integer, cells As Integer
+            Dim cell As Single, wxmin As Single, wzmax As Single
+            Dim hoff As Single, hscale As Single
+
+            Using fs As New IO.FileStream(p, IO.FileMode.Open, IO.FileAccess.Read),
+                  br As New IO.BinaryReader(fs)
+
+                ' nBLK. Checked as bytes rather than as a string so an encoding
+                ' never gets a vote on whether a binary header matched.
+                Dim magic = br.ReadBytes(4)
+                If magic.Length <> 4 OrElse magic(0) <> 110 OrElse magic(1) <> 66 OrElse
+                   magic(2) <> 76 OrElse magic(3) <> 75 Then
+                    LogThis("brain: {0} does not begin nBLK - trying the square map", p)
+                    Return False
+                End If
+
+                ver = br.ReadUInt32()
+                nn = CInt(br.ReadUInt32())
+                cell = br.ReadSingle()
+                wxmin = br.ReadSingle()
+                wzmax = br.ReadSingle()
+                hoff = br.ReadSingle()
+                hscale = br.ReadSingle()
+
+                If ver <> BLK_VERSION Then
+                    LogThis("brain: .blk is version {0} and this reader knows {1} - REFUSING it. " &
+                            "Rebuild the bake; running on a file whose bit 0 means something " &
+                            "else is worse than not starting.", ver, BLK_VERSION)
+                    Return False
+                End If
+                If nn < 8 Then
+                    LogThis("brain: .blk says n={0} - trying the square map", nn)
+                    Return False
+                End If
+
+                ' The one cheap check that the header and the planes are the
+                ' same file: 32 + mask + u16 ground + obstacle.
+                Dim want = 32L + 4L * CLng(nn) * nn
+                If fs.Length <> want Then
+                    LogThis("brain: .blk is {0:N0} bytes, its own header says {1:N0} - " &
+                            "trying the square map", fs.Length, want)
+                    Return False
+                End If
+
+                cells = nn * nn
+                occ = br.ReadBytes(cells)
+                Dim raw = br.ReadBytes(cells * 2)
+                ReDim gnd(cells - 1)
+                Buffer.BlockCopy(raw, 0, gnd, 0, raw.Length)
+                obst = br.ReadBytes(cells)
+            End Using
+
+            w = nn : h = nn
+            sq_cell = cell
+            x0 = wxmin
+            ' ROW 0 IS wz_MAX AND ROWS RUN DOWNWARD, the same order the square
+            ' map uses and the same one the bake wrote.
+            z_top = wzmax
+            h_off = hoff
+            h_scale = If(hscale = 0.0F, 1.0F, hscale)
+
+            ' The ground plane replaces the lazy per-cell terrain cache. Left
+            ' allocated it would be 7.84 million singles nothing ever reads.
+            hcell = Nothing
+
+            ' MASK THE BIT. Every other bit is an observation, so a non-zero
+            ' test counts open ground that merely knows what it is.
+            For Each b In occ
+                If (b And BLOCK_BIT) <> 0 Then Marked += 1
+            Next
+
+            Ready = True
+            FromBake = True
+            FromBlk = True
+            LogThis("brain: .blk v{0} {1}x{1} at {2} m - {3:N0} blocked ({4:0.0}%), slope included",
+                    ver, nn, cell, Marked, 100.0 * Marked / (CLng(nn) * nn))
+            Return True
+
+        Catch ex As Exception
+            LogThis("brain: .blk would not load - {0}", ex.Message)
+            Return False
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' The map, from the best source that answers: the .blk, then the square
+    ''' map, then this file's own rasteriser.
+    '''
+    ''' ONE PLACE STATES THE ORDER. It was written out at two call sites in
+    ''' BrainWindow, and a fallback chain written twice is one that drifts.
+    ''' </summary>
+    Public Function LoadMap(map As String) As Boolean
+        If LoadBlk(map) Then Return True
+        Return LoadSquares(map)
+    End Function
+
+    ''' <summary>
+    ''' What is in this cell: bits 1-3 of the mask, in ModelKind's numbering.
+    '''
+    ''' KIND_OTHER without a .blk, because the square map genuinely cannot say
+    ''' and a confident wrong answer is worse than an honest blank. A caller
+    ''' that needs to know the difference asks FromBlk first.
+    ''' </summary>
+    Public Function KindAt(col As Integer, row As Integer) As Byte
+        If Not FromBlk OrElse occ Is Nothing Then Return ModelKind.KIND_OTHER
+        If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return ModelKind.KIND_OTHER
+        Return CByte((occ(row * w + col) >> 1) And 7)
+    End Function
+
+    ''' <summary>True when this cell is water. The question that started all
+    ''' of this: a goal dropped in a lake looks like open ground to a one-bit
+    ''' map, and the tank grinds at the shore until somebody notices.</summary>
+    Public Function IsWater(col As Integer, row As Integer) As Boolean
+        Return FromBlk AndAlso KindAt(col, row) = ModelKind.KIND_WATER
+    End Function
+
+    ''' <summary>
+    ''' The ground at a cell in metres, straight from the .blk's plane.
+    '''
+    ''' metres = h_off + v / h_scale, the spec's own arithmetic. No terrain
+    ''' query and nothing to cache, which is the point of carrying heights in
+    ''' the same file as the mask.
+    ''' </summary>
+    Public Function BlkGround(col As Integer, row As Integer) As Single
+        If Not FromBlk OrElse gnd Is Nothing Then Return 0.0F
+        If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return 0.0F
+        Return h_off + gnd(row * w + col) / h_scale
+    End Function
+
+    ''' <summary>
+    ''' Metres of whatever stands in this cell, or -1 where the plane saturates.
+    '''
+    ''' 255 IS A SENTINEL, NOT 63.75 m. The spec is explicit: treat it as a
+    ''' wall, never as a height, or monastery's 206 m dam becomes a 64 m one
+    ''' that something decides it can clear.
+    ''' </summary>
+    Public Function BlkObstacle(col As Integer, row As Integer) As Single
+        If Not FromBlk OrElse obst Is Nothing Then Return 0.0F
+        If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return 0.0F
+        Dim v = obst(row * w + col)
+        If v = 255 Then Return -1.0F
+        Return v * 0.25F
     End Function
 
     Private Function dbl(m As Dictionary(Of String, String), k As String, dflt As Double) As Double

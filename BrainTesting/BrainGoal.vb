@@ -1,4 +1,4 @@
-Imports OpenTK.Graphics.OpenGL4
+﻿Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -40,8 +40,37 @@ Module BrainGoal
     ''' </summary>
     Public Follow As Boolean = True
 
+    ''' <summary>
+    ''' THE GOAL DOES NOT MOVE. `pingoal` on the command line.
+    '''
+    ''' Both brains throw a fresh goal three hundred metres off when they
+    ''' arrive, which is right for an evening of watching and useless for a
+    ''' search: two runs diverge the moment one of them arrives, and after
+    ''' that they are being scored on different journeys. Pinned, every trial
+    ''' answers the same question.
+    '''
+    ''' Refused at the SETTER rather than at the two call sites, because a
+    ''' third brain would otherwise arrive with its own respawn and quietly
+    ''' un-pin the experiment.
+    ''' </summary>
+    Public Pinned As Boolean = False
+
+    ''' <summary>Move the goal, unless it is pinned. Every brain goes
+    ''' through here.</summary>
+    Public Function TryMove(p As Vector2) As Boolean
+        If Pinned Then Return False
+        Target = p
+        HasTarget = True
+        Return True
+    End Function
+
     ''' <summary>Called every frame: keep the goal on the camera.</summary>
     Public Sub FollowCamera()
+        ' PINNED BEATS FOLLOWING. This writes Target directly rather than
+        ' going through TryMove, so without this line a pinned goal still
+        ' rode the camera - and with the chase cam on, the camera is the
+        ' tank. Every trial arrived instantly having driven ten centimetres.
+        If Pinned Then Return
         If Not Follow Then Return
         Dim t = BrainRender.Cam.Target
         Target = New Vector2(t.X, t.Z)
@@ -85,6 +114,71 @@ Module BrainGoal
                 Target.X, Target.Y,
                 BrainNav.Standable(Target.X, Target.Y, BrainNav.TRACE_R))
     End Sub
+
+    ''' <summary>
+    ''' The goal from the command line: base1 (green), base2 (red), or x,z.
+    '''
+    ''' "start and green base" - the owner, 2026-09-19. A named scenario is
+    ''' repeatable across a rebuild; a goal placed by hand lives in whichever
+    ''' snapshot file happens to be newest, which is not the same thing.
+    '''
+    ''' SETS Target DIRECTLY, as PlaceAtLookAt does, rather than going through
+    ''' TryMove - which refuses while Pinned, and `pingoal` is exactly the flag
+    ''' a scored run wants set. The pin exists to stop a BRAIN throwing a fresh
+    ''' goal on arrival, not to stop the run being set up in the first place.
+    ''' </summary>
+    Public Function SetFromArg(arg As String) As Boolean
+        Dim s = arg.Trim()
+        Dim p As Vector2
+        Dim named = ""
+
+        If s.Equals("base1", StringComparison.OrdinalIgnoreCase) OrElse
+           s.Equals("green", StringComparison.OrdinalIgnoreCase) Then
+            If Not BrainTanks.HasBases Then
+                LogThis("brain: goal={0} asked for, but this arena declares no ctf bases", s)
+                Return False
+            End If
+            p = BrainTanks.Base1
+            named = "base1 (green)"
+
+        ElseIf s.Equals("base2", StringComparison.OrdinalIgnoreCase) OrElse
+               s.Equals("red", StringComparison.OrdinalIgnoreCase) Then
+            If Not BrainTanks.HasBases Then
+                LogThis("brain: goal={0} asked for, but this arena declares no ctf bases", s)
+                Return False
+            End If
+            p = BrainTanks.Base2
+            named = "base2 (red)"
+
+        Else
+            Dim f = s.Split(","c)
+            Dim gx, gz As Single
+            If f.Length < 2 OrElse
+               Not Single.TryParse(f(0), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, gx) OrElse
+               Not Single.TryParse(f(1), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, gz) Then
+                LogThis("brain: goal={0} is not base1, base2 or x,z - ignored", s)
+                Return False
+            End If
+            p = New Vector2(gx, gz)
+            named = "x,z"
+        End If
+
+        Follow = False
+        Target = p
+        HasTarget = True
+        built_at = New Vector2(Single.MaxValue, Single.MaxValue)   ' force rebuild
+
+        ' SAY WHETHER IT CAN BE STOOD ON. A goal inside something is the one
+        ' failure that looks exactly like a bad brain from the outside - the
+        ' tank drives the whole way and then grinds at the edge of it, which
+        ' is a morning nobody gets back.
+        LogThis("brain: goal {0} = ({1:0.0}, {2:0.0}) - standable {3}",
+                named, Target.X, Target.Y,
+                BrainNav.Standable(Target.X, Target.Y, BrainNav.TRACE_R))
+        Return True
+    End Function
 
     Public Sub Clear()
         HasTarget = False

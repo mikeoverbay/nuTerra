@@ -61,6 +61,12 @@
              Link="resources/SourceSans3-Regular.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="graphs/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="icons/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="shaders/**">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
