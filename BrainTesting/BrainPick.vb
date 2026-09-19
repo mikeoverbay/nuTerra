@@ -132,6 +132,50 @@ Module BrainPick
         Return True
     End Function
 
+    ''' <summary>
+    ''' WHERE THE CURSOR MEETS THE GROUND. ARITHMETIC ONLY - NO GL.
+    '''
+    ''' A drag must not touch the GPU. Reading a pixel, even one, even with
+    ''' nothing drawn, stalls the CPU until the GPU drains - and a stall tied
+    ''' to mouse movement is felt as the pointer itself going wrong. Pressing a
+    ''' button should change WHAT moves, never HOW the mouse moves.
+    '''
+    ''' Same ray as At(), from the inverse of viewProj. Two passes: intersect a
+    ''' horizontal plane at the height under the ray's start, then again at the
+    ''' height actually found there. One correction covers anything a tank can
+    ''' drive; a cliff lands short, visibly rather than silently.
+    ''' </summary>
+    Public Function GroundRay(ByRef viewProj As Matrix4, mx As Single, my As Single,
+                              w As Integer, h As Integer, ByRef hit As Vector2) As Boolean
+        If w <= 0 OrElse h <= 0 Then Return False
+        Dim inv As Matrix4
+        Try
+            inv = Matrix4.Invert(viewProj)
+        Catch
+            Return False
+        End Try
+
+        Dim ndx = 2.0F * mx / w - 1.0F
+        Dim ndy = 1.0F - 2.0F * my / h
+        Dim near_ = unproject(inv, ndx, ndy, -1.0F)
+        Dim far_ = unproject(inv, ndx, ndy, 1.0F)
+        Dim dir = far_ - near_
+        If dir.LengthSquared <= 0.0F Then Return False
+        dir.Normalize()
+        ' Looking up, or along the horizon: no ground to meet.
+        If dir.Y > -0.0001F Then Return False
+
+        Dim y0 = BrainNav.Ground(near_.X, near_.Z)
+        For pass_ = 0 To 1
+            Dim t = (y0 - near_.Y) / dir.Y
+            If t <= 0.0F Then Return False
+            Dim pt = near_ + dir * t
+            hit = New Vector2(pt.X, pt.Z)
+            y0 = BrainNav.Ground(pt.X, pt.Z)
+        Next
+        Return True
+    End Function
+
     Private Function unproject(ByRef inv As Matrix4, x As Single, y As Single, z As Single) As Vector3
         ' Row-vector convention, the same one the shaders are fed - see the
         ' note in BrainRender about what GLSL sees.

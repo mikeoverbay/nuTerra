@@ -42,11 +42,28 @@ Module BrainStart
     Public HasStart As Boolean = False
 
 
-    ''' <summary>Arms of the cross, metres. Larger than the goal's 6 so the
-    ''' two are not mistaken for each other at a distance.</summary>
-    Private Const ARM As Single = 8.0F
+    ''' <summary>
+    ''' GRID STEPS ACROSS THE SQUARE. The square is defined top-down in XZ and
+    ''' every vertex takes its Y from the ground, so it drapes over a slope
+    ''' instead of hovering at one height.
+    '''
+    ''' One flat quad at the centre's height sank into the uphill side and
+    ''' floated off the downhill one - metres of error across a 12 m square on
+    ''' any real slope.
+    ''' </summary>
+    Private Const N As Integer = 8
 
-    Private ReadOnly RGB As New Vector3(0.25F, 0.95F, 0.35F)
+    ''' <summary>Metres above the ground. Coplanar it z-fights and half the
+    ''' square speckles away; a hand's breadth is enough and stays invisible
+    ''' from any angle this is looked at from.</summary>
+    Private Const LIFT As Single = 0.15F
+
+    ''' <summary>Border always; fill only while it is held. The owner:
+    ''' "white border and no fill when not mouse down on it", and
+    ''' "I want it to just lit when I mouse down on it". So the fill IS the
+    ''' feedback - there is no second highlight state to keep in step.</summary>
+    Private ReadOnly EDGE_RGB As New Vector3(1.0F, 1.0F, 1.0F)
+    Private ReadOnly FILL_RGB As New Vector3(0.13F, 0.13F, 0.14F)
 
     ''' <summary>The marker's ID in the pick pass. Pure and saturated so the
     ''' readback is an exact byte match - the line shader is flat and unlit and
@@ -58,23 +75,25 @@ Module BrainStart
     ''' stated in metres on the ground rather than pixels on the screen.</summary>
     Private Const BASE As Single = 6.0F
 
-    Private pickVao, pickVbo As Integer
-
     Private shader As BrainShader
-    Private vao, vbo As Integer
-    Private verts As Integer = 0
+    ''' <summary>The draped fill, triangles. Drawn dark grey when held and in
+    ''' PICK_RGB for the pick pass - ONE geometry, so what you grab is exactly
+    ''' what you see, on a slope as much as on the flat.</summary>
+    Private fillVao, fillVbo, fillVerts As Integer
+    ''' <summary>The perimeter, line segments, draped the same way.</summary>
+    Private edgeVao, edgeVbo, edgeVerts As Integer
     Private built_at As New Vector2(Single.MaxValue, Single.MaxValue)
-    Private built_y As Single = Single.MaxValue
 
     Private dragging As Boolean = False
     Private wasDown As Boolean = False
 
+
     Public Sub Init()
         shader = New BrainShader("line")
-        vao = GL.GenVertexArray()
-        vbo = GL.GenBuffer()
-        pickVao = GL.GenVertexArray()
-        pickVbo = GL.GenBuffer()
+        fillVao = GL.GenVertexArray()
+        fillVbo = GL.GenBuffer()
+        edgeVao = GL.GenVertexArray()
+        edgeVbo = GL.GenBuffer()
     End Sub
 
     ''' <summary>Put the marker where the hull actually opens, once the roster
@@ -144,10 +163,11 @@ Module BrainStart
             Return True
         End If
 
-        ' Dragging: ask where the GROUND is, with the square left out.
-        If BrainRender.PickAt(mx, my, w, h, False, rgb, world) Then
-            MoveTo(New Vector2(world.X, world.Z))
-        End If
+        ' NO GPU WORK ON THE DRAG PATH AT ALL. Just where the cursor's ray
+        ' meets the ground - the marker is a location attached to the pointer,
+        ' and holding a button must not change how the pointer behaves.
+        Dim g As Vector2
+        If BrainPick.GroundRay(vp, m.X, m.Y, w, h, g) Then MoveTo(g)
         Return True
     End Function
 
@@ -159,86 +179,136 @@ Module BrainStart
     End Function
 
     ''' <summary>
-    ''' THE SOLID SQUARE, FOR THE PICK PASS ONLY. Two triangles, flat in
-    ''' PICK_RGB, depth-tested against the terrain already in the buffer - so a
-    ''' marker behind a hill cannot be grabbed through the hill.
+    ''' THE DRAPED SQUARE IN ITS PICK COLOUR, for the pick pass only.
     '''
-    ''' Lifted slightly off the ground for the same reason the visible marker
-    ''' is: coplanar with the terrain it z-fights, and half the square fails the
-    ''' depth test in a speckle pattern that reads as an intermittent grab.
+    ''' The SAME geometry the eye sees, so the grab area cannot disagree with
+    ''' the picture - which a separate flat quad would, the moment either one
+    ''' sat on a slope.
+    '''
+    ''' Drawn whether or not it is being held: this is what ANSWERS "is the
+    ''' cursor on it", and it is asked when nothing is held yet.
     ''' </summary>
     Public Sub DrawPick(ByRef viewProj As Matrix4)
         If Not SHOW OrElse Not HasStart OrElse shader Is Nothing OrElse Not shader.Ready Then Return
-        Dim y = BrainNav.Ground(Pos.X, Pos.Y) + 0.30F
-        Dim x0 = Pos.X - BASE, x1 = Pos.X + BASE
-        Dim z0 = Pos.Y - BASE, z1 = Pos.Y + BASE
-        Dim a() As Single = {
-            x0, y, z0, x1, y, z0, x1, y, z1,
-            x0, y, z0, x1, y, z1, x0, y, z1}
-
+        build()
+        If fillVerts = 0 Then Return
         shader.Use()
         shader.SetMat4("viewProj", viewProj)
         shader.SetVec3("colour", PICK_RGB)
-        GL.BindVertexArray(pickVao)
-        GL.BindBuffer(BufferTarget.ArrayBuffer, pickVbo)
-        GL.BufferData(BufferTarget.ArrayBuffer, a.Length * 4, a, BufferUsageHint.DynamicDraw)
-        GL.EnableVertexAttribArray(0)
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 12, 0)
-        ' BOTH FACES. The square is a flat quad and the camera can be under the
-        ' ground looking up; culling it would make the grab vanish from below.
+        ' BOTH FACES. A draped sheet seen from below is still the thing being
+        ' grabbed, and the camera can go under the ground.
         GL.Disable(EnableCap.CullFace)
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 6)
+        GL.BindVertexArray(fillVao)
+        GL.DrawArrays(PrimitiveType.Triangles, 0, fillVerts)
         GL.BindVertexArray(0)
     End Sub
 
+    ''' <summary>
+    ''' Border always, fill only while held.
+    '''
+    ''' The fill IS the lit state. A marker that is always filled needs a
+    ''' second colour to say "held" and then two things to keep in step; this
+    ''' way the feedback is the presence of the fill and there is nothing to
+    ''' get out of step with.
+    ''' </summary>
     Public Sub Draw(ByRef viewProj As Matrix4)
         If Not SHOW OrElse Not HasStart OrElse shader Is Nothing OrElse Not shader.Ready Then Return
         build()
-        If verts = 0 Then Return
+        If edgeVerts = 0 Then Return
+
         shader.Use()
         shader.SetMat4("viewProj", viewProj)
-        shader.SetVec3("colour", RGB)
-        GL.LineWidth(If(dragging, 5.0F, 3.0F))
-        GL.BindVertexArray(vao)
-        GL.DrawArrays(PrimitiveType.Lines, 0, verts)
+
+        ' TESTED AGAINST DEPTH, NEVER WRITING IT. Terrain still hides it, but
+        ' it leaves no mark of its own - which is what lets the drag read the
+        ' GROUND out of the frame already drawn instead of paying for a pass.
+        ' Written depth here would put the marker under the cursor by
+        ' definition and it would climb its own surface.
+        GL.DepthMask(False)
+
+        If dragging AndAlso fillVerts > 0 Then
+            shader.SetVec3("colour", FILL_RGB)
+            GL.Disable(EnableCap.CullFace)
+            GL.BindVertexArray(fillVao)
+            GL.DrawArrays(PrimitiveType.Triangles, 0, fillVerts)
+        End If
+
+        shader.SetVec3("colour", EDGE_RGB)
+        GL.LineWidth(If(dragging, 3.0F, 2.0F))
+        GL.BindVertexArray(edgeVao)
+        GL.DrawArrays(PrimitiveType.Lines, 0, edgeVerts)
         GL.BindVertexArray(0)
         GL.LineWidth(1.0F)
+        GL.DepthMask(True)
     End Sub
 
-    ''' <summary>Rebuilt only when it has actually moved - including when the
-    ''' GROUND under it changed, which is what dragging across a slope does
-    ''' without changing XZ enough to notice.</summary>
+    ''' <summary>
+    ''' Drape the square over the ground: an N by N grid in XZ, every vertex
+    ''' sampling BrainNav.Ground.
+    '''
+    ''' REBUILT ON A MOVE ALONE. The ground under a fixed marker does not
+    ''' change, and while it is being dragged Pos changes every frame anyway -
+    ''' so there is nothing a height check would catch that this does not.
+    ''' </summary>
     Private Sub build()
-        Dim y = BrainNav.Ground(Pos.X, Pos.Y) + 0.25F
-        If Pos = built_at AndAlso Math.Abs(y - built_y) < 0.01F Then Return
+        If Pos = built_at AndAlso fillVerts > 0 Then Return
         built_at = Pos
-        built_y = y
 
-        Dim v As New List(Of Single)
-        seg(v, Pos.X - ARM, y, Pos.Y, Pos.X + ARM, y, Pos.Y)
-        seg(v, Pos.X, y, Pos.Y - ARM, Pos.X, y, Pos.Y + ARM)
-        ' A square round the cross, so it reads as a start box rather than as
-        ' the goal's diamond seen from an odd angle.
-        Dim d = ARM * 0.7F
-        seg(v, Pos.X - d, y, Pos.Y - d, Pos.X + d, y, Pos.Y - d)
-        seg(v, Pos.X + d, y, Pos.Y - d, Pos.X + d, y, Pos.Y + d)
-        seg(v, Pos.X + d, y, Pos.Y + d, Pos.X - d, y, Pos.Y + d)
-        seg(v, Pos.X - d, y, Pos.Y + d, Pos.X - d, y, Pos.Y - d)
+        Dim step_ = (BASE * 2.0F) / N
+        Dim gy(N, N) As Single
+        For j = 0 To N
+            For i = 0 To N
+                gy(i, j) = BrainNav.Ground(Pos.X - BASE + i * step_,
+                                           Pos.Y - BASE + j * step_) + LIFT
+            Next
+        Next
 
+        Dim f As New List(Of Single)
+        For j = 0 To N - 1
+            For i = 0 To N - 1
+                Dim x0 = Pos.X - BASE + i * step_, x1 = x0 + step_
+                Dim z0 = Pos.Y - BASE + j * step_, z1 = z0 + step_
+                tri(f, x0, gy(i, j), z0, x1, gy(i + 1, j), z0, x1, gy(i + 1, j + 1), z1)
+                tri(f, x0, gy(i, j), z0, x1, gy(i + 1, j + 1), z1, x0, gy(i, j + 1), z1)
+            Next
+        Next
+
+        ' The perimeter, walked along the same samples so it sits on the fill
+        ' rather than cutting through it.
+        Dim e As New List(Of Single)
+        For i = 0 To N - 1
+            Dim xa = Pos.X - BASE + i * step_, xb = xa + step_
+            Dim za = Pos.Y - BASE + i * step_, zb = za + step_
+            seg(e, xa, gy(i, 0), Pos.Y - BASE, xb, gy(i + 1, 0), Pos.Y - BASE)
+            seg(e, xa, gy(i, N), Pos.Y + BASE, xb, gy(i + 1, N), Pos.Y + BASE)
+            seg(e, Pos.X - BASE, gy(0, i), za, Pos.X - BASE, gy(0, i + 1), zb)
+            seg(e, Pos.X + BASE, gy(N, i), za, Pos.X + BASE, gy(N, i + 1), zb)
+        Next
+
+        fillVerts = upload(fillVao, fillVbo, f)
+        edgeVerts = upload(edgeVao, edgeVbo, e)
+    End Sub
+
+    Private Function upload(vaoId As Integer, vboId As Integer, v As List(Of Single)) As Integer
         Dim a = v.ToArray()
-        verts = a.Length \ 3
-        GL.BindVertexArray(vao)
-        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
+        GL.BindVertexArray(vaoId)
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vboId)
         GL.BufferData(BufferTarget.ArrayBuffer, a.Length * 4, a, BufferUsageHint.DynamicDraw)
         GL.EnableVertexAttribArray(0)
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 12, 0)
         GL.BindVertexArray(0)
+        Return a.Length \ 3
+    End Function
+
+    Private Sub tri(v As List(Of Single), ax As Single, ay As Single, az As Single,
+                    bx As Single, by_ As Single, bz As Single,
+                    cx As Single, cy As Single, cz As Single)
+        v.AddRange({ax, ay, az, bx, by_, bz, cx, cy, cz})
     End Sub
 
     Private Sub seg(v As List(Of Single), x0 As Single, y0 As Single, z0 As Single,
                     x1 As Single, y1 As Single, z1 As Single)
-        v.Add(x0) : v.Add(y0) : v.Add(z0)
-        v.Add(x1) : v.Add(y1) : v.Add(z1)
+        v.AddRange({x0, y0, z0, x1, y1, z1})
     End Sub
 
 

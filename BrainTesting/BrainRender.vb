@@ -17,6 +17,12 @@ Module BrainRender
     ''' this is only the number the draw count is checked against.</summary>
     Private Const INDICES_PER_CHUNK As Integer = 24576
 
+    ''' <summary>The matrix the LAST frame was actually drawn with. Kept
+    ''' because a depth sample read back next frame has to be unprojected with
+    ''' the matrix that produced it - the camera moves between frames, and the
+    ''' chase moves it even while the mouse is busy elsewhere.</summary>
+    Public LastVP As Matrix4 = Matrix4.Identity
+
     Public Sub Init()
         terrainShader = New BrainShader("terrain")
         BrainModels.Init()
@@ -91,6 +97,7 @@ Module BrainRender
         GL.DepthMask(True)
 
         Dim vp = Cam.ViewProj(aspect)
+        LastVP = vp
         issue_terrain(vp)
 
         ' Buildings after the terrain: both write depth and neither blends, so
@@ -174,6 +181,16 @@ Module BrainRender
         Dim aspect = CSng(Math.Max(w, 1)) / CSng(Math.Max(h, 1))
         Dim vp = Cam.ViewProj(aspect)
 
+        ' GL COUNTS Y FROM THE BOTTOM, the window from the top.
+        Dim gy = h - 1 - my
+
+        ' SCISSORED TO THREE PIXELS. One pixel is read, so every fragment
+        ' outside that box is work thrown away - and the clear is charged for
+        ' the whole window too. The terrain's VERTEX cost still stands; this
+        ' removes the fill and the clear, which is the bulk of it at 4K.
+        GL.Enable(EnableCap.ScissorTest)
+        GL.Scissor(Math.Max(0, mx - 1), Math.Max(0, gy - 1), 3, 3)
+
         GL.Enable(EnableCap.DepthTest)
         GL.DepthFunc(DepthFunction.Less)
         GL.DepthMask(True)
@@ -187,18 +204,26 @@ Module BrainRender
 
         If withMarker Then BrainStart.DrawPick(vp)
 
-        ' GL COUNTS Y FROM THE BOTTOM, the window from the top.
-        Dim gy = h - 1 - my
-        Dim px(3) As Byte
-        GL.ReadPixels(mx, gy, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, px)
-        rgb = New Vector3(px(0) / 255.0F, px(1) / 255.0F, px(2) / 255.0F)
+        ' ONE READ WHEN ONE ANSWER IS WANTED. Every ReadPixels stalls the
+        ' pipeline until the GPU catches up, so a second one costs a second
+        ' full sync. The colour is only asked for on the frame the button goes
+        ' down - while dragging the question is the depth alone.
+        rgb = Vector3.Zero
+        If withMarker Then
+            Dim px(3) As Byte
+            GL.ReadPixels(mx, gy, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, px)
+            rgb = New Vector3(px(0) / 255.0F, px(1) / 255.0F, px(2) / 255.0F)
+        End If
 
         Dim dz(0) As Single
         GL.ReadPixels(mx, gy, 1, 1, PixelFormat.DepthComponent, PixelType.Float, dz)
+        GL.Disable(EnableCap.ScissorTest)
         world = Vector3.Zero
         Dim got = False
         If dz(0) < 1.0F Then got = BrainPick.FromDepth(vp, mx, my, dz(0), w, h, world)
         Return got
     End Function
+
+
 
 End Module
