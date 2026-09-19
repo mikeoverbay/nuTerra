@@ -191,6 +191,24 @@ Module Program
                     TICK_LIMIT = n
                 End If
 
+            ElseIf a.StartsWith("topdown", StringComparison.OrdinalIgnoreCase) Then
+                ' Straight down on the hull, chasing it, trail on. The view for
+                ' watching WHERE it goes rather than what it can see - a stall
+                ' from above shows the shape of the ground that caused it.
+                ' topdown=60 sets the height; bare topdown takes 55 m.
+                BrainRender.Cam.Chase = True
+                BrainRender.Cam.ChaseTrail = True
+                BrainRender.Cam.PitchRad = -1.45F      ' all but straight down
+                BrainTrail.SHOW = True
+                Dim eq2 = a.IndexOf("="c)
+                Dim hgt As Single = 55.0F
+                If eq2 > 0 Then
+                    Single.TryParse(a.Substring(eq2 + 1),
+                                    Globalization.NumberStyles.Float,
+                                    Globalization.CultureInfo.InvariantCulture, hgt)
+                End If
+                BrainRender.Cam.Dist = hgt
+
             ElseIf a.Equals("pingoal", StringComparison.OrdinalIgnoreCase) Then
                 BrainGoal.Pinned = True
                 BrainGoal.Follow = False

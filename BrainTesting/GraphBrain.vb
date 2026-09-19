@@ -1748,8 +1748,21 @@ Public Class GraphBrain
         ' If the road to the goal is open, there is nothing to go round and
         ' the rung declines, which hands the tick to the one that drives at
         ' the goal.
+        ' ONLY SKIP THE WALK IF THE HULL'S BOX CAN GO THAT WAY.
+        '
+        ' This asked will_clear - a LINE through the nav grid - and a line
+        ' fits where the box does not. So with the goal line reading clear
+        ' the walk declined outright, the backstop drove at the goal, and the
+        ' plank stopped the hull dead at a metre.
+        '
+        ' Caught from above: "ticks 14365, scans 14365, walks 135" - through
+        ' a ten second stall it was not looking for a way round even once.
+        '
+        ' Third time this line-versus-box confusion has cost a stall tonight:
+        ' Round The End certified routes with it, Path Clear claimed to test
+        ' the hull and tested a line, and now this.
         If BrainTune.On_("blockonly", True) Then
-            If will_clear(goalB, BrainTune.Get_("blockm", 16.0F)) Then Return Nothing
+            If box_clear(goalB, BrainTune.Get_("blockm", 16.0F)) Then Return Nothing
         End If
 
         ' The chain in the way: forward returns near enough to matter, and
