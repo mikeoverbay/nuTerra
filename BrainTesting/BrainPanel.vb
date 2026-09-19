@@ -304,6 +304,25 @@ Module BrainPanel
         ' THE RATES, right under the state. They were at the bottom of a long
         ' panel, which is the same as not being there.
         ImGui.Text(String.Format("{0:0} fps   ai {1:0.00} ms", fps, BrainSim.TickMs))
+
+        ' WHAT IT DECIDED AND WHY, on screen rather than in a log nobody is
+        ' watching. "it stopped moving and I don't know why" - and the answer
+        ' was in the board trace all along, going past at four hundred lines a
+        ' second in a console behind a fullscreen window.
+        If BrainNodes.ActedNode >= 0 Then
+            ImGui.TextColored(New System.Numerics.Vector4(0.55F, 0.85F, 1.0F, 1.0F),
+                String.Format("act  {0}#{1}",
+                              BrainNodes.NodeKind(BrainNodes.ActedNode),
+                              BrainNodes.ActedNode))
+        End If
+        ImGui.TextWrapped("why  " & BrainReport.LastWhy)
+        ImGui.Text(String.Format("thr {0:0.00}   speed {1:0.0} m/s",
+                                 BrainReport.LastThrottle, BrainReport.LastSpeed))
+        Dim gb2 = TryCast(BrainSim.Brain, GraphBrain)
+        If gb2 IsNot Nothing Then
+            ImGui.TextDisabled(String.Format("ticks {0}   scans {1}   walks {2}",
+                                             BrainSim.Frame, gb2.scans, gb2.walkRan))
+        End If
         ImGui.Separator()
 
         If ImGui.Button(If(BrainSim.Running, "Stop  [space]", "Run  [space]"),
@@ -321,6 +340,8 @@ Module BrainPanel
         If ImGui.Checkbox("Radar", show) Then BrainRadar.SHOW = show
         Dim scope = BrainScope.SHOW
         If ImGui.Checkbox("Scope", scope) Then BrainScope.SHOW = scope
+        Dim ahead = BrainAheadScope.SHOW
+        If ImGui.Checkbox("Ahead test", ahead) Then BrainAheadScope.SHOW = ahead
         Dim graph = BrainNodes.SHOW
         If ImGui.Checkbox("Brain graph  (G)", graph) Then BrainNodes.SHOW = graph
         Dim card = BrainTankState.SHOW

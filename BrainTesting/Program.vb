@@ -37,6 +37,16 @@ Module Program
     Sub Main(args As String())
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
 
+        ' THE LOG POLICY, BEFORE ANYTHING LOGS.
+        '
+        ' LOG_KEEP ships as the tank-path tags and was narrowed to "brain:"
+        ' inside BrainWindow - which is built AFTER this, so every brain: line
+        ' written during startup was matched against {"tank:", ...}, kept
+        ' nothing, and vanished at the sink. Arguments that parsed correctly
+        ' looked like arguments that were never seen, and two probes written
+        ' to find out why were themselves swallowed by the same gate.
+        LOG_KEEP = New String() {"brain:"}
+
         Dim ignored As New List(Of String)
 
         For Each a In args
@@ -147,6 +157,60 @@ Module Program
                 ' front of the owner without a window taking his screen.
                 SHOT_PATH = a.Substring(5)
 
+            ElseIf a.StartsWith("shotat=", StringComparison.OrdinalIgnoreCase) Then
+                ' Hold that shot until the brain has been driving this long.
+                ' A picture of the HUD taken before the first scan is a
+                ' picture of an empty corner, and it gets read as a broken
+                ' view rather than an early one.
+                Dim secs As Single
+                If Single.TryParse(a.Substring(7), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, secs) Then
+                    SHOT_AFTER_S = secs
+                End If
+
+            ElseIf a.StartsWith("runfor=", StringComparison.OrdinalIgnoreCase) Then
+                ' Drive for this long, score it, quit. The point is that two
+                ' brains get the SAME window - a comparison where one side
+                ' ran longer is not a comparison.
+                Dim secs As Single
+                If Single.TryParse(a.Substring(7), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, secs) Then
+                    RUN_SECS = secs
+                End If
+
+            ElseIf a.StartsWith("bailafter=", StringComparison.OrdinalIgnoreCase) Then
+                Dim secs As Single
+                If Single.TryParse(a.Substring(10), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, secs) Then
+                    BAIL_S = secs
+                End If
+
+            ElseIf a.StartsWith("ticks=", StringComparison.OrdinalIgnoreCase) Then
+                Dim n As Integer
+                If Integer.TryParse(a.Substring(6), n) AndAlso n > 0 Then
+                    TICK_LIMIT = n
+                End If
+
+            ElseIf a.Equals("pingoal", StringComparison.OrdinalIgnoreCase) Then
+                BrainGoal.Pinned = True
+                BrainGoal.Follow = False
+
+            ElseIf a.StartsWith("tune=", StringComparison.OrdinalIgnoreCase) Then
+                LogThis("brain: tune arg seen - [{0}]", a.Substring(5))
+                BrainTune.Parse(a.Substring(5))
+
+            ElseIf a.StartsWith("score=", StringComparison.OrdinalIgnoreCase) Then
+                ' One CSV row per run, appended. A sweep reads a file; it does
+                ' not scrape a console, which is one encoding away from lying.
+                SCORE_FILE = a.Substring(6)
+
+            ElseIf a.Equals("ahead", StringComparison.OrdinalIgnoreCase) Then
+                ' TEMPORARY, with BrainAheadScope itself. The test view is
+                ' off by default and lives behind a checkbox; there is no
+                ' way to tick a checkbox from a command line, and a shot of
+                ' it is the whole reason the shot exists.
+                BrainAheadScope.SHOW = True
+
             ElseIf is_inert(a) Then
                 ignored.Add(a)
 
@@ -168,6 +232,9 @@ Module Program
                 "ignored {0} argument(s) - no subsystem here for them: {1}",
                 ignored.Count, String.Join(" ", ignored))
         End If
+
+        ' The sweep's knobs, if a sweep left any.
+        BrainTune.LoadFile()
 
         Using w As New BrainWindow()
             w.Run()

@@ -327,8 +327,20 @@ Module BrainRadar
     ''' VB is case-insensitive and a parameter that collides with a module
     ''' constant silently becomes it - that cost an evening once already.
     ''' </summary>
+    ''' <summary>
+    ''' One sweep. With `record` the answer becomes LAST and WAYS - the one
+    ''' view the whole app reads - and without it the sweep is the caller's
+    ''' alone.
+    '''
+    ''' THAT SWITCH EXISTS BECAUSE A SECOND VIEWPOINT COSTS A THIRD SCAN
+    ''' WITHOUT IT. Looking ahead means scanning from up the road, and since
+    ''' every Scan overwrote the globals, the near view had to be scanned
+    ''' AGAIN to put it back. Two scans of work to get one extra look, and a
+    ''' window in the middle where anything reading WAYS saw the wrong place.
+    ''' </summary>
     Public Function Scan(pos As Vector2, headingRad As Single,
-                         Optional bodyR As Single = 0.0F) As Hit()
+                         Optional bodyR As Single = 0.0F,
+                         Optional record As Boolean = True) As Hit()
         ' No local named `rays` - see Bearings. VB would fold it into RAYS.
         Dim bear = Bearings()
         Dim out(RAYS - 1) As Hit
@@ -505,6 +517,54 @@ Module BrainRadar
                             out(i).chord < gate
         Next
 
+        ' The ways are built either way; only recording them is optional.
+        Dim ways = BuildWays(out, pos, headingRad, bodyR)
+        If record Then
+            WAYS.Clear()
+            WAYS.AddRange(ways)
+            LAST = out
+        End If
+        ' TEMPORARY: who called, with what, and what landed.
+        If SCAN_SAY < 6 Then
+            SCAN_SAY += 1
+            Dim fnd = 0, unl = 0
+            For q = 0 To out.Length - 1
+                If out(q).found Then
+                    fnd += 1
+                    If Not out(q).linked Then unl += 1
+                End If
+            Next
+            LogThis("brain: scan - record {0}, built {1} | found {2}, " &
+                    "unlinked {3} | cand {4}, no-j {5}, too-far {6}, " &
+                    "narrow {7}, too-near {8}",
+                    record, ways.Count, fnd, unl, WAY_CAND, WAY_NOJ,
+                    WAY_FAR, WAY_NARROW, WAY_NEAR)
+        End If
+        Return out
+    End Function
+
+    ''' <summary>
+    ''' The doors in a point cloud - ANY point cloud, not only the one the
+    ''' last Scan produced.
+    '''
+    ''' Lifted out of Scan so a cloud merged from two viewpoints can be run
+    ''' through the same rule. It is the same rule or it is worthless: a door
+    ''' found by a second, looser finder is a door nobody can check against
+    ''' the one the hull actually steers on.
+    '''
+    ''' `pos` is where the HULL is, not where the cloud was sampled from. The
+    ''' bearings and the corridor test are the hull's own, because it is the
+    ''' hull that has to fit.
+    ''' </summary>
+    Public Function BuildWays(out As Hit(), pos As Vector2,
+                              headingRad As Single,
+                              bodyR As Single) As List(Of Way)
+        Dim ways As New List(Of Way)
+        WAY_CAND = 0 : WAY_FAR = 0 : WAY_NARROW = 0 : WAY_NEAR = 0
+        WAY_NOJ = 0 : WAY_FIRST_I = -1 : WAY_FIRST_J = -1 : WAY_MADE = 0
+        WAY_ADDS = 0
+        If bodyR <= 0.0F OrElse out Is Nothing Then Return ways
+
         ' ---- THE WAYS THROUGH, AND WHETHER WE ACTUALLY FIT -----------------
         '
         ' "we are trying to go thru gaps we wont fit" - and the chord was why.
@@ -526,55 +586,275 @@ Module BrainRadar
         '
         ' THE AIM POINT IS PUSHED PAST the opening's plane. Arriving at the
         ' midpoint of a doorway leaves the hull IN the doorway.
-        WAYS.Clear()
-        If bodyR > 0.0F Then
-            Dim maxSteps = CInt(90.0F / (ARC_DEG / RAYS))
-            For i = 0 To RAYS - 1
-                If Not out(i).found OrElse out(i).linked Then Continue For
-                Dim j = -1
-                For k = 1 To RAYS - 1
-                    Dim m = (i + k) Mod RAYS
-                    If out(m).found Then
-                        j = m
-                        Exit For
-                    End If
-                Next
-                If j < 0 OrElse j = i Then Continue For
-                If (((j - i) + RAYS) Mod RAYS) > maxSteps Then Continue For
-
-                Dim wy As Way
-                wy.ia = i
-                wy.ib = j
-                wy.a = out(i).at
-                wy.b = out(j).at
-                wy.chord = (wy.a - wy.b).Length
-                If wy.chord < bodyR * 2.0F Then Continue For
-
-                Dim mid = (wy.a + wy.b) * 0.5F
-                Dim toMid = mid - pos
-                Dim reach = toMid.Length
-                If reach < 0.5F Then Continue For
-                Dim dir = toMid / reach
-                wy.mid = mid + dir * 2.0F
-                wy.bearing = wrap_to_pi(CSng(Math.Atan2(dir.X, dir.Y)) - headingRad)
-
-                ' THE HULL'S OWN CORRIDOR, AT THE GAP. Past the opening by the
-                ' same two metres the aim point is, or a gap that is clear right
-                ' up to its mouth and shut immediately behind reads as open.
-                ' Not named `bear` - Scan already has one for the bearings
-                ' array, and VB will not let a block hide it. Worth the compile
-                ' error: a silently shadowed name is what cost an evening when
-                ' a parameter called `rays` swallowed the RAYS constant.
-                Dim gapBear = CSng(Math.Atan2(dir.X, dir.Y))
-                ' record:=False - this is asking about a GAP, not about the
-                ' hull's own lane, and the scope draws the lane.
-                Dim lane = Corridor(pos, gapBear, bodyR, reach + 2.0F, False)
-                wy.fits = Not lane.hit
-                WAYS.Add(wy)
+        Dim maxSteps = CInt(90.0F / (ARC_DEG / RAYS))
+        For i = 0 To out.Length - 1
+            If Not out(i).found OrElse out(i).linked Then Continue For
+            WAY_CAND += 1
+            Dim j = -1
+            For k = 1 To out.Length - 1
+                Dim m = (i + k) Mod out.Length
+                If out(m).found Then
+                    j = m
+                    Exit For
+                End If
             Next
-        End If
+            If j < 0 OrElse j = i Then
+                WAY_NOJ += 1
+                Continue For
+            End If
+            If WAY_FIRST_I < 0 Then
+                WAY_FIRST_I = i
+                WAY_FIRST_J = j
+            End If
+            If (((j - i) + out.Length) Mod out.Length) > maxSteps Then
+                WAY_FAR += 1
+                Continue For
+            End If
 
-        LAST = out
+            Dim wy As Way
+            wy.ia = i
+            wy.ib = j
+            wy.a = out(i).at
+            wy.b = out(j).at
+            wy.chord = (wy.a - wy.b).Length
+            If wy.chord < bodyR * 2.0F Then
+                WAY_NARROW += 1
+                Continue For
+            End If
+
+            Dim mid = (wy.a + wy.b) * 0.5F
+            Dim toMid = mid - pos
+            Dim reach = toMid.Length
+            If reach < 0.5F Then
+                WAY_NEAR += 1
+                Continue For
+            End If
+            Dim dir = toMid / reach
+            wy.mid = mid + dir * 2.0F
+            wy.bearing = wrap_to_pi(CSng(Math.Atan2(dir.X, dir.Y)) - headingRad)
+
+            ' Not named `bear` - Scan already has one for the bearings
+            ' array, and VB will not let a block hide it. Worth the compile
+            ' error: a silently shadowed name is what cost an evening when
+            ' a parameter called `rays` swallowed the RAYS constant.
+            Dim gapBear = CSng(Math.Atan2(dir.X, dir.Y))
+
+            ' DOES THE HULL FIT THROUGH IT - tested AT the opening.
+            '
+            ' This used to cast the corridor from the HULL, the whole way to
+            ' the gap and two metres past, which does not ask whether the tank
+            ' fits through the door. It asks whether the tank can drive
+            ' STRAIGHT INTO IT FROM WHERE IT IS STANDING - and those are
+            ' different questions with different answers.
+            '
+            ' Measured on the owner's hard start: six doors a tick, widest
+            ' 12.5 m against a 3.9 m hull, and every one rejected. The hull was
+            ' boxed in with returns at 7-10 m all round its nose, so every
+            ' straight run from there hit something. The rule failed hardest at
+            ' exactly the moment a door was most needed, and Has Door read
+            ' false on every tick of every run all night.
+            '
+            ' So `fits` is now a local property of the opening: eight metres of
+            ' hull-wide corridor centred on it, along its own bearing. Whether
+            ' we can GET there is a routing question, and the board already
+            ' answers that every tick by steering - it does not need to be
+            ' smuggled into the definition of a doorway.
+            Dim approach = wy.mid - dir * 4.0F
+            Dim lane = Corridor(approach, gapBear, bodyR, 8.0F, False)
+            wy.fits = Not lane.hit
+            ways.Add(wy)
+            WAY_ADDS += 1
+        Next
+        WAY_MADE = ways.Count
+        If WAY_SAY < 6 Then
+            WAY_SAY += 1
+            Dim fits_ = 0, widest_ = 0.0F, widestFit_ = 0.0F
+            For Each w In ways
+                If w.chord > widest_ Then widest_ = w.chord
+                If w.fits Then
+                    fits_ += 1
+                    If w.chord > widestFit_ Then widestFit_ = w.chord
+                End If
+            Next
+            LogThis("brain: buildways - cand {0}, list {1} | FITS {2} | " &
+                    "widest any {3:0.0} m, widest fitting {4:0.0} m",
+                    WAY_CAND, ways.Count, fits_, widest_, widestFit_)
+        End If
+        Return ways
+    End Function
+
+
+    ''' <summary>What two viewpoints agree and disagree about.</summary>
+    Public Structure Parallax
+        ''' <summary>How far apart the two origins were, in metres.</summary>
+        Public L As Single
+
+        ''' <summary>Per ray: how much FURTHER the second scan saw. Positive is
+        ''' an opening - no surface facing us can recede as we close on it.
+        ''' Negative is the ordinary foreshortening of closing distance, or, if
+        ''' it is steeper than closing distance allows, something new.</summary>
+        Public opened As Single()
+
+        ''' <summary>The biggest opening, and where. Not checked for
+        ''' reachability - that is the brain's question, not the radar's.</summary>
+        Public gain As Single
+        Public bearing As Single
+
+        ''' <summary>0..1, the share of forward rays whose two readings are
+        ''' consistent with one surface. High means this picture survives the
+        ''' next L metres; low means we are looking at something we have not
+        ''' really seen yet.</summary>
+        Public agree As Single
+        Public counted As Integer
+
+        ''' <summary>Per ray, what the pair meant. 0 not counted (astern,
+        ''' or nothing found either time), 1 consistent - one surface seen
+        ''' twice, 2 an OPENING, 3 an intrusion. Named here rather than
+        ''' recomputed by whoever wants to draw it: two copies of a band
+        ''' test is two chances to disagree about what the radar
+        ''' decided.</summary>
+        Public verdict As Integer()
+    End Structure
+
+    ''' <summary>
+    ''' COMPARE TWO SWEEPS TAKEN L METRES APART ON ONE HEADING.
+    '''
+    ''' Ray i is the same world direction in both, so the pair is two
+    ''' measurements of one direction from two places. If both stopped on a
+    ''' single flat surface with normal n then
+    '''
+    '''     d_far - d_near = -L * (f.n) / (u.n)
+    '''
+    ''' which is -L/cos(a) for a wall square across the nose and exactly 0 for
+    ''' one running along the heading. Every case in between lies between those
+    ''' two, and all of them are at or below zero: NOTHING FACING US GETS
+    ''' FARTHER AWAY AS WE CLOSE ON IT.
+    '''
+    ''' So a range that GREW is proof the second ray went past whatever stopped
+    ''' the first - an opening - and it is proof without knowing the surface or
+    ''' its orientation. A range that shrank by more than L/cos(a) is likewise
+    ''' more than closing can explain, so something intruded. Only the band
+    ''' between is "one wall, seen twice", and the share of rays in it is how
+    ''' much of this view will still be true L metres from now.
+    '''
+    ''' A ray that found NOTHING counts as the full reach rather than being
+    ''' skipped. It is a real reading - "clear to the horizon that way" - and
+    ''' dropping it loses the strongest openings of all, the ones where a wall
+    ''' from here simply is not there from up the road.
+    '''
+    ''' FORWARD HEMISPHERE ONLY. Behind the sample point is ground we have just
+    ''' driven over, and the same relative bearing astern lands on something
+    ''' else entirely after L metres of travel - the reflection the owner
+    ''' warned about. cos(a) also goes to zero at the beam, which would make the
+    ''' intrusion bound meaningless.
+    ''' </summary>
+    Public Function Compare(near_ As Hit(), far As Hit(), L As Single) As Parallax
+        Dim px As Parallax
+        px.L = L
+        px.bearing = 0.0F
+        If near_ Is Nothing OrElse far Is Nothing Then Return px
+
+        Dim n = Math.Min(near_.Length, far.Length)
+        Dim opened(n - 1) As Single
+        Dim verdict(n - 1) As Integer
+        Dim agreed = 0
+
+        For i = 0 To n - 1
+            Dim a = wrap_to_pi(near_(i).angle)
+            Dim ca = CSng(Math.Cos(a))
+            ' 1.4 rad is the same forward limit the look-ahead doors use; past
+            ' it the bound below divides by something near zero.
+            If Math.Abs(a) > 1.4F OrElse ca < 0.17F Then Continue For
+            If Not near_(i).found AndAlso Not far(i).found Then Continue For
+
+            Dim dn = If(near_(i).found, near_(i).dist, REACH_M)
+            Dim df = If(far(i).found, far(i).dist, REACH_M)
+            opened(i) = df - dn
+            px.counted += 1
+
+            If opened(i) > 0.5F Then
+                ' An opening. Half a metre of slack for the cell walk.
+                verdict(i) = 2
+                If opened(i) > px.gain Then
+                    px.gain = opened(i)
+                    px.bearing = a
+                End If
+            ElseIf (dn - df) > (L / ca) + 0.5F Then
+                ' Closed faster than closing distance can explain.
+                verdict(i) = 3
+            Else
+                verdict(i) = 1
+                agreed += 1
+            End If
+        Next
+
+        px.opened = opened
+        px.verdict = verdict
+        px.agree = If(px.counted > 0, agreed / CSng(px.counted), 0.0F)
+        Return px
+    End Function
+
+    ''' <summary>
+    ''' ONE CLOUD FROM TWO VIEWPOINTS.
+    '''
+    ''' The near sweep wins every direction it has a return in - it is what
+    ''' actually blocks the hull, and it was taken from where the hull actually
+    ''' is. The far sweep only fills directions the near one found NOTHING in,
+    ''' and those are precisely the near sweep's occlusion shadow: ground it
+    ''' could not see round a corner.
+    '''
+    ''' THAT ASYMMETRY IS THE SAFETY ARGUMENT. Filling empty directions can only
+    ''' ADD surface, never remove it, so door finding on the union is stricter
+    ''' than on the near sweep alone - never looser. A sixty degree void where
+    ''' nothing returned is not a doorway, it is unknown ground; putting real
+    ''' returns into it turns unknown into known and splits the void into the
+    ''' doors that are really there.
+    '''
+    ''' Points are re-measured FROM THE HULL - a far point's own range and
+    ''' bearing are relative to where the far sweep stood, and everything
+    ''' downstream is the hull's frame.
+    ''' </summary>
+    Public Function Union(near_ As Hit(), far As Hit(), pos As Vector2,
+                          headingRad As Single, bodyR As Single) As Hit()
+        If near_ Is Nothing Then Return far
+        Dim out(near_.Length - 1) As Hit
+        Array.Copy(near_, out, near_.Length)
+        If far Is Nothing Then Return out
+
+        Dim span = CSng(Math.PI * 2.0)
+        For i = 0 To far.Length - 1
+            If Not far(i).found Then Continue For
+            Dim v = far(i).at - pos
+            Dim d = v.Length
+            If d < 0.5F OrElse d > REACH_M Then Continue For
+
+            Dim ang = wrap_to_pi(CSng(Math.Atan2(v.X, v.Y)) - headingRad)
+            ' Bearings() lays one slice per ray evenly round the circle, so the
+            ' slot is arithmetic rather than a search.
+            Dim k = CInt(Math.Floor((ang + Math.PI) / span * out.Length))
+            If k < 0 Then k = 0
+            If k >= out.Length Then k = out.Length - 1
+            If out(k).found Then Continue For
+
+            out(k).found = True
+            out(k).dist = d
+            out(k).at = far(i).at
+            out(k).angle = ang
+            out(k).front = Math.Abs(ang) < CSng(Math.PI) * 0.5F
+            out(k).row = far(i).row
+            out(k).col = far(i).col
+        Next
+
+        ' CHORDS AND LINKS AGAIN, or BuildWays reads the near sweep's answers
+        ' for slots that now hold a different point - and `linked` is what
+        ' decides whether a pair of returns is a wall or a doorway.
+        Dim gate = If(bodyR > 0.0F, bodyR * 2.0F, 0.0F)
+        For i = 0 To out.Length - 1
+            Dim j = (i + 1) Mod out.Length
+            out(i).chord = (out(i).at - out(j).at).Length
+            out(i).linked = out(i).found AndAlso out(j).found AndAlso
+                            out(i).chord < gate
+        Next
         Return out
     End Function
 
@@ -648,6 +928,21 @@ Module BrainRadar
     ''' fits through marked. Read by the scope and by the brain, so both are
     ''' looking at one answer.</summary>
     Public WAYS As New List(Of Way)
+
+    ''' <summary>TEMPORARY: where BuildWays threw each candidate away.
+    ''' Ways came back zero with a dozen edges on the board and three
+    ''' different rejections could each produce that.</summary>
+    Public WAY_CAND As Integer
+    Public WAY_FAR As Integer
+    Public WAY_NARROW As Integer
+    Public WAY_NEAR As Integer
+    Public WAY_NOJ As Integer
+    Public WAY_MADE As Integer
+    Public WAY_ADDS As Integer
+    Public WAY_SAY As Integer = 0
+    Public SCAN_SAY As Integer = 0
+    Public WAY_FIRST_I As Integer = -1
+    Public WAY_FIRST_J As Integer = -1
 
     ''' <summary>
     ''' THE LAST CORRIDOR, IN THE HULL'S OWN FRAME, for the scope to draw.

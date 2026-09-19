@@ -115,6 +115,156 @@ Module BrainReport
                              CrawlWorst, metres / t)
     End Function
 
+    ''' <summary>Where the run began and how far the goal was then.
+    ''' Captured at Start, because the scorecard's only honest question is
+    ''' how much of THE GAP IT WAS GIVEN it managed to shut - and by the
+    ''' end the opening position is long gone.</summary>
+    Public StartPos As Vector2
+    Public StartGap As Single = -1.0F
+
+    ''' <summary>Arrivals, nearest approach, and the time lost to going
+    ''' slowly. Counted as the run happens, because a goal that respawns
+    ''' on arrival makes any end-of-run distance meaningless.</summary>
+    Public Goals As Integer = 0
+    Public ClosestGap As Single = -1.0F
+    Public Stalls As Integer = 0
+    Public StallSecs As Single = 0.0F
+    ''' <summary>The longest single stall, and where it happened. If every
+    ''' trial dies at the same coordinates it is not a tuning problem, it
+    ''' is one piece of ground - and no knob will move it.</summary>
+    Public StallWorst As Single = 0.0F
+    Public StuckAt As Vector2
+    ''' <summary>Seconds since the closest approach improved. The measure
+    ''' of a run that has stopped being worth watching.</summary>
+    Public SinceGain As Single = 0.0F
+    Private atGoal As Boolean = False
+    Private stallRun As Single = 0.0F
+    Private stallOpen As Boolean = False
+
+    ''' <summary>
+    ''' One tick of progress. Arrival uses HYSTERESIS - inside five metres
+    ''' to count, outside eight to re-arm - or a hull parked on the line
+    ''' scores an arrival every frame it jitters across it. The same
+    ''' lesson as the wedge clock and the backing clock: nothing keyed on
+    ''' an instant can settle.
+    '''
+    ''' A STALL IS HALF A SECOND UNDER A METRE A SECOND. Not a single slow
+    ''' frame - that is a gear change, not a think - and counted as
+    ''' EPISODES as well as seconds, because one four second think and
+    ''' eight half second ones are the same percentage and completely
+    ''' different problems.
+    ''' </summary>
+    Public Sub NoteProgress(gap As Single, speed As Single, dt As Single,
+                            whereNow As Vector2)
+        If ClosestGap < 0.0F OrElse gap < ClosestGap - 0.5F Then
+            ClosestGap = gap
+            SinceGain = 0.0F
+        Else
+            SinceGain += dt
+        End If
+        If gap <= 5.0F Then
+            If Not atGoal Then
+                Goals += 1
+                atGoal = True
+            End If
+        ElseIf gap > 8.0F Then
+            atGoal = False
+        End If
+
+        If Math.Abs(speed) < 1.0F Then
+            stallRun += dt
+            StallSecs += dt
+            If stallRun >= 0.5F AndAlso Not stallOpen Then
+                Stalls += 1
+                stallOpen = True
+            End If
+            If stallRun > StallWorst Then
+                StallWorst = stallRun
+                StuckAt = whereNow
+            End If
+        Else
+            stallRun = 0.0F
+            stallOpen = False
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' One line, the same way every time, so two runs can be read side by
+    ''' side.
+    '''
+    ''' closed% is the measure, not metres driven: a hull can drive a long
+    ''' way round in a circle. Metres driven appears beside it as `path`,
+    ''' because two brains that shut the same gap are not equal if one of
+    ''' them took twice the road to do it.
+    ''' </summary>
+    ''' <summary>
+    ''' ONE NUMBER, so a search can say better or worse without a human.
+    '''
+    '''   goals   x 100   arriving is the job, and nothing else counts until
+    '''                   it has happened at least once.
+    '''   closed  x 0.5   credit for ground genuinely shut, measured at the
+    '''                   CLOSEST approach - not the end, or a run that
+    '''                   arrived and drove on scores as if it never went.
+    '''   pace    x 1     "slow as little as we can", literally.
+    '''   deg/m   x -8    "smooth turns". Full lock at cruise is about
+    '''                   2.2 deg/m, so eight points a degree makes the
+    '''                   difference between smooth and fighting worth
+    '''                   roughly twenty points - real, not decisive.
+    '''   stalls  x -2    each separate stop-and-think.
+    ''' </summary>
+    Public Function Score() As Single
+        Dim t = SecFull + SecCruise + SecSlow + SecCrawl + SecBack + SecStill
+        Dim pace = If(t > 0.01F, 100.0F * (SecFull + SecCruise) / t, 0.0F)
+        Dim closed = 0.0F
+        If StartGap > 0.1F AndAlso ClosestGap >= 0.0F Then
+            closed = Math.Clamp(100.0F * (StartGap - ClosestGap) / StartGap,
+                                0.0F, 100.0F)
+        End If
+        Return 100.0F * Goals + 0.5F * closed + pace -
+               8.0F * BrainTrail.TurnPerMetre() - 2.0F * Stalls
+    End Function
+
+    ''' <summary>One CSV row. A sweep reads a file; scraping a console is
+    ''' one encoding away from lying about a number.</summary>
+    Public Function ScoreRow(brain As String, secs As Single,
+                             nowPos As Vector2, goal As Vector2) As String
+        Dim t = SecFull + SecCruise + SecSlow + SecCrawl + SecBack + SecStill
+        Dim pace = If(t > 0.01F, 100.0F * (SecFull + SecCruise) / t, 0.0F)
+        Dim top = BrainNodes.TopActs(2)
+        Return String.Format(Globalization.CultureInfo.InvariantCulture,
+            "{0:0.00},{1},""{2}"",{3},{4:0.0},{5},{6:0.0},{7:0.0}," &
+            "{8:0.0},{9:0.000},{10:0.0},{11:0.0},{12:0.0},{13:0.0},{14:0.0}," &
+            "{15:0.0},""{16}"",{17},""{18}"",{19},{20:0.0},{21:0.0},{22:0.0}",
+            Score(), brain, BrainTune.Spec, Goals, pace, Stalls, StallSecs,
+            If(t > 0.01F, metres / t, 0.0F), BrainTrail.TurnDeg,
+            BrainTrail.TurnPerMetre(), ClosestGap, (goal - nowPos).Length,
+            metres, StartGap, secs,
+            BrainNodes.Flips / Math.Max(1.0F, secs),
+            top(0), top(1), top(2), top(3),
+            StallWorst, StuckAt.X, StuckAt.Y)
+    End Function
+
+    Public ReadOnly ROW_HEADER As String =
+        "score,brain,spec,goals,pace,stalls,stall_s,mean_ms,turn_deg," &
+        "turn_per_m,closest,gap,path,start_gap,secs,flips_s," &
+        "top1,top1_pct,top2,top2_pct,worst_stall,stuck_x,stuck_z"
+
+    Public Function Scorecard(brain As String, secs As Single,
+                              nowPos As Vector2, goal As Vector2,
+                              arriveM As Single) As String
+        Dim t = SecFull + SecCruise + SecSlow + SecCrawl + SecBack + SecStill
+        Dim pace = If(t > 0.01F, 100.0F * (SecFull + SecCruise) / t, 0.0F)
+        Return String.Format(
+            "SCORE {0,-6} {1,3:0}s | goals {2} | pace {3,3:0}% | stalls {4,3} " &
+            "({5,5:0.0}s) | mean {6,4:0.0} m/s | closest {7,6:0.0} m | " &
+            "gap {8,6:0.0} m | path {9,6:0.0} m | turn {10,6:0} deg " &
+            "({11,5:0.00} deg/m) | SCORE {12,6:0.0}",
+            brain, secs, Goals, pace, Stalls, StallSecs,
+            If(t > 0.01F, metres / t, 0.0F), ClosestGap,
+            (goal - nowPos).Length, metres,
+            BrainTrail.TurnDeg, BrainTrail.TurnPerMetre(), Score())
+    End Function
+
     ''' <summary>The last why and throttle the brain produced, so a display can
     ''' read them without reaching into whichever IBrain happens to be
     ''' installed. The card over the tank wants them every frame; the brain
@@ -131,6 +281,16 @@ Module BrainReport
     ''' evening inherits the first one's tally and every comparison is off by
     ''' however long the app has been open.</summary>
     Public Sub Reset()
+        Goals = 0
+        ClosestGap = -1.0F
+        StallWorst = 0.0F
+        SinceGain = 0.0F
+        BrainNodes.ResetCounts()
+        Stalls = 0
+        StallSecs = 0.0F
+        atGoal = False
+        stallRun = 0.0F
+        stallOpen = False
         Probes = 0
         DblTaps = 0
         RearTrigs = 0

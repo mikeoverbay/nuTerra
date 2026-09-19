@@ -40,8 +40,37 @@ Module BrainGoal
     ''' </summary>
     Public Follow As Boolean = True
 
+    ''' <summary>
+    ''' THE GOAL DOES NOT MOVE. `pingoal` on the command line.
+    '''
+    ''' Both brains throw a fresh goal three hundred metres off when they
+    ''' arrive, which is right for an evening of watching and useless for a
+    ''' search: two runs diverge the moment one of them arrives, and after
+    ''' that they are being scored on different journeys. Pinned, every trial
+    ''' answers the same question.
+    '''
+    ''' Refused at the SETTER rather than at the two call sites, because a
+    ''' third brain would otherwise arrive with its own respawn and quietly
+    ''' un-pin the experiment.
+    ''' </summary>
+    Public Pinned As Boolean = False
+
+    ''' <summary>Move the goal, unless it is pinned. Every brain goes
+    ''' through here.</summary>
+    Public Function TryMove(p As Vector2) As Boolean
+        If Pinned Then Return False
+        Target = p
+        HasTarget = True
+        Return True
+    End Function
+
     ''' <summary>Called every frame: keep the goal on the camera.</summary>
     Public Sub FollowCamera()
+        ' PINNED BEATS FOLLOWING. This writes Target directly rather than
+        ' going through TryMove, so without this line a pinned goal still
+        ' rode the camera - and with the chase cam on, the camera is the
+        ' tank. Every trial arrived instantly having driven ten centimetres.
+        If Pinned Then Return
         If Not Follow Then Return
         Dim t = BrainRender.Cam.Target
         Target = New Vector2(t.X, t.Z)

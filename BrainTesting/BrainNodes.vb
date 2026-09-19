@@ -180,6 +180,12 @@ Module BrainNodes
         New Kind("sense", "Corridor", {"reach"}, {"clear", "metres", "side"},
                  {"length", "margin"}, {30.0F, 0.3F}),
         New Kind("sense", "Doors", {"hits"}, {"doors"}),
+        New Kind("sense", "Look Ahead", {},
+                 {"hits", "doors", "gain", "confidence"},
+                 {"metres"}, {0.0F}),
+        New Kind("sense", "Way Out", {},
+                 {"bearing", "gain", "confidence"},
+                 {"metres", "min gain"}, {0.0F, 6.0F}),
         New Kind("test", "Arrived", {"range"}, {"True"}, {"metres"}, {5.0F}),
         New Kind("test", "Is Wedged", {}, {"True"}),
         New Kind("test", "Not Moving", {}, {"True"}),
@@ -189,6 +195,8 @@ Module BrainNodes
         New Kind("test", "Hit Count", {"hits"}, {"True"}, {"count"}, {3.0F}),
         New Kind("test", "Has Door", {"door"}, {"True"}),
         New Kind("test", "Path Clear", {"bearing", "metres"}, {"True"}),
+        New Kind("test", "Can Pivot To", {"bearing"}, {"True"},
+                 {"margin"}, {0.3F}),
         New Kind("test", "Enough Room", {"metres"}, {"True"}, {"metres"}, {5.0F}),
         New Kind("test", "Plank Hit", {"clear"}, {"True"}),
         New Kind("test", "Rear Better", {"metres"}, {"True"}),
@@ -197,6 +205,8 @@ Module BrainNodes
         New Kind("test", "Is Turning", {}, {"True"}),
         New Kind("test", "Is Door", {}, {"True"}),
         New Kind("test", "Is Follow", {}, {"True"}),
+        New Kind("pick", "Round The End", {"bearing"}, {"bearing", "True"},
+                 {"margin"}, {0.6F}),
         New Kind("pick", "Widest Door", {"doors"}, {"door"}),
         New Kind("pick", "Best Door", {"doors", "bearing"}, {"door"}),
         New Kind("pick", "Deepest Ray", {"hits"}, {"bearing"}),
@@ -255,6 +265,10 @@ Module BrainNodes
             Case "doors" : Return "every gap found between the rays"
             Case "door" : Return "one gap - where it is, how wide, whether we fit"
             Case "bearing" : Return "an angle off the nose. left is negative"
+            Case "margin" : Return "extra clearance in metres, on top of the hull"
+            Case "gain" : Return "metres of extra sight a step forward buys. big means a way out"
+            Case "confidence" : Return "0..1 - how much the two viewpoints agree. low means look again"
+            Case "min gain" : Return "how much extra sight counts as a door. under this, no bearing"
             Case "range" : Return "metres to the goal"
             Case "metres", "metres" : Return "a distance in metres"
             Case "ahead" : Return "clear metres straight in front"
@@ -279,6 +293,8 @@ Module BrainNodes
             Case "Speed" : Return "how fast we are actually going"
             Case "Corridor" : Return "planks a hull wide, straight out. the fit test"
             Case "Doors" : Return "openings between the rays"
+            Case "Look Ahead" : Return "both viewpoints merged - more returns, fewer blind spots"
+            Case "Way Out" : Return "a bearing that OPENS UP from up the road, or nothing"
             Case "Arrived" : Return "close enough to the goal to call it done"
             Case "No Goal" : Return "nothing to drive toward"
             Case "Is Wedged" : Return "asked to move, went nowhere, for most of a second"
@@ -286,6 +302,7 @@ Module BrainNodes
             Case "Too Few Rays" : Return "the scan came back with almost nothing"
             Case "Hit Count" : Return "at least `count` rays found something"
             Case "Path Clear" : Return "the hull fits along this bearing for this far"
+            Case "Can Pivot To" : Return "there is room to TURN to face this. the corners need the half-diagonal"
             Case "Enough Room" : Return "more than a hull length of room"
             Case "Plank Hit" : Return "something is in the corridor. START SCANNING"
             Case "Rear Better" : Return "more room behind than ahead, and ahead is shut"
@@ -296,6 +313,7 @@ Module BrainNodes
             Case "Is Turning" : Return "swinging onto a new heading"
             Case "Is Door" : Return "lined up on a gap, going through"
             Case "Is Follow" : Return "running along a wall"
+            Case "Round The End" : Return "steer past the EDGE of what is in the way - no door needed"
             Case "Widest Door" : Return "the widest opening we fit through, any direction"
             Case "Best Door" : Return "the gap that GAINS most ground toward the goal"
             Case "Deepest Ray" : Return "the bearing of the furthest ray in front"
@@ -742,6 +760,53 @@ Module BrainNodes
 
     Public ActedNode As Integer = -1
 
+    ''' <summary>
+    ''' HOW OFTEN EACH ACT WON THE TICK, and how often the answer changed.
+    '''
+    ''' The score says how well a run went. This says what it spent its
+    ''' time doing, which is the half you can act on: a run that reversed
+    ''' for sixty per cent of its life and one that drove smoothly into a
+    ''' wall can score the same and need opposite fixes.
+    ''' </summary>
+    Public ReadOnly ActCount As New Dictionary(Of Integer, Integer)
+    Public Flips As Integer = 0
+    Private lastActed As Integer = -1
+
+    Public Sub ResetCounts()
+        ActCount.Clear()
+        Flips = 0
+        lastActed = -1
+    End Sub
+
+    ''' <summary>The top acts, as "name pct" pairs.</summary>
+    Public Function TopActs(howMany As Integer) As String()
+        Dim total = 0
+        For Each kv In ActCount
+            total += kv.Value
+        Next
+        Dim outp As New List(Of String)
+        Dim used As New List(Of Integer)
+        For n = 1 To howMany
+            Dim bestId = -1, bestN = 0
+            For Each kv In ActCount
+                If used.Contains(kv.Key) Then Continue For
+                If kv.Value > bestN Then
+                    bestN = kv.Value
+                    bestId = kv.Key
+                End If
+            Next
+            If bestId < 0 Then Exit For
+            used.Add(bestId)
+            outp.Add(NodeKind(bestId))
+            outp.Add(CInt(100.0F * bestN / Math.Max(1, total)).ToString())
+        Next
+        While outp.Count < howMany * 2
+            outp.Add("-")
+            outp.Add("0")
+        End While
+        Return outp.ToArray()
+    End Function
+
     Private lastPath As String = ""
 
     Public Sub TraceBegin()
@@ -766,6 +831,15 @@ Module BrainNodes
 
     Public Sub TraceAct(id As Integer)
         ActedNode = id
+        ' Counted HERE rather than at the caller, so every path that acts
+        ' is counted and a new one cannot forget to.
+        If id <> lastActed Then
+            Flips += 1
+            lastActed = id
+        End If
+        Dim had = 0
+        ActCount.TryGetValue(id, had)
+        ActCount(id) = had + 1
     End Sub
 
     ''' <summary>The walk as one line: the tests that were asked, what they
@@ -823,6 +897,24 @@ Module BrainNodes
         nodes.Add(n)
         Return n.id
     End Function
+
+    ''' <summary>
+    ''' Give a spawned node one of its settings.
+    '''
+    ''' The builder had no way to say this, so every node on the board ran
+    ''' at its kind's default - and two rungs that read the SAME quantity
+    ''' were therefore stuck with the SAME threshold. Enough Room let go of
+    ''' the Backing state at exactly the distance Rear Better grabbed it at,
+    ''' which is not a rule, it is a coin landing on its edge.
+    ''' </summary>
+    Private Sub set_setting(id As Integer, name As String, v As Single)
+        For Each n In nodes
+            If n.id = id Then
+                n.sets(name) = v
+                Return
+            End If
+        Next
+    End Sub
 
     ''' <summary>Join two pins BY NAME. Names, because the builder below makes
     ''' sixty of these and an off-by-one in a pin index is invisible - it wires
@@ -955,7 +1047,63 @@ Module BrainNodes
         Dim tStuck2 = spawn("Not Moving", 430.0F, 190.0F)
         Dim gStuck2 = spawn("Gate", 870.0F, 250.0F)
         Dim aSpin2 = spawn("Turn To", 1090.0F, 250.0F)
-        join_pins(p1, "d", pStuck2, "in")
+        ' ---- GO, UNLESS SOMETHING STOPS YOU -----------------------------
+        '
+        ' "think like what a person would do. things you do first and in what
+        '  order" - and the first thing a person does is point at where they
+        ' are going and drive. Everything else is an exception to that.
+        '
+        ' This board was built the other way up. Heading for the goal was
+        ' p5.d - the last pin of a five deep chain, below scanning, backing,
+        ' turning, doors, wall following, planks and going round. The
+        ' OBJECTIVE was the lowest priority thing on the board, so any
+        ' marginal reason to reverse outranked actually going somewhere.
+        '
+        ' Placed after the three terminals - no goal, arrived, wedged -
+        ' because those are the cases where driving at the goal is wrong or
+        ' impossible. Everywhere else: if the way is plausibly open, take it,
+        ' and let the rungs below deal with it next tick if it is not. Being
+        ' optimistic and correcting is what a person does; checking every
+        ' danger before moving is what this board did.
+        Dim pGo = spawn("Priority", 650.0F, 200.0F)
+        Dim tGo = spawn("Path Clear", 420.0F, 200.0F)
+        Dim gGo = spawn("Gate", 870.0F, 200.0F)
+        Dim aStraight = spawn("Drive Heading", 1090.0F, 200.0F)
+        join_pins(goal, "bearing", tGo, "bearing")
+        join_pins(tGo, "True", gGo, "True")
+        join_pins(pGo, "c", gGo, "in")
+        join_pins(gGo, "out", aStraight, "in")
+        join_pins(goal, "bearing", aStraight, "bearing")
+
+        ' ---- AND IF IT IS NOT OPEN, LOOK LEFT AND RIGHT. NOW. ------------
+        '
+        ' "you are not looking for the way around" - and the board was not,
+        ' because this rung lived at p5.a. To reach it a tick had to survive
+        ' scanning, backing, turning, doors, wall following and planks first.
+        ' A person who is blocked looks left and right immediately; they do
+        ' not work through a checklist while sitting against a tree.
+        '
+        ' The search itself was always right. Measured at the owner's hard
+        ' start: nineteen bearings tried, all pivotable, six with an open
+        ' plank, and it picks forty degrees left - into a ninety-three degree
+        ' arc with nothing in it for forty metres. It had that answer every
+        ' tick of every run tonight and was never asked for it.
+        Dim pAround = spawn("Round The End", 420.0F, 300.0F)
+        Dim gAround = spawn("Gate", 870.0F, 300.0F)
+        Dim aAround = spawn("Drive Heading", 1090.0F, 300.0F)
+        join_pins(goal, "bearing", pAround, "bearing")
+        join_pins(pAround, "True", gAround, "True")
+        ' FIRST, not second. The walk already includes the goal bearing among
+        ' its candidates, so this one rung answers both "is the way home open"
+        ' and "where do I go round" - and there is no second rung left to
+        ' argue with it. The old straight-at-the-goal rung stays on pin c as a
+        ' backstop for the tick where the walk finds nothing at all.
+        join_pins(pGo, "a", gAround, "in")
+        join_pins(gAround, "out", aAround, "in")
+        join_pins(pAround, "bearing", aAround, "bearing")
+
+        join_pins(p1, "d", pGo, "in")
+        join_pins(pGo, "d", pStuck2, "in")
         join_pins(pStuck2, "a", gStuck2, "in")
         join_pins(tStuck2, "True", gStuck2, "True")
         join_pins(gStuck2, "out", aSpin2, "in")
@@ -1020,8 +1168,35 @@ Module BrainNodes
         join_pins(tBack, "True", gBack, "True")
         join_pins(gBack, "out", pBack, "in")
         join_pins(pBack, "a", gBackOut, "in")
+        ' A DEAD BAND, and it is the whole fix. Rear Better grabs the Backing
+        ' state when Body Ahead drops under five metres; this rung hands it
+        ' back when Body Ahead climbs over five metres. Same reading, same
+        ' number, so the hull sat on five and alternated - grab, release,
+        ' grab - 24,265 board decisions in one run and 100% of them a change
+        ' of mind.
+        '
+        ' Nine metres to let go: a hull length clear of the five that took it,
+        ' so backing out has to actually achieve something before it counts as
+        ' finished. Backed Enough still caps it in time, so this cannot back
+        ' across the map looking for nine metres that are not there.
+        set_setting(tRoom, "metres", 9.0F)
         join_pins(body, "metres", tRoom, "metres")
-        join_pins(tRoom, "True", gBackOut, "True")
+        ' BACK UNTIL THERE IS ROOM TO TURN, not until there is room AHEAD.
+        '
+        ' Enough Room asks whether the way forward has opened. Backing out
+        ' of a pocket does not open the way forward - it opens the way
+        ' ROUND, and the hull cannot take it without first swinging the
+        ' nose. So the old exit was waiting for something reversing does not
+        ' produce, and Backed Enough let go after 1.2 s instead: about a
+        ' metre of creep, nothing changed, same reading, back again.
+        ' Measured: forward and back at a hundred decisions a second.
+        '
+        ' Can Pivot To answers the question that actually ends a reversal -
+        ' can the box now swing to face the deepest open direction. It has
+        ' been on the board since it was written and wired to nothing.
+        Dim tPivot = spawn("Can Pivot To", 1090.0F, 330.0F)
+        join_pins(pDeep, "bearing", tPivot, "bearing")
+        join_pins(tPivot, "True", gBackOut, "True")
         join_pins(gBackOut, "out", aSeek, "in")
         ' SPIN BEFORE REVERSING. The sim turns the hull before it tests where
         ' the hull wants to go, so rotation is the one command that is never
@@ -1034,7 +1209,21 @@ Module BrainNodes
         ' AND A WAY OUT ON THE CLOCK. The clearance exit above can be waited
         ' on forever in a pocket - this one cannot. Whatever else is true,
         ' after long enough backing we stop backing and look again.
+        ' A BACKSTOP, NOT THE EXIT.
+        '
+        ' Backing has two ways out: Can Pivot To, which is the real one -
+        ' back up until the box can swing - and this, a timer. At 1.2 s the
+        ' timer always won: about a metre of creep, still nothing to turn
+        ' into, so the same reading put it straight back into Backing.
+        ' Measured with the way-around rung finally firing: Can Pivot To=n,
+        ' Backed Enough=Y, Set Seek - then forward and back at frame rate,
+        ' 2675 Reverse against 2460 Drive Heading, net movement zero.
+        '
+        ' Eight seconds, so it only fires when backing genuinely is not
+        ' working and something else should be tried. The condition that
+        ' ENDS a reversal should be the one the reversal exists to create.
         Dim tBacked = spawn("Backed Enough", 1090.0F, 470.0F)
+        set_setting(tBacked, "seconds", 8.0F)
         Dim gBacked = spawn("Gate", 1310.0F, 470.0F)
         Dim aSeek2 = spawn("Set Seek", 1530.0F, 470.0F)
         join_pins(pBack, "b", gBacked, "in")
@@ -1177,11 +1366,50 @@ Module BrainNodes
         Dim p5 = spawn("Priority", 650.0F, 1700.0F)
         join_pins(p4, "d", p5, "in")
 
+        ' THE FRONT DOOR INTO BACKING, and it had no doorman.
+        '
+        ' This rung reversed without ever entering the Backing STATE, so
+        ' Is Backing read false on every tick, the whole pBack chain - Backed
+        ' Enough, Enough Room, Set Seek - was unreachable, and this Reverse
+        ' was re-decided from scratch sixty times a second against a bare
+        ' threshold. Measured: 1526 board decisions in a 70 s run, 1520 of
+        ' them a change of mind, alternating Reverse and Drive Heading with a
+        ' median run of ONE tick. 44% of the run spent backing, pace 4%, and
+        ' it finished three times further from the goal than it started.
+        '
+        ' The Sequence is the fix and it is the same shape the wedge rung
+        ' already uses above: say what state we are entering, THEN act. Once
+        ' Backing is set, Is Backing owns the next tick and the reversal ends
+        ' when Backed Enough or Enough Room says so - which is what those
+        ' nodes were put on the board to do.
         Dim gRear = spawn("Gate", 870.0F, 1440.0F)
-        Dim aRev2 = spawn("Reverse", 1090.0F, 1440.0F)
-        join_pins(p5, "a", gRear, "in")
+        Dim sqRear = spawn("Sequence", 1090.0F, 1440.0F)
+        Dim aSetB2 = spawn("Set Backing", 1310.0F, 1380.0F)
+        Dim aRev2 = spawn("Reverse", 1310.0F, 1490.0F)
+        ' ---- DOOR FAILED: GO ROUND THE END OF IT ------------------------
+        '
+        ' Ahead of reversing, because "no door found yet" is not the same
+        ' thing as "forward is not an option" - and the old order treated
+        ' them as the same thing, so the board backed away from obstacles it
+        ' could have driven round.
+        '
+        ' Fed the GOAL bearing, so of the two edges it picks the one that
+        ' costs least ground. Wrong is survivable here: it aims past an edge,
+        ' drives, sees more of the thing, and aims again.
+        Dim pRound = spawn("Round The End", 650.0F, 1610.0F)
+        Dim gRound = spawn("Gate", 870.0F, 1610.0F)
+        Dim aRound = spawn("Drive Heading", 1090.0F, 1610.0F)
+        join_pins(goal, "bearing", pRound, "bearing")
+        join_pins(p5, "a", gRound, "in")
+        join_pins(pRound, "True", gRound, "True")
+        join_pins(gRound, "out", aRound, "in")
+        join_pins(pRound, "bearing", aRound, "bearing")
+
+        join_pins(p5, "b", gRear, "in")
         join_pins(tRearB, "True", gRear, "True")
-        join_pins(gRear, "out", aRev2, "in")
+        join_pins(gRear, "out", sqRear, "in")
+        join_pins(sqRear, "a", aSetB2, "in")
+        join_pins(sqRear, "b", aRev2, "in")
         join_pins(rear, "bearing", aRev2, "bearing")
 
         ' THE LAST ELSE: HEAD FOR THE GOAL.

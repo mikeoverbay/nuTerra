@@ -77,6 +77,36 @@ Module BrainGlobals
     ''' <summary>Write one frame here and quit. Empty means run normally.</summary>
     Public SHOT_PATH As String = ""
 
+    ''' <summary>
+    ''' Hold the shot until the sim has been RUNNING this many seconds.
+    '''
+    ''' Zero keeps the old behaviour - the first frame with the roster on
+    ''' it, which answers "does it draw". Anything above zero answers a
+    ''' different question: what does an INSTRUMENT look like. Most of them
+    ''' here show nothing at all until the brain has scanned once, because
+    ''' they read BrainRadar.LAST and only a brain tick ever fills it.
+    ''' </summary>
+    Public SHOT_AFTER_S As Single = 0.0F
+
+    ''' <summary>Drive this many seconds, print a scorecard, quit. Zero
+    ''' runs normally. `runfor=` on the command line, and the whole point
+    ''' of it is that two brains get the same window.</summary>
+    Public RUN_SECS As Single = 0.0F
+
+    ''' <summary>Append one CSV row here when a timed run ends.</summary>
+    Public SCORE_FILE As String = ""
+
+    ''' <summary>End a run that has not improved its closest approach for
+    ''' this many seconds. Zero waits the whole clock out. A failure that
+    ''' costs twenty seconds instead of seventy is three times as many
+    ''' questions asked in an hour.</summary>
+    Public BAIL_S As Single = 0.0F
+
+    ''' <summary>Run this many brain ticks and then stop, leaving the last
+    ''' one on screen to be looked at. The walk view only clears when the
+    ''' walk runs, so a halted sim holds its picture.</summary>
+    Public TICK_LIMIT As Integer = 0
+
     ''' <summary>x, z, distance - where to point the camera. Nothing means
     ''' frame the whole map.</summary>
     Public LOOK_AT As Single() = Nothing
