@@ -142,6 +142,11 @@ Public Class BrainWindow
                     If(near.Count = 0, "", " - did you mean: " & String.Join(", ", near)))
         End If
 
+        ' MAXIMISED BEFORE THE PANEL IS SIZED, or ImGui is initialised against
+        ' the pre-maximise client size and every hit test is out until the
+        ' first resize event happens to arrive.
+        If MAXIMIZED_WINDOW Then WindowState = WindowState.Maximized
+
         BrainRender.Init()
         BrainPanel.Init(ClientSize.X, ClientSize.Y)
 
@@ -284,6 +289,15 @@ Public Class BrainWindow
                 ' and takes the distance from the snapshot, so a top-down view
                 ' asked for on the command line was applied and then quietly
                 ' overwritten by the scenario being loaded.
+                ' FOLLOW CAM, TRAILING HEADING, PITCH UNTOUCHED. Before the
+                ' topdown block so that asking for both still gets the
+                ' bird's eye - one of them has to lose and topdown is the
+                ' more specific request.
+                If TRAIL_M > 0.0F Then
+                    BrainRender.Cam.Chase = True
+                    BrainRender.Cam.ChaseTrail = True
+                    BrainRender.Cam.Dist = TRAIL_M
+                End If
                 If TOP_DOWN_M > 0.0F Then
                     BrainRender.Cam.Chase = True
                     BrainRender.Cam.ChaseTrail = True

@@ -96,6 +96,22 @@ Module BrainGlobals
     ''' <summary>Append one CSV row here when a timed run ends.</summary>
     Public SCORE_FILE As String = ""
 
+    ''' <summary>
+    ''' FOLLOW CAM AT THIS DISTANCE, with the trailing heading on. Metres.
+    '''
+    ''' Separate from topdown= on purpose. That one turns the trail on too,
+    ''' but forces pitch to -1.5708 and gives a bird's eye that rotates under
+    ''' you - which is the view ChaseTrail's own comment warns about. This
+    ''' leaves the pitch alone, so the camera sits behind the hull rather
+    ''' than over it.
+    ''' </summary>
+    Public TRAIL_M As Single = 0.0F
+
+    ''' <summary>Start maximised. NOT fullscreen: the border and title bar
+    ''' stay, and with several sessions running this app the title is how
+    ''' the owner tells the windows apart.</summary>
+    Public MAXIMIZED_WINDOW As Boolean = False
+
     ''' <summary>End a run that has not improved its closest approach for
     ''' this many seconds. Zero waits the whole clock out. A failure that
     ''' costs twenty seconds instead of seventy is three times as many

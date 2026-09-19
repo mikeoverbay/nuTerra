@@ -120,6 +120,19 @@ Module Program
             ElseIf a.Equals("fullscreen", StringComparison.OrdinalIgnoreCase) Then
                 FULLSCREEN_WINDOW = True
 
+            ElseIf a.StartsWith("trail=", StringComparison.OrdinalIgnoreCase) Then
+                ' trail=<metres> - follow cam, trailing heading, no pitch change.
+                Dim tm As Single
+                If Single.TryParse(a.Substring(6), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, tm) Then
+                    TRAIL_M = tm
+                End If
+
+            ElseIf a.Equals("maximized", StringComparison.OrdinalIgnoreCase) OrElse
+                   a.Equals("maximised", StringComparison.OrdinalIgnoreCase) OrElse
+                   a.Equals("max", StringComparison.OrdinalIgnoreCase) Then
+                MAXIMIZED_WINDOW = True
+
             ElseIf a.Equals("clean", StringComparison.OrdinalIgnoreCase) Then
                 CLEAN_VIEW = True
 
