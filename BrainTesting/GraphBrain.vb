@@ -224,6 +224,25 @@ Public Class GraphBrain
         lastThr = 0.0F
         thr = 0.0F
         steerOut = 0.0F
+        ' THE REST OF THE RUN STATE, and every one of these was left behind.
+        ' backCool carried up to two seconds of post-reversal cooldown into
+        ' the new run, during which the rear escape is disabled; PlanOn left
+        ' the first ticks executing a route computed for the old position;
+        ' and wasBacking left True makes the very next tick see backing end
+        ' and ARM a fresh cooldown nobody asked for.
+        backCool = 0.0F
+        wasBacking = False
+        PlanOn = False
+
+        ' AND THE SIM'S REFUSAL COUNTER, which is the one that actually
+        ' stops a tank dead. RefusedRun clears in BrainSim only when a hull
+        ' MOVES, and Drive Heading commands zero throttle once it passes 3 -
+        ' so nothing is attempted, nothing moves, and it can never clear
+        ' itself. A reset that leaves it set puts the tank straight back to
+        ' pivoting on the spot at zero speed.
+        BrainSim.Refused = False
+        BrainSim.RefusedRun = 0
+
         why = "reset"
         BrainNodes.TraceBegin()
         LogThis("brain: graph brain state cleared")

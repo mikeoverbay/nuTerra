@@ -1,4 +1,4 @@
-Imports ImGuiNET
+﻿Imports ImGuiNET
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 Imports OpenTK.Windowing.Common
@@ -180,7 +180,7 @@ Public Class BrainWindow
                 ' app reading anything else would be two maps for one question.
                 ' The footprint rasteriser is the fallback for a map with no
                 ' bake yet, and the log says which one answered.
-                If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
+                If Not BrainNav.LoadMap(STARTUP_MAP) Then BrainNav.Build()
 
                 ' NOW the trees can be drawn by whether a hull gets through
                 ' them. Built earlier, decided here - the grid did not exist
@@ -275,6 +275,11 @@ Public Class BrainWindow
                 ' what Reset is FOR on an evening of one scenario tried
                 ' twenty ways.
                 If RESTORE_ON_START Then BrainPanel.RestoreSnapshot()
+                ' THE COMMAND LINE BEATS THE SNAPSHOT, and must come after
+                ' it to do so: a restore carries a goal of its own, so a
+                ' scenario asked for by name would otherwise be overwritten
+                ' by whatever pin the newest snapshot happened to hold.
+                If GOAL_ARG <> "" Then BrainGoal.SetFromArg(GOAL_ARG)
                 ' AFTER the restore, not before. LookAt sets pitch to -0.45
                 ' and takes the distance from the snapshot, so a top-down view
                 ' asked for on the command line was applied and then quietly
@@ -690,6 +695,10 @@ Public Class BrainWindow
                 ' AND THE BRAIN'S OWN STATE. Putting the tank back without this
                 ' left it believing it was part way through backing out of
                 ' something that is no longer in front of it.
+                ' UNCONDITIONALLY, because these are the SIM's and survive a
+                ' brain swap. RangeBrain reads them too.
+                BrainSim.Refused = False
+                BrainSim.RefusedRun = 0
                 Dim gb = TryCast(BrainSim.Brain, GraphBrain)
                 If gb IsNot Nothing Then gb.ResetState()
             Case BrainPanel.Action.Shot
@@ -788,7 +797,7 @@ Public Class BrainWindow
         End If
 
         Dim before = BrainNav.Marked
-        If Not BrainNav.LoadSquares(STARTUP_MAP) Then BrainNav.Build()
+        If Not BrainNav.LoadMap(STARTUP_MAP) Then BrainNav.Build()
         BrainTrees.MarkDrivable()
         LogThis("brain: reloaded - {0:N0} blocked cell(s), was {1:N0}{2}",
                 BrainNav.Marked, before,

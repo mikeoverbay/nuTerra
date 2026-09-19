@@ -1,4 +1,4 @@
-Imports System.IO
+﻿Imports System.IO
 Imports ImGuiNET
 Imports OpenTK.Mathematics
 Imports OpenTK.Windowing.Desktop
@@ -58,7 +58,19 @@ Module BrainPanel
 
     ''' <summary>Where pictures and snapshots go. The shared folder, so another
     ''' session can read what happened without being handed it.</summary>
-    Public Const OUT_DIR As String = "C:\nuTerra_shared\tank_ai_work\brain"
+    ''' <summary>The shared folder itself. The owner, 2026-09-19:
+    ''' "move its output the the shared folder", then "C:\nuTerra_shared".
+    '''
+    ''' It used to be tank_ai_work\brain, which was the right home while
+    ''' Tank AI owned this app and the wrong one the moment it did not - a
+    ''' retired lane's drop box that nobody would come looking in.
+    '''
+    ''' RESTORESNAPSHOT READS THIS TOO, taking the newest *_snap.txt it
+    ''' finds, so moving the folder moves what "restore" restores. The
+    ''' snapshots in the old folder were copied across when it changed, or
+    ''' the next restore would have come up with no goal at all.
+    ''' </summary>
+    Public Const OUT_DIR As String = "C:\nuTerra_shared"
 
     Public Sub Init(width As Integer, height As Integer)
         ctl = New ImGuiController(width, height)

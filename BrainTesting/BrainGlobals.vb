@@ -127,6 +127,16 @@ Module BrainGlobals
     ''' intention.</summary>
     Public RESTORE_ON_START As Boolean = False
 
+    ''' <summary>
+    ''' WHERE TO DRIVE, from the command line: base1, base2, or a bare x,z.
+    '''
+    ''' "start and green base" - the owner, 2026-09-19. A scenario named on
+    ''' the command line is repeatable; a goal placed by hand is not, and the
+    ''' snapshot holding the last one is whatever file happened to be newest
+    ''' in the shared folder.
+    ''' </summary>
+    Public GOAL_ARG As String = ""
+
     ''' <summary>Install the brain and run, the moment the roster is up.
     ''' With `restore` the goal comes back with the scenario, so there is
     ''' nothing left to press.</summary>

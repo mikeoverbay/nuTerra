@@ -1,4 +1,4 @@
-''' <summary>
+﻿''' <summary>
 ''' Entry point and command line.
 '''
 ''' THE SAME ARGUMENTS AS nuTerra, on the owner's instruction - "all the same
@@ -208,6 +208,12 @@ Module Program
             ElseIf a.Equals("pingoal", StringComparison.OrdinalIgnoreCase) Then
                 BrainGoal.Pinned = True
                 BrainGoal.Follow = False
+
+            ElseIf a.StartsWith("goal=", StringComparison.OrdinalIgnoreCase) Then
+                ' goal=base1 | goal=base2 | goal=x,z
+                ' Resolved AFTER the arena is read - base1 means nothing
+                ' until the arena_def has been parsed.
+                GOAL_ARG = a.Substring(5)
 
             ElseIf a.StartsWith("tune=", StringComparison.OrdinalIgnoreCase) Then
                 LogThis("brain: tune arg seen - [{0}]", a.Substring(5))
