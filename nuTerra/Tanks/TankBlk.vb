@@ -38,27 +38,25 @@ Public Class TankBlk
     Public Const CELL_M As Single = 0.5F
 
     ''' <summary>
-    ''' 2: heights quantised to uint16, and an obstacle plane added.
+    ''' The format version. ONE summary, covering every version - this
+    ''' constant carried two stacked ones for an hour on 2026-09-19, which is
+    ''' the identical defect found in TankNavLimits.MAX_SLOPE that same
+    ''' morning and written up as DIRECTIVES rule 13. Adding a block instead
+    ''' of extending one is apparently the natural reflex; it is still wrong.
     '''
-    ''' THE HEADER IS STILL 32 BYTES. v1 spent its last eight on two pad
-    ''' words; height_offset and height_scale are eight bytes and go exactly
-    ''' there. So a reader takes 32 bytes whatever the version and branches on
-    ''' the version only for the planes - the header length never becomes
-    ''' version-dependent, which is the thing that makes a format painful to
-    ''' read years later.
-    ''' </summary>
-    ''' <summary>
-    ''' 3: BIT 0 NOW INCLUDES TOO-STEEP GROUND.
-    '''
-    ''' The owner, 2026-09-19: "we dont need a slope angle. if it blocks is
-    ''' determined in nuTerra and the .blk file". So the decision moves here
-    ''' and no consumer carries a climb limit of its own.
-    '''
-    ''' THE LAYOUT DOES NOT CHANGE - same header, same three planes, same
-    ''' size. Only the MEANING of bit 0 does, which is exactly the change a
-    ''' version number exists for: a v2 reader would parse a v3 file
-    ''' perfectly and silently get a different answer. Bumped so it fails
-    ''' loudly instead.
+    ''' v1  mask + float32 heights.
+    ''' v2  heights quantised to uint16, obstacle plane added. The header
+    '''     stayed 32 bytes: v1's two pad words became height_offset and
+    '''     height_scale, so a reader takes 32 bytes whatever the version and
+    '''     branches on the version only for the planes. A header whose
+    '''     LENGTH depends on its version is what makes a format painful to
+    '''     read years later.
+    ''' v3  bit 0 now includes too-steep ground. The owner, 2026-09-19: "we
+    '''     dont need a slope angle. if it blocks is determined in nuTerra
+    '''     and the .blk file". The layout did NOT change - same header,
+    '''     same three planes, same size - only the MEANING of bit 0, which
+    '''     is exactly the change a version number exists for. A v2 reader
+    '''     parses a v3 file perfectly and silently gets a different answer.
     ''' </summary>
     Public Const VERSION As UInteger = 3UI
 
@@ -96,10 +94,17 @@ Public Class TankBlk
     ''' BLOCKED WITH KIND TERRAIN AND NO OUTLAND MEANS STEEP - that much is
     ''' sound, because bare ground blocks for no other reason. It is NOT
     ''' complete, and the first draft of this comment claimed it was:
-    ''' measured on monastery, 207,697 cells block for slope alone and only
-    ''' 114,576 of them - 55.2% - carry kind terrain. The rest carry tree,
-    ''' rock or building, because the cell's kind comes from the texel that
-    ''' decided it and a steep cell with a tree on it reports the tree.
+    ''' measured on monastery at 40 degrees, 59,818 cells block for slope
+    ''' alone and only 28,305 of them - 47.3% - carry kind terrain. The rest
+    ''' carry tree, rock or building, because the cell's kind comes from the
+    ''' texel that decided it and a steep cell with a tree on it reports the
+    ''' tree.
+    '''
+    ''' THAT COMPLETENESS FIGURE MOVES WITH THE ANGLE. It was 55.2% at thirty
+    ''' degrees and this comment kept saying so after the limit went back to
+    ''' forty - a derived statistic is the part of a comment most likely to
+    ''' rot, because changing the thing it is derived from does not look like
+    ''' touching it.
     '''
     ''' A consumer that needs slope specifically computes it from the GROUND
     ''' PLANE, which is in this file for exactly that reason. The kind is a
