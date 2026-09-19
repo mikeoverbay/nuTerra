@@ -89,20 +89,25 @@ Public Class GraphBrain
     Private lane As BrainRadar.Lane
     Private laneDone As Boolean
 
-    ''' <summary>Prefer the farthest CLEAR aim along the goal bearing over the
-    ''' soonest one, and never take a graze while a clear run exists. The
-    ''' owner's strategy, 2026-09-19, behind tune=farwhite=1 so both behaviours
-    ''' live in one binary and an A/B is the same build twice.</summary>
+    ''' <summary>
+    ''' ON BY DEFAULT: prefer the farthest CLEAR aim along the goal bearing
+    ''' over the soonest one, and never take a graze while a clear run exists.
+    '''
+    ''' "the seek white opening works best" - the owner, 2026-09-19, after two
+    ''' runs a side on the same binary and the same bake:
+    '''
+    '''     off   closest 323.8 / 323.8 m   13 stalls   pace 29.5%   arrived 0/2
+    '''     on    closest   5.2 /   5.0 m    0 stalls   pace 88%     arrived 2/2
+    '''
+    ''' Two runs cannot QUANTIFY that, but the within-arm spread was 0.0 and
+    ''' 0.2 m against a 318 m gap between them, so the arms plainly differ.
+    ''' What two runs cannot say is whether it holds on another scenario.
+    '''
+    ''' tune=farwhite=0 is the way back to the old scoring, kept so the
+    ''' comparison stays one binary rather than two builds that can drift.
+    ''' </summary>
     Private FARWHITE As Boolean = False
 
-    ''' <summary>The best WHITE aim the last walk found - a candidate whose
-    ''' corridor came back completely clear, kept even when the scoring let an
-    ''' amber win. "if there is no opening marker, backup until we have one"
-    ''' needs to ask whether one EXISTS, which is not the same question as
-    ''' which one was chosen.</summary>
-    Private hasOpen As Boolean = False
-    Private openBear As Single = 0.0F
-    Private openAim As Vector2
     Private roundDone As Boolean
     Private roundVal As Object = Nothing
     ''' <summary>-1 left, +1 right, 0 free. Which way round we said we
@@ -334,7 +339,7 @@ Public Class GraphBrain
         ' for one that follows a point.
         ' READ ONCE A TICK, not per candidate: way_past asks it inside two
         ' nested loops and BrainTune.Get_ is a dictionary probe each time.
-        FARWHITE = BrainTune.On_("farwhite", False)
+        FARWHITE = BrainTune.On_("farwhite", True)
 
         hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
         scans += 1
@@ -699,22 +704,6 @@ Public Class GraphBrain
                 ' Last tick's throttle, because this tick's is cleared before any
                 ' node is evaluated.
                 v = CObj(stuckFor > 0.25F)
-            Case "Front Shut"
-                v = CObj(front_shut())
-
-            Case "Opening"
-                ' The walk is what fills this, so make sure it has run this
-                ' tick - asking before it does reports last tick's world.
-                If Not roundDone Then
-                    roundDone = True
-                    roundVal = round_the_end(goal_bearing(), 0.6F)
-                End If
-                If outName = "True" Then
-                    v = CObj(hasOpen)
-                Else
-                    v = If(hasOpen, CObj(openBear), Nothing)
-                End If
-
             Case "Is Wedged"
                 '' NOT WHILE ALREADY BACKING - RangeBrain gates this the same way
                 '' (state <> St.Backing) and the reason is structural: the wedge
@@ -888,38 +877,6 @@ Public Class GraphBrain
             If q.dist < near Then near = q.dist
         Next
         Return If(near = Single.MaxValue, best, near)
-    End Function
-
-    ''' <summary>
-    ''' IS THE WHOLE FRONT ARC ONE BARRIER? -90 to +90 of the nose.
-    '''
-    ''' "if every hit from -90 to +90 of our heading has no gap" - the owner.
-    '''
-    ''' Asked of `linked`, which is the radar's own word for it: both rays
-    ''' found something and their returns are closer together than the tank is
-    ''' wide, so that PAIR is one continuous barrier. Two misses are never
-    ''' linked however close their far ends are - open sky a metre across at
-    ''' twenty metres is sky, not a wall, and measuring this off distances
-    ''' rather than chords is the trap that invites.
-    '''
-    ''' False when there are no front rays at all: nothing seen is not the same
-    ''' as a wall, and reporting shut on an empty scan would reverse the tank
-    ''' away from open ground.
-    ''' </summary>
-    Private Function front_shut() As Boolean
-        ' ON THE BOARD EITHER WAY, so there is ONE board shape to read and to
-        ' debug. The knob silences the test rather than removing the rung -
-        ' tune=frontshut=0 gives the old behaviour for an A/B without building
-        ' a second graph that can drift from this one.
-        If Not BrainTune.On_("frontshut", True) Then Return False
-        If hits Is Nothing OrElse hits.Length < 2 Then Return False
-        Dim pairs = 0
-        For i = 0 To hits.Length - 2
-            If Not hits(i).front OrElse Not hits(i + 1).front Then Continue For
-            pairs += 1
-            If Not hits(i).linked Then Return False
-        Next
-        Return pairs > 0
     End Function
 
     Private Function front_count() As Integer
@@ -1399,10 +1356,6 @@ Public Class GraphBrain
     End Function
 
     Private Function way_past(goalB As Single) As Object
-        ' Cleared per walk: an opening found two seconds ago is not evidence
-        ' about the world in front of the hull now.
-        hasOpen = False
-        Dim openOff = Single.MaxValue
         Trapped = False
         walkRan += 1
         If hits Is Nothing Then Return Nothing
@@ -1747,6 +1700,45 @@ Public Class GraphBrain
                 Dim testM = If(FARWHITE, toAim.Length, Math.Min(need, reach))
                 Dim atM As Single = 0.0F
                 Dim verdict = box_verdict(b, testM, atM)
+
+                ' ---- ONE RAY PAST THE GO-AROUND ---------------------------
+                '
+                ' "pink is the go around target and it is picking a point it
+                '  can because there is a terrain drop off... look past the go
+                '  around for a blocker and if its say less than the tanks
+                '  length, we drop it" - the owner, 2026-09-19.
+                '
+                ' WHY box_verdict CANNOT SEE IT. Corridor walks its planks with
+                ' trace_cells, which tests BrainNav.BlockedCell - and that is
+                ' the obstacle question ALONE, by design: "NO SLOPE HERE ON
+                ' PURPOSE. Standable's ground sampling is what made a scan cost
+                ' 5,600 terrain queries a tick". So a corridor reads clear
+                ' straight over the edge of a drop-off, and the aim beyond it
+                ' looks reachable because nothing in that test asks the ground.
+                '
+                ' BrainNav.Clear IS built on Standable, so it folds the slope
+                ' rule in. One line, stepped at half a cell. That is the whole
+                ' check - the same distinction as dist versus drive on a ray,
+                ' and the file is blunt about it: the brain must stop inferring
+                ' the second from the first.
+                '
+                ' ALONG THE HULL-TO-AIM DIRECTION, not the bearing from the
+                ' nose. A go-around is a SIDESTEP; what matters is what lies
+                ' beyond it if we actually go there.
+                '
+                ' halfZ is HALF the length, so a tank length is twice it.
+                ' Getting that wrong by two rejects everything or nothing.
+                If verdict <> 2 Then
+                    Dim pastM = BrainTune.Get_("pastm", h.halfZ * 2.0F)
+                    Dim past = aim + (toAim / toAim.Length) * pastM
+                    If Not BrainNav.Clear(aim, past, h.DriveRadius) Then
+                        ' Drawn as rejected, so a go-around dropped for what is
+                        ' BEYOND it is visible rather than silently absent.
+                        BrainWalkView.MarkTry(aim, 2)
+                        Continue For
+                    End If
+                End If
+
                 BrainWalkView.MarkTry(aim, verdict)
                 If verdict = 2 Then Continue For
 
@@ -1806,18 +1798,7 @@ Public Class GraphBrain
                    BrainTune.Get_("stickm", 6.0F) Then
                     off -= If(FARWHITE, BrainTune.Get_("stickmet", 8.0F), 1000.0F)
                 End If
-                ' AN OPENING EXISTS, whether or not it wins the scoring. Kept
-                ' separately so "is there a way through" can be asked without
-                ' re-running the walk, and so a run that scores an amber higher
-                ' still knows a clear one was there.
-                If verdict = 0 AndAlso (Not hasOpen OrElse off < openOff) Then
-                    hasOpen = True
-                    openOff = off
-                    openBear = b
-                    openAim = aim
-                End If
-
-                If off < bestOff Then
+        If off < bestOff Then
                     bestOff = off
                     bestB = b
                     bestAim = aim
