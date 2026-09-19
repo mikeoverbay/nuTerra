@@ -612,13 +612,18 @@ Public Module TankNavLimits
     ''' OBSTACLE_MIN_H so 'blocked' means one thing across the app.</summary>
     Public Const MAX_OBSTACLE As Single = 1.0F
 
-    ''' <summary>Steepest ground a tank will take. THIRTY degrees since
-    ''' 2026-09-19, on the owner's call: "our cut off angle is 35? make it 30".
+    ''' <summary>Steepest ground a tank will take. FORTY degrees.
     '''
-    ''' It was forty from 2026-09-12 - "we can not climb more than tank specs
-    ''' and we have no driver on the fly, lets use a constant angle. 40 off
-    ''' bottom plane" - and he asked for thirty believing it was thirty-five,
-    ''' which is what the stale summary deleted the same day had claimed.
+    ''' Forty from 2026-09-12 - "we can not climb more than tank specs and we
+    ''' have no driver on the fly, lets use a constant angle. 40 off bottom
+    ''' plane" - briefly thirty on 2026-09-19, and back to forty the same day
+    ''' once the .blk carried the test and the cost could be seen: thirty put
+    ''' 207,697 half-metre cells out of reach, 82% more steep ground than
+    ''' forty.
+    '''
+    ''' He asked for thirty believing the limit was thirty-five, which is what
+    ''' a stale summary block deleted the same morning had claimed. The number
+    ''' did not need changing; the comment did.
     '''
     ''' It was 0.7 - 35 degrees - while ray_studio's marcher used 1.0 and the
     ''' square grid tested nothing, so three parts of the same project disagreed
@@ -642,7 +647,7 @@ Public Module TankNavLimits
     ''' and four copies of a five-digit decimal is how 0.7 survived in two
     ''' places after it was retired. tank_tools/maze.py already did it this
     ''' way; this is that, here.</summary>
-    Public Const MAX_SLOPE_DEG As Single = 30.0F
+    Public Const MAX_SLOPE_DEG As Single = 40.0F
 
     ''' <summary>MAX_SLOPE_DEG as rise over run. Derived, never typed.</summary>
     Public ReadOnly MAX_SLOPE As Single =
