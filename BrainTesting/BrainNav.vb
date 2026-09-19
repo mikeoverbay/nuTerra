@@ -41,29 +41,20 @@ Module BrainNav
     ''' gaps the trace exists to find.</summary>
     Public Const TRACE_R As Single = 0.5F
 
-    ''' <summary>
-    ''' Rise over run a hull will not climb: tan(40 degrees), the owner's
-    ''' number - "we can not climb more than tank specs and we have no driver
-    ''' on the fly, lets use a constant angle. 40 off bottom plane."
-    '''
-    ''' THIS MUST EQUAL TankNavLimits.MAX_SLOPE, and it did not. It was 0.7 -
-    ''' 35 degrees - which is the SAME value that was consolidated away on
-    ''' 2026-09-12, when TankNav, ray_studio's marcher and the square grid all
-    ''' disagreed about what a tank can climb. This file was written after
-    ''' that and carried the old number in, so the bug came back in a fourth
-    ''' place while the other three were correct: ray_studio.MAX_SLOPE_TAN and
-    ''' maze.MAX_CLIMB_TAN are both 0.8391 too.
-    '''
-    ''' It matters more here than it looks. The radar now tests the terrain
-    ''' angle of every square against this, so at 0.7 the brain REFUSED ground
-    ''' that the path planner at 0.8391 routes straight over - a tank that
-    ''' will not drive the road it was given.
-    '''
-    ''' Not a reference to TankNavLimits because TankNav.vb is not linked into
-    ''' this app and pulling it in for one constant drags its dependencies.
-    ''' If a third copy is ever needed, link the file instead of typing it.
-    ''' </summary>
-    Public Const MAX_SLOPE As Single = 0.8391F
+    ' MAX_SLOPE IS GONE FROM THIS FILE, and it should not come back.
+    '
+    ' It was tan(40 deg) = 0.8391, and its own comment recorded the bug it
+    ' caused: a fourth copy of a number that had already been consolidated
+    ' once, carried in stale at 0.7, making the brain refuse ground the
+    ' planner routed straight over. The fix then was to correct the copy. The
+    ' fix now is that there is no copy - nuTerra decides what a tank can climb
+    ' when it bakes the .blk, and bit 0 arrives with that answer already in
+    ' it. "we dont use slopes in this.. it is predetermined by the algo in
+    ' nuTerra at start" - the owner, 2026-09-19.
+    '
+    ' So a fifth copy typed here would not be a duplicate of a constant, it
+    ' would be a SECOND RULE competing with the file on disk. If this app ever
+    ' needs to know the angle, ask the bake - do not restate it.
 
     ''' <summary>nuTerra's own OUTLAND_MARGIN, from MapLoader.</summary>
     Private Const OUTLAND_MARGIN As Single = 25.0F
@@ -432,10 +423,6 @@ Module BrainNav
             z_top = wzmax
             h_off = hoff
             h_scale = If(hscale = 0.0F, 1.0F, hscale)
-
-            ' The ground plane replaces the lazy per-cell terrain cache. Left
-            ' allocated it would be 7.84 million singles nothing ever reads.
-            hcell = Nothing
 
             ' MASK THE BIT. Every other bit is an observation, so a non-zero
             ' test counts open ground that merely knows what it is.
@@ -811,7 +798,6 @@ Module BrainNav
     Public Sub NewTick()
         GroundMisses = 0
         GroundHits = 0
-        CellHeightHits = 0
         CellTests = 0
         GroundMs = 0.0
     End Sub
@@ -861,56 +847,11 @@ Module BrainNav
         Return CInt(Math.Floor((z - z0) / cell))
     End Function
 
-    ''' <summary>
-    ''' THE GROUND HEIGHT OF A CELL, SAMPLED ONCE AND KEPT FOREVER.
-    '''
-    ''' "I wanna use one scan and get the height from each square we land on
-    '''  and check terrain angle" - the owner.
-    '''
-    ''' TERRAIN DOES NOT MOVE. The per-tick memo that used to sit on Ground was
-    ''' thrown away every tick because it cached arbitrary world points and
-    ''' there was no telling which would be asked for again. A CELL is a fixed
-    ''' place with a fixed answer, so the sample is good for the whole run -
-    ''' the first ray to walk a square pays get_Y_at_XZ once and every ray and
-    ''' every tick after it reads an array.
-    '''
-    ''' This is the flight bake's height plane, built lazily over exactly the
-    ''' ground the tank drives on, without waiting for the bake to write one.
-    ''' Two million cells at four bytes is 7.8 MB if the whole map is ever
-    ''' visited, and a run visits a corridor.
-    '''
-    ''' NaN IS "NOT ASKED YET", which is the one job NaN is genuinely good at:
-    ''' no second array, no sentinel height a real map might legitimately have,
-    ''' and IsNaN is the only comparison that ever sees it.
-    ''' </summary>
-    Private hcell() As Single = Nothing
-
-    Public Function CellHeight(col As Integer, row As Integer) As Single
-        If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return 0.0F
-        If hcell Is Nothing OrElse hcell.Length <> w * h Then
-            ReDim hcell(w * h - 1)
-            For i = 0 To hcell.Length - 1
-                hcell(i) = Single.NaN
-            Next
-        End If
-        Dim idx = row * w + col
-        Dim y = hcell(idx)
-        If Single.IsNaN(y) Then
-            Dim cell = If(FromBake, sq_cell, CELL_M)
-            Dim wx = x0 + (col + 0.5F) * cell
-            Dim wz = If(FromBake, z_top - (row + 0.5F) * cell, z0 + (row + 0.5F) * cell)
-            y = Ground(wx, wz)
-            hcell(idx) = y
-        Else
-            CellHeightHits += 1
-        End If
-        Return y
-    End Function
-
-    ''' <summary>How often the height plane answered without touching the
-    ''' scene. Next to GroundMisses on the heartbeat, this is what says whether
-    ''' the plane has warmed up.</summary>
-    Public CellHeightHits As Integer = 0
+    ' CellHeight, its hcell plane and CellHeightHits are GONE. Their only
+    ' caller was the radar's slope test, and the terrain angle that test asked
+    ' about is settled in bit 0 before the brain ever starts. The plane was
+    ' 7.84 million Singles on a 2800 grid - 31 MB that LoadBlk deliberately
+    ' released and the first ray of the first scan quietly allocated again.
 
     ''' <summary>
     ''' MARK A SQUARE BLOCKED BECAUSE THE HULL PROVED IT WAS.
@@ -1003,16 +944,24 @@ Module BrainNav
             Next
         Next
 
-        ' And the ground itself. Sampled across the disc rather than at the
-        ' centre: a hull straddling a ditch is stopped by the ditch, and a
-        ' centre sample sits happily in the bottom of it.
-        Dim c = Ground(x, z)
-        For Each d In {New Vector2(r, 0.0F), New Vector2(-r, 0.0F),
-                       New Vector2(0.0F, r), New Vector2(0.0F, -r)}
-            If Math.Abs(Ground(x + d.X, z + d.Y) - c) / Math.Max(r, 0.01F) > MAX_SLOPE Then
-                Return False
-            End If
-        Next
+        ' NO SLOPE TEST HERE. THE BAKE ALREADY ANSWERED IT.
+        '
+        ' "we dont use slopes in this.. it is predetermined by the algo in
+        '  nuTerra at start" - the owner, 2026-09-19. LoadBlk has been saying
+        ' so in its own log line the whole time: "slope included".
+        '
+        ' What stood here sampled Ground() at the centre and at four points on
+        ' the rim and compared them against MAX_SLOPE - a SECOND opinion on a
+        ' question bit 0 had already settled, and taken from a DIFFERENT
+        ' SOURCE. Ground() is the live scene terrain; every check the brain
+        ' makes reads the baked plane. Two maps, one hull, and only the sim
+        ' could ever see them disagree - which is exactly the shape of a bug
+        ' that looks like the brain driving into something it had cleared.
+        '
+        ' It was also the expensive half of this function: five terrain
+        ' queries a call, and Clear() calls it every half cell. One look-past
+        ' ray over seven metres spent about a hundred and forty of them
+        ' re-deriving what one bit already knew.
         Return True
     End Function
 

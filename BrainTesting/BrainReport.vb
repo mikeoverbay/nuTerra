@@ -381,17 +381,17 @@ Module BrainReport
         LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
                 "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
                 "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14} " &
-                "traps {20} (marked {21}) " &
-                "| gap {22:0.0} @ {23:0} deg vs ahead {24:0.0} " &
-                "| ai {15:0.00} ms (ground {16:0.00} ms, {17} new / {18} cached, " &
-                "{19} cells)",
+                "traps {19} (marked {20}) " &
+                "| gap {21:0.0} @ {22:0} deg vs ahead {23:0.0} " &
+                "| ai {15:0.00} ms (ground {16:0.00} ms, {17} queries, " &
+                "{18} cells)",
                 state, why, throttle, speed, rangeM,
                 surf.verdict, surf.valid, surf.oneSurface, surf.turns,
                 MathHelper.RadiansToDegrees(surf.normalRad),
                 Probes, DblTaps, RearTrigs,
                 If(RearTrigs > 0, String.Format(" (last {0:0} deg)", RearLastDeg), ""),
                 Doors, BrainSim.TickMs, BrainNav.GroundMs,
-                BrainNav.GroundMisses, BrainNav.CellHeightHits, BrainNav.CellTests,
+                BrainNav.GroundMisses, BrainNav.CellTests,
                 Traps, BrainNav.Learned, BestScore, BestDeg, AheadScore)
     End Sub
 

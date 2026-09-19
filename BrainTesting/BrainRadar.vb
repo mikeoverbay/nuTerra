@@ -408,7 +408,6 @@ Module BrainRadar
             Dim pxq = -dz, pzq = dx          ' unit perpendicular, world
             Dim driveOpen = (bodyR > 0.0F)
             Dim driveD2 = 0
-            Dim yPrev = BrainNav.CellHeight(c0, r0)
 
             While guard > 0
                 guard -= 1
@@ -423,50 +422,42 @@ Module BrainRadar
                     Exit While
                 End If
 
-                ' ---- WHAT THE SQUARE IS LIKE TO DRIVE ON --------------------
+                ' ---- IS THE HULL'S WIDTH OPEN ON THIS SQUARE ----------------
                 '
-                ' One height per square we land on, and the angle to the square
-                ' before it. The walk moves ONE AXIS a step, so consecutive
-                ' squares are always exactly one cell apart - the gradient is a
-                ' subtraction over a constant, with no divide and no second
-                ' sample. That constant spacing is a property of the walk, not
-                ' an assumption about it.
+                ' THE OBSTACLE QUESTION AND ONLY THE OBSTACLE QUESTION.
                 '
-                ' This is what the low spot defeated. A bowl gentle over half a
-                ' metre and steep across the hull read as twenty clear metres,
-                ' the tank drove in, and then the body-radius test failed in
-                ' every direction at once. Checked per square against the same
-                ' MAX_SLOPE the sim uses, the rim is seen from outside it.
+                ' The slope half of this read CellHeight along the ray and
+                ' again across the hull, against MAX_SLOPE. Every one of those
+                ' heights came from the LIVE terrain, re-deriving per ray, per
+                ' tick, what nuTerra folded into bit 0 once when it baked the
+                ' .blk - "we dont use slopes in this.. it is predetermined by
+                ' the algo in nuTerra at start", the owner, 2026-09-19.
+                '
+                ' Nothing is lost by dropping it: a rim steep enough to matter
+                ' IS a blocked cell in the bake, and the centre-cell test at
+                ' the top of this loop already stops the ray dead on one. The
+                ' bowl that defeated the old version - gentle along the line of
+                ' travel, steep across the hull - is caught by the same bit,
+                ' now that the bit carries the slope rule.
+                '
+                ' The real saving is the cache that sat behind CellHeight: a
+                ' Single per cell, 7.84 million of them on a 2800 grid, which
+                ' LoadBlk frees on purpose and the first ray used to allocate
+                ' straight back.
                 If driveOpen AndAlso (cc <> c0 OrElse rr <> r0) Then
-                    Dim yHere = BrainNav.CellHeight(cc, rr)
-                    If Math.Abs(yHere - yPrev) / BrainNav.CellSize > BrainNav.MAX_SLOPE Then
-                        driveOpen = False
-                    Else
-                        ' The hull's width, either side, same two tests.
-                        For q = 1 To halfCells
-                            Dim ox = CInt(Math.Round(pxq * q)), oz = CInt(Math.Round(pzq * q))
-                            If BrainNav.BlockedCell(cc + ox, rr - oz) OrElse
-                               BrainNav.BlockedCell(cc - ox, rr + oz) Then
-                                driveOpen = False
-                                Exit For
-                            End If
-                            ' ACROSS the hull as well as along it: a side slope
-                            ' steep enough to shed a tank does not show up in
-                            ' the gradient along its own line of travel.
-                            If Math.Abs(BrainNav.CellHeight(cc + ox, rr - oz) - yHere) /
-                               (q * BrainNav.CellSize) > BrainNav.MAX_SLOPE OrElse
-                               Math.Abs(BrainNav.CellHeight(cc - ox, rr + oz) - yHere) /
-                               (q * BrainNav.CellSize) > BrainNav.MAX_SLOPE Then
-                                driveOpen = False
-                                Exit For
-                            End If
-                        Next
-                    End If
+                    ' The hull's width, either side.
+                    For q = 1 To halfCells
+                        Dim ox = CInt(Math.Round(pxq * q)), oz = CInt(Math.Round(pzq * q))
+                        If BrainNav.BlockedCell(cc + ox, rr - oz) OrElse
+                           BrainNav.BlockedCell(cc - ox, rr + oz) Then
+                            driveOpen = False
+                            Exit For
+                        End If
+                    Next
                     If driveOpen Then
                         Dim ac = cc - c0, ar = rr - r0
                         driveD2 = ac * ac + ar * ar
                     End If
-                    yPrev = yHere
                 End If
 
                 If cc = c1 AndAlso rr = r1 Then Exit While
