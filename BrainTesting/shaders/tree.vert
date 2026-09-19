@@ -15,6 +15,8 @@ layout(location = 6) in float vertexIsTrunk;
 layout(location = 7) in float instanceBlocks;
 
 uniform mat4 viewProj;
+// The canopy's lowest vertex, from BrainTrees.CB - not typed twice.
+uniform float canopyBottom;
 
 out vec3 worldNormal;
 out float heightFrac;
@@ -43,7 +45,22 @@ void main(void)
         return;
     }
 
-    vec4 world = model * vec4(vertexPosition, 1.0);
+    // A TRUNKLESS TREE SITS ON THE GROUND, NOT WHERE ITS TRUNK USED TO END.
+    //
+    // The proxy's canopy starts at CB = 2.6 m because it was authored to
+    // overlap the trunk's upper half. Drop the trunk and nothing occupies
+    // 0 to 2.6 any more, so the canopy hovers by exactly that - which is what
+    // the owner saw: "the darker green trees/bushes are hovering above ground".
+    //
+    // Lowered rather than stretched, so the silhouette that was approved is
+    // the silhouette that is drawn - only its footing changes. MUST BE IN
+    // LOCAL SPACE, before the model matrix: after it the offset would be in
+    // world Y and would ignore the tree's own scale, so a large instance
+    // would still float and a small one would sink.
+    vec3 local = vertexPosition;
+    if (instanceBlocks < 0.5) local.y -= canopyBottom;
+
+    vec4 world = model * vec4(local, 1.0);
     worldNormal = normalize(mat3(model) * vertexNormal);
 
     // 0 at the foot, 1 at the crown - the fragment darkens the trunk with it,

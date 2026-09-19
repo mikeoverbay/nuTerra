@@ -1,4 +1,4 @@
-Imports OpenTK.Graphics.OpenGL4
+﻿Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 
 ''' <summary>
@@ -196,6 +196,17 @@ Module BrainTrees
     ''' below moved with it - they count VERTICES, and one left at 6 walks the
     ''' buffer at the wrong stride and builds a tree out of pieces of others.
     ''' </summary>
+    ''' <summary>
+    ''' The canopy's lowest vertex, metres up the proxy. It overlaps the
+    ''' trunk's upper half rather than reaching the ground.
+    '''
+    ''' PUBLIC, AND THE SHADER IS TOLD IT. tree.vert lowers a trunkless tree by
+    ''' exactly this much so it sits on the ground, and a copy of the number
+    ''' typed into the GLSL is the same trap that put 0.7 in two files after it
+    ''' was retired. One constant, passed as a uniform.
+    ''' </summary>
+    Public Const CB As Single = 2.6F
+
     Private Sub build_proxy()
         Dim v As New List(Of Single)     ' x y z  nx ny nz  isTrunk
         Dim idx As New List(Of UInteger)
@@ -204,7 +215,6 @@ Module BrainTrees
         Const TR As Single = 0.22F       ' trunk half-width at the base
         Const TH As Single = 4.0F        ' trunk height to the canopy
         Const CR As Single = 2.6F        ' canopy half-width
-        Const CB As Single = 2.6F        ' canopy bottom
         Const CT As Single = 9.5F        ' canopy top
 
         ' Trunk: a four-sided taper. Flat normals per face, which is all a
@@ -285,6 +295,7 @@ Module BrainTrees
         ' drives through should sit back so the ones that stop it are what the
         ' eye lands on.
         shader.SetVec3("driveColour", New Vector3(0.09F, 0.24F, 0.11F))
+        shader.SetFloat("canopyBottom", CB)
         GL.BindVertexArray(vao)
         GL.DrawElementsInstanced(PrimitiveType.Triangles, indexCount,
                                  DrawElementsType.UnsignedInt, IntPtr.Zero, Count)
