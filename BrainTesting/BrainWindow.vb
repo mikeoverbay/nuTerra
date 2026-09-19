@@ -1,4 +1,4 @@
-﻿Imports ImGuiNET
+Imports ImGuiNET
 Imports OpenTK.Graphics.OpenGL4
 Imports OpenTK.Mathematics
 Imports OpenTK.Windowing.Common
@@ -573,7 +573,7 @@ Public Class BrainWindow
                 BrainSim.StepOnce()
                 holdClock.Restart()
             ElseIf k.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Space) Then
-                If holdClock.Elapsed.TotalSeconds >= 0.1 Then
+                If holdClock.Elapsed.TotalSeconds >= 0.025 Then
                     BrainSim.StepOnce()
                     holdClock.Restart()
                 End If

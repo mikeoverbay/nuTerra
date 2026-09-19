@@ -114,6 +114,11 @@ Public Class GraphBrain
     ' ONE field. VB is case-insensitive, so PlanOn and PlanOn are the same
     ' identifier - the trap this project has now hit three times.
     Public PlanOn As Boolean = False
+    ''' <summary>The aim last chosen, kept whether or not a plan is held.
+    ''' Deciding every tick is right; deciding DIFFERENTLY every tick is
+    ''' not, and those are separable.</summary>
+    Private lastAim As Vector2
+    Private haveLast As Boolean = False
     Private planPoint As Vector2
     Private planHeading As Single = 0.0F
     Private planLeft As Single = 0.0F
@@ -1036,44 +1041,65 @@ Public Class GraphBrain
     End Function
 
     ''' <summary>
-    ''' Is there room to TURN to face that bearing, from right here.
+    ''' HOW FAR THE HULL REACHES AT A GIVEN ANGLE OFF THE NOSE.
     '''
-    ''' A rectangle turning sweeps its CORNERS, and a corner sits at the
-    ''' half-diagonal - 4.0 m on this hull against 1.65 m of half-width. That
-    ''' is the whole reason a 3.3 m tank drives down a 5 m corridor and can
-    ''' never turn round in it. Nothing about the width tells you; the diagonal
-    ''' does.
+    ''' A rectangle, not a disc: 3.5 m over the nose, 1.65 m at the beam,
+    ''' 3.9 m at the corners. Which face you are on decides which.
+    ''' </summary>
+    Private Function hull_reach(psi As Single) As Single
+        Dim c = Math.Abs(CSng(Math.Cos(psi)))
+        Dim sn = Math.Abs(CSng(Math.Sin(psi)))
+        If h.halfZ * sn <= h.halfX * c Then
+            Return If(c < 0.001F, h.halfZ, h.halfZ / c)     ' nose or tail
+        End If
+        Return If(sn < 0.001F, h.halfX, h.halfX / sn)       ' flank
+    End Function
+
+    ''' <summary>
+    ''' IS THERE ROOM TO SWING THE HULL TO THAT BEARING.
     '''
-    ''' Only the corners' OWN ARCS have to be clear, not the whole circle.
-    ''' Turning thirty degrees sweeps four thirty-degree bands. Asking for the
-    ''' full circle would refuse every small correction in a corridor the hull
-    ''' is perfectly able to make.
+    ''' This used to treat anything inside the HALF-DIAGONAL as blocking,
+    ''' if its angle fell in a corner's swept arc. But the hull only
+    ''' reaches the half-diagonal AT the corners - at the beam it reaches
+    ''' 1.65 m. So a blocker two and a half metres off to the side, which
+    ''' the tank clears by the better part of a metre, refused the turn.
+    ''' The owner: "the math may be seeing it as too close to the tank".
+    '''
+    ''' Now it asks the real question: as the hull turns, that return
+    ''' sweeps from psi to psi-swing in the HULL's frame, and it is hit
+    ''' only if the hull reaches further than its range somewhere along
+    ''' that arc. Reach peaks at the corners, so a corner inside the arc
+    ''' means the half-diagonal; otherwise the ends of the arc are the
+    ''' worst of it.
     ''' </summary>
     Private Function can_pivot(bearing As Single, margin As Single) As Boolean
         If hits Is Nothing Then Return True
         Dim swing = wrap_pi(bearing)
         If Math.Abs(swing) < 0.02F Then Return True
 
-        ' Where the four corners are now, as angles off the nose.
         Dim a0 = CSng(Math.Atan2(h.halfX, h.halfZ))
         Dim corners = {a0, -a0, CSng(Math.PI) - a0, a0 - CSng(Math.PI)}
-
-        ' How far out a corner reaches, plus whatever margin is asked for.
-        Dim need = CSng(Math.Sqrt(h.halfX * h.halfX + h.halfZ * h.halfZ)) + margin
+        Dim diag = CSng(Math.Sqrt(h.halfX * h.halfX + h.halfZ * h.halfZ))
 
         For Each q In hits
             If Not q.found Then Continue For
-            If q.dist >= need Then Continue For
-            ' This return is closer than a corner reaches. It only matters if a
-            ' corner actually sweeps across it on the way round.
+            If q.dist >= diag + margin Then Continue For    ' cannot be reached
+
+            ' The worst reach anywhere on the arc this return sweeps through.
+            Dim psi = wrap_pi(q.angle)
+            Dim worst = Math.Max(hull_reach(psi), hull_reach(psi - swing))
             For Each c In corners
-                Dim off = wrap_pi(q.angle - c)
-                If swing > 0.0F Then
-                    If off >= -0.02F AndAlso off <= swing Then Return False
-                Else
-                    If off <= 0.02F AndAlso off >= swing Then Return False
+                Dim off = wrap_pi(psi - c)
+                Dim inArc = If(swing > 0.0F,
+                               off >= -0.02F AndAlso off <= swing,
+                               off <= 0.02F AndAlso off >= swing)
+                If inArc Then
+                    worst = diag
+                    Exit For
                 End If
             Next
+
+            If q.dist < worst + margin Then Return False
         Next
         Return True
     End Function
@@ -1359,6 +1385,19 @@ Public Class GraphBrain
         ' POINT. Turning then reduces the error, because the point does not
         ' move when the hull does. Re-choose only when it is reached, passed,
         ' or blocked - which is what "one scan per move" was always about.
+        ' A HELD PLAN IS FOR RUNNING FREE, NOT FOR CRAWLING.
+        '
+        ' Holding skips the whole chain walk, so while the plank was short
+        ' enough to be slowing the hull it was coasting on a decision made
+        ' somewhere else - no ends, no candidates, no nav at all - which is
+        ' exactly the moment it should be looking for a way round.
+        '
+        ' Above the threshold the road is open and re-deciding every tick is
+        ' just churn. Below it, think again, every tick.
+        If PlanOn AndAlso body_ahead() < BrainTune.Get_("holdclear", 12.0F) Then
+            PlanOn = False
+        End If
+
         If PlanOn Then
             Dim toPlan = planPoint - h.pos
             Dim dPlan = toPlan.Length
@@ -1552,19 +1591,28 @@ Public Class GraphBrain
                 tried += 1
 
                 If Not can_pivot(b, margin) Then
-                    BrainWalkView.Mark(aim, 2)
+                    BrainWalkView.MarkTry(aim, 2)
                     Continue For
                 End If
                 Dim atM As Single = 0.0F
                 Dim verdict = box_verdict(b, Math.Min(need, reach), atM)
-                BrainWalkView.Mark(aim, verdict)
+                BrainWalkView.MarkTry(aim, verdict)
                 If verdict = 2 Then Continue For
 
                 ' Seconds to the goal this way, not degrees off it.
+                ' SECONDS TO THE GOAL, and then a HARD preference for the one
+                ' we are already on.
+                '
+                ' A seconds bonus was not enough: two rungs ended up trading
+                ' the tick 11229 to 11228 over seventy seconds, 181 deg/m,
+                ' six metres covered. Deciding every tick is right - it is how
+                ' the hull notices the world changing while the plank slows it
+                ' - but deciding DIFFERENTLY every tick is not, and those two
+                ' are separable. Same candidate as last time wins outright.
                 Dim off = time_via(b, aim)
-                If PlanOn AndAlso (aim - planPoint).Length <
+                If haveLast AndAlso (aim - lastAim).Length <
                    BrainTune.Get_("stickm", 6.0F) Then
-                    off -= BrainTune.Get_("sticks", 1.5F)
+                    off -= 1000.0F
                 End If
                 If off < bestOff Then
                     bestOff = off
@@ -1604,6 +1652,8 @@ Public Class GraphBrain
                         BrainTune.Get_("aimfrac", 0.5F)
             planPoint = half_
             PlanAim = half_
+            lastAim = bestAim
+            haveLast = True
             PlanOn = True
 
             ' THE POINT BEING CHASED, drawn where it actually is rather than as

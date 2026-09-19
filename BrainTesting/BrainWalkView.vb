@@ -133,6 +133,28 @@ Module BrainWalkView
     '''   used to be indistinguishable from a wall.
     ''' 2 the plank is shut across its width. No way between the hits.
     ''' </summary>
+    ''' <summary>
+    ''' A PLACE WE CONSIDERED AIMING - an opinion, not an object.
+    '''
+    ''' Candidate aim points sit three hull widths off the end of an
+    ''' obstacle, which is open ground BY CONSTRUCTION. Drawn at the same
+    ''' size as the gap markers they read as detections, and a red one in
+    ''' clear space looks like the radar inventing an obstacle. It is not -
+    ''' it is the walk saying it looked there and said no.
+    '''
+    ''' A third the size, so geometry and opinion are told apart on sight.
+    ''' </summary>
+    Public Sub MarkTry(p As Vector2, verdict As Integer)
+        If Not SHOW Then Return
+        Select Case verdict
+            Case 0 : box(cubesOpen, p, CUBE * 0.35F)
+            Case 1 : box(cubesGraze, p, CUBE * 0.35F)
+            Case Else : box(cubes, p, CUBE * 0.35F)
+        End Select
+    End Sub
+
+    ''' <summary>REAL GEOMETRY: the midpoint between two returns, full
+    ''' size.</summary>
     Public Sub Mark(p As Vector2, verdict As Integer)
         If Not SHOW Then Return
         Select Case verdict
@@ -302,28 +324,29 @@ Module BrainWalkView
             GL.DrawArrays(PrimitiveType.Triangles, 0, cubes.Count \ 3)
         End If
 
-        ' THE CHOSEN WAY, LAST AND THROUGH EVERYTHING.
+        ' THE CHOSEN WAY, LAST AND DEPTH-TESTED.
+        '
+        ' It used to draw through everything, because as a one-pixel line
+        ' it was invisible otherwise. As a cube it does not need the
+        ' cheat, and drawing it through hills was its own lie - an aim
+        ' point visible behind a ridge reads as reachable.
         '
         ' It was drawn third of six, thin, with depth testing on - so two
         ' green segments sat behind fifty-two solid red cubes and the owner
         ' reported no aim point at all. It was in the buffer the whole time.
         ' The one thing that must never be hidden is the answer.
         If cubePick.Count > 0 Then
-            GL.Disable(EnableCap.DepthTest)
             shader.SetVec3("colour", PICK_RGB)
             GL.BindVertexArray(vaoM)
             GL.DrawArrays(PrimitiveType.Triangles, 0, cubePick.Count \ 3)
-            GL.Enable(EnableCap.DepthTest)
         End If
 
         If picks.Count > 0 Then
-            GL.Disable(EnableCap.DepthTest)
             GL.LineWidth(7.0F)
             shader.SetVec3("colour", PICK_RGB)
             GL.BindVertexArray(vaoC)
             GL.DrawArrays(PrimitiveType.Lines, 0, picks.Count \ 3)
             GL.LineWidth(1.0F)
-            GL.Enable(EnableCap.DepthTest)
         End If
 
         GL.BindVertexArray(0)
