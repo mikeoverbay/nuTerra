@@ -47,7 +47,20 @@ Public Class TankBlk
     ''' version-dependent, which is the thing that makes a format painful to
     ''' read years later.
     ''' </summary>
-    Public Const VERSION As UInteger = 2UI
+    ''' <summary>
+    ''' 3: BIT 0 NOW INCLUDES TOO-STEEP GROUND.
+    '''
+    ''' The owner, 2026-09-19: "we dont need a slope angle. if it blocks is
+    ''' determined in nuTerra and the .blk file". So the decision moves here
+    ''' and no consumer carries a climb limit of its own.
+    '''
+    ''' THE LAYOUT DOES NOT CHANGE - same header, same three planes, same
+    ''' size. Only the MEANING of bit 0 does, which is exactly the change a
+    ''' version number exists for: a v2 reader would parse a v3 file
+    ''' perfectly and silently get a different answer. Bumped so it fails
+    ''' loudly instead.
+    ''' </summary>
+    Public Const VERSION As UInteger = 3UI
 
     ''' <summary>
     ''' Metres a step in the obstacle plane, and the value that means "taller
@@ -76,6 +89,21 @@ Public Class TankBlk
     ''' NO DOORWAY BIT, and that is not an omission. He settled it: "door ways =
     ''' bit 0 = 0". A cell that is open while carrying a BUILT kind is the
     ''' archway; a bit would only restate what those two already say.
+    '''
+    ''' NO STEEP BIT, and the byte has none spare. Since v3 bit 0 includes
+    ''' too-steep ground, so a reader no longer learns WHY from the mask.
+    '''
+    ''' BLOCKED WITH KIND TERRAIN AND NO OUTLAND MEANS STEEP - that much is
+    ''' sound, because bare ground blocks for no other reason. It is NOT
+    ''' complete, and the first draft of this comment claimed it was:
+    ''' measured on monastery, 207,697 cells block for slope alone and only
+    ''' 114,576 of them - 55.2% - carry kind terrain. The rest carry tree,
+    ''' rock or building, because the cell's kind comes from the texel that
+    ''' decided it and a steep cell with a tree on it reports the tree.
+    '''
+    ''' A consumer that needs slope specifically computes it from the GROUND
+    ''' PLANE, which is in this file for exactly that reason. The kind is a
+    ''' hint, not an answer.
     ''' </summary>
     Public Const BIT_BLOCKED As Byte = &H1      ' bit 0
     Public Const KIND_SHIFT As Integer = 1      ' bits 1-3, values 0-7
@@ -120,6 +148,7 @@ Public Class TankBlk
         Dim obstacle(n * n - 1) As Byte
         Dim blocked = 0
         Dim saturated = 0
+        Dim steep = 0
 
         For cz = 0 To n - 1
             Dim r0 = CInt(Math.Floor(cz * CELL_M * tex_per_m))
@@ -144,6 +173,8 @@ Public Class TankBlk
                 ' reduction - a representative pick would under-report a lintel
                 ' standing beside open floor.
                 Dim obs_max = 0.0F
+                ' The cell's own floor range, for the slope test below.
+                Dim flo_lo = Single.MaxValue, flo_hi = Single.MinValue
 
                 For r = r0 To r1 - 1
                     Dim row = r * MapFlightBake.SIZE
@@ -153,7 +184,11 @@ Public Class TankBlk
 
                         If (k And MapFlightBake.OUTLAND_BIT) <> 0 Then outland = True
 
-                        Dim oh = b.top_m(i) - b.floor_m(i)
+                        Dim fy = b.floor_m(i)
+                        If fy < flo_lo Then flo_lo = fy
+                        If fy > flo_hi Then flo_hi = fy
+
+                        Dim oh = b.top_m(i) - fy
                         If oh > obs_max Then obs_max = oh
 
                         ' The same rule TankSquares cuts by, and deliberately
@@ -186,6 +221,20 @@ Public Class TankBlk
                         End If
                     Next
                 Next
+
+                ' TOO STEEP IS BLOCKED, since v3. The same rule TankNav's
+                ' runtime grid uses - the floor's RANGE across the cell against
+                ' MAX_SLOPE * the cell size, a rise over a run - so the two
+                ' cannot disagree about what a tank can climb.
+                '
+                ' A ratio, not a height, which is what lets a 0.5 m cell here
+                ' and a 1.37 m cell there share one constant.
+                If Not hit AndAlso flo_hi > flo_lo Then
+                    If (flo_hi - flo_lo) > TankNavLimits.MAX_SLOPE * CELL_M Then
+                        hit = True
+                        steep += 1
+                    End If
+                End If
 
                 Dim idx = cz * n + cx
                 Dim m As Byte = 0
@@ -269,10 +318,11 @@ Public Class TankBlk
             Return -1
         End Try
 
-        LogThis("tank blk: v{0} {1}x{1} of {2:0.##} m in {3} ms, {4:N0} blocked ({5:0.0}%), " &
-                "{6:N0} cell(s) taller than the obstacle plane can say, {7:0.0} MB -> {8}",
+        LogThis("tank blk: v{0} {1}x{1} of {2:0.##} m in {3} ms, {4:N0} blocked ({5:0.0}%) " &
+                "of which {6:N0} for slope alone at {7:0.#} deg, {8:N0} taller than the " &
+                "obstacle plane can say, {9:0.0} MB -> {10}",
                 VERSION, n, CELL_M, sw.ElapsedMilliseconds, blocked,
-                100.0 * blocked / (n * n), saturated,
+                100.0 * blocked / (n * n), steep, TankNavLimits.MAX_SLOPE_DEG, saturated,
                 (32.0 + mask.Length + height.Length * 2.0 + obstacle.Length) / 1048576.0, p)
         Return blocked
     End Function
