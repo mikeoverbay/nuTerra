@@ -308,6 +308,13 @@ Public Class BrainWindow
                 ' Before anything can drive: once it does, Body.spawn is
                 ' the LIVE position and the opening one is gone.
                 BrainPanel.RememberSpawns()
+                ' AFTER the spawns are remembered, so the marker starts on the
+                ' same position Reset will return the hull to.
+                BrainStart.FromHull()
+                ' A SAVED START WINS OVER THE ROSTER'S. FromHull first so there
+                ' is always a marker even with no saved file; LoadSaved then
+                ' moves it, the hull and the remembered origin together.
+                BrainStart.LoadSaved(STARTUP_MAP)
                 If LEARN_ON_START Then
                     ' Straight into it. The goal came back with the
                     ' scenario, so there is nothing to place.
@@ -527,6 +534,9 @@ Public Class BrainWindow
     ''' travelled since.</summary>
     Private pressAt As Vector2
     Private pressTravel As Single
+    ''' <summary>The start marker has the pointer this frame, so neither
+    ''' the camera nor the picker may also act on it.</summary>
+    Private markerHasMouse As Boolean = False
     Private wasDown As Boolean
 
     ''' <summary>
@@ -546,6 +556,12 @@ Public Class BrainWindow
         ' otherwise also pick whatever happened to be behind it, and the log
         ' would fill with reports nobody asked for.
         If ImGui.GetIO().WantCaptureMouse Then
+            wasDown = False
+            Return
+        End If
+        ' Nor while the start marker is being dragged: a drag that ends on a
+        ' building would otherwise also report a pick nobody asked for.
+        If markerHasMouse Then
             wasDown = False
             Return
         End If
@@ -839,7 +855,23 @@ Public Class BrainWindow
         ' means there is one answer, ImGui's, and no second list of where the
         ' windows are to keep in step.
         Dim uiHasMouse = ImGui.GetIO().WantCaptureMouse
+
+        ' THE START MARKER GETS FIRST REFUSAL, one line after ImGui took its
+        ' own. It grabs only on the frame the button goes DOWN and only within
+        ' a few pixels of itself, so an orbit swept across it is never stolen
+        ' half way through - which would read as the map jumping.
+        '
+        ' The same viewProj the frame is drawn with, not a second one built
+        ' from yaw and pitch: a hit test that disagrees with the picture by a
+        ' degree misses the marker at 400 m.
+        markerHasMouse = False
         If Not uiHasMouse Then
+            Dim a_ = CSng(Math.Max(SCR_WIDTH, 1)) / CSng(Math.Max(SCR_HEIGHT, 1))
+            Dim vp_ = BrainRender.Cam.ViewProj(a_)
+            markerHasMouse = BrainStart.Mouse(MouseState, vp_, ClientSize.X, ClientSize.Y)
+        End If
+
+        If Not uiHasMouse AndAlso Not markerHasMouse Then
             BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
         End If
 

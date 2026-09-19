@@ -107,6 +107,31 @@ Module BrainPick
         Return res
     End Function
 
+    ''' <summary>
+    ''' A DEPTH SAMPLE BACK TO A WORLD POINT.
+    '''
+    ''' The depth buffer holds what the frame was actually drawn with, so this
+    ''' is exact where a ray-versus-plane intersection is an approximation -
+    ''' no guessed plane height, no iteration, and it is right on a cliff.
+    '''
+    ''' depth is the raw [0,1] window z; clip space wants [-1,1], hence 2z-1.
+    ''' </summary>
+    Public Function FromDepth(ByRef viewProj As Matrix4, mx As Single, my As Single,
+                              depth As Single, w As Integer, h As Integer,
+                              ByRef world As Vector3) As Boolean
+        If w <= 0 OrElse h <= 0 Then Return False
+        Dim inv As Matrix4
+        Try
+            inv = Matrix4.Invert(viewProj)
+        Catch
+            Return False
+        End Try
+        Dim ndx = 2.0F * mx / w - 1.0F
+        Dim ndy = 1.0F - 2.0F * my / h
+        world = unproject(inv, ndx, ndy, 2.0F * depth - 1.0F)
+        Return True
+    End Function
+
     Private Function unproject(ByRef inv As Matrix4, x As Single, y As Single, z As Single) As Vector3
         ' Row-vector convention, the same one the shaders are fed - see the
         ' note in BrainRender about what GLSL sees.

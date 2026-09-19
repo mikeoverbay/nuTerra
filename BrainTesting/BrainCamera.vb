@@ -42,13 +42,44 @@ Public Class BrainCamera
     ''' <summary>nuTerra's sign: a NEGATIVE pitch puts the camera above the
     ''' target. See the eye maths in ViewProj.</summary>
     Public PitchRad As Single = -0.45F
-    Public Dist As Single = 400.0F
+    ''' <summary>
+    ''' HOW FAR THE EYE SITS FROM THE TARGET, metres, CLAMPED ON EVERY WRITE.
+    '''
+    ''' A property rather than a field because five places set it - FrameMap,
+    ''' LookAt, the zoom, and the trail= and topdown= arguments - and a limit
+    ''' enforced at four of them is a limit.
+    ''' </summary>
+    Public Property Dist As Single
+        Get
+            Return dist_
+        End Get
+        Set(value As Single)
+            dist_ = Math.Min(MAX_DIST, Math.Max(MIN_DIST, value))
+        End Set
+    End Property
+    Private dist_ As Single = 400.0F
+
+    ''' <summary>Zoom limits, metres. 1 km out is the whole 1.4 km map in
+    ''' frame; past that is empty sky and a far plane paying for it.
+    ''' "set max zoom out to 1000" - the owner. It was 6000.</summary>
+    Private Const MAX_DIST As Single = 1000.0F
+    Private Const MIN_DIST As Single = 3.0F
 
     Private Const ROT_DAMPING As Single = 0.1F       ' nuTerra's slider default
     Private Const MOUSE_SPEED As Single = 1.0F
     Private Const PITCH_MIN As Single = -1.5697963F  ' -PI/2 + 0.001, as nuTerra clamps
     Private Const PITCH_MAX As Single = 1.3F
     Private Const FOV_DEG As Single = 60.0F
+
+    ''' <summary>The far clip plane, metres. Flat, not derived from Dist.
+    ''' The whole map is 1.4 km corner to corner, so 2 km reaches anything
+    ''' worth seeing from anywhere inside it.
+    '''
+    ''' ONE VIEW IS AFFECTED: FrameMap sets Dist to 2000 for a map this size,
+    ''' which puts the far plane level with the look-at point and clips the
+    ''' back half. That view wants its own far plane if it is kept.
+    ''' </summary>
+    Private Const FAR_M As Single = 2000.0F
 
     ' The pools. A drag adds to these; the damping below drains them, which is
     ' what makes the view coast after the button comes up.
@@ -157,12 +188,19 @@ Public Class BrainCamera
 
     Public Function ViewProj(aspect As Single) As Matrix4
         Dim view = Matrix4.LookAt(Eye, Target, Vector3.UnitY)
-        ' Near and far follow the radius: a 1.4 km map seen from 2 km needs a
-        ' far plane that reaches, and a hull inspected from 5 m needs a near
-        ' plane that does not clip its track.
+        ' FAR IS FIXED AT 2 km. "24,000 is way too far" - the owner, and he is
+        ' right: it was Dist * 10 + 4000, so framing a 1.4 km map put the far
+        ' plane 24 km out and spent the depth buffer's range on empty air.
+        ' Depth precision is hyperbolic, so what is thrown away by a far plane
+        ' ten times further than anything it can see is resolution between
+        ' surfaces that ARE in view.
+        '
+        ' The near plane still follows the radius - a hull inspected from 5 m
+        ' needs one that does not clip its track, and the 0.05 floor is what
+        ' guarantees that at the closest standoff LookAt permits.
         Dim proj = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(FOV_DEG), Math.Max(aspect, 0.1F),
-            Math.Max(Dist * 0.001F, 0.05F), Dist * 10.0F + 4000.0F)
+            Math.Max(Dist * 0.001F, 0.05F), FAR_M)
         Return view * proj
     End Function
 
@@ -286,10 +324,12 @@ Public Class BrainCamera
             Dim d = Dist * CSng(Math.Exp(zoomDelta * f))
             ' Hitting a clamp kills the pending delta so it cannot grind
             ' against the limit - nuTerra does the same at both ends.
-            If d > 6000.0F Then
-                d = 6000.0F : zoomDelta = 0
-            ElseIf d < 3.0F Then
-                d = 3.0F : zoomDelta = 0
+            ' The property clamps too, but the delta has to be killed HERE or
+            ' it grinds against the limit frame after frame.
+            If d > MAX_DIST Then
+                d = MAX_DIST : zoomDelta = 0
+            ElseIf d < MIN_DIST Then
+                d = MIN_DIST : zoomDelta = 0
             End If
             Dist = d
             zoomDelta *= (1.0F - f)

@@ -26,6 +26,7 @@ Module BrainRender
         BrainWalkView.Init()
         BrainRadar.Init()
         BrainGoal.Init()
+        BrainStart.Init()
 
         ' The camera asks the same sampler the hulls and the nav grid ask, so
         ' the point it looks at is on the surface they all agree about.
@@ -89,21 +90,8 @@ Module BrainRender
         GL.DepthFunc(DepthFunction.Less)
         GL.DepthMask(True)
 
-        terrainShader.Use()
         Dim vp = Cam.ViewProj(aspect)
-        terrainShader.SetMat4("viewProj", vp)
-
-        ' Binding 0 is this app's own choice - nuTerra's shaders take the
-        ' binding from a constant in common.h, and this app does not include
-        ' that header. The number only has to agree with terrain.vert.
-        map_scene.terrain.matrices.BindBase(0)
-
-        map_scene.terrain.all_chunks_vao.Bind()
-        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
-        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles,
-                                     DrawElementsType.UnsignedShort,
-                                     IntPtr.Zero, theMap.chunks.Length, 0)
-        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, 0)
+        issue_terrain(vp)
 
         ' Buildings after the terrain: both write depth and neither blends, so
         ' the order is free - but ground first means a hill already occludes
@@ -126,8 +114,91 @@ Module BrainRender
         ' one reading you cannot check.
         BrainRadar.Update()
         BrainRadar.Draw(vp)
+        BrainStart.Draw(vp)
         BrainGoal.Draw(vp)
         BrainGoal.DrawCursor(vp)
     End Sub
+
+
+    ''' <summary>The terrain, issued. Factored out because the pick pass draws
+    ''' it a second time with colour writes off, and two copies of a
+    ''' MultiDrawElementsIndirect set-up is two things to keep in step.</summary>
+    Private Sub issue_terrain(ByRef vp As Matrix4)
+        terrainShader.Use()
+        terrainShader.SetMat4("viewProj", vp)
+
+        ' Binding 0 is this app's own choice - nuTerra's shaders take the
+        ' binding from a constant in common.h, and this app does not include
+        ' that header. The number only has to agree with terrain.vert.
+        map_scene.terrain.matrices.BindBase(0)
+
+        map_scene.terrain.all_chunks_vao.Bind()
+        map_scene.terrain.indirect_buffer.Bind(BufferTarget.DrawIndirectBuffer)
+        GL.MultiDrawElementsIndirect(PrimitiveType.Triangles,
+                                     DrawElementsType.UnsignedShort,
+                                     IntPtr.Zero, theMap.chunks.Length, 0)
+        GL.BindBuffer(BufferTarget.DrawIndirectBuffer, 0)
+    End Sub
+
+    ''' <summary>
+    ''' THE PICK PASS: terrain into DEPTH ONLY, then the marker solid in its
+    ''' own flat colour, and read back one pixel and one depth.
+    '''
+    ''' Into the BACK BUFFER, before the visible frame is drawn. DrawWorld
+    ''' clears and redraws immediately after and nothing is presented until
+    ''' SwapBuffers, so none of this reaches the screen - no FBO needed for a
+    ''' pass that lasts less than a frame.
+    '''
+    ''' THE TERRAIN IS DRAWN FOR ITS DEPTH ALONE, colour writes masked off. It
+    ''' is there so the marker is occluded by ground between it and the eye -
+    ''' a marker behind a hill must not be grabbable through the hill - and so
+    ''' the depth read gives the ground's own Y under the cursor.
+    '''
+    ''' DEPTH BEATS ARITHMETIC. Intersecting a ray with a horizontal plane
+    ''' needs the height to guess the plane and the plane to find the height;
+    ''' two passes converge on gentle ground and land short on a cliff. The
+    ''' depth buffer already holds the answer the frame was drawn with.
+    ''' </summary>
+    ''' <param name="withMarker">Draw the marker square into the pass.
+    ''' TRUE to ask WHAT is under the cursor; FALSE while dragging, when the
+    ''' question is where the GROUND is - with the square drawn it sits under
+    ''' the cursor by definition and the depth read returns the square, so the
+    ''' marker would follow itself and never move.</param>
+    Public Function PickAt(mx As Integer, my As Integer, w As Integer, h As Integer,
+                           withMarker As Boolean,
+                           ByRef rgb As Vector3, ByRef world As Vector3) As Boolean
+        If terrainShader Is Nothing OrElse Not terrainShader.Ready Then Return False
+        If map_scene Is Nothing OrElse Not map_scene.TERRAIN_LOADED Then Return False
+        If mx < 0 OrElse my < 0 OrElse mx >= w OrElse my >= h Then Return False
+
+        Dim aspect = CSng(Math.Max(w, 1)) / CSng(Math.Max(h, 1))
+        Dim vp = Cam.ViewProj(aspect)
+
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Less)
+        GL.DepthMask(True)
+        GL.Disable(EnableCap.Blend)
+        GL.ClearColor(0.0F, 0.0F, 0.0F, 1.0F)
+        GL.Clear(ClearBufferMask.ColorBufferBit Or ClearBufferMask.DepthBufferBit)
+
+        GL.ColorMask(False, False, False, False)
+        issue_terrain(vp)
+        GL.ColorMask(True, True, True, True)
+
+        If withMarker Then BrainStart.DrawPick(vp)
+
+        ' GL COUNTS Y FROM THE BOTTOM, the window from the top.
+        Dim gy = h - 1 - my
+        Dim px(3) As Byte
+        GL.ReadPixels(mx, gy, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, px)
+        rgb = New Vector3(px(0) / 255.0F, px(1) / 255.0F, px(2) / 255.0F)
+
+        Dim dz(0) As Single
+        GL.ReadPixels(mx, gy, 1, 1, PixelFormat.DepthComponent, PixelType.Float, dz)
+        world = Vector3.Zero
+        Dim got = False
+        If dz(0) < 1.0F Then got = BrainPick.FromDepth(vp, mx, my, dz(0), w, h, world)
+        Return got
+    End Function
 
 End Module

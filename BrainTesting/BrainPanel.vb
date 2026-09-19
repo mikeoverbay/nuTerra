@@ -105,6 +105,28 @@ Module BrainPanel
     End Property
 
     ''' <summary>Put everything back. The one control used most in an evening.</summary>
+    ''' <summary>
+    ''' Move a hull's start, live position AND remembered origin together.
+    '''
+    ''' Writing only Bodies would last until the next Reset, which restores
+    ''' from origins - so a dragged start would quietly snap back and the
+    ''' marker would be a lie. Writing only origins would move nothing until
+    ''' a Reset. Both, or neither.
+    ''' </summary>
+    Public Sub SetSpawn(i As Integer, p As Vector2)
+        If BrainTanks.Bodies Is Nothing OrElse i < 0 OrElse i >= BrainTanks.Bodies.Count Then Return
+        Dim b = BrainTanks.Bodies(i)
+        b.spawn = p
+        b.y = BrainNav.Ground(p.X, p.Y)
+        BrainTanks.Bodies(i) = b
+        If origins IsNot Nothing AndAlso i < origins.Count Then
+            Dim o = origins(i)
+            o.spawn = p
+            o.y = b.y
+            origins(i) = o
+        End If
+    End Sub
+
     Public Sub RestoreSpawns()
         If origins Is Nothing Then Return
         For i = 0 To Math.Min(origins.Count, BrainTanks.Bodies.Count) - 1
