@@ -612,9 +612,13 @@ Public Module TankNavLimits
     ''' OBSTACLE_MIN_H so 'blocked' means one thing across the app.</summary>
     Public Const MAX_OBSTACLE As Single = 1.0F
 
-    ''' <summary>Forty degrees off the horizontal, as a gradient. The owner,
-    ''' 2026-09-12: "we can not climb more than tank specs and we have no driver
-    ''' on the fly, lets use a constant angle. 40 off bottom plane."
+    ''' <summary>Steepest ground a tank will take. THIRTY degrees since
+    ''' 2026-09-19, on the owner's call: "our cut off angle is 35? make it 30".
+    '''
+    ''' It was forty from 2026-09-12 - "we can not climb more than tank specs
+    ''' and we have no driver on the fly, lets use a constant angle. 40 off
+    ''' bottom plane" - and he asked for thirty believing it was thirty-five,
+    ''' which is what the stale summary deleted the same day had claimed.
     '''
     ''' It was 0.7 - 35 degrees - while ray_studio's marcher used 1.0 and the
     ''' square grid tested nothing, so three parts of the same project disagreed
@@ -630,7 +634,19 @@ Public Module TankNavLimits
     ''' the likeliest reason 0.7 came back in BrainNav on 2026-09-16 and made
     ''' a brain refuse ground the planner routes over - a reader who scrolled
     ''' to the constant found the retired value explained above it.</summary>
-    Public Const MAX_SLOPE As Single = 0.8391F
+    ''' <summary>THE ANGLE IS THE SOURCE, the tangent is derived.
+    '''
+    ''' Every previous change to this limit was made by typing a TANGENT -
+    ''' 0.7, then 0.8391 - and a tangent cannot be read. The owner asks for it
+    ''' in degrees, the constant below was in degrees in his words both times,
+    ''' and four copies of a five-digit decimal is how 0.7 survived in two
+    ''' places after it was retired. tank_tools/maze.py already did it this
+    ''' way; this is that, here.</summary>
+    Public Const MAX_SLOPE_DEG As Single = 30.0F
+
+    ''' <summary>MAX_SLOPE_DEG as rise over run. Derived, never typed.</summary>
+    Public ReadOnly MAX_SLOPE As Single =
+        CSng(Math.Tan(MAX_SLOPE_DEG * Math.PI / 180.0))
 
     ''' <summary>How far inside the arena's edge a tank must stay. About a
     ''' hull length, so one cannot come to rest straddling the boundary with
