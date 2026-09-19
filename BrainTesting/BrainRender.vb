@@ -54,6 +54,41 @@ Module BrainRender
         If map_scene.terrain.all_chunks_vao Is Nothing Then Return
         If theMap.chunks Is Nothing OrElse theMap.chunks.Length = 0 Then Return
 
+        ' FRONT FACE DEFINED, NOT INHERITED. This app never set it, so it ran
+        ' on GL's implicit default and any pass that changed it - ImGui, the
+        ' node editor's own context - left the next frame's state a guess.
+        ' CW, AND THE TERRAIN DATA SAYS SO. ChunkFunctions.vb:169-178 builds
+        ' each quad as BL,TR,TL and BL,BR,TR - its own labels - so j rising
+        ' goes DOWN the grid, dz is negative, and (A-C)x(B-C) comes out -Y.
+        ' Seen from above that is clockwise. nuTerra defaults to Ccw at
+        ' modRender.vb:30 but never culls these passes, so its default was
+        ' never evidence about this geometry.
+        '
+        ' ON ITS OWN THIS CHANGES NOTHING ON SCREEN: nothing in this app is
+        ' culled, and the shaders do not read gl_FrontFacing. It makes the
+        ' state defined so that turning culling on is one variable and not two.
+        GL.FrontFace(FrontFaceDirection.Cw)
+
+        ' DEPTH STATE IS SET HERE, EVERY FRAME, NOT INHERITED.
+        '
+        ' It was enabled once in OnLoad and never again. BrainCanvas disables
+        ' DepthTest at five places and restores it at one - and the scope and
+        ' the tank card both draw through BrainCanvas, AFTER this pass, every
+        ' frame. So the disable leaked into the next frame and from frame two
+        ' onward the whole scene drew with no depth test at all: terrain,
+        ' buildings, trees, hulls, rays and cubes in painter's order, last one
+        ' drawn winning regardless of distance.
+        '
+        ' That is also why the winding looked wrong. With no depth test you
+        ' see the back faces of anything that should have been occluded.
+        '
+        ' A pass that needs the state it runs under must set it. Inheriting it
+        ' across a frame boundary from a UI pass is not a state machine, it is
+        ' a race with one participant.
+        GL.Enable(EnableCap.DepthTest)
+        GL.DepthFunc(DepthFunction.Less)
+        GL.DepthMask(True)
+
         terrainShader.Use()
         Dim vp = Cam.ViewProj(aspect)
         terrainShader.SetMat4("viewProj", vp)
