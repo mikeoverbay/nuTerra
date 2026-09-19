@@ -226,3 +226,10 @@ uTerra_ScreenCaps - but ignore the
 # maps and one-off probe scripts belong beside the session, not in the tree.
 /scratchpad/
 _brain_snapshots/
+
+# Visual Studio's per-developer debug profiles. It is GENERATED the moment
+# anyone sets a start argument in the IDE, it carries that machine's own paths
+# and command lines, and it regenerates if deleted - so tracking it means one
+# session's launch arguments silently become everyone's. VB projects put it
+# under "My Project" where C# uses "Properties"; the pattern covers both.
+**/launchSettings.json
