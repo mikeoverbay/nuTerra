@@ -21,6 +21,27 @@
     file once already.
   -->
 
+  <!--
+    PARKED SOURCE, KEPT BUT NOT COMPILED.
+
+    parked/ holds work that is finished enough to be worth keeping and is not
+    wired to anything. "keep it. I may want to repurpose later" - the owner,
+    2026-09-19, about BrainViewports.vb.
+
+    IT HAS TO BE EXCLUDED EXPLICITLY. An SDK-style project globs **/*.vb, so a
+    .vb sitting anywhere under here is SOURCE - which is exactly how the first
+    run.ps1 killed the build by copying thirty-three files into the project
+    folder: every type defined twice, "Action is ambiguous", a page of errors
+    none of which mentioned copying anything.
+
+    Excluded rather than renamed to .txt, so it stays readable, diffable and
+    one rename away from being live again.
+  -->
+  <ItemGroup>
+    <Compile Remove="parked/**" />
+    <None Include="parked/**" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
