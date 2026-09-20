@@ -472,19 +472,25 @@ Public Class MapFlightBake
     ''' someone remembers to copy it is a rule that drifts, and all three
     ''' decide whether a tank is stopped.
     '''
-    ''' THE TRUNK BLOCKS. The owner, 2026-09-16: "lets assume if it has a
-    ''' trunk, we can't drive there. if no trunk we can." So a tree texel is
-    ''' crushable canopy unless it carries the trunk bit.
+    ''' EVERY TREE AND SHRUB IS PASSABLE, TRUNK INCLUDED. The owner,
+    ''' 2026-09-19: "have nuTerra re-do the .blk so that all trees and shrubs
+    ''' are marked as passible."
     '''
-    ''' This was tried once before and reverted, on the argument that a tank
-    ''' knocks the whole tree flat. Measured against the cached bake before
-    ''' putting it back: it blocks 8,307 more square metres on monastery, 0.42
-    ''' points of the map, because the trunk bit is real bark geometry within
-    ''' TRUNK_RADIUS of the axis rather than a stamped disc.
+    ''' That reverses his 2026-09-16 ruling - "lets assume if it has a trunk,
+    ''' we can't drive there" - which had itself reversed an earlier one. The
+    ''' trunk bit is still SET and still means what it meant; it simply no
+    ''' longer disqualifies a tree from being crushable, so a consumer that
+    ''' wants trunks back can have them from bit 6 without a re-bake.
     '''
-    ''' The solid bit still disqualifies a tree on its own: rock or wall
-    ''' standing under a canopy. Fence and prop are crushable at any height -
-    ''' "A fence or curb is not going to stop a tank."
+    ''' THE SOLID BIT STILL DISQUALIFIES, and that is deliberate rather than an
+    ''' oversight in following the instruction. A tree texel carrying the solid
+    ''' bit is rock or wall standing UNDER a canopy - the kind reads tree
+    ''' because the canopy closed over it, but the thing that stops a hull is
+    ''' the rock. "All trees are passable" is not "a rock is passable when a
+    ''' branch is over it". On monastery that pairing is 2,581 cells.
+    '''
+    ''' Fence and prop are crushable at any height - "A fence or curb is not
+    ''' going to stop a tank."
     '''
     ''' THE SOLID BIT QUALIFIES TREES, AND ONLY TREES. It is read from the
     ''' depth buffer BETWEEN the model pass and the tree pass, so any MODEL
@@ -506,7 +512,7 @@ Public Class MapFlightBake
         Dim k7 = k And KIND_MASK
         If k7 = KIND_FENCE OrElse k7 = KIND_PROP Then Return True
         If k7 <> KIND_TREE Then Return False
-        Return (k And (SOLID_BIT Or TRUNK_BIT)) = 0
+        Return (k And SOLID_BIT) = 0
     End Function
 
     Public Shared kind_map() As Byte

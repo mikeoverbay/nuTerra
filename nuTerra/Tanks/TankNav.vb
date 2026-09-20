@@ -77,15 +77,14 @@ Public Class TankNav
     ''' <summary>Everything that stops a tank. Kept as one constant so no
     ''' caller assembles its own idea of impassable.</summary>
     ''' <remarks>
-    ''' TRUNK IS NOT IN HERE, and it does not need to be. A trunk texel now
-    ''' stops a hull through BLOCKED, because MapFlightBake.Crushable refuses
-    ''' to call a trunk crushable and the height test then blocks it like any
-    ''' other standing thing. The TRUNK flag stays what it always was: a
-    ''' label saying which texels are trunk rather than canopy.
+    ''' TRUNK IS NOT IN HERE, and since 2026-09-19 nothing blocks on it at
+    ''' all: MapFlightBake.Crushable calls a trunk crushable, so the height
+    ''' test never sees it. The owner: "all trees and shrubs are marked as
+    ''' passible".
     '''
-    ''' Adding it here as well would block the 1.23% of trunk texels that key
-    ''' terrain - bark overhanging open ground with nothing under it - which
-    ''' the height test correctly leaves open.
+    ''' The TRUNK flag stays what it always was - a label saying which texels
+    ''' are trunk rather than canopy - so the day he wants them blocking
+    ''' again it is one line in Crushable and no new data.
     ''' </remarks>
     Public Const IMPASSABLE As Byte =
         BLOCKED Or STEEP Or OUTLAND Or WATER Or OFFMAP
