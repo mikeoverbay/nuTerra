@@ -43,7 +43,20 @@ Module BrainWalkView
     Private Const LIFT As Single = 0.6F
 
     ''' <summary>Half-edge of a blocked marker, metres.</summary>
-    Private Const CUBE As Single = 0.9F
+    ' SMALLER, ON THE OWNER'S CALL - 2026-09-25. Was 0.9, which at
+    ' MarkTry's 0.35 scale drew a 0.63 m cube per candidate and, with thirty
+    ' of them round a chain end, a blob rather than thirty answers. On a knob
+    ' because how big is right depends entirely on how far away you are
+    ' standing: tune=cubem=.
+    ' A PROPERTY, NOT A FIELD. A ReadOnly field initialiser runs when the
+    ' module is first touched, which can be BEFORE Program has parsed the
+    ' command line - so tune=cubem would have been read as its default and
+    ' silently ignored. Read at the point of use and the order cannot matter.
+    Private ReadOnly Property CUBE As Single
+        Get
+            Return BrainTune.Get_("cubem", 0.5F)
+        End Get
+    End Property
 
     ''' <summary>How tall the end and pick posts stand.</summary>
     Private Const POST As Single = 9.0F
@@ -275,6 +288,12 @@ Module BrainWalkView
     End Sub
 
     Public Sub Draw(ByRef viewProj As Matrix4)
+        ' HIDDEN WITH THE RAYS. "make it so they are all hidden when hide rays
+        ' is checked" - the owner, 2026-09-25. Everything here is a comment ON
+        ' the scan: chains, end posts, the tried cubes, the pick. Leaving them
+        ' up with the rays off is a picture of a scan you cannot see, and the
+        ' one checkbox people reach for to get a clean view is the radar one.
+        If Not BrainRadar.SHOW Then Return
         If Not SHOW OrElse shader Is Nothing OrElse Not shader.Ready Then Return
         If lines_.Count = 0 AndAlso posts.Count = 0 AndAlso cubes.Count = 0 AndAlso
            cubesOpen.Count = 0 AndAlso cubesGraze.Count = 0 AndAlso

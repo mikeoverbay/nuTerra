@@ -45,6 +45,9 @@ Module BrainPath
     Private at As Integer = 0
     Private RoadId As Integer = -1
     Private ready As Boolean = False
+    ''' <summary>The road is done and the goal has been cleared. Latched,
+    ''' so arrival fires once rather than every tick.</summary>
+    Private finished As Boolean = False
 
     Private shader As BrainShader
     Private vao, vbo, verts As Integer
@@ -59,6 +62,7 @@ Module BrainPath
         If Not ON_ Then Return
         pts.Clear()
         ready = False
+        finished = False
         verts = 0
         Try
             Dim p = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "flight",
@@ -195,6 +199,19 @@ Module BrainPath
     ''' road at speed, or being pushed down it by a go-around, can carry the
     ''' hull past several nodes at once, and advancing one per tick would aim
     ''' it backwards at a point it has already driven through.
+    '''
+    ''' AND IT STOPS AT THE FAR BASE. "it doesn't stop at when it gets to
+    ''' base" then "25m rad i think zone" - the owner, 2026-09-25.
+    '''
+    ''' BY TAKING THE GOAL AWAY, not by commanding a stop. The board's very
+    ''' first rung is already No Goal -> Stop, so clearing HasTarget is the
+    ''' whole of it - and it keeps the follower to the one thing it is allowed
+    ''' to touch. A second module commanding throttle would be the second
+    ''' driver this design exists to avoid.
+    '''
+    ''' ONCE, latched. Without the flag the arrival would re-fire every tick,
+    ''' and any rung that set a goal for its own reasons would be fighting a
+    ''' module that cleared it again a frame later.
     ''' </summary>
     Public Sub Tick()
         If Not ON_ OrElse Not ready Then Return
@@ -202,10 +219,26 @@ Module BrainPath
            BrainTanks.Bodies.Count <= BrainRadar.HULL Then Return
         Dim here = BrainTanks.Bodies(BrainRadar.HULL).spawn
 
+        If finished Then Return
+
         Dim reach = BrainTune.Get_("waypm", 10.0F)
         While at < pts.Count - 1 AndAlso (pts(at) - here).Length < reach
             at += 1
         End While
+
+        ' THE BASE ZONE. The last waypoint is the far base, and a tank that
+        ' has to touch a node to the metre is a tank that circles it - the
+        ' zone is the arrival, not the point.
+        Dim zone = BrainTune.Get_("basem", 25.0F)
+        If at >= pts.Count - 1 AndAlso (pts(at) - here).Length <= zone Then
+            finished = True
+            BrainGoal.HasTarget = False
+            LogThis("brain: road {0} COMPLETE - inside the {1:0} m base zone at " &
+                    "({2:0.0}, {3:0.0}), {4:0.0} m from the last node. Goal cleared, " &
+                    "the board stops on No Goal.",
+                    RoadId, zone, here.X, here.Y, (pts(at) - here).Length)
+            Return
+        End If
 
         BrainGoal.Follow = False
         BrainGoal.Target = pts(at)
