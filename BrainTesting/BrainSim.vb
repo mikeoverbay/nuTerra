@@ -106,7 +106,8 @@ Module BrainSim
     ''' Deliberately crude: this is the WORLD applying a brain's numbers, not a
     ''' vehicle model. When the driving needs real physics it belongs in the
     ''' tank lane, not here.</summary>
-    Private Const TOP_SPEED As Single = 12.0F      ' m/s
+    ' PUBLIC so the smoother can say what radius the hull needs at speed.
+    Public Const TOP_SPEED As Single = 12.0F      ' m/s
 
     ''' <summary>
     ''' HOW FAST A HULL SWINGS AT FULL STEER. Halved from 0.9 on the owner's
@@ -174,6 +175,12 @@ Module BrainSim
         ' inherits the first one's tally and the comparison is a fiction.
         BrainReport.Reset()
         BrainTrail.Reset()
+        ' AND THE ROAD, for the same reason and with the same force. Start
+        ' already declares this a fresh run by wiping the trail and the
+        ' scorecard; a road left finished from the previous one would clear the
+        ' goal on the first tick and stop the run before it moved, which reads
+        ' as the brain refusing rather than as a latch nobody cleared.
+        BrainPath.Reset()
 
         ' THE OPENING GAP, before anything moves. A scorecard written at the
         ' end cannot ask this - by then the start is wherever the hull

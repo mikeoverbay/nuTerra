@@ -828,6 +828,22 @@ Public Class BrainWindow
                 ' comment is about.
                 BrainTrail.Reset()
 
+                ' AND THE ROAD BACK TO ITS FIRST WAYPOINT - "reset does not
+                ' reset the start points the tanks seek".
+                '
+                ' AFTER RestoreSpawns and BEFORE the step below, and both
+                ' halves of that matter. After, because the goal it re-arms is
+                ' read against where the hulls now ARE, not where the
+                ' abandoned run left them. Before, because the single tick is
+                ' meant to show the state a reset produces - step first and the
+                ' scan on screen would be the last run's goal being chased one
+                ' more time.
+                '
+                ' See BrainPath.Reset for the two things it undoes: the
+                ' waypoint index, and the finished latch that otherwise left a
+                ' hull that had completed a road parked for good.
+                BrainPath.Reset()
+
                 ' AND EXACTLY ONE TICK - "I want one tick only after reset".
                 '
                 ' A reset used to leave the hull parked with nothing sensed:
