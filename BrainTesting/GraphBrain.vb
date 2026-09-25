@@ -419,7 +419,26 @@ Public Class GraphBrain
         ' reversing into something was wedged with nothing watching, and
         ' the one state that commands reverse was the one the watch could
         ' not see into.
-        If Math.Abs(thr) > 0.1F AndAlso Math.Abs(h.speed) < 0.2F Then
+        ' AND "NEVER ASKED" IS A WEDGE TOO.
+        '
+        ' The test above is "asked to move and did not", which cannot see the
+        ' case that actually stopped the tank at base 1: throttle_for returns
+        ' ZERO inside the standoff, the hull had 1.4 m clear against a 1.5 m
+        ' standoff, so thr was 0.00 - and with no throttle commanded neither
+        ' this clock nor stuckFor ever started. Is Wedged never fired, Set
+        ' Backing never fired, and every metre of the new backing machinery
+        ' was unreachable. Eighteen seconds, half a metre moved.
+        '
+        ' Same shape as the RefusedRun latch: a state whose own behaviour
+        ' makes its exit condition impossible to observe.
+        '
+        ' THE THIRD TERM IS WHAT KEEPS IT HONEST. Stopped and going nowhere is
+        ' normal - before Run, on arrival, while the board is thinking. It is
+        ' only a wedge when something is CLOSE ENOUGH to be the reason, so the
+        ' plank has to agree before the clock starts.
+        Dim mute = Math.Abs(thr) <= 0.1F AndAlso Math.Abs(h.speed) < 0.2F AndAlso
+                   body_ahead() < BrainTune.Get_("standoff", 1.5F) + 0.5F
+        If (Math.Abs(thr) > 0.1F AndAlso Math.Abs(h.speed) < 0.2F) OrElse mute Then
             wedgedFor += dt
         Else
             wedgedFor = 0.0F
@@ -548,7 +567,10 @@ Public Class GraphBrain
                 thr = 0.0F : steerOut = 0.0F
                 why = "stopped"
             Case "New Goal"
-                throw_goal()
+                ' DECLINE WHEN NO GOAL WAS THROWN, so a pinned goal does not
+                ' eat the tick at p1.b and leave the hull parked - see
+                ' throw_goal. Scanning does the same thing for the same reason.
+                If Not throw_goal() Then Return False
             Case "Scanning"
                 ' SCANNING IS A SIDE EFFECT, NOT A DECISION. This raises the
                 ' flag and reports that it did NOT act, so the chain carries
@@ -562,23 +584,6 @@ Public Class GraphBrain
                 ' only commits if it finds one, otherwise it falls through.
                 BrainRadar.SCANNING = True
                 Return False
-            Case "Mark Trap"
-                ' THE CELL AHEAD, NOT THE ONE UNDERNEATH. The sim refuses to
-                ' move a hull to an unstandable place (BrainSim: "simply does
-                ' not move"), so marking the ground the tank is parked on
-                ' freezes it for good - every destination within a drive
-                ' radius of that cell then fails, in every direction. It sat
-                ' commanding reverse at zero speed until the run was killed.
-                '
-                ' What deserves the mark is what it could not get INTO.
-                Dim ahead_ = h.pos + New Vector2(CSng(Math.Sin(h.headingRad)),
-                                                 CSng(Math.Cos(h.headingRad))) * h.DriveRadius
-                Dim c = BrainNav.ColOf(ahead_.X), r = BrainNav.RowOf(ahead_.Y)
-                If BrainNav.MarkBlocked(c, r) Then
-                    why = "marked the block ahead a trap"
-                Else
-                    why = "already a trap"
-                End If
             Case "Set Seek", "Set Turning", "Set Follow", "Set Door", "Set Backing"
                 Dim was = state
                 state = CType([Enum].Parse(GetType(GSt), k.Substring(4)), GSt)
@@ -812,10 +817,18 @@ Public Class GraphBrain
                 ' moving - refused, or hard against something - a distance
                 ' target would hold it there forever, which is the same trap
                 ' the other way round.
+                ' DONE, OR PROVED UNDOABLE. Those are the only two ways out
+                ' now that Can Pivot To has been unwired - see the note on the
+                ' board. A refused reverse is the world saying this commitment
+                ' cannot be honoured, which is exactly the "hitting something
+                ' while backing" the owner named; the clock is the backstop for
+                ' a reverse that is neither arriving nor being refused.
                 Dim gone = (h.pos - backFrom).Length
                 Dim capS = BrainTune.Get_("backcap",
                                BrainNodes.Setting(id, "seconds", 6.0F))
-                v = CObj(gone >= backWant OrElse backingFor > capS)
+                v = CObj(gone >= backWant OrElse
+                         backingFor > capS OrElse
+                         BrainSim.RefusedRun > 2)
             Case "Not Moving"
                 ' ASKED FOR MOVEMENT AND DID NOT GET IT. Not simply "the speed is
                 ' low" - the branch this gates is Turn To, which commands zero
@@ -1073,6 +1086,48 @@ Public Class GraphBrain
         Dim bias = w / tot
         If Math.Abs(bias) < BrainTune.Get_("sidedead", 0.15F) Then Return 0.0F
         Return Math.Sign(bias)
+    End Function
+
+    ''' <summary>
+    ''' WHICH FENDER IS FOULED. -1 one side, +1 the other, 0 for neither or both.
+    '''
+    ''' "clear front. shit on side. back away from shit. Same rule for the
+    '''  other fender." - the owner, 2026-09-25.
+    '''
+    ''' THE PLANK CANNOT ANSWER THIS AND THAT IS THE WHOLE POINT. Corridor
+    ''' casts a lane along a BEARING; Standable, which is what actually
+    ''' refuses a move, tests an axis-aligned BOX whose corners reach
+    ''' DriveRadius * root 2 - about 2.74 m - in directions the lane never
+    ''' looks. So the plank reads thirty metres while the hull cannot move at
+    ''' all, which is exactly what was seen at base 1: "driving 13 deg, 30.0 m
+    ''' clear, thr 1.00" and six centimetres of movement.
+    '''
+    ''' SO ASK THE QUESTION THE WORLD ANSWERS. Not a ray, not a lane - the
+    ''' same Standable the sim refuses with, at each front corner. If one
+    ''' corner is fouled and the other is not, that is the side to get away
+    ''' from. Both fouled is not a fender problem, it is a wall, and the rungs
+    ''' that handle walls should keep it.
+    '''
+    ''' THE SIGN IS Corridor's: its planks run along p = (-dz, dx) and it
+    ''' calls that +off. Returning the foul in the same frame means the
+    ''' steering derivation in flank terms does not have to be redone here -
+    ''' positive steer turns the hull toward NEGATIVE off, so steering by the
+    ''' returned sign swings the nose AWAY from the fouled side.
+    ''' </summary>
+    Private Function fender_side() As Single
+        Dim f = New Vector2(CSng(Math.Sin(h.headingRad)), CSng(Math.Cos(h.headingRad)))
+        Dim off = New Vector2(-f.Y, f.X)
+        ' THE FRONT CORNERS, a little proud of the nose - a fender fouls
+        ' before the centre of the hull does, which is why the plank misses it.
+        Dim nose = h.pos + f * (h.halfZ * BrainTune.Get_("fendz", 0.9F))
+        Dim r = BrainTune.Get_("fendr", 0.9F)
+        Dim pL = nose - off * h.halfX
+        Dim pR = nose + off * h.halfX
+        Dim badL = Not BrainNav.Standable(pL.X, pL.Y, r)
+        Dim badR = Not BrainNav.Standable(pR.X, pR.Y, r)
+        If badL AndAlso Not badR Then Return -1.0F
+        If badR AndAlso Not badL Then Return 1.0F
+        Return 0.0F
     End Function
 
     Private Function deeper_side() As Single
@@ -2326,7 +2381,30 @@ Public Class GraphBrain
     ''' on a map with water and cliffs there may be nowhere standable that far
     ''' out - so it falls back rather than giving up and parking.
     ''' </summary>
-    Private Sub throw_goal()
+    ''' <summary>
+    ''' Throw the next goal. TRUE only if one was actually thrown.
+    '''
+    ''' "I think we have a issue with being at goal blocking brain from
+    '''  running correctly" - the owner, 2026-09-25, and he was right.
+    '''
+    ''' Arrived sits at p1.b, SECOND FROM THE TOP of the whole board, and its
+    ''' action is New Goal. A Priority stops at the first child that ACTS - so
+    ''' when the goal is pinned, and `pingoal` is exactly the flag a measured
+    ''' run sets, this refused to move the goal and still claimed the tick.
+    ''' Inside five metres of the goal the brain was paralysed: no driving, no
+    ''' steering, no backing, every tick eaten by a rung that did nothing.
+    ''' That is the "the board did nothing" seen parked at a base.
+    '''
+    ''' It matters far more now than it did. With BrainPath the goal is a
+    ''' WAYPOINT, so the hull is near one constantly rather than once at the
+    ''' end of a run - the paralysis would fire at every waypoint the follower
+    ''' had not yet advanced past.
+    '''
+    ''' The pattern is Scanning's, two cases above: raise what you raise, then
+    ''' report that you did not act so the chain carries on to the rules that
+    ''' actually steer.
+    ''' </summary>
+    Private Function throw_goal() As Boolean
         Dim tries = 0
         For Each want In New Single() {300.0F, 220.0F, 150.0F, 90.0F}
             For k = 1 To 16
@@ -2334,10 +2412,13 @@ Public Class GraphBrain
                 Dim a = CSng(rng.NextDouble() * Math.PI * 2.0)
                 Dim p = h.pos + New Vector2(CSng(Math.Sin(a)), CSng(Math.Cos(a))) * want
                 If BrainNav.Standable(p.X, p.Y, h.DriveRadius) Then
-                    If Not BrainGoal.TryMove(p) Then Return
+                    ' PINNED - and that is not a failure of this rung, it is
+                    ' the run being set up to measure one goal. Decline, so
+                    ' the board carries on driving instead of stopping here.
+                    If Not BrainGoal.TryMove(p) Then Return False
                     BrainGoal.HasTarget = True
-                    ' PINNED. Follow rides the camera and would drag the goal
-                    ' back under the view on the very next frame.
+                    ' Follow rides the camera and would drag the goal back
+                    ' under the view on the very next frame.
                     BrainGoal.Follow = False
                     goalsMade += 1
                     state = GSt.Seek
@@ -2345,13 +2426,16 @@ Public Class GraphBrain
                     why = String.Format("arrived - goal {0}, {1:0} m out", goalsMade, want)
                     LogThis("brain: GOAL {0} - {1:0} m at {2:0} deg after {3} tries",
                             goalsMade, want, MathHelper.RadiansToDegrees(a), tries)
-                    Return
+                    Return True
                 End If
             Next
         Next
         why = "arrived, but nowhere standable to go next"
         LogThis("brain: arrived, but {0} bearings found nowhere standable", tries)
-    End Sub
+        ' NOWHERE TO GO IS ALSO NOT AN ACTION. Claiming the tick here would
+        ' park the hull on the spot it arrived at for the rest of the run.
+        Return False
+    End Function
 
     Private Shared Function wrap_pi(a As Single) As Single
         Dim x = a

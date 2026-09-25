@@ -217,7 +217,6 @@ Module BrainNodes
         New Kind("act", "Stop", {"in"}, {}),
         New Kind("act", "New Goal", {"in"}, {}),
         New Kind("act", "Scanning", {"in"}, {}),
-        New Kind("act", "Mark Trap", {"in"}, {}),
         New Kind("act", "Set Seek", {"in"}, {}),
         New Kind("act", "Set Turning", {"in"}, {}),
         New Kind("act", "Set Follow", {"in"}, {}),
@@ -323,7 +322,6 @@ Module BrainNodes
             Case "Stop" : Return "throttle and steering to nothing"
             Case "New Goal" : Return "throw the next goal, somewhere standable"
             Case "Scanning" : Return "raise the scan. claims nothing, so the chain goes on"
-            Case "Mark Trap" : Return "remember this block as one not to drive into"
             Case "Set Seek", "Set Turning", "Set Follow", "Set Door", "Set Backing"
                 Return "change what state we are in"
             Case "Reverse" : Return "back up, steering off the TAIL"
@@ -1102,7 +1100,29 @@ Module BrainNodes
         join_pins(gAround, "out", aAround, "in")
         join_pins(pAround, "bearing", aAround, "bearing")
 
-        join_pins(p1, "d", pGo, "in")
+        ' ---- A COMMITTED STATE OUTRANKS THE OBJECTIVE -------------------
+        '
+        ' "we take action based on what situation we are in... this [stays] in
+        '  that state until something else says it can't be in that state" -
+        ' the owner, 2026-09-25.
+        '
+        ' The objective was moved ABOVE the state rungs once, for a real
+        ' reason recorded below: "The OBJECTIVE was the lowest priority thing
+        ' on the board, so any marginal reason to reverse outranked actually
+        ' going somewhere." That fix caused this bug. A live reversal was
+        ' overruled by the objective every time the plank flickered back to
+        ' thirty metres - measured at base 1 as "backing 0.5/7.3 m" and
+        ' "driving 13 deg, 30.0 m clear" alternating at frame rate, with the
+        ' hull moving six centimetres in fifty seconds.
+        '
+        ' BOTH ARE RIGHT, and pCommit is the distinction between them: a state
+        ' that has COMMITTED to a distance outranks the objective, an idle one
+        ' does not. Backing's exit is now bounded - done, refused, or timed
+        ' out - so holding it above the objective cannot starve it the way an
+        ' unbounded state rung did.
+        Dim pCommit = spawn("Priority", 430.0F, 200.0F)
+        join_pins(p1, "d", pCommit, "in")
+        join_pins(pCommit, "b", pGo, "in")
         join_pins(pGo, "d", pStuck2, "in")
         join_pins(pStuck2, "a", gStuck2, "in")
         join_pins(tStuck2, "True", gStuck2, "True")
@@ -1129,15 +1149,14 @@ Module BrainNodes
         join_pins(tArr, "True", gArr, "True")
         join_pins(gArr, "out", aGoal, "in")
 
+        ' WEDGED -> BACK OUT, and that is now the whole rung. The Sequence and
+        ' the Mark Trap hanging off it are gone with the block-bit writing, and
+        ' a Sequence with one child left is just a wire.
         Dim gWed = spawn("Gate", 870.0F, 260.0F)
-        Dim sq = spawn("Sequence", 1090.0F, 260.0F)
-        Dim aMark = spawn("Mark Trap", 1310.0F, 260.0F)
-        Dim aSet = spawn("Set Backing", 1310.0F, 370.0F)
+        Dim aSet = spawn("Set Backing", 1090.0F, 260.0F)
         join_pins(p1, "c", gWed, "in")
         join_pins(tWed, "True", gWed, "True")
-        join_pins(gWed, "out", sq, "in")
-        join_pins(sq, "a", aMark, "in")
-        join_pins(sq, "b", aSet, "in")
+        join_pins(gWed, "out", aSet, "in")
 
         ' ---- rule 4 and the states ------------------------------------------
         Dim gScan = spawn("Gate", 870.0F, 480.0F)
@@ -1164,10 +1183,17 @@ Module BrainNodes
         Dim tRoom = spawn("Enough Room", 1310.0F, 410.0F)
         Dim aSeek = spawn("Set Seek", 1530.0F, 530.0F)
         Dim aRev = spawn("Reverse", 1310.0F, 650.0F)
-        join_pins(p2, "b", gBack, "in")
+        ' PIN a OF pCommit, not p2.b - above the objective, see pHold. p2 is
+        ' still where an UNcommitted board goes looking for something to do.
+        join_pins(pCommit, "a", gBack, "in")
         join_pins(tBack, "True", gBack, "True")
         join_pins(gBack, "out", pBack, "in")
-        join_pins(pBack, "a", gBackOut, "in")
+        ' pBack.a IS THE COMMITMENT NOW - see below. gBackOut kept its
+        ' node so the Can Pivot To attempt stays visible in the history,
+        ' but nothing feeds it and nothing reads it: a Gate with an
+        ' unwired when DECLINES, so leaving it pinned here would have
+        ' silently eaten pin a and orphaned the real exit. It did,
+        ' measured: committed to 7.3 m and still reversing at 33.7.
         ' A DEAD BAND, and it is the whole fix. Rear Better grabs the Backing
         ' state when Body Ahead drops under five metres; this rung hands it
         ' back when Body Ahead climbs over five metres. Same reading, same
@@ -1194,10 +1220,29 @@ Module BrainNodes
         ' Can Pivot To answers the question that actually ends a reversal -
         ' can the box now swing to face the deepest open direction. It has
         ' been on the board since it was written and wired to nothing.
-        Dim tPivot = spawn("Can Pivot To", 1090.0F, 330.0F)
-        join_pins(pDeep, "bearing", tPivot, "bearing")
-        join_pins(tPivot, "True", gBackOut, "True")
-        join_pins(gBackOut, "out", aSeek, "in")
+        ' CAN PIVOT TO IS NO LONGER AN EXIT, and that is the fix.
+        '
+        ' "we take action based on what situation we are in... this [stays] in
+        '  that state until something else says it can't be in that state such
+        '  as hitting something while turning or backing" - the owner,
+        ' 2026-09-25.
+        '
+        ' It asks whether the box can swing to the deepest open direction yet,
+        ' and half a metre back from a wall it usually can. So it fired on
+        ' pBack.a - the FIRST pin, checked before anything else - and threw
+        ' away a commitment to reverse seven metres after five hundred
+        ' millimetres. Measured, over and over: "backing 0.5/7.3 m, attempt 1",
+        ' forever, because attempt 1 never finished and so never became
+        ' attempt 2.
+        '
+        ' A state that can be left the moment a reading momentarily improves
+        ' is not a state, it is a suggestion. Backing now ends when the
+        ' BACKING IS DONE - the distance it committed to - or when it cannot
+        ' be done: refused, or out of time. Nothing else gets a vote.
+        '
+        ' The nodes stay on the board, wired to nothing, because that is how
+        ' the last four experiments were undone cleanly and because the next
+        ' person deserves to see the attempt rather than a gap.
         ' SPIN BEFORE REVERSING. The sim turns the hull before it tests where
         ' the hull wants to go, so rotation is the one command that is never
         ' refused - and a hull pushing into geometry at zero speed has nothing
@@ -1226,15 +1271,17 @@ Module BrainNodes
         set_setting(tBacked, "seconds", 8.0F)
         Dim gBacked = spawn("Gate", 1310.0F, 470.0F)
         Dim aSeek2 = spawn("Set Seek", 1530.0F, 470.0F)
-        join_pins(pBack, "b", gBacked, "in")
+        ' PIN a, NOT b. The commitment is now the first thing asked, so
+        ' nothing above it can release the state early.
+        join_pins(pBack, "a", gBacked, "in")
         join_pins(tBacked, "True", gBacked, "True")
         join_pins(gBacked, "out", aSeek2, "in")
 
-        join_pins(pBack, "c", gStuck, "in")
+        join_pins(pBack, "b", gStuck, "in")
         join_pins(tStuck, "True", gStuck, "True")
         join_pins(gStuck, "out", aSpin, "in")
         join_pins(pDeep, "bearing", aSpin, "bearing")
-        join_pins(pBack, "d", aRev, "in")
+        join_pins(pBack, "c", aRev, "in")
         join_pins(rear, "bearing", aRev, "bearing")
 
         Dim gTurn = spawn("Gate", 870.0F, 710.0F)

@@ -320,6 +320,13 @@ Public Class BrainWindow
                 ' start IS the scenario, and a marker file left from another
                 ' test must not half-override it.
                 BrainCourse.Load(STARTUP_MAP)
+
+                ' THE ROAD, AFTER the start is final. It joins at the node
+                ' nearest the hull, so loading it before the course or a saved
+                ' marker had placed the hull would pick the road nearest
+                ' wherever the roster happened to spawn it.
+                BrainPath.Load(STARTUP_MAP)
+
                 If BrainCourse.ON_ Then
                     Dim cp = BrainStart.Pos
                     BrainRender.Cam.LookAt(cp.X, cp.Y,
@@ -950,6 +957,11 @@ Public Class BrainWindow
         handle_keys()
         ' ONE CALL, and the cursor is never grabbed. See BrainCamera - this is
         ' nuTerra's camera_mouse_update by way of Exporter Studio.
+        ' THE GOAL WALKS THE ROAD, BEFORE THE BRAIN READS IT. After the
+        ' tick the board has already decided against last tick's goal, and a
+        ' waypoint that advances behind the brain's back is one it never
+        ' steered for.
+        BrainPath.Tick()
         BrainSim.Tick(CSng(e.Time))
 
         ' ---- THE UI GETS FIRST REFUSAL ON THE MOUSE ------------------------

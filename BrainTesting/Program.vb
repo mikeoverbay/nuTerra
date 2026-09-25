@@ -50,7 +50,17 @@ Module Program
         Dim ignored As New List(Of String)
 
         For Each a In args
-            If a.Equals("course", StringComparison.OrdinalIgnoreCase) OrElse
+            If a.Equals("path", StringComparison.OrdinalIgnoreCase) Then
+                ' FOLLOW A ROAD FROM Tank Path Studio. Nearest road to the
+                ' hull unless path=<id> names one.
+                BrainPath.ON_ = True
+            ElseIf a.StartsWith("path=", StringComparison.OrdinalIgnoreCase) Then
+                Dim rid As Integer
+                If Integer.TryParse(a.Substring(5), rid) Then
+                    BrainPath.ON_ = True
+                    BrainPath.WantId = rid
+                End If
+            ElseIf a.Equals("course", StringComparison.OrdinalIgnoreCase) OrElse
                a.Equals("testwall", StringComparison.OrdinalIgnoreCase) Then
                 ' THE COURSE. `testwall` kept as a spelling of it - the rig it
                 ' named grew into this, and the old word still means "set the

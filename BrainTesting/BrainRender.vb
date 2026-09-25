@@ -36,6 +36,7 @@ Module BrainRender
         BrainGoalMark.Init()
         BrainBlkView.Init()
         BrainCourse.Init()
+        BrainPath.Init()
 
         ' The camera asks the same sampler the hulls and the nav grid ask, so
         ' the point it looks at is on the surface they all agree about.
@@ -138,6 +139,11 @@ Module BrainRender
         ' outside the world switch - with the wafers on you want to see the
         ' boxes AND the cells they marked, which is the whole point of looking.
         BrainCourse.Draw(vp)
+
+        ' THE ROAD UNDER EVERYTHING THAT COMMENTS ON IT - the trail draws over
+        ' it on purpose, because the two together are the measurement: what
+        ' was planned against what was driven.
+        BrainPath.Draw(vp)
 
         ' Hulls last. They are small, they sit on ground already drawn, and
         ' anything that goes wrong with them is easiest to see against a world

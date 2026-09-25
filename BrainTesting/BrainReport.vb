@@ -33,7 +33,6 @@ Module BrainReport
     Public RearTrigs As Integer = 0
     Public RearLastDeg As Single = 0.0F
     Public Doors As Integer = 0
-    Public Traps As Integer = 0
 
     ''' <summary>The last opening the vote looked at, and what straight on was
     ''' worth at the same moment. Printed because "it never turned" and "it
@@ -301,7 +300,6 @@ Module BrainReport
         RearTrigs = 0
         RearLastDeg = 0.0F
         Doors = 0
-        Traps = 0
         probedOnce = False
         beat = 0.0F
         SecFull = 0.0F
@@ -353,12 +351,6 @@ Module BrainReport
                 "Going through.", Doors, aheadM, widthM, needM)
     End Sub
 
-    Public Sub Trap(col As Integer, row As Integer)
-        Traps += 1
-        LogThis("brain: TRAP {0} - every front ray blocked and the hull will not move. " &
-                "Square ({1},{2}) marked once we are clear of it.", Traps, col, row)
-    End Sub
-
     ''' <summary>
     ''' ONCE A SECOND, THE WHOLE STATE OF IT.
     '''
@@ -381,8 +373,7 @@ Module BrainReport
         LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
                 "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
                 "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14} " &
-                "traps {19} (marked {20}) " &
-                "| gap {21:0.0} @ {22:0} deg vs ahead {23:0.0} " &
+                "| gap {19:0.0} @ {20:0} deg vs ahead {21:0.0} " &
                 "| ai {15:0.00} ms (ground {16:0.00} ms, {17} queries, " &
                 "{18} cells)",
                 state, why, throttle, speed, rangeM,
@@ -392,7 +383,7 @@ Module BrainReport
                 If(RearTrigs > 0, String.Format(" (last {0:0} deg)", RearLastDeg), ""),
                 Doors, BrainSim.TickMs, BrainNav.GroundMs,
                 BrainNav.GroundMisses, BrainNav.CellTests,
-                Traps, BrainNav.Learned, BestScore, BestDeg, AheadScore)
+                BestScore, BestDeg, AheadScore)
     End Sub
 
     ''' <summary>

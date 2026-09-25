@@ -159,7 +159,7 @@ Module BrainCourse
                 While v <= ht
                     Dim wx = b.cx + u * c - v * s
                     Dim wz = b.cz + u * s + v * c
-                    If BrainNav.MarkBlocked(BrainNav.ColOf(wx),
+                    If BrainNav.StampBlocked(BrainNav.ColOf(wx),
                                             BrainNav.RowOf(wz)) Then n += 1
                     v += step_
                 End While

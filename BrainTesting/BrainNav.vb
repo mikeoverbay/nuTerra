@@ -870,35 +870,45 @@ Module BrainNav
     ' released and the first ray of the first scan quietly allocated again.
 
     ''' <summary>
-    ''' MARK A SQUARE BLOCKED BECAUSE THE HULL PROVED IT WAS.
+    ''' STAMP A CELL BLOCKED - FOR A TEST FIXTURE, NOT FOR A BRAIN.
     '''
-    ''' "we are going to mark that blk we are on as a 1 in the data so we don't
-    '''  drive in to it again" - the owner.
+    ''' The only caller is BrainCourse, which places obstacles the AUTHOR
+    ''' chose, before a run starts. That is a different act from a brain
+    ''' editing the map while it drives on it, and the difference is the whole
+    ''' reason the second one is gone - see the note below.
     '''
-    ''' IN MEMORY ONLY. "do not over write the .blk on disk. you do not create
-    ''' it. hands off" - and he is right twice: the file is nuTerra's output,
-    ''' and a brain editing the map it was given would be indistinguishable
-    ''' from a bake bug the next time anyone opened it. The bake stays the
-    ''' truth; this is what THIS RUN learned on top of it, and it dies with the
+    ''' IN MEMORY ONLY: "do not over write the .blk on disk. you do not create
+    ''' it. hands off" - the bake is untouched and a course dies with the
     ''' process.
-    '''
-    ''' Returns False when the square was already blocked, so a caller can tell
-    ''' "I learned something" from "I re-learned something" - a trap that keeps
-    ''' being rediscovered is a different bug from a trap.
     ''' </summary>
-    Public Function MarkBlocked(col As Integer, row As Integer) As Boolean
+    Public Function StampBlocked(col As Integer, row As Integer) As Boolean
         If Not Ready OrElse occ Is Nothing Then Return False
         If col < 0 OrElse row < 0 OrElse col >= w OrElse row >= h Then Return False
         Dim i = row * w + col
         If (occ(i) And BLOCK_BIT) <> 0 Then Return False
         occ(i) = occ(i) Or BLOCK_BIT
-        Learned += 1
         Return True
     End Function
 
-    ''' <summary>How many squares this run has marked that the bake did not.
-    ''' On screen so a number nobody can see cannot quietly grow.</summary>
-    Public Learned As Integer = 0
+    ' NOTHING SETS A BLOCK BIT AT RUN TIME ANY MORE.
+    '
+    ' "remove the setting of blk squares" - the owner, 2026-09-19. What stood
+    ' here was MarkBlocked, which OR-ed BLOCK_BIT into the live occ grid
+    ' wherever a hull had been refused, plus a Learned counter for how many
+    ' squares a run had invented.
+    '
+    ' ITS OWN COMMENT SAID IT DIED WITH THE PROCESS. It did not - it survived
+    ' a Reset. do_panel's Reset restores the spawns and clears Refused,
+    ' RefusedRun and the graph's state, and never touched this grid, so run
+    ' two drove the bake PLUS whatever run one had marked, and run three drove
+    ' that plus more. The marks were never unlearned either, so a session of
+    ' resets walled the map in a little further each time. That is why a
+    ' scenario that arrived cleanly on a fresh launch would hit a rock after a
+    ' reset, and why every A/B measured across resets was comparing two
+    ' different maps.
+    '
+    ' The bake is the map. If a square is wrong, it is wrong in nuTerra, and
+    ' that is where it gets fixed - the brain does not get an opinion.
 
     ''' <summary>
     ''' ONE CELL, ONE BIT, NO ARITHMETIC. What an integer line walk tests at

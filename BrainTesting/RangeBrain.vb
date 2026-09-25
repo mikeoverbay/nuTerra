@@ -242,33 +242,6 @@ Public Class RangeBrain
     Private Const NEXT_GOAL_M As Single = 300.0F
     Private goalsMade As Integer = 0
 
-    ' ---- the trap -------------------------------------------------------
-    '
-    ' "look for cases where all front rays hit something and we trying to turn
-    '  and move failed, we need to backup using rear scans. but first we are
-    '  going to mark that blk we are on as a 1 in the data so we don't drive
-    '  in to it again"
-    '
-    ' WHAT MAKES IT A TRAP AND NOT A WALL. A wall is every front ray finding
-    ' something; that happens constantly and the blocked branch answers it by
-    ' turning. A TRAP is every front ray finding something AND the turning
-    ' having already failed - the hull asked to move, the world refused, and
-    ' the scan offers nowhere better. Both halves are required, or every wall
-    ' on the map gets marked and the map fills up with things that were only
-    ' ever in the way.
-    '
-    ' MARKED ON THE WAY OUT, NOT ON THE WAY IN, and that is not tidiness. The
-    ' square the hull stands on is inside its own footprint, so setting the bit
-    ' while standing there makes Standable refuse every neighbouring
-    ' destination too - the mark would wall the tank into the trap it was meant
-    ' to escape. The cell is remembered, the reverse runs, and the bit is set
-    ' once the hull is clear of it.
-    Private trapCol As Integer = -1
-    Private trapRow As Integer = -1
-    Private trapAt As Vector2
-
-
-
     ' A PROBE THAT DID NOT MOVE FIRST. Entering Turning twice from the same
     ' spot means the first probe taught it nothing - it looked, settled, and
     ' came straight back to look again. That is a loop, not progress, and it
@@ -431,21 +404,6 @@ Public Class RangeBrain
             wedgedFor = 0.0F
         End If
         If wedgedFor > 0.8F AndAlso state <> St.Backing Then
-            ' IS THIS A TRAP? Every front ray finding something, on top of the
-            ' hull having just failed to move, is the case the owner named.
-            Dim allShut = True
-            For Each q In hits
-                If q.front AndAlso Not q.found Then
-                    allShut = False
-                    Exit For
-                End If
-            Next
-            If allShut AndAlso trapCol < 0 Then
-                trapCol = BrainNav.ColOf(h.pos.X)
-                trapRow = BrainNav.RowOf(h.pos.Y)
-                trapAt = h.pos
-                BrainReport.Trap(trapCol, trapRow)
-            End If
             LogThis("brain: WEDGED - throttle {0:0.00} but speed {1:0.00} for {2:0.0} s. " &
                     "Backing out.", lastThrottle, h.speed, wedgedFor)
             state = St.Backing
@@ -524,25 +482,6 @@ Public Class RangeBrain
         ' ---- backing out ---------------------------------------------------
         If state = St.Backing Then
             backFor -= inp.dt
-
-            ' THE MARK, once the hull is out of its own footprint. Held until
-            ' here so the bit cannot wall the tank into the square it is
-            ' reversing out of.
-            If trapCol >= 0 AndAlso
-               (h.pos - trapAt).Length > h.DriveRadius + BrainNav.CellSize Then
-                If BrainNav.MarkBlocked(trapCol, trapRow) Then
-                    LogThis("brain: square ({0},{1}) marked blocked - {2:0.0} m clear of it " &
-                            "now, {3} learned this run. IN MEMORY ONLY, the .blk on disk is " &
-                            "nuTerra's and is not touched.",
-                            trapCol, trapRow, (h.pos - trapAt).Length, BrainNav.Learned)
-                Else
-                    LogThis("brain: square ({0},{1}) was already blocked - the hull was " &
-                            "wedged against something the map already knew about",
-                            trapCol, trapRow)
-                End If
-                trapCol = -1
-                trapRow = -1
-            End If
 
             ' WHICH WAY BACK, BY THE REAR SCAN. "we need to backup using rear
             ' scans" - so the reverse is steered rather than straight: take the
