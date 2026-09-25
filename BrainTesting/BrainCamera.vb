@@ -246,6 +246,31 @@ Public Class BrainCamera
     ''' One frame of camera input. dt is this loop's own, clamped the way
     ''' nuTerra clamps it.
     ''' </summary>
+    ''' <summary>
+    ''' A FRAME WENT PAST WITHOUT US. Treat the next one as a fresh press.
+    '''
+    ''' "mouse is all messed up dragging warp 10 movment" - the owner,
+    ''' 2026-09-20, and the cause is a guard that could be stepped around.
+    '''
+    ''' Update swallows the delta on the frame a button goes DOWN, because
+    ''' Delta carries all the travel since the last update and that arrives as
+    ''' one jump. That guard assumes Update runs EVERY frame - and it does
+    ''' not. BrainWindow skips it whenever ImGui or a marker has the pointer,
+    ''' so the press frame can pass unseen, `dragging` never flips, and the
+    ''' first frame the camera gets back hands it every pixel the cursor
+    ''' travelled in the meantime. With two markers each doing a ReadPixels on
+    ''' press, "the meantime" is long enough to cross the map.
+    '''
+    ''' Clearing `dragging` rather than adding a second flag is deliberate:
+    ''' the existing guard already knows how to swallow exactly one frame, and
+    ''' a parallel mechanism for the same job is how the two drift apart. The
+    ''' cost is one frame of orbit lost when the pointer comes back, which is
+    ''' a stutter measured in milliseconds against a camera that flew.
+    ''' </summary>
+    Public Sub Skipped()
+        dragging = False
+    End Sub
+
     Public Sub Update(dt As Single, m As MouseState, k As KeyboardState)
         dt = Math.Clamp(dt, 0.000001F, 0.1F)
 

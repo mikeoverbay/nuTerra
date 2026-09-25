@@ -162,8 +162,30 @@ Module BrainPick
         Dim dir = far_ - near_
         If dir.LengthSquared <= 0.0F Then Return False
         dir.Normalize()
-        ' Looking up, or along the horizon: no ground to meet.
-        If dir.Y > -0.0001F Then Return False
+        ' ---- TOO SHALLOW TO POINT WITH ---------------------------------
+        '
+        ' "mouse is all messed up dragging warp 10 movment" - the owner.
+        '
+        ' The old test here was dir.Y > -0.0001, which only refuses a ray
+        ' pointing UP. It is not the wrong test, it is the wrong THRESHOLD:
+        ' the solve divides by dir.Y, so a ray a fiftieth of a degree below
+        ' horizontal does not fail, it succeeds and returns a point a
+        ' kilometre away. Every pixel nearer the horizon is worth more metres
+        ' than the last, without limit.
+        '
+        ' That is the warp. Not a bug in the drag - the drag faithfully puts
+        ' the marker where the cursor points, and at a grazing angle where the
+        ' cursor points moves enormously for a small hand movement. Looking
+        ' down at the map it is one-to-one and feels right; looking along the
+        ' ground it is unusable, and there is no in-between worth having.
+        '
+        ' So refuse below about nine degrees. The drag then simply stops
+        ' following the cursor when the view is too flat to aim with, which is
+        ' honest - tilt the camera down and it works again. Refusing beats
+        ' scaling the movement down, which would leave the marker lagging the
+        ' cursor and feeling broken in a different way.
+        Dim minDip = BrainTune.Get_("raydip", 0.15F)
+        If dir.Y > -minDip Then Return False
 
         Dim y0 = BrainNav.Ground(near_.X, near_.Z)
         For pass_ = 0 To 1
@@ -173,6 +195,37 @@ Module BrainPick
             hit = New Vector2(pt.X, pt.Z)
             y0 = BrainNav.Ground(pt.X, pt.Z)
         Next
+
+        ' ---- AND IT HAS TO LAND ON THE MAP -----------------------------
+        '
+        ' The horizon guard above only rejects a ray pointing UP. One aimed a
+        ' fiftieth of a degree BELOW horizontal passes it and then divides by
+        ' that fiftieth of a degree, so it solves to a point kilometres away
+        ' and returns it as a fact.
+        '
+        ' That is not theoretical. The owner's start marker was dragged to
+        ' (-2527.8, -3007.9) and SAVED there, on a map that runs -700..700 -
+        ' "i move the start marker we off the map", and he meant it went at
+        ' warp speed rather than that he put it there. The camera fix stops
+        ' the flick that aimed at the horizon; this stops the horizon from
+        ' being a legal answer.
+        '
+        ' REFUSED, NOT CLAMPED. Clamping would plant the marker on the map
+        ' edge - a different wrong place, quietly, and one that looks
+        ' deliberate. Refusing means the drag simply stops following the
+        ' cursor once it leaves the ground, which is the truth: there is no
+        ' ground out there to point at.
+        '
+        ' The map's own square, by the formula MapFlightBake and the model
+        ' cull both use, so there is one definition of where the map ends.
+        Dim mx0 = 100.0F * b_x_min
+        Dim mx1 = 100.0F * (b_x_max + 1.0F)
+        Dim mz0 = 100.0F * (b_y_min - 1.0F)
+        Dim mz1 = 100.0F * b_y_max
+        If (mx1 - mx0) >= 1.0F AndAlso (mz1 - mz0) >= 1.0F Then
+            If hit.X < mx0 OrElse hit.X > mx1 OrElse
+               hit.Y < mz0 OrElse hit.Y > mz1 Then Return False
+        End If
         Return True
     End Function
 
