@@ -50,7 +50,21 @@ Module Program
         Dim ignored As New List(Of String)
 
         For Each a In args
-            If a.StartsWith("cam=", StringComparison.OrdinalIgnoreCase) Then
+            If a.Equals("course", StringComparison.OrdinalIgnoreCase) OrElse
+               a.Equals("testwall", StringComparison.OrdinalIgnoreCase) Then
+                ' THE COURSE. `testwall` kept as a spelling of it - the rig it
+                ' named grew into this, and the old word still means "set the
+                ' obstacles up rather than go and find them". Pair with `sim`
+                ' for radar only.
+                BrainCourse.ON_ = True
+            ' wall= and walloff= are gone. They described ONE box from the
+            ' command line, which the course file does better and keeps: a
+            ' scenario you can read back, diff, and hand to someone.
+            ElseIf a.Equals("states", StringComparison.OrdinalIgnoreCase) Then
+                ' COUNT THE SITUATIONS. Off unless asked - see BrainStates.
+                BrainStates.ON_ = True
+                LogThis("brain: counting distinct hit situations")
+            ElseIf a.StartsWith("cam=", StringComparison.OrdinalIgnoreCase) Then
                 ' r,ax,ay,lx,ly,lz - six or it is not a camera, and a partial
                 ' parse would silently place the view somewhere nobody asked
                 ' for. All six or none.

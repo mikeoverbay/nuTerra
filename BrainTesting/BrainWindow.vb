@@ -315,6 +315,17 @@ Public Class BrainWindow
                 ' is always a marker even with no saved file; LoadSaved then
                 ' moves it, the hull and the remembered origin together.
                 BrainStart.LoadSaved(STARTUP_MAP)
+
+                ' THE COURSE, AFTER the saved start - a course that names a
+                ' start IS the scenario, and a marker file left from another
+                ' test must not half-override it.
+                BrainCourse.Load(STARTUP_MAP)
+                If BrainCourse.ON_ Then
+                    Dim cp = BrainStart.Pos
+                    BrainRender.Cam.LookAt(cp.X, cp.Y,
+                                           BrainNav.Ground(cp.X, cp.Y),
+                                           BrainTune.Get_("walldist", 300.0F))
+                End If
                 ' AND THE SAVED GOAL, THE SAME WAY - a saved goal wins
                 ' over goal= exactly as a saved start wins over the
                 ' roster's spawn. It says so out loud when it overrides
@@ -924,6 +935,11 @@ Public Class BrainWindow
         Dim before = BrainNav.Marked
         If Not BrainNav.LoadMap(STARTUP_MAP) Then BrainNav.Build()
         BrainTrees.MarkDrivable()
+        ' AND THE COURSE BACK ON TOP. LoadMap re-reads the .blk, which wipes
+        ' every stamped cell - so without this F5 quietly deletes the course
+        ' and leaves the boxes drawn over ground that no longer blocks.
+        ' Edit the file, press F5, see the new course: that is the edit loop.
+        BrainCourse.Load(STARTUP_MAP)
         LogThis("brain: reloaded - {0:N0} blocked cell(s), was {1:N0}{2}",
                 BrainNav.Marked, before,
                 If(was_running, ". The sim was stopped - press Space to run it again", ""))
