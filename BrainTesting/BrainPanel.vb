@@ -127,6 +127,48 @@ Module BrainPanel
         End If
     End Sub
 
+    ''' <summary>
+    ''' Point a hull, live heading AND remembered origin together.
+    '''
+    ''' THE SAME TRAP SetSpawn EXISTS TO AVOID, and it is worth stating twice
+    ''' because it is invisible when you get it wrong: Body is a Structure, so
+    ''' RestoreSpawns copies origins(i) over Bodies(i) WHOLE - heading
+    ''' included. Write only Bodies and the first Reset silently undoes the
+    ''' heading while keeping the position, which reads as the ring not
+    ''' working rather than as the reset working.
+    ''' </summary>
+    Public Sub SetHeading(i As Integer, rad As Single)
+        If BrainTanks.Bodies Is Nothing OrElse i < 0 OrElse i >= BrainTanks.Bodies.Count Then Return
+
+        ' THE REMEMBERED ORIGIN ALWAYS. THE LIVE HULL ONLY WHEN STOPPED.
+        '
+        ' "i do not want the heading change to override the heading when its
+        '  run the node tree. I just want to set it for the start before ai" -
+        ' the owner, 2026-09-20.
+        '
+        ' This is a START heading, and the ring is a setup control. Writing
+        ' the live hull mid-run would wrench the tank round under the board -
+        ' the brain would spend the next tick reacting to a turn it did not
+        ' command, and the run would be measuring the mouse rather than the
+        ' graph.
+        '
+        ' The origin is written either way, so swinging the ring during a run
+        ' is not ignored: it lands on the NEXT reset, which is when a start
+        ' heading is supposed to take effect. And while the sim is stopped the
+        ' hull turns with the ring, which is what makes it possible to aim the
+        ' thing at all.
+        If origins IsNot Nothing AndAlso i < origins.Count Then
+            Dim o = origins(i)
+            o.headingRad = rad
+            origins(i) = o
+        End If
+        If BrainSim.Running Then Return
+
+        Dim b = BrainTanks.Bodies(i)
+        b.headingRad = rad
+        BrainTanks.Bodies(i) = b
+    End Sub
+
     Public Sub RestoreSpawns()
         If origins Is Nothing Then Return
         For i = 0 To Math.Min(origins.Count, BrainTanks.Bodies.Count) - 1
@@ -379,6 +421,13 @@ Module BrainPanel
         If ImGui.Button("Snapshot  (save tank+cam)", New System.Numerics.Vector2(210, 24)) Then act = Action.Snapshot
         If ImGui.Button("Restore  (last snapshot)", New System.Numerics.Vector2(210, 24)) Then act = Action.Restore
         If ImGui.Button("Cam  (copy)", New System.Numerics.Vector2(210, 24)) Then act = Action.Cam
+        ' WHAT AM I LOOKING AT. Toggled rather than held open, and it
+        ' remembers - the question comes back every time the view is not
+        ' being stared at daily.
+        If ImGui.Button(If(legendOn, "Legend  (hide)", "Legend  (colours + keys)"),
+                        New System.Numerics.Vector2(210, 24)) Then
+            legendOn = Not legendOn
+        End If
 
         ImGui.Separator()
         Dim show = BrainRadar.SHOW
@@ -391,6 +440,13 @@ Module BrainPanel
         If ImGui.Checkbox("Brain graph  (G)", graph) Then BrainNodes.SHOW = graph
         Dim card = BrainTankState.SHOW
         If ImGui.Checkbox("Hover Info Board", card) Then BrainTankState.SHOW = card
+        ' ONE BOX, TWO PICTURES. On: the .blk as wafers with the buildings
+        ' out of the way. Off: the map as built. BrainModels reads this same
+        ' flag, so there is nothing to keep in step.
+        Dim wafers = BrainBlkView.SHOW
+        If ImGui.Checkbox("blk wafers  (hides buildings)", wafers) Then
+            BrainBlkView.SHOW = wafers
+        End If
         ' WHICH BRAIN IS DRIVING. Swapped live rather than on restart, so
         ' the same goal and the same spot can be handed to both - two runs
         ' from different places do not compare.
@@ -439,6 +495,10 @@ Module BrainPanel
 
         ImGui.End()
 
+        ' THE LEGEND, OUTSIDE the panel's Begin/End - it is its own window, so
+        ' it must not be nested inside one.
+        draw_legend()
+
         ' THE SCOPE, anchored bottom right. Drawn inside the same ImGui frame
         ' as the panel - a second Render() would start a frame that was never
         ' begun.
@@ -456,5 +516,128 @@ Module BrainPanel
         ctl.Render()
         Return act
     End Function
+
+    ''' <summary>Is the legend window up. A field rather than a local so the
+    ''' button and the window agree about it across frames.</summary>
+    Private legendOn As Boolean = False
+
+    ''' <summary>
+    ''' WHAT EVERY COLOUR ON SCREEN MEANS, AND EVERY KEY THAT DOES ANYTHING.
+    '''
+    ''' "I need button to remember what the posts and hit markers and all that
+    '''  is. add a button some where and add any shortcut keys we have" - the
+    ''' owner, 2026-09-20.
+    '''
+    ''' THE SWATCHES ARE THE CONSTANTS THEMSELVES, not a second set of numbers
+    ''' typed to match. A legend maintained by hand goes quietly wrong the
+    ''' first time a colour is tuned, and then it is worse than nothing: it is
+    ''' a confident wrong answer. Every chip here reads the same field the
+    ''' drawer reads, so the two cannot disagree.
+    '''
+    ''' TWO YELLOWS, SAID OUT LOUD. The walk's end posts are (1.00, 0.90,
+    ''' 0.15) and the trail's hard-turning segments are (1.00, 0.95, 0.15) -
+    ''' all but identical, and exactly the confusion this window exists to
+    ''' settle. The posts stand UP nine metres; the trail lies flat on the
+    ''' ground. That is the only thing telling them apart, so it is written
+    ''' down rather than left to be rediscovered.
+    ''' </summary>
+    Private Sub draw_legend()
+        If Not legendOn Then Return
+
+        ImGui.SetNextWindowSize(New System.Numerics.Vector2(470, 600),
+                                ImGuiCond.FirstUseEver)
+        If Not ImGui.Begin("Legend and keys", legendOn) Then
+            ImGui.End()
+            Return
+        End If
+
+        ImGui.TextDisabled("THE WALK - what the brain is thinking")
+        swatch(BrainWalkView.CHAIN_RGB, "line, flat",
+               "returns linked into ONE object")
+        swatch(BrainWalkView.END_RGB, "post, 9 m UP",
+               "where that object ENDS - what it goes round")
+        swatch(BrainWalkView.OPEN_RGB, "small cube",
+               "an aim tried: corridor clear")
+        swatch(BrainWalkView.GRAZE_RGB, "small cube",
+               "an aim tried: grazes one side, passable")
+        swatch(BrainWalkView.BLOCK_RGB, "small cube",
+               "an aim tried and REJECTED")
+        ImGui.TextDisabled("        - cannot pivot to it, or the look-past died just")
+        ImGui.TextDisabled("          beyond it, or the corridor came back red")
+        swatch(BrainWalkView.BLOCK_RGB, "FULL cube",
+               "gap too narrow for the hull, full stop")
+        swatch(BrainWalkView.PICK_RGB, "fat line + cube",
+               "the aim CHOSEN this tick")
+        ImGui.TextWrapped("Dimmed to 40% means it is the walk the CURRENT " &
+                          "PLAN was chosen from, not this tick's - the brain " &
+                          "does not re-walk while a plan holds.")
+
+        ImGui.Separator()
+        ImGui.TextDisabled("THE TRAIL - where it has been")
+        swatch(BrainTrail.CALM_RGB, "line, flat", "driving fairly straight")
+        swatch(BrainTrail.HOT_RGB, "line, flat",
+               "turning hard for the ground covered")
+        ImGui.TextWrapped("That hot colour is a near twin of the walk's end " &
+                          "posts. The posts stand UP; the trail lies FLAT.")
+
+        ImGui.Separator()
+        ImGui.TextDisabled("THE .blk - tick 'blk wafers'")
+        swatch(BrainBlkView.WAFER_RGB, "wafer, 0.1 m thick",
+               "BLOCKED - the tank cannot be here")
+        swatch(BrainBlkView.OPEN_RGB, "flat tile", "open ground")
+        ImGui.TextWrapped("Heights are the BAKE's, not the terrain's. Where " &
+                          "a wafer floats or sinks against the ground, those " &
+                          "two disagree - which is worth seeing.")
+
+        ImGui.Separator()
+        ImGui.TextDisabled("MARKERS - drag them")
+        swatch(BrainStart.EDGE_RGB, "square", "START - drag to move")
+        swatch(BrainStart.RING_RGB, "ring + arrow",
+               "START HEADING - swing the ring")
+        swatch(BrainGoalMark.EDGE_RGB, "square", "GOAL - drag to move")
+        ImGui.TextWrapped("The heading reaches the hull only while the sim is " &
+                          "STOPPED. Swing it during a run and it lands at the " &
+                          "next Reset.")
+
+        ImGui.Separator()
+        ImGui.TextDisabled("KEYS")
+        key_("Space", "run / stop   (single step when runfor= is set)")
+        key_("T", "one tick")
+        key_("Alt  or  Enter", "goal to where the camera looks, and go")
+        key_("C", "chase cam")
+        key_("Shift + C", "chase cam, swung round behind")
+        key_("F5", "re-read what nuTerra wrote")
+        key_("Up / Down", "nudge the hull forward / back")
+        key_("Left / Right", "turn the hull 15 deg")
+        key_("Esc  or  Q", "quit")
+
+        ImGui.Separator()
+        ImGui.TextDisabled("MOUSE")
+        key_("Left drag", "orbit")
+        key_("Middle drag, or Ctrl", "pan")
+        key_("Right drag", "zoom")
+        key_("Shift + left drag", "height")
+
+        ImGui.End()
+    End Sub
+
+    ''' <summary>A colour chip, the shape it is drawn as, and what it means.
+    ''' The chip IS the live constant - see draw_legend.</summary>
+    Private Sub swatch(c As Vector3, shape As String, meaning As String)
+        ImGui.ColorButton("##sw" & meaning & shape,
+                          New System.Numerics.Vector4(c.X, c.Y, c.Z, 1.0F),
+                          ImGuiColorEditFlags.NoTooltip,
+                          New System.Numerics.Vector2(18, 18))
+        ImGui.SameLine()
+        ImGui.Text(shape)
+        ImGui.SameLine(200.0F)
+        ImGui.Text(meaning)
+    End Sub
+
+    Private Sub key_(k As String, what As String)
+        ImGui.Text(k)
+        ImGui.SameLine(200.0F)
+        ImGui.Text(what)
+    End Sub
 
 End Module

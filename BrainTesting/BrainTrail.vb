@@ -50,10 +50,10 @@ Module BrainTrail
     ' PINK, because the map is green. The first version drew a green trail
     ' on grass through a forest and the owner had to hunt for his own path.
     ' A diagnostic you cannot find is not a diagnostic.
-    Private ReadOnly CALM_RGB As New Vector3(1.00F, 0.20F, 0.75F)
+    Public ReadOnly CALM_RGB As New Vector3(1.00F, 0.20F, 0.75F)
     ' And yellow where it was turning hard - the two are far apart in hue
     ' AND in brightness, so the difference survives a dark hillside.
-    Private ReadOnly HOT_RGB As New Vector3(1.00F, 0.95F, 0.15F)
+    Public ReadOnly HOT_RGB As New Vector3(1.00F, 0.95F, 0.15F)
 
     ''' <summary>Total heading change over the run, in degrees, and the ground
     ''' covered. The score is the ratio.</summary>

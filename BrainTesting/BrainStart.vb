@@ -41,6 +41,17 @@ Module BrainStart
     Public Pos As Vector2
     Public HasStart As Boolean = False
 
+    ''' <summary>
+    ''' WHICH WAY IT FACES AT THE START, radians, same convention as
+    ''' Body.headingRad - 0 is +Z and it increases toward +X.
+    '''
+    ''' "i need a way to set the start heading of the tank and remember it.
+    '''  A draggable ring?" - the owner, 2026-09-20. A ring, yes: the heading
+    ''' is an angle about the start, so the control that sets it should be a
+    ''' thing you swing about the start rather than a number in a box.
+    ''' </summary>
+    Public HeadingRad As Single = 0.0F
+
 
     ''' <summary>
     ''' GRID STEPS ACROSS THE SQUARE. The square is defined top-down in XZ and
@@ -62,7 +73,7 @@ Module BrainStart
     ''' "white border and no fill when not mouse down on it", and
     ''' "I want it to just lit when I mouse down on it". So the fill IS the
     ''' feedback - there is no second highlight state to keep in step.</summary>
-    Private ReadOnly EDGE_RGB As New Vector3(1.0F, 1.0F, 1.0F)
+    Public ReadOnly EDGE_RGB As New Vector3(1.0F, 1.0F, 1.0F)
     Private ReadOnly FILL_RGB As New Vector3(0.13F, 0.13F, 0.14F)
 
     ''' <summary>The marker's ID in the pick pass. Pure and saturated so the
@@ -75,6 +86,23 @@ Module BrainStart
     ''' stated in metres on the ground rather than pixels on the screen.</summary>
     Private Const BASE As Single = 6.0F
 
+    ''' <summary>
+    ''' THE RING'S BAND, metres from the start. Outside BASE on purpose - the
+    ''' square is +/-6 m, so at 7.5 the two controls cannot overlap and a
+    ''' press is never ambiguous about which one it meant.
+    ''' </summary>
+    Private Const RING_IN As Single = 7.5F
+    Private Const RING_OUT As Single = 10.5F
+
+    ''' <summary>Segments round the ring. Enough that it reads as a circle at
+    ''' the distance this is looked at from, few enough that draping it is not
+    ''' a terrain query per degree.</summary>
+    Private Const RING_SEGS As Integer = 48
+
+    ''' <summary>Amber for the ring and its nose, so it is plainly a different
+    ''' control from the white square rather than part of it.</summary>
+    Public ReadOnly RING_RGB As New Vector3(1.0F, 0.75F, 0.2F)
+
     Private shader As BrainShader
     ''' <summary>The draped fill, triangles. Drawn dark grey when held and in
     ''' PICK_RGB for the pick pass - ONE geometry, so what you grab is exactly
@@ -82,9 +110,17 @@ Module BrainStart
     Private fillVao, fillVbo, fillVerts As Integer
     ''' <summary>The perimeter, line segments, draped the same way.</summary>
     Private edgeVao, edgeVbo, edgeVerts As Integer
+    ''' <summary>The heading ring and the nose tick that says which way it
+    ''' points, line segments, draped like everything else here.</summary>
+    Private ringVao, ringVbo, ringVerts As Integer
+    Private built_head As Single = Single.MaxValue
     Private built_at As New Vector2(Single.MaxValue, Single.MaxValue)
 
     Private dragging As Boolean = False
+    ''' <summary>Swinging the ring rather than moving the square. A separate
+    ''' state because they are separate controls and a single flag would let a
+    ''' press that began on one finish on the other.</summary>
+    Private turning As Boolean = False
     Private wasDown As Boolean = False
 
 
@@ -94,6 +130,8 @@ Module BrainStart
         fillVbo = GL.GenBuffer()
         edgeVao = GL.GenVertexArray()
         edgeVbo = GL.GenBuffer()
+        ringVao = GL.GenVertexArray()
+        ringVbo = GL.GenBuffer()
     End Sub
 
     ''' <summary>Put the marker where the hull actually opens, once the roster
@@ -117,6 +155,30 @@ Module BrainStart
         HasStart = True
         BrainPanel.SetSpawn(BrainRadar.HULL, p)
     End Sub
+
+    ''' <summary>Point the start, and point the hull it is a marker FOR.
+    ''' Through BrainPanel.SetHeading so the remembered origin moves with it -
+    ''' see the note there on why writing only the live body is a bug that
+    ''' only shows up one Reset later.</summary>
+    Public Sub PointTo(rad As Single)
+        HeadingRad = wrap_pi_(rad)
+        HasStart = True
+        BrainPanel.SetHeading(BrainRadar.HULL, HeadingRad)
+    End Sub
+
+    ''' <summary>Local, because BrainStart has no brain to borrow one from and
+    ''' an angle that creeps past pi comes back as a heading pointing the
+    ''' other way after a few drags.</summary>
+    Private Function wrap_pi_(a As Single) As Single
+        Dim x = a
+        While x > Math.PI
+            x -= CSng(Math.PI * 2.0)
+        End While
+        While x < -Math.PI
+            x += CSng(Math.PI * 2.0)
+        End While
+        Return x
+    End Function
 
     ''' <summary>
     ''' One frame of mouse. True when this owns the pointer, which tells
@@ -144,13 +206,19 @@ Module BrainStart
                 ' still moving, and the one that matters is where it stopped.
                 Save()
             End If
+            If turning Then
+                turning = False
+                LogThis("brain: start heading {0:0} deg",
+                        MathHelper.RadiansToDegrees(HeadingRad))
+                Save()
+            End If
             Return False
         End If
 
         Dim mx = CInt(m.X), my = CInt(m.Y)
         Dim rgb As Vector3, world As Vector3
 
-        If Not dragging Then
+        If Not dragging AndAlso Not turning Then
             ' Only on the frame the button goes DOWN. A press that began
             ' elsewhere is an orbit already in progress and is not ours to take.
             If Not justPressed Then Return False
@@ -158,8 +226,27 @@ Module BrainStart
             ' this question; the terrain is in there depth-only so a marker
             ' behind a hill is occluded and cannot be grabbed through it.
             BrainRender.PickAt(mx, my, w, h, True, rgb, world)
-            If Not is_marker(rgb) Then Return False
-            dragging = True
+            If is_marker(rgb) Then
+                dragging = True
+                Return True
+            End If
+
+            ' ---- THE RING, BY ARITHMETIC RATHER THAN BY COLOUR -----------
+            '
+            ' No third pick colour and no ring geometry in the pick pass. The
+            ' ring is an annulus in world XZ, and the cursor's ground point is
+            ' already available without touching the GPU - so "is the press on
+            ' the ring" is two distances and a comparison.
+            '
+            ' That also keeps the rule the drag was rewritten for: pressing a
+            ' button must not cost a readback. One pick for the square, which
+            ' is genuinely a question about pixels, and nothing for this.
+            Dim gp As Vector2
+            If Not BrainPick.GroundRay(vp, m.X, m.Y, w, h, gp) Then Return False
+            Dim r = (gp - Pos).Length
+            If r < RING_IN OrElse r > RING_OUT Then Return False
+            turning = True
+            PointTo(CSng(Math.Atan2(gp.X - Pos.X, gp.Y - Pos.Y)))
             Return True
         End If
 
@@ -167,7 +254,17 @@ Module BrainStart
         ' meets the ground - the marker is a location attached to the pointer,
         ' and holding a button must not change how the pointer behaves.
         Dim g As Vector2
-        If BrainPick.GroundRay(vp, m.X, m.Y, w, h, g) Then MoveTo(g)
+        If Not BrainPick.GroundRay(vp, m.X, m.Y, w, h, g) Then Return True
+        If turning Then
+            ' THE BEARING FROM THE START TO THE CURSOR, at whatever range.
+            ' Not the point on the ring nearest the cursor - the angle is the
+            ' whole content of this control, so letting the hand wander off
+            ' the band mid-swing costs nothing and fighting to stay on it
+            ' would be the control fighting the person using it.
+            PointTo(CSng(Math.Atan2(g.X - Pos.X, g.Y - Pos.Y)))
+        Else
+            MoveTo(g)
+        End If
         Return True
     End Function
 
@@ -237,6 +334,16 @@ Module BrainStart
         GL.LineWidth(If(dragging, 3.0F, 2.0F))
         GL.BindVertexArray(edgeVao)
         GL.DrawArrays(PrimitiveType.Lines, 0, edgeVerts)
+
+        ' The ring last, in its own colour, fatter while it is being swung -
+        ' the same "the feedback is the drawing" rule the square's fill uses,
+        ' so there is no second highlight state to keep in step.
+        If ringVerts > 0 Then
+            shader.SetVec3("colour", RING_RGB)
+            GL.LineWidth(If(turning, 4.0F, 2.0F))
+            GL.BindVertexArray(ringVao)
+            GL.DrawArrays(PrimitiveType.Lines, 0, ringVerts)
+        End If
         GL.BindVertexArray(0)
         GL.LineWidth(1.0F)
         GL.DepthMask(True)
@@ -251,8 +358,10 @@ Module BrainStart
     ''' so there is nothing a height check would catch that this does not.
     ''' </summary>
     Private Sub build()
-        If Pos = built_at AndAlso fillVerts > 0 Then Return
+        If Pos = built_at AndAlso HeadingRad = built_head AndAlso
+           fillVerts > 0 Then Return
         built_at = Pos
+        built_head = HeadingRad
 
         Dim step_ = (BASE * 2.0F) / N
         Dim gy(N, N) As Single
@@ -285,8 +394,68 @@ Module BrainStart
             seg(e, Pos.X + BASE, gy(N, i), za, Pos.X + BASE, gy(N, i + 1), zb)
         Next
 
+        ' ---- THE HEADING RING, AND THE ARROW THAT READS IT -------------
+        '
+        ' The band is what you grab; the circle drawn down its middle is what
+        ' says where it is. Draped at every segment like everything else here,
+        ' because a flat circle on a slope is a circle that is half underground.
+        ' TWO SAVINGS, BOTH ABOUT THE DRAG PATH, and the owner had to say it
+        ' twice: "mouse still moving way fast with start selected. we fixed
+        ' this once." He did - the first time it was a GPU readback welded to
+        ' pointer motion. This time it was the terrain: Pos changes every
+        ' frame while dragging, so build() re-runs every frame, and the ring
+        ' as first written asked BrainNav.Ground 96 times on top of the
+        ' square's 81. Nearly tripled the cost of moving the marker.
+        '
+        ' 1. ONE SAMPLE PER VERTEX, not two. The old loop computed Ground at
+        '    `prev` and at `p` every iteration - and `prev` IS the previous
+        '    iteration's `p`, so half of every ring rebuild was recomputing a
+        '    number it had just had. Carrying prevY makes it 49 from 96.
+        '
+        ' 2. FLAT WHILE THE SQUARE IS MOVING. A ring being dragged across the
+        '    map does not need to follow every bump on the way; it needs to
+        '    show where the heading points. One sample at the centre while
+        '    dragging, the full drape the moment it is let go. 49 from 1.
+        '
+        ' Dragging is back to 82 samples a frame, which is what it was before
+        ' the ring existed. The rule this keeps is the owner's own: pressing a
+        ' button changes WHAT moves, never HOW the mouse moves.
+        Dim g As New List(Of Single)
+        Dim mid = (RING_IN + RING_OUT) * 0.5F
+        Dim flat = dragging
+        Dim flatY = BrainNav.Ground(Pos.X, Pos.Y) + LIFT
+
+        Dim prev As Vector2 = Nothing
+        Dim prevY As Single = 0.0F
+        For s = 0 To RING_SEGS
+            Dim a = CSng(s) / RING_SEGS * CSng(Math.PI * 2.0)
+            Dim p = Pos + New Vector2(CSng(Math.Sin(a)), CSng(Math.Cos(a))) * mid
+            Dim py = drape(p.X, p.Y, flat, flatY)
+            If s > 0 Then seg(g, prev.X, prevY, prev.Y, p.X, py, p.Y)
+            prev = p
+            prevY = py
+        Next
+
+        ' THE ARROW. Sin for X and Cos for Z, which is Body.headingRad's own
+        ' convention - the same one BrainSim integrates with. An arrow drawn
+        ' with the axes swapped points somewhere plausible and wrong, and it
+        ' would be believed because it is a picture.
+        Dim fwd = New Vector2(CSng(Math.Sin(HeadingRad)), CSng(Math.Cos(HeadingRad)))
+        Dim side = New Vector2(fwd.Y, -fwd.X)
+        Dim tip = Pos + fwd * (RING_OUT + 1.0F)
+        Dim tail = Pos + fwd * BASE
+        Dim tipY = drape(tip.X, tip.Y, flat, flatY)
+        seg(g, tail.X, drape(tail.X, tail.Y, flat, flatY), tail.Y,
+           tip.X, tipY, tip.Y)
+        For Each sgn In New Single() {-1.0F, 1.0F}
+            Dim barb = tip - fwd * 2.2F + side * (sgn * 1.4F)
+            seg(g, tip.X, tipY, tip.Y,
+               barb.X, drape(barb.X, barb.Y, flat, flatY), barb.Y)
+        Next
+
         fillVerts = upload(fillVao, fillVbo, f)
         edgeVerts = upload(edgeVao, edgeVbo, e)
+        ringVerts = upload(ringVao, ringVbo, g)
     End Sub
 
     Private Function upload(vaoId As Integer, vboId As Integer, v As List(Of Single)) As Integer
@@ -305,6 +474,15 @@ Module BrainStart
                     cx As Single, cy As Single, cz As Single)
         v.AddRange({ax, ay, az, bx, by_, bz, cx, cy, cz})
     End Sub
+
+    ''' <summary>The ground under a ring vertex, or the centre's height when
+    ''' the marker is being dragged. One place decides, so the ring cannot end
+    ''' up half draped and half flat.</summary>
+    Private Function drape(x As Single, z As Single, flat As Boolean,
+                           flatY As Single) As Single
+        If flat Then Return flatY
+        Return BrainNav.Ground(x, z) + LIFT
+    End Function
 
     Private Sub seg(v As List(Of Single), x0 As Single, y0 As Single, z0 As Single,
                     x1 As Single, y1 As Single, z1 As Single)
@@ -332,6 +510,12 @@ Module BrainStart
             sb.AppendLine("map=" & STARTUP_MAP)
             sb.AppendLine(String.Format(Globalization.CultureInfo.InvariantCulture,
                                         "start={0:0.00},{1:0.00}", Pos.X, Pos.Y))
+            ' DEGREES IN THE FILE, radians in the code. The file is read by a
+            ' person as often as by this loader and 137 is a heading; 2.39 is
+            ' a number you have to convert before it means anything.
+            sb.AppendLine(String.Format(Globalization.CultureInfo.InvariantCulture,
+                                        "heading={0:0.0}",
+                                        MathHelper.RadiansToDegrees(HeadingRad)))
             IO.File.WriteAllText(p, sb.ToString())
             LogThis("brain: start saved ({0:0.0}, {1:0.0}) -> {2}", Pos.X, Pos.Y, p)
         Catch ex As Exception
@@ -352,6 +536,20 @@ Module BrainStart
         Try
             Dim p = path_for(map)
             If Not IO.File.Exists(p) Then Return False
+            ' HEADING FIRST, POSITION SECOND, and the order is deliberate:
+            ' the position branch returns as soon as it lands, so a heading
+            ' read after it would only ever be reached on a file that had no
+            ' start in it at all.
+            For Each line In IO.File.ReadAllLines(p)
+                Dim t = line.Trim()
+                If Not t.StartsWith("heading=") Then Continue For
+                Dim hd As Single
+                If Single.TryParse(t.Substring(8), Globalization.NumberStyles.Float,
+                                   Globalization.CultureInfo.InvariantCulture, hd) Then
+                    PointTo(MathHelper.DegreesToRadians(hd))
+                    LogThis("brain: start heading restored {0:0} deg", hd)
+                End If
+            Next
             For Each line In IO.File.ReadAllLines(p)
                 Dim t = line.Trim()
                 If Not t.StartsWith("start=") Then Continue For

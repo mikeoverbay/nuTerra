@@ -315,6 +315,13 @@ Public Class BrainWindow
                 ' is always a marker even with no saved file; LoadSaved then
                 ' moves it, the hull and the remembered origin together.
                 BrainStart.LoadSaved(STARTUP_MAP)
+                ' AND THE SAVED GOAL, THE SAME WAY - a saved goal wins
+                ' over goal= exactly as a saved start wins over the
+                ' roster's spawn. It says so out loud when it overrides
+                ' an argument, because a scored run quietly retargeted by
+                ' a leftover file still produces a number and it is
+                ' answering a different question.
+                BrainGoalMark.LoadSaved(STARTUP_MAP)
                 If LEARN_ON_START Then
                     ' Straight into it. The goal came back with the
                     ' scenario, so there is nothing to place.
@@ -783,6 +790,42 @@ Public Class BrainWindow
                 BrainSim.RefusedRun = 0
                 Dim gb = TryCast(BrainSim.Brain, GraphBrain)
                 If gb IsNot Nothing Then gb.ResetState()
+
+                ' EVERY MARKER THE LAST WALK LEFT, HIDDEN - "i want reset to
+                ' hide all makers ray creates". Cleared BEFORE the step below,
+                ' so anything still on screen afterwards was drawn by the tick
+                ' that just ran and not by the run being thrown away.
+                BrainWalkView.Hide()
+
+                ' AND THE TRAIL - "i want the path that is drawn erased at
+                ' start".
+                '
+                ' Run already does this: toggle_sim calls BrainSim.Start,
+                ' which calls BrainTrail.Reset for a reason worth repeating -
+                ' "two runs on one trail is two brains' paths in one picture
+                ' with no way to tell them apart". Reset never did, so putting
+                ' the hull back left the old path lying under it, and after
+                ' the single step below it gained a fresh dot on the end - one
+                ' picture of two different runs, which is the exact thing that
+                ' comment is about.
+                BrainTrail.Reset()
+
+                ' AND EXACTLY ONE TICK - "I want one tick only after reset".
+                '
+                ' A reset used to leave the hull parked with nothing sensed:
+                ' no scan, so no rays, no chains and no cubes until Run was
+                ' pressed, at which point the first frame of markers went past
+                ' in a sixtieth of a second on its way to somewhere else.
+                ' Stepping once puts the opening scan on screen and stops
+                ' there, which is the state worth looking at.
+                '
+                ' StepOnce leaves Running exactly as it found it - and Halt
+                ' above means it found it False - so this shows the tick
+                ' without starting the run. Its dt is a fixed 1/60 rather than
+                ' the frame's, so the same reset gives the same tick every
+                ' time; a step timed by the real frame would not be repeatable
+                ' and repeatability is the whole point of a reset.
+                BrainSim.StepOnce()
             Case BrainPanel.Action.Shot
                 Capture(BrainPanel.ShotPath())
             Case BrainPanel.Action.Snapshot
@@ -921,10 +964,21 @@ Public Class BrainWindow
             Dim a_ = CSng(Math.Max(SCR_WIDTH, 1)) / CSng(Math.Max(SCR_HEIGHT, 1))
             Dim vp_ = BrainRender.Cam.ViewProj(a_)
             markerHasMouse = BrainStart.Mouse(MouseState, vp_, ClientSize.X, ClientSize.Y)
+            ' THE GOAL ONLY IF THE START DID NOT TAKE IT. The two squares
+            ' can overlap on screen and the pick pass decides which is in
+            ' front, so asking the second only when the first declined is
+            ' what stops one press moving both.
+            If Not markerHasMouse Then
+                markerHasMouse = BrainGoalMark.Mouse(MouseState, vp_, ClientSize.X, ClientSize.Y)
+            End If
         End If
 
         If Not uiHasMouse AndAlso Not markerHasMouse Then
             BrainRender.Cam.Update(CSng(e.Time), MouseState, KeyboardState)
+        Else
+            ' TELL IT IT MISSED ONE. Silence here is what let the camera come
+            ' back holding a whole drag's worth of travel - see Cam.Skipped.
+            BrainRender.Cam.Skipped()
         End If
 
         ' THE CHASE, AFTER the mouse has had its say and before the frame is

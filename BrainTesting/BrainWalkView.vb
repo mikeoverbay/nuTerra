@@ -48,16 +48,16 @@ Module BrainWalkView
     ''' <summary>How tall the end and pick posts stand.</summary>
     Private Const POST As Single = 9.0F
 
-    Private ReadOnly CHAIN_RGB As New Vector3(0.35F, 0.95F, 1.00F)   ' neon blue
-    Private ReadOnly END_RGB As New Vector3(1.00F, 0.90F, 0.15F)   ' yellow
+    Public ReadOnly CHAIN_RGB As New Vector3(0.35F, 0.95F, 1.00F)   ' neon blue
+    Public ReadOnly END_RGB As New Vector3(1.00F, 0.90F, 0.15F)   ' yellow
     ' THREE KINDS OF BLOCKED, because they lead to three different moves.
     ' NOT GREEN. The map is grass and several thousand trees, so the one
     ' colour that cannot be spotted on it is the one a way through was drawn
     ' in. White and magenta appear nowhere in the terrain.
-    Private ReadOnly OPEN_RGB As New Vector3(1.00F, 1.00F, 1.00F)   ' white
-    Private ReadOnly GRAZE_RGB As New Vector3(1.00F, 0.62F, 0.05F)   ' amber
-    Private ReadOnly BLOCK_RGB As New Vector3(1.00F, 0.12F, 0.12F)   ' red
-    Private ReadOnly PICK_RGB As New Vector3(1.00F, 0.10F, 1.00F)   ' magenta
+    Public ReadOnly OPEN_RGB As New Vector3(1.00F, 1.00F, 1.00F)   ' white
+    Public ReadOnly GRAZE_RGB As New Vector3(1.00F, 0.62F, 0.05F)   ' amber
+    Public ReadOnly BLOCK_RGB As New Vector3(1.00F, 0.12F, 0.12F)   ' red
+    Public ReadOnly PICK_RGB As New Vector3(1.00F, 0.10F, 1.00F)   ' magenta
 
     Private shader As BrainShader
     Private vaoL, vboL, vaoP, vboP, vaoC, vboC, vaoK, vboK As Integer
@@ -99,6 +99,24 @@ Module BrainWalkView
     ''' than no picture at all.</summary>
     Public Sub Begin()
         If Not SHOW Then Return
+        Hide()
+    End Sub
+
+    ''' <summary>
+    ''' EVERY MARKER THE WALK DREW, GONE.
+    '''
+    ''' "i want reset to hide all makers ray creates" - the owner, 2026-09-20.
+    ''' Reset puts the hull back and clears the brain's state, but the picture
+    ''' of the last walk stayed up regardless - so the first thing on screen
+    ''' after a reset was the answer to a question asked from somewhere the
+    ''' tank no longer was. Chains, end posts, every cube and the pick.
+    '''
+    ''' NOT GATED ON SHOW, which is the one way this differs from Begin.
+    ''' Hiding is precisely what is wanted when the view is switched off, and
+    ''' a clear that declined to run while hidden would leave the old geometry
+    ''' sitting in the buffers to reappear the moment it was switched back on.
+    ''' </summary>
+    Public Sub Hide()
         lines_.Clear()
         posts.Clear()
         picks.Clear()

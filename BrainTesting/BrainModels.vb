@@ -428,6 +428,12 @@ Module BrainModels
     ''' </summary>
     Public Sub Draw(ByRef viewProj As Matrix4)
         Drawn = 0
+        ' ONE CHECKBOX FLIPS WHAT WE SEE - the owner, 2026-09-20. Wafer view
+        ' and buildings are the same switch rather than two, because two
+        ' flags for one decision is two flags that can disagree and then the
+        ' picture is neither thing. BrainBlkView.SHOW is the single truth;
+        ' this asks it rather than keeping a copy.
+        If BrainBlkView.SHOW Then Return
         If shader Is Nothing OrElse Not shader.Ready Then Return
         If meshes Is Nothing OrElse MODEL_INDEX_LIST Is Nothing Then Return
 
@@ -474,6 +480,9 @@ Module BrainModels
     ''' swallow most picks.
     ''' </summary>
     Public Sub PickInto(origin As Vector3, dir As Vector3, ByRef res As BrainPick.Hit)
+        ' Not drawn, not pickable. A building you cannot see must not be the
+        ' thing under the cursor.
+        If BrainBlkView.SHOW Then Return
         If meshes Is Nothing OrElse MODEL_INDEX_LIST Is Nothing Then Return
         For Each inst In MODEL_INDEX_LIST
             If inst.model_index < 0 OrElse inst.model_index >= meshes.Length Then Continue For

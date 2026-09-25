@@ -136,6 +136,22 @@ Module BrainNav
         End Get
     End Property
 
+    ''' <summary>The grid's size in cells. Exposed so a view can walk a
+    ''' WINDOW of it and stop at the edge - BlockedCell answers True off the
+    ''' grid, which is right for a trace and would draw a wall of wafers
+    ''' round the map for anything that iterated without bounds.</summary>
+    Public ReadOnly Property CellCols As Integer
+        Get
+            Return w
+        End Get
+    End Property
+
+    Public ReadOnly Property CellRows As Integer
+        Get
+            Return h
+        End Get
+    End Property
+
     Public ReadOnly Property CellSize As Single
         Get
             Return If(FromBake, sq_cell, CELL_M)

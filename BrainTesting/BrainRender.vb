@@ -33,6 +33,8 @@ Module BrainRender
         BrainRadar.Init()
         BrainGoal.Init()
         BrainStart.Init()
+        BrainGoalMark.Init()
+        BrainBlkView.Init()
 
         ' The camera asks the same sampler the hulls and the nav grid ask, so
         ' the point it looks at is on the surface they all agree about.
@@ -98,19 +100,42 @@ Module BrainRender
 
         Dim vp = Cam.ViewProj(aspect)
         LastVP = vp
-        issue_terrain(vp)
+        ' ---- THE WORLD, OR THE MAP THE BRAIN READS. NEVER BOTH. --------
+        '
+        ' "terrain is a model" then "trees are a model" - the owner,
+        ' 2026-09-20, naming what else had to go. Hiding the buildings alone
+        ' left the wafers buried: a wafer sits at the height the BAKE
+        ' believes and the ground is drawn at the height the TERRAIN
+        ' believes, so wherever those two disagree the ground wins the depth
+        ' test and the wafer disappears - which is exactly the disagreement
+        ' worth being able to see.
+        '
+        ' So the switch takes the whole scene rather than one layer of it.
+        ' Everything that IS the world goes; everything that COMMENTS on it -
+        ' rings, trail, walk view, radar, the hull - stays, because those are
+        ' what you inspect the map with.
+        '
+        ' ONE LIST, ONE IF. Gating each drawer inside itself would scatter the
+        ' same condition over three files and leave nowhere that says what
+        ' "the world" is made of.
+        If BrainBlkView.SHOW Then
+            BrainBlkView.Draw(vp)
+        Else
+            issue_terrain(vp)
 
-        ' Buildings after the terrain: both write depth and neither blends, so
-        ' the order is free - but ground first means a hill already occludes
-        ' what is behind it before a single wall is issued.
-        BrainModels.Draw(vp)
+            ' Buildings after the terrain: both write depth and neither
+            ' blends, so the order is free - but ground first means a hill
+            ' already occludes what is behind it before a wall is issued.
+            BrainModels.Draw(vp)
+
+            ' Trees before the rings: both write depth, and a ring drawn
+            ' after is one less thing hidden behind a canopy on a base.
+            BrainTrees.Draw(vp)
+        End If
 
         ' Hulls last. They are small, they sit on ground already drawn, and
         ' anything that goes wrong with them is easiest to see against a world
         ' that is known to be right.
-        ' Trees before the rings: both write depth, and a ring drawn after is
-        ' one less thing hidden behind a canopy on a base.
-        BrainTrees.Draw(vp)
         BrainRings.Draw(vp)
         BrainTrail.Draw(vp)
         BrainWalkView.Draw(vp)
@@ -122,6 +147,7 @@ Module BrainRender
         BrainRadar.Update()
         BrainRadar.Draw(vp)
         BrainStart.Draw(vp)
+        BrainGoalMark.Draw(vp)
         BrainGoal.Draw(vp)
         BrainGoal.DrawCursor(vp)
     End Sub
@@ -202,7 +228,13 @@ Module BrainRender
         issue_terrain(vp)
         GL.ColorMask(True, True, True, True)
 
-        If withMarker Then BrainStart.DrawPick(vp)
+        If withMarker Then
+            BrainStart.DrawPick(vp)
+            ' THE GOAL SQUARE INTO THE SAME PASS. Its pick colour is
+            ' yellow where the start's is magenta, so one readback tells
+            ' the two apart - without that, grabbing one drags the other.
+            BrainGoalMark.DrawPick(vp)
+        End If
 
         ' ONE READ WHEN ONE ANSWER IS WANTED. Every ReadPixels stalls the
         ' pipeline until the GPU catches up, so a second one costs a second
