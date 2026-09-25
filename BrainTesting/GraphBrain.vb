@@ -78,9 +78,19 @@ Public Class GraphBrain
     Private Const MAX_DEPTH As Integer = 64
     Private Const VOTES_NEEDED As Integer = 2
 
-    ''' <summary>Radians a second the hull swings at full steer. Mirrors
-    ''' BrainSim's TURN_RATE, which is Private there.</summary>
-    Private Const SIM_TURN_RATE As Single = 0.4538F       ' 26 deg/s
+    ' SIM_TURN_RATE IS GONE. It was 0.4538 with the comment "mirrors
+    ' BrainSim's TURN_RATE, which is Private there" - and TURN_RATE has not
+    ' been Private for a long time, so this was a stale copy of a number that
+    ' had moved on already (0.45 against 0.4538).
+    '
+    ' Harmless while both sat at about 26 deg/s. NOT harmless the moment
+    ' tune=turnrate= exists: raising the world's turn rate would have left
+    ' time_via still pricing every candidate against the old one, so the brain
+    ' would plan turns it could beat and never notice. An A/B run against a
+    ' stale constant measures the constant, not the change.
+    '
+    ' time_via now asks BrainSim.TURN_RATE, which is the rate the hull will
+    ' actually get.
 
     ' ---- what this tick is working with ----------------------------------
     Private h As BrainHull
@@ -193,6 +203,31 @@ Public Class GraphBrain
     ''' Backing, so it measures THIS attempt rather than the sum of
     ''' every attempt in the run.</summary>
     Private backingFor As Single = 0.0F
+
+    ''' <summary>
+    ''' HOW MANY TIMES RUNNING WE HAVE HAD TO BACK OUT, and how far this one
+    ''' is committed to going.
+    '''
+    ''' "we need to backup more... If we try 2 times, we back up 2 tank
+    '''  lengths as long as we are clear" - the owner, 2026-09-25.
+    '''
+    ''' The old exit was a 1.2 second timer, and its own comment said what was
+    ''' wrong with it: "1.2 s of creep is about a metre of reversing, which
+    ''' changes nothing about the view - so the rung that put us here is true
+    ''' again immediately and the loop closes." A metre does not change what
+    ''' the radar sees, so the same decision is made again from the same
+    ''' picture. Backing by DISTANCE, and by more of it each time, is what
+    ''' breaks that loop: attempt two looks at the world from fourteen metres
+    ''' away rather than from one.
+    ''' </summary>
+    Private backAttempts As Integer = 0
+    Private backFrom As Vector2
+    Private backWant As Single = 0.0F
+    ''' <summary>Where the last reverse ended. Getting properly clear of it is
+    ''' what resets the escalation - otherwise one bad corner early in a run
+    ''' leaves every later wobble backing out half the map.</summary>
+    Private backEnded As Vector2
+    Private backEverEnded As Boolean = False
 
     ''' <summary>Seconds of asking to move and not moving. A clock rather
     ''' than an instant, for the same reason the wedge watch is one: a
@@ -342,6 +377,26 @@ Public Class GraphBrain
         FARWHITE = BrainTune.On_("farwhite", True)
 
         hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
+
+        ' ---- HAVE WE GOT AWAY FROM THE LAST ONE --------------------------
+        '
+        ' The escalation is per TRAP, not per run. Without this, one awkward
+        ' corner in the first ten seconds leaves every later wobble reversing
+        ' half the map. Three tank lengths clear of where the last reverse
+        ' ended is "that one is behind us".
+        If backAttempts > 0 AndAlso state <> GSt.Backing AndAlso backEverEnded Then
+            If (h.pos - backEnded).Length > h.halfZ * 6.0F Then
+                backAttempts = 0
+            End If
+        End If
+        If state = GSt.Backing Then
+            backEnded = h.pos
+            backEverEnded = True
+        End If
+        ' THE SITUATION, COUNTED. Measuring only - see BrainStates. Straight
+        ' after the scan and before any rung reads it, so what is recorded is
+        ' what the board was given rather than what it decided.
+        BrainStates.Note(hits, goal_bearing())
         scans += 1
         laneDone = False
         aheadDone = False
@@ -525,10 +580,64 @@ Public Class GraphBrain
                     why = "already a trap"
                 End If
             Case "Set Seek", "Set Turning", "Set Follow", "Set Door", "Set Backing"
+                Dim was = state
                 state = CType([Enum].Parse(GetType(GSt), k.Substring(4)), GSt)
                 why = "state " & k.Substring(4).ToLowerInvariant()
+                ' ---- ARRIVING IN Backing SETS THE DISTANCE TO GO ----------
+                '
+                ' Here rather than in Reverse, because Reverse runs every tick
+                ' and this must be decided once per attempt. A target
+                ' recomputed each tick from the current position is a target
+                ' that never arrives.
+                If state = GSt.Backing AndAlso was <> GSt.Backing Then
+                    backAttempts += 1
+                    backFrom = h.pos
+                    Dim len_ = h.halfZ * 2.0F
+                    Dim want = len_ * backAttempts
+                    ' "AS LONG AS WE ARE CLEAR". Straight back from here, at
+                    ' the body's radius. If the full distance is not clear,
+                    ' take what is rather than refusing to move - halving
+                    ' rather than stepping because three tests settle it and
+                    ' Clear is walked in cells, not free.
+                    Dim fwd = New Vector2(CSng(Math.Sin(h.headingRad)),
+                                          CSng(Math.Cos(h.headingRad)))
+                    Dim tries = 0
+                    While want > len_ * 0.5F AndAlso tries < 4
+                        If BrainNav.Clear(h.pos, h.pos - fwd * want,
+                                          h.DriveRadius) Then Exit While
+                        want *= 0.5F
+                        tries += 1
+                    End While
+                    backWant = want
+                    why = String.Format("backing out, attempt {0} - {1:0.0} m",
+                                        backAttempts, backWant)
+                End If
             Case "Reverse"
-                Dim b = as_num(pulled(id, "bearing"), rear_bearing())
+                ' ---- PUT THE TAIL WHERE THE TROUBLE IS ---------------------
+                '
+                ' "turn our butt towards the side with all the hits" - the
+                ' owner, 2026-09-25, and the geometry is why it is right
+                ' rather than backwards.
+                '
+                ' The nose and the tail swing OPPOSITE ways. Sending the tail
+                ' toward the obstacles sweeps the NOSE away from them, so when
+                ' the reverse ends the hull is already pointing at open ground
+                ' and can simply drive. Backing away with the nose still aimed
+                ' at the wall buys distance and no new heading, which is how
+                ' the old backing came out of it facing the same problem.
+                '
+                ' It is a three point turn, and this is the first point.
+                Dim hs = hit_side()
+                Dim b As Single
+                If hs <> 0.0F Then
+                    ' Tail toward hs, so the nose goes to -hs. The bearing
+                    ' handed to the steering below is a NOSE bearing.
+                    b = CSng(Math.PI) - hs * BrainTune.Get_("backswing", 0.8F)
+                Else
+                    ' Nothing one-sided to work with - the old rule, straight
+                    ' at the deepest rear ray.
+                    b = as_num(pulled(id, "bearing"), rear_bearing())
+                End If
                 ' THE ERROR FROM STRAIGHT BACK, not from straight ahead. The
                 ' rear ray is about 180 degrees off the nose, so steering
                 ' toward it directly is full lock every time: the tank
@@ -541,8 +650,11 @@ Public Class GraphBrain
                 Dim offTail = wrap_pi(b - CSng(Math.PI))
                 steerOut = -turn_to(offTail)
                 thr = -CREEP
-                why = String.Format("backing {1:0.00}s, {0:0} deg off the tail",
-                                    MathHelper.RadiansToDegrees(offTail), backingFor)
+                why = String.Format("backing {0:0.0}/{1:0.0} m, attempt {2}, " &
+                                    "{3:0} deg off the tail",
+                                    (h.pos - backFrom).Length, backWant,
+                                    backAttempts,
+                                    MathHelper.RadiansToDegrees(offTail))
             Case "Turn To"
                 Dim b = as_num(pulled(id, "bearing"), 0.0F)
                 steerOut = turn_to(b)
@@ -685,15 +797,25 @@ Public Class GraphBrain
                 v = CObj(as_num(pulled(id, "range"), (goal - h.pos).Length) <=
                          BrainNodes.Setting(id, "metres", ARRIVE_M))
             Case "Backed Enough"
-                ' Long enough. RangeBrain backs for a set time and then looks
-                ' again rather than waiting for the world to open up, and a
-                ' state whose exit needs the world to improve is one that can be
-                ' entered and never left.
-                ' 1.2 s of creep is about a metre of reversing, which changes
-                ' nothing about the view - so the rung that put us here is
-                ' true again immediately and the loop closes.
-                v = CObj(backingFor > BrainTune.Get_("backsecs",
-                             BrainNodes.Setting(id, "seconds", 1.2F)))
+                ' FAR ENOUGH, NOT LONG ENOUGH.
+                '
+                ' The exit used to be a 1.2 second clock. A state whose exit
+                ' needs the world to improve can be entered and never left -
+                ' that reasoning still stands and is why this is not "until it
+                ' looks clear" either. But a metre of creep changes nothing
+                ' about what the radar sees, so the rung that caused the
+                ' backing was true again the moment it ended.
+                '
+                ' Distance covered from where the reverse began, against a
+                ' target that grows a tank length per attempt. The timer
+                ' survives as a BACKSTOP only: if the hull is not actually
+                ' moving - refused, or hard against something - a distance
+                ' target would hold it there forever, which is the same trap
+                ' the other way round.
+                Dim gone = (h.pos - backFrom).Length
+                Dim capS = BrainTune.Get_("backcap",
+                               BrainNodes.Setting(id, "seconds", 6.0F))
+                v = CObj(gone >= backWant OrElse backingFor > capS)
             Case "Not Moving"
                 ' ASKED FOR MOVEMENT AND DID NOT GET IT. Not simply "the speed is
                 ' low" - the branch this gates is Turn To, which commands zero
@@ -919,6 +1041,38 @@ Public Class GraphBrain
             End If
         Next
         Return at
+    End Function
+
+    ''' <summary>
+    ''' WHICH SIDE IS THE TROUBLE ON, signed - negative one way, positive the
+    ''' other, zero when it is even.
+    '''
+    ''' WEIGHTED BY NEARNESS, because a return at three metres is the thing
+    ''' pinning the hull and one at thirty is scenery. Counting them equally
+    ''' let a wall of distant returns on the open side outvote the corner the
+    ''' tank was actually stuck in.
+    '''
+    ''' A DEAD BAND, so an even scan does not get a direction invented for it.
+    ''' Below it the caller falls back to the deepest rear ray, which is the
+    ''' rule that was there before.
+    ''' </summary>
+    Private Function hit_side() As Single
+        If hits Is Nothing Then Return 0.0F
+        Dim w = 0.0F, tot = 0.0F
+        For Each q In hits
+            If Not q.front OrElse Not q.found Then Continue For
+            Dim wt = 1.0F / Math.Max(1.0F, q.drive)
+            tot += wt
+            If q.angle > 0.0F Then
+                w += wt
+            ElseIf q.angle < 0.0F Then
+                w -= wt
+            End If
+        Next
+        If tot <= 0.0F Then Return 0.0F
+        Dim bias = w / tot
+        If Math.Abs(bias) < BrainTune.Get_("sidedead", 0.15F) Then Return 0.0F
+        Return Math.Sign(bias)
     End Function
 
     Private Function deeper_side() As Single
@@ -1350,7 +1504,7 @@ Public Class GraphBrain
         ' against a speed the throttle will never give them.
         Dim v = Math.Max(0.6F, Math.Min(SIM_TOP,
                                         throttle_for(body_ahead()) * SIM_TOP))
-        Return Math.Abs(wrap_pi(b)) / SIM_TURN_RATE +
+        Return Math.Abs(wrap_pi(b)) / BrainSim.TURN_RATE +
                (aim - h.pos).Length / v +
                (goal - aim).Length / SIM_TOP
     End Function

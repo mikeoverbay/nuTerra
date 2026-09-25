@@ -129,7 +129,29 @@ Module BrainSim
     ''' the rate it will actually get. The look-ahead distance is derived
     ''' from this, and a second copy of the number in the brain would be a
     ''' second thing to forget to change.</summary>
-    Public Const TURN_RATE As Single = 0.45F      ' rad/s at full steer
+    ''' <summary>
+    ''' NOT A Const ANY MORE - tune=turnrate= swings it, so one binary can run
+    ''' both arms of a comparison and a rebuild cannot be the thing that moved.
+    '''
+    ''' THE DEFAULT STAYS AT 0.45 so this changes nothing on its own. 0.45 is
+    ''' 25.8 deg/s; the two hulls a monastery run loads declare 50.0 and 54.0
+    ''' in their own chassis XML (see TankVehicle.ReadHullTraverse, 5cda459b).
+    ''' So the sim turns every tank at about HALF the rate the real one does,
+    ''' and at 12 m/s that is a 26.7 m circle where the tank's own is 13.3.
+    '''
+    ''' IT USED TO BE 0.9 - 51.6 deg/s, very nearly right - and was halved on
+    ''' the owner's "it works but we need to not turn so sharp". The suspicion
+    ''' worth testing is that the rate was never what looked wrong:
+    ''' steer_to_clear goes to FULL LOCK for any error past its last nine
+    ''' degrees, and full lock at a correct rate looks like snapping. Halving
+    ''' the rate made the snap slower by making the tank permanently less
+    ''' manoeuvrable than the real one.
+    '''
+    ''' So the arm to run is BOTH: tune=turnrate=0.9,ease=0.6 - the real rate
+    ''' with a taper wide enough that the lock is proportional rather than
+    ''' all-or-nothing.
+    ''' </summary>
+    Public TURN_RATE As Single = 0.45F      ' rad/s at full steer
 
     Private speeds() As Single
 
@@ -140,6 +162,14 @@ Module BrainSim
         End If
         Frame = 0
         ReDim speeds(BrainTanks.Bodies.Count - 1)
+        ' READ ONCE A RUN, not per tick: a rate that changed underneath a
+        ' plan would make the brain's own turn estimates disagree with the
+        ' world it is steering in, mid-turn.
+        TURN_RATE = BrainTune.Get_("turnrate", 0.45F)
+        LogThis("brain: turn rate {0:0.000} rad/s ({1:0.0} deg/s), " &
+                "tightest circle {2:0.0} m at {3:0} m/s",
+                TURN_RATE, MathHelper.RadiansToDegrees(TURN_RATE),
+                TOP_SPEED / Math.Max(0.001F, TURN_RATE), TOP_SPEED)
         ' A fresh run starts from nothing, or the second brain of a duel
         ' inherits the first one's tally and the comparison is a fiction.
         BrainReport.Reset()
@@ -246,6 +276,7 @@ Module BrainSim
         If Not Running Then Return
         Running = False
         BrainLog.Close()
+        BrainStates.Dump(MAP_NAME_NO_PATH)
         LogThis("brain: sim stopped at frame {0}", Frame)
     End Sub
 
