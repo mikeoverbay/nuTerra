@@ -78,6 +78,23 @@ Module BrainPath
         ''' axis, metres. Kept only so the assignment can be read back in one
         ''' line - it is what "this one runs up the left" means numerically.</summary>
         Public across As Single
+        ''' <summary>How far the ROAD ITSELF stopped short of the enemy base,
+        ''' before the base was appended. The number that explains why a tank
+        ''' following a flank road used to finish nowhere near it.</summary>
+        Public tail As Single
+        ''' <summary>Corner cuts the map refused on the last Chaikin pass, and
+        ''' the longest gap between consecutive waypoints. Together they say
+        ''' how far ahead the goal can sit: a refused run leaves a straight
+        ''' the subdivision never broke up.</summary>
+        Public refused As Integer
+        Public longest As Single
+        ''' <summary>Metres driven since the waypoint index last moved, where
+        ''' it was measured from, and whether the stall has been reported. A
+        ''' follower that has stopped following is the failure this whole
+        ''' module can have, and it used to be invisible.</summary>
+        Public stalled As Single
+        Public was As Vector2
+        Public said As Boolean
     End Class
 
     ''' <summary>Indexed by hull, Nothing where a hull got no road.</summary>
@@ -291,11 +308,62 @@ Module BrainPath
         Return New Vector2(-fwd.Y, fwd.X)
     End Function
 
+    ''' <summary>
+    ''' Build one hull's lane, and MAKE IT END AT THE ENEMY BASE.
+    '''
+    ''' "this tank is trying to get back to base at the end and not to the
+    ''' enemy's base" - the owner, 2026-09-25.
+    '''
+    ''' The path graph calls its 32 roads base-to-base and they are not.
+    ''' Measured on 19_monastery, every one of them stops short at both ends,
+    ''' and the fan makes it worse the further out it reaches:
+    '''
+    '''   road  6   12 m from base 1  ->   17 m from base 2
+    '''   road  8   87 m              ->   67 m
+    '''   road 28  247 m              ->  226 m
+    '''   road 16  407 m              ->  386 m
+    '''
+    ''' They are parallel corridors running the length of the map on a 40 m
+    ''' pitch, so a flank road begins and ends out at the flank - beside the
+    ''' bases, not at them. Nothing was wrong with the following; the road
+    ''' simply never went where the run was supposed to end, and a tank that
+    ''' drives to the last waypoint of road 17 finishes 252 m to the side of
+    ''' the enemy base with its own base behind it. From the outside that is a
+    ''' tank that did not go to the enemy base.
+    '''
+    ''' SO THE BASE IS APPENDED, and the arrival test in Tick then means what
+    ''' it says: the last waypoint IS the base, so "inside the 25 m base zone"
+    ''' stops being a claim about a waypoint that happens to be near one.
+    '''
+    ''' THE CLOSING LEG IS THE OPENING LEG, and that symmetry is the argument
+    ''' for doing it this way rather than picking roads that reach further.
+    ''' These hulls already cross 64 to 379 m of open ground to REACH their
+    ''' road start - that is the design, it is the brain navigating to a point
+    ''' with no road to help - so crossing the last stretch the same way is
+    ''' nothing new. The alternative, only ever handing out the roads that
+    ''' come closest to the bases, would collapse the fan back onto the middle
+    ''' few corridors and undo the spread this was built for.
+    '''
+    ''' The leg goes in BEFORE smoothing, so it is shortcut and corner-cut and
+    ''' collision-checked exactly like the rest of the road rather than bolted
+    ''' on as a straight line nobody tested.
+    ''' </summary>
     Private Sub build_lane(hull As Integer, team As Integer,
                            c As Tuple(Of Integer, List(Of Vector2), Single))
         Dim ln As New Lane With {.hull = hull, .team = team,
                                  .roadId = c.Item1, .across = c.Item3}
         ln.pts.AddRange(c.Item2)
+
+        ' THE ENEMY BASE, as the last waypoint, when the road does not already
+        ' finish inside the zone. Same zone Tick arrives on, read once here so
+        ' the two cannot drift apart.
+        Dim enemy = If(team = 2, BrainTanks.Base1, BrainTanks.Base2)
+        Dim zone = BrainTune.Get_("basem", 25.0F)
+        If ln.pts.Count > 0 Then
+            ln.tail = (ln.pts(ln.pts.Count - 1) - enemy).Length
+            If ln.tail > zone Then ln.pts.Add(enemy)
+        End If
+
         ' SMOOTHED BEFORE ANYTHING READS IT, and after the order is final -
         ' shortcutting a road stored the other way round would pull the
         ' string in the direction it is not driven.
@@ -433,6 +501,10 @@ Module BrainPath
             len_ += (d.pts(i + 1) - d.pts(i)).Length
         Next
         Dim need = BrainSim.TOP_SPEED / Math.Max(0.001F, BrainSim.TURN_RATE)
+        LogThis("brain: road {0} stopped {1:0} m short of the enemy base, so the base " &
+                "is now its last waypoint. Longest gap between waypoints {2:0} m, " &
+                "{3} corner cut(s) refused - the goal rides up to that far ahead.",
+                d.roadId, d.tail, d.longest, d.refused)
         LogThis("brain: hull {0} drives road {1} - {2} waypoint(s), {3:0} m of road, " &
                 "{4:0.0} m from its spawn to the start, worst turn {5:0.0} m against " &
                 "the {6:0.0} m the hull needs at full speed",
@@ -499,6 +571,15 @@ Module BrainPath
         If ln.pts.Count < 3 Then Return
         shortcut_pass(ln)
         chaikin_pass(ln, BrainTune.Get_("chaikin", 4.0F))
+        ' THE LONGEST GAP, because it is the real look-ahead. Tick advances
+        ' while the current waypoint is inside 10 m, so the goal ends up
+        ' somewhere between one gap and the next ahead of the hull - and a gap
+        ' the corner cutting could not break up is a goal sitting that far out
+        ' with no road between here and it.
+        ln.longest = 0.0F
+        For i = 0 To ln.pts.Count - 2
+            ln.longest = Math.Max(ln.longest, (ln.pts(i + 1) - ln.pts(i)).Length)
+        Next
     End Sub
 
     ''' <summary>
@@ -555,14 +636,25 @@ Module BrainPath
     ''' planner NEEDED stays sharp instead of being rounded into an obstacle.
     '''
     ''' The ends are never cut: an open path has to start where it starts.
+    '''
+    ''' AND NO DUPLICATE POINTS, which is not tidiness. A refused segment
+    ''' emits both its endpoints, and the next segment emits the first of them
+    ''' again, so every run of refusals laid the same point down twice and the
+    ''' count doubled per pass without a single new place to drive to. Road 17
+    ''' reported 224 waypoints over 843 m - an apparent 3.8 m spacing - while
+    ''' the real gaps were long enough for the goal to sit over a hundred
+    ''' metres ahead. That made the count a lie in the log AND let Tick's
+    ''' advance loop walk a whole pile of them in one tick, because a
+    ''' duplicate is always within the 10 m reach. add_pt drops them.
     ''' </summary>
     Private Sub chaikin_pass(ln As Lane, iterations As Single)
         Dim r = h_radius(ln.hull)
+        ln.refused = 0
         For pass_ = 1 To CInt(Math.Max(0.0F, iterations))
             Dim n = ln.pts.Count
             If n < 3 Then Exit For
             Dim nxt As New List(Of Vector2)
-            nxt.Add(ln.pts(0))
+            add_pt(nxt, ln.pts(0))
             For i = 0 To n - 2
                 Dim a = ln.pts(i)
                 Dim b = ln.pts(i + 1)
@@ -573,21 +665,30 @@ Module BrainPath
                     If BrainNav.Clear(a, p, r) AndAlso
                        BrainNav.Clear(p, q, r) AndAlso
                        BrainNav.Clear(q, b, r) Then
-                        nxt.Add(p)
-                        nxt.Add(q)
+                        add_pt(nxt, p)
+                        add_pt(nxt, q)
                         took = True
                         Exit For
                     End If
                 Next
                 If Not took Then
-                    nxt.Add(a)
-                    nxt.Add(b)
+                    ln.refused += 1
+                    add_pt(nxt, a)
+                    add_pt(nxt, b)
                 End If
             Next
-            nxt.Add(ln.pts(n - 1))
+            add_pt(nxt, ln.pts(n - 1))
             ln.pts.Clear()
             ln.pts.AddRange(nxt)
         Next
+    End Sub
+
+    ''' <summary>Append, unless it is the point already on the end. A
+    ''' centimetre is far below anything the follower can tell apart and far
+    ''' above float noise on map coordinates in the hundreds of metres.</summary>
+    Private Sub add_pt(v As List(Of Vector2), p As Vector2)
+        If v.Count > 0 AndAlso (v(v.Count - 1) - p).Length < 0.01F Then Return
+        v.Add(p)
     End Sub
 
     ''' <summary>
@@ -633,6 +734,32 @@ Module BrainPath
     ''' Advance every hull's goal along its own road. Called once a tick,
     ''' before the brain.
     '''
+    ''' REACHED *OR* PASSED, and the second half of that is not a refinement -
+    ''' without it the follower deadlocks against the hull's own turning
+    ''' circle.
+    '''
+    ''' The rule used to be "within 10 m" alone. A hull at 12 m/s turning at
+    ''' 0.45 rad/s needs 26.7 m of radius, so it cannot place itself inside a
+    ''' 10 m disc it is driving past - it misses by a metre or two, the index
+    ''' does not move, and the only way back to a goal it has already overshot
+    ''' is a full loop. Measured on road 17: the range to goal cycled 11 m out
+    ''' to 130 m and back, over and over, and half of every one of those loops
+    ''' is the tank driving SOUTH - back toward its own base. That is what
+    ''' "this tank is trying to get back to base" looks like from the outside,
+    ''' and the tank was doing exactly what it was told.
+    '''
+    ''' So a waypoint also counts as done when it is BEHIND THE NOSE: the
+    ''' bearing to it has a negative component along the hull's heading. That
+    ''' is the geometric statement of "we have driven past this".
+    '''
+    ''' CAPPED AT THREE TIMES THE REACH, because behind-the-nose on its own is
+    ''' too strong. A hull swung round during a go-around has half the road
+    ''' behind it for a second or two, and an uncapped test would tick off
+    ''' every waypoint it had not reached yet and jump the goal to the far
+    ''' end. Within 30 m and behind is an overshoot; 200 m and behind is a
+    ''' tank facing the wrong way, which is the brain's problem and not a
+    ''' reason to abandon the road.
+    '''
     ''' SKIPS WHATEVER IS ALREADY BEHIND, not just the one in hand: joining a
     ''' road at speed, or being pushed down it by a go-around, can carry the
     ''' hull past several nodes at once, and advancing one per tick would aim
@@ -640,12 +767,14 @@ Module BrainPath
     '''
     ''' EVERY LANE WALKS, ONLY THE DRIVEN ONE WRITES THE GOAL. There is one
     ''' BrainGoal and one brain; a second lane writing it would be two drivers
-    ''' again. The parked hulls cost a subtraction and a compare each and stay
+    ''' again. The parked hulls cost a subtract and a compare each and stay
     ''' honest, so the day there is a brain per hull the answers are already
     ''' here.
     '''
     ''' AND IT STOPS AT THE FAR BASE. "it doesn't stop at when it gets to
-    ''' base" then "25m rad i think zone" - the owner, 2026-09-25.
+    ''' base" then "25m rad i think zone" - the owner, 2026-09-25. The base is
+    ''' the last waypoint now (see build_lane), so the zone is a zone round the
+    ''' base rather than round wherever the road happened to give out.
     '''
     ''' BY TAKING THE GOAL AWAY, not by commanding a stop. The board's very
     ''' first rung is already No Goal -> Stop, so clearing HasTarget is the
@@ -663,6 +792,7 @@ Module BrainPath
 
         Dim reach = BrainTune.Get_("waypm", 10.0F)
         Dim zone = BrainTune.Get_("basem", 25.0F)
+        Dim behind = reach * BrainTune.Get_("waypast", 3.0F)
 
         For i = 0 To lanes.Length - 1
             Dim ln = lanes(i)
@@ -671,9 +801,49 @@ Module BrainPath
             Dim drives = (i = BrainRadar.HULL)
             Dim here = BrainTanks.Bodies(i).spawn
 
-            While ln.at < ln.pts.Count - 1 AndAlso (ln.pts(ln.at) - here).Length < reach
+            ' The hull's nose, world XZ. Same convention as everywhere else in
+            ' this app: heading 0 is +Z, and X = sin, Z = cos.
+            Dim hdg = BrainTanks.Bodies(i).headingRad
+            Dim nose = New Vector2(CSng(Math.Sin(hdg)), CSng(Math.Cos(hdg)))
+
+            Dim moved = False
+            While ln.at < ln.pts.Count - 1
+                Dim toWp = ln.pts(ln.at) - here
+                Dim gap = toWp.Length
+                Dim done = gap < reach OrElse
+                           (gap < behind AndAlso Vector2.Dot(toWp, nose) < 0.0F)
+                If Not done Then Exit While
                 ln.at += 1
+                moved = True
             End While
+
+            ' A FOLLOWER THAT HAS STOPPED FOLLOWING SAYS SO.
+            '
+            ' This was diagnosed from a range-to-goal series in a log, by hand,
+            ' working backwards from a shape that turned out to be a hull
+            ' orbiting a waypoint it could not reach. That should not have
+            ' needed doing twice, so the condition is now a line of its own:
+            ' the index has not moved while the hull has driven a long way,
+            ' which is the definition of not following.
+            If drives Then
+                If moved Then
+                    ln.stalled = 0
+                    ln.said = False
+                Else
+                    ln.stalled += (here - ln.was).Length
+                    If ln.stalled > BrainTune.Get_("waystall", 250.0F) AndAlso Not ln.said Then
+                        ln.said = True
+                        Dim toWp = ln.pts(ln.at) - here
+                        LogThis("brain: hull {0} has driven {1:0} m without passing " &
+                                "waypoint {2}/{3} at ({4:0.0}, {5:0.0}) - it is {6:0.0} m " &
+                                "away and {7} the nose. The follower is not following.",
+                                i, ln.stalled, ln.at, ln.pts.Count - 1,
+                                ln.pts(ln.at).X, ln.pts(ln.at).Y, toWp.Length,
+                                If(Vector2.Dot(toWp, nose) < 0.0F, "behind", "ahead of"))
+                    End If
+                End If
+                ln.was = here
+            End If
 
             ' THE BASE ZONE. The last waypoint is the far base, and a tank that
             ' has to touch a node to the metre is a tank that circles it - the
@@ -683,7 +853,7 @@ Module BrainPath
                 If drives Then
                     BrainGoal.HasTarget = False
                     LogThis("brain: hull {0} road {1} COMPLETE - inside the {2:0} m base " &
-                            "zone at ({3:0.0}, {4:0.0}), {5:0.0} m from the last node. " &
+                            "zone at ({3:0.0}, {4:0.0}), {5:0.0} m from the base. " &
                             "Goal cleared, the board stops on No Goal.",
                             i, ln.roadId, zone, here.X, here.Y,
                             (ln.pts(ln.at) - here).Length)
@@ -740,6 +910,10 @@ Module BrainPath
             If ln.finished Then wasDone += 1
             ln.at = 0
             ln.finished = False
+            ln.stalled = 0.0F
+            ln.said = False
+            If BrainTanks.Bodies IsNot Nothing AndAlso
+               ln.hull < BrainTanks.Bodies.Count Then ln.was = BrainTanks.Bodies(ln.hull).spawn
             n += 1
         Next
         If n = 0 Then Return
@@ -757,6 +931,40 @@ Module BrainPath
                 If(d Is Nothing, -1, d.roadId),
                 If(d Is Nothing OrElse Not d.ready, 0.0F, d.pts(0).X),
                 If(d Is Nothing OrElse Not d.ready, 0.0F, d.pts(0).Y))
+    End Sub
+
+    ''' <summary>
+    ''' CLEAR THE ARRIVAL LATCH AND NOTHING ELSE. Called by BrainSim.Start.
+    '''
+    ''' This used to call Reset, and that was the bug behind "this tank is
+    ''' trying to get back to base at the end". Start does not move the hull -
+    ''' only the Reset button does, through RestoreSpawns - so rewinding the
+    ''' waypoint index to 0 while the tank stood at the far end of its road
+    ''' pointed the goal at waypoint 0, which is the road's start BESIDE ITS
+    ''' OWN BASE, and the tank dutifully turned round and drove the whole road
+    ''' home. It was following orders; the orders were wrong.
+    '''
+    ''' Clearing only the latch lets the hull's own position decide, which is
+    ''' the right authority for it. Halted half way and pressed Run: it carries
+    ''' on from the waypoint it had reached. Standing at the enemy base and
+    ''' pressed Run: Tick re-tests the zone on the next tick, arrives again and
+    ''' stops - which is honest, because it HAS arrived, and Reset is the
+    ''' control that means go again.
+    '''
+    ''' Without clearing anything at all, a finished road would refuse to
+    ''' drive for the rest of the session even after a legitimate reset that
+    ''' happened not to go through the button.
+    ''' </summary>
+    Public Sub Rearm()
+        If Not ON_ OrElse lanes Is Nothing Then Return
+        For Each ln In lanes
+            If ln Is Nothing Then Continue For
+            ln.finished = False
+            ln.stalled = 0.0F
+            ln.said = False
+            If BrainTanks.Bodies IsNot Nothing AndAlso
+               ln.hull < BrainTanks.Bodies.Count Then ln.was = BrainTanks.Bodies(ln.hull).spawn
+        Next
     End Sub
 
     Public ReadOnly Property Done As Boolean

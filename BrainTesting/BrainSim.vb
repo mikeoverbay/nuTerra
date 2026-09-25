@@ -175,12 +175,14 @@ Module BrainSim
         ' inherits the first one's tally and the comparison is a fiction.
         BrainReport.Reset()
         BrainTrail.Reset()
-        ' AND THE ROAD, for the same reason and with the same force. Start
-        ' already declares this a fresh run by wiping the trail and the
-        ' scorecard; a road left finished from the previous one would clear the
-        ' goal on the first tick and stop the run before it moved, which reads
-        ' as the brain refusing rather than as a latch nobody cleared.
-        BrainPath.Reset()
+        ' AND THE ROAD'S ARRIVAL LATCH - but NOT its waypoint index.
+        '
+        ' This called BrainPath.Reset and that sent a finished tank home:
+        ' Start does not move the hull, so rewinding to waypoint 0 aimed the
+        ' goal at the road's start beside its OWN base and the tank drove the
+        ' whole road back. Rearm clears the latch and lets the hull's position
+        ' decide the rest. See BrainPath.Rearm.
+        BrainPath.Rearm()
 
         ' THE OPENING GAP, before anything moves. A scorecard written at the
         ' end cannot ask this - by then the start is wherever the hull
