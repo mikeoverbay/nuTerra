@@ -608,7 +608,26 @@ Module BrainRadar
             wy.a = out(i).at
             wy.b = out(j).at
             wy.chord = (wy.a - wy.b).Length
-            If wy.chord < bodyR * 2.0F Then
+            ' HALF A SQUARE OFF EACH JAMB BEFORE THE HULL IS ASKED TO FIT.
+            '
+            ' "narrow doors by 1/2 square" - the owner, 2026-09-19. The gate
+            ' was the hull's bare width, jamb to jamb, which is the width at
+            ' which a tank fits through only if it is aimed perfectly and
+            ' arrives perfectly - and it is neither, because it is steering
+            ' round something when it takes a door.
+            '
+            ' PER JAMB, to match the side clearance widened in the same
+            ' sitting: Corridor is a plank and a half proud of the fender now
+            ' rather than one, so `fits` already demands a quarter metre more
+            ' on each side. This brings the CHORD gate into line with it -
+            ' otherwise the two halves of "is this a door" would disagree,
+            ' one of them letting an opening through that the other then
+            ' rejects, every tick, silently.
+            '
+            ' A whole square off the chord: 0.25 m a jamb on a 0.5 m grid.
+            ' tune=doorcells=0 is the old behaviour.
+            Dim jamb = BrainNav.CellSize * BrainTune.Get_("doorcells", 0.5F)
+            If wy.chord < bodyR * 2.0F + jamb * 2.0F Then
                 WAY_NARROW += 1
                 Continue For
             End If
@@ -1023,7 +1042,26 @@ Module BrainRadar
         Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
         Dim px = -dz, pz = dx                      ' unit perpendicular
         Dim cell = BrainNav.CellSize
-        Dim edge = halfWidth + cell                ' one plank proud of the fender
+        ' A PLANK AND A HALF PROUD OF THE FENDER, not one.
+        '
+        ' "widen side clearance 1/2 square" - the owner, 2026-09-19. The spec
+        ' this was built to was his too - "we want to be one plk left and
+        ' right of fenders and fill all between" - so this is that, plus half
+        ' a cell each side: 0.25 m a side on a 0.5 m grid, 0.5 m on the lane.
+        '
+        ' IT WIDENS THE QUESTION, NOT THE TANK. Every corridor caller passes
+        ' its own halfWidth and the hull is unchanged; what moves is how much
+        ' room the brain insists on having beside itself before it calls a
+        ' lane clear. BrainNav.Standable - the test the SIM refuses moves on -
+        ' does not go through here, so the hull can still fit where it always
+        ' could. This only makes the planning fussier than the physics, which
+        ' is the correct direction for the two to differ in.
+        '
+        ' n follows from edge, so a wider lane is also a lane with more planks
+        ' in it - the plank spacing stays at one per cell rather than being
+        ' stretched over a wider span, which would have quietly coarsened the
+        ' test while appearing to tighten it.
+        Dim edge = halfWidth + cell * BrainTune.Get_("edgecells", 1.5F)
         Dim n = CInt(Math.Ceiling(edge * 2.0F / cell)) + 1
         If n < 3 Then n = 3
 
