@@ -95,6 +95,12 @@ Module BrainPath
         Public stalled As Single
         Public was As Vector2
         Public said As Boolean
+        ''' <summary>How far away the current waypoint was when the index last
+        ''' moved - the distance the hull set out to cover. The stall bar is
+        ''' measured against THIS rather than a fixed number of metres,
+        ''' because a road with a 252 m leg in it has tanks legitimately
+        ''' driving 250 m without passing anything.</summary>
+        Public gap0 As Single
     End Class
 
     ''' <summary>Indexed by hull, Nothing where a hull got no road.</summary>
@@ -731,8 +737,21 @@ Module BrainPath
     End Function
 
     ''' <summary>
-    ''' Advance every hull's goal along its own road. Called once a tick,
-    ''' before the brain.
+    ''' Advance every hull along its own road. Called once a frame, before the
+    ''' brains.
+    '''
+    ''' ADVANCING AND AIMING ARE NOW TWO JOBS, and splitting them is what let
+    ''' five tanks drive. Walking the index is a fact about a hull and its
+    ''' road; writing BrainGoal is an act, and there is only one BrainGoal for
+    ''' five tanks that each need their own. So this advances all of them and
+    ''' aims none, and BrainCrew calls Aim(hull) as it seats each brain. The
+    ''' last aim standing is the watched hull's, which is the goal that gets
+    ''' drawn and scored.
+    '''
+    ''' It still aims the watched hull at the end, for the case where no crew
+    ''' is installed at all - and because with the sim stopped nothing else
+    ''' would, so TAB while paused would move the camera and leave the goal
+    ''' cross on the tank you just stopped looking at.
     '''
     ''' REACHED *OR* PASSED, and the second half of that is not a refinement -
     ''' without it the follower deadlocks against the hull's own turning
@@ -760,31 +779,13 @@ Module BrainPath
     ''' tank facing the wrong way, which is the brain's problem and not a
     ''' reason to abandon the road.
     '''
-    ''' SKIPS WHATEVER IS ALREADY BEHIND, not just the one in hand: joining a
-    ''' road at speed, or being pushed down it by a go-around, can carry the
-    ''' hull past several nodes at once, and advancing one per tick would aim
-    ''' it backwards at a point it has already driven through.
-    '''
-    ''' EVERY LANE WALKS, ONLY THE DRIVEN ONE WRITES THE GOAL. There is one
-    ''' BrainGoal and one brain; a second lane writing it would be two drivers
-    ''' again. The parked hulls cost a subtract and a compare each and stay
-    ''' honest, so the day there is a brain per hull the answers are already
-    ''' here.
-    '''
     ''' AND IT STOPS AT THE FAR BASE. "it doesn't stop at when it gets to
     ''' base" then "25m rad i think zone" - the owner, 2026-09-25. The base is
     ''' the last waypoint now (see build_lane), so the zone is a zone round the
     ''' base rather than round wherever the road happened to give out.
     '''
-    ''' BY TAKING THE GOAL AWAY, not by commanding a stop. The board's very
-    ''' first rung is already No Goal -> Stop, so clearing HasTarget is the
-    ''' whole of it - and it keeps the follower to the one thing it is allowed
-    ''' to touch. A second module commanding throttle would be the second
-    ''' driver this design exists to avoid.
-    '''
-    ''' ONCE, latched. Without the flag the arrival would re-fire every tick,
-    ''' and any rung that set a goal for its own reasons would be fighting a
-    ''' module that cleared it again a frame later. Reset unlatches it.
+    ''' ONCE, latched. Without the flag the arrival would re-fire every tick.
+    ''' Reset unlatches it.
     ''' </summary>
     Public Sub Tick()
         If Not ON_ OrElse lanes Is Nothing Then Return
@@ -798,7 +799,6 @@ Module BrainPath
             Dim ln = lanes(i)
             If ln Is Nothing OrElse Not ln.ready OrElse ln.finished Then Continue For
             If i >= BrainTanks.Bodies.Count Then Continue For
-            Dim drives = (i = BrainRadar.HULL)
             Dim here = BrainTanks.Bodies(i).spawn
 
             ' The hull's nose, world XZ. Same convention as everywhere else in
@@ -825,49 +825,92 @@ Module BrainPath
             ' needed doing twice, so the condition is now a line of its own:
             ' the index has not moved while the hull has driven a long way,
             ' which is the definition of not following.
-            If drives Then
-                If moved Then
-                    ln.stalled = 0
-                    ln.said = False
-                Else
-                    ln.stalled += (here - ln.was).Length
-                    If ln.stalled > BrainTune.Get_("waystall", 250.0F) AndAlso Not ln.said Then
-                        ln.said = True
-                        Dim toWp = ln.pts(ln.at) - here
-                        LogThis("brain: hull {0} has driven {1:0} m without passing " &
-                                "waypoint {2}/{3} at ({4:0.0}, {5:0.0}) - it is {6:0.0} m " &
-                                "away and {7} the nose. The follower is not following.",
-                                i, ln.stalled, ln.at, ln.pts.Count - 1,
-                                ln.pts(ln.at).X, ln.pts(ln.at).Y, toWp.Length,
-                                If(Vector2.Dot(toWp, nose) < 0.0F, "behind", "ahead of"))
-                    End If
+            '
+            ' EVERY LANE, not just the watched one. Five tanks means four of
+            ' them are off screen at any moment, and the whole reason to run
+            ' five is to find the one that got stuck where nobody was looking.
+            If moved Then
+                ln.stalled = 0.0F
+                ln.said = False
+                ln.gap0 = (ln.pts(ln.at) - here).Length
+            Else
+                ln.stalled += (here - ln.was).Length
+                ' SCALE-FREE, and the first version was not. A flat 250 m bar
+                ' called it a stall every time a tank crossed the appended
+                ' base leg, which is 252 m of open ground by construction -
+                ' three false alarms in the first five-tank run, on tanks that
+                ' went on to arrive. The honest question is not "how far has
+                ' it driven" but "how far has it driven COMPARED TO how far it
+                ' had to go", so the bar is a multiple of the gap it set out
+                ' to cross, floored so a two-metre hop cannot trip on noise.
+                Dim bar = Math.Max(BrainTune.Get_("waystall", 250.0F),
+                                   ln.gap0 * BrainTune.Get_("waylax", 2.5F))
+                If ln.stalled > bar AndAlso Not ln.said Then
+                    ln.said = True
+                    Dim toWp = ln.pts(ln.at) - here
+                    LogThis("brain: hull {0} has driven {1:0} m to cover {2:0} m and " &
+                            "still not passed waypoint {3}/{4} at ({5:0.0}, {6:0.0}) - " &
+                            "it is {7:0.0} m away, {8} the nose. The follower is not " &
+                            "following.",
+                            i, ln.stalled, ln.gap0, ln.at, ln.pts.Count - 1,
+                            ln.pts(ln.at).X, ln.pts(ln.at).Y, toWp.Length,
+                            If(Vector2.Dot(toWp, nose) < 0.0F, "behind", "ahead of"))
                 End If
-                ln.was = here
             End If
+            ln.was = here
 
             ' THE BASE ZONE. The last waypoint is the far base, and a tank that
             ' has to touch a node to the metre is a tank that circles it - the
             ' zone is the arrival, not the point.
             If ln.at >= ln.pts.Count - 1 AndAlso (ln.pts(ln.at) - here).Length <= zone Then
                 ln.finished = True
-                If drives Then
-                    BrainGoal.HasTarget = False
-                    LogThis("brain: hull {0} road {1} COMPLETE - inside the {2:0} m base " &
-                            "zone at ({3:0.0}, {4:0.0}), {5:0.0} m from the base. " &
-                            "Goal cleared, the board stops on No Goal.",
-                            i, ln.roadId, zone, here.X, here.Y,
-                            (ln.pts(ln.at) - here).Length)
-                End If
-                Continue For
-            End If
-
-            If drives Then
-                BrainGoal.Follow = False
-                BrainGoal.Target = ln.pts(ln.at)
-                BrainGoal.HasTarget = True
+                LogThis("brain: hull {0} road {1} COMPLETE - inside the {2:0} m base " &
+                        "zone at ({3:0.0}, {4:0.0}), {5:0.0} m from the base.",
+                        i, ln.roadId, zone, here.X, here.Y,
+                        (ln.pts(ln.at) - here).Length)
             End If
         Next
+
+        ' The watched hull, so a stopped sim and a crewless run still have a
+        ' goal on screen. BrainCrew re-aims per seat and ends on this same
+        ' hull, so the two agree rather than race.
+        Aim(BrainRadar.HULL)
     End Sub
+
+    ''' <summary>
+    ''' EXPRESS ONE HULL'S LANE AS THE GOAL. Called by BrainCrew as it seats
+    ''' each brain, because five tanks need five goals and BrainGoal holds one.
+    '''
+    ''' A hull with no road, or one that has arrived, gets NO GOAL rather than
+    ''' a stale one - the board's first rung is No Goal -> Stop, so that is how
+    ''' a finished tank parks itself and how a hull the fan could not reach a
+    ''' road for stays put instead of driving at whatever the last tank was
+    ''' aiming at.
+    '''
+    ''' Silent when road following is off: the goal then belongs to whoever
+    ''' placed it by hand, and a follower that is not running has no business
+    ''' clearing it.
+    ''' </summary>
+    Public Sub Aim(hull As Integer)
+        If Not ON_ OrElse lanes Is Nothing Then Return
+        If hull < 0 OrElse hull >= lanes.Length Then Return
+        Dim ln = lanes(hull)
+        If ln Is Nothing OrElse Not ln.ready OrElse ln.finished Then
+            BrainGoal.HasTarget = False
+            Return
+        End If
+        BrainGoal.Follow = False
+        BrainGoal.Target = ln.pts(ln.at)
+        BrainGoal.HasTarget = True
+    End Sub
+
+    ''' <summary>Which road a hull drew, or -1. For the log line that names a
+    ''' tank when the view switches to it.</summary>
+    Public Function RoadOf(hull As Integer) As Integer
+        If lanes Is Nothing OrElse hull < 0 OrElse hull >= lanes.Length Then Return -1
+        If lanes(hull) Is Nothing Then Return -1
+        Return lanes(hull).roadId
+    End Function
 
     ''' <summary>
     ''' PUT EVERY TANK BACK TO THE START OF ITS OWN ROAD.
@@ -913,7 +956,14 @@ Module BrainPath
             ln.stalled = 0.0F
             ln.said = False
             If BrainTanks.Bodies IsNot Nothing AndAlso
-               ln.hull < BrainTanks.Bodies.Count Then ln.was = BrainTanks.Bodies(ln.hull).spawn
+               ln.hull < BrainTanks.Bodies.Count Then
+                ln.was = BrainTanks.Bodies(ln.hull).spawn
+                ' The opening leg is a gap like any other, and on the flank
+                ' roads it is the longest one the tank ever crosses - 379 m on
+                ' road 16. Seeding it here is what stops the very first
+                ' waypoint reporting a stall before the hull has had a chance.
+                If ln.ready Then ln.gap0 = (ln.pts(0) - ln.was).Length
+            End If
             n += 1
         Next
         If n = 0 Then Return
@@ -963,7 +1013,12 @@ Module BrainPath
             ln.stalled = 0.0F
             ln.said = False
             If BrainTanks.Bodies IsNot Nothing AndAlso
-               ln.hull < BrainTanks.Bodies.Count Then ln.was = BrainTanks.Bodies(ln.hull).spawn
+               ln.hull < BrainTanks.Bodies.Count Then
+                ln.was = BrainTanks.Bodies(ln.hull).spawn
+                If ln.ready AndAlso ln.at < ln.pts.Count Then
+                    ln.gap0 = (ln.pts(ln.at) - ln.was).Length
+                End If
+            End If
         Next
     End Sub
 

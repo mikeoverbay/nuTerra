@@ -684,6 +684,22 @@ Public Class BrainWindow
             Return
         End If
 
+        ' TAB - FOLLOW THE NEXT TANK. SHIFT+TAB goes back.
+        '
+        ' IsKeyPressed, so a held TAB moves one tank and not thirty. The rules
+        ' about what may be followed are BrainWatch's, not this handler's:
+        ' with five driving it cycles the drivers, and the camera, the panel,
+        ' the ahead-scope and the walk view all follow because every one of
+        ' them already reads the same hull index it writes.
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Tab) Then
+            If k.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.LeftShift) OrElse
+               k.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.RightShift) Then
+                BrainWatch.Prev()
+            Else
+                BrainWatch.Next_()
+            End If
+        End If
+
         ' SPACE STEPS WHEN WE ARE STEPPING. With ticks= set the whole point
         ' is to look at one decision at a time, and the key that normally
         ' starts the sim would throw away the picture being looked at. Without
@@ -806,8 +822,17 @@ Public Class BrainWindow
                 ' brain swap. RangeBrain reads them too.
                 BrainSim.Refused = False
                 BrainSim.RefusedRun = 0
-                Dim gb = TryCast(BrainSim.Brain, GraphBrain)
-                If gb IsNot Nothing Then gb.ResetState()
+                ' EVERY MEMBER OF THE CREW, not just the one being watched.
+                ' Reset puts five tanks back; leaving four of them believing
+                ' they were half way through backing out of something is the
+                ' same bug as before, multiplied.
+                Dim cw = TryCast(BrainSim.Brain, BrainCrew)
+                If cw IsNot Nothing Then
+                    cw.ResetAll()
+                Else
+                    Dim gb = TryCast(BrainSim.Brain, GraphBrain)
+                    If gb IsNot Nothing Then gb.ResetState()
+                End If
 
                 ' EVERY MARKER THE LAST WALK LEFT, HIDDEN - "i want reset to
                 ' hide all makers ray creates". Cleared BEFORE the step below,
@@ -932,15 +957,22 @@ Public Class BrainWindow
     ''' call sites cannot drift apart and leave the checkbox lying about
     ''' which one is driving.</summary>
     Private Function pick_brain() As IBrain
-        If USE_GRAPH Then Return New GraphBrain()
-        Return New RangeBrain()
+        ' ALWAYS A CREW, even of one. A crew of one behaves exactly as the
+        ' bare brain did - same seat, same goal, same output - so there is no
+        ' second code path to keep in step and no flag deciding which of two
+        ' behaviours is in force. `tune=crew=1` is how you get a single tank.
+        If USE_GRAPH Then Return New BrainCrew("graph", Function() New GraphBrain())
+        Return New BrainCrew("range", Function() New RangeBrain())
     End Function
 
     Private Sub go_here()
         BrainGoal.PlaceAtLookAt()
         ' THE BRAIN. There is one now - RangeBrain - and this is where a goal
         ' placed by hand puts it to work.
-        If Not (TypeOf BrainSim.Brain Is RangeBrain) Then
+        ' A CREW IS ALREADY A DRIVING BRAIN. This used to test for RangeBrain,
+        ' which a crew is not, so go-here rebuilt the whole crew on every press
+        ' and threw away five brains' worth of state mid-run.
+        If TryCast(BrainSim.Brain, BrainCrew) Is Nothing Then
             BrainSim.Brain = pick_brain()
         End If
         If Not BrainSim.Running Then BrainSim.Start()
