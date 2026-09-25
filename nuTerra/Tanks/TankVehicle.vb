@@ -346,6 +346,36 @@ Public Class TankVehicle
     Public pitchRate As Single = 20.0F
     Public pitchRateFromFile As Boolean
 
+    ''' <summary>
+    ''' HULL TRAVERSE, degrees per second, from the CHASSIS rotationSpeed.
+    '''
+    ''' "be nice to know the tanks turn rate" - the owner, 2026-09-19, and
+    ''' this file already had the element in hand: Load pulls chassisEl for
+    ''' hullPosition and the model path, then only ever asked the TURRET and
+    ''' the GUN for a rotationSpeed. The hull's own was one SelectSingleNode
+    ''' away and nobody had asked for it.
+    '''
+    ''' WHY IT MATTERS BEYOND CURIOSITY. Brain Testing turns every hull at a
+    ''' single made-up TURN_RATE of 0.45 rad/s - about 26 deg/s - and its own
+    ''' comment admits it: "this is the WORLD applying a brain's numbers, not
+    ''' a vehicle model". Since the sim's radius is v / (str * TURN_RATE),
+    ''' that one constant decides every turn the brain can physically make.
+    ''' A per-tank figure is what lets that stop being a guess.
+    '''
+    ''' ZERO MEANS THE FILE DID NOT SAY, not "cannot turn" - checked at the
+    ''' read, and hullRateFromFile carries the distinction so a default is
+    ''' never mistaken for a declared value. Same discipline pitchRate uses.
+    ''' </summary>
+    Public hullRate As Single = 0.0F
+    Public hullRateFromFile As Boolean
+
+    ''' <summary>Forward and reverse speed limits, m/s, from the chassis
+    ''' speedLimits. The OTHER half of a turn radius - read here because
+    ''' asking a file twice for two halves of one answer is how they end up
+    ''' coming from different tanks.</summary>
+    Public fwdLimit As Single = 0.0F
+    Public revLimit As Single = 0.0F
+
     ''' <summary>The muzzle blast the gun names, from gun_effects.xml.</summary>
     Public blast As BlastSpec
 
@@ -516,6 +546,7 @@ Public Class TankVehicle
         Dim turretOff = hullOff + v.turretPosition
         Dim gunOff = turretOff + v.gunPosition
 
+        v.ReadHullTraverse(chassisEl)
         v.ReadAimLimits(turretEl, gunEl)
         v.ReadGunTiming(nation, gunEl)
         v.blast = TankBlast.Lookup(TankVisual.TextOf(
@@ -645,6 +676,51 @@ Public Class TankVehicle
     End Function
 
     Private Shared ReadOnly shared_guns As New Dictionary(Of String, XmlElement)
+
+    ''' <summary>
+    ''' What the chassis says about turning and moving.
+    '''
+    ''' Read through TankVisual.Floats like every other numeric field here, so
+    ''' a value that arrives as "45" and one that arrives as "45.0 45.0" are
+    ''' both handled by the code that already knows how - speedLimits is a
+    ''' PAIR (forward, reverse) and rotationSpeed a single, and taking [0] of
+    ''' each is what the turret read does too.
+    '''
+    ''' LOGGED WHETHER OR NOT IT WAS FOUND. The point of this pass is to learn
+    ''' whether these fields are actually present in the item_defs we load -
+    ''' they are packed binary, so the only way to know is to ask one and say
+    ''' what came back. A silent absence would answer nothing.
+    ''' </summary>
+    Private Sub ReadHullTraverse(chassisEl As XmlElement)
+        If chassisEl Is Nothing Then
+            LogThis("tank:   hull: no chassis element - no traverse or speed")
+            Return
+        End If
+
+        Dim rs = TankVisual.Floats(TankVisual.TextOf(chassisEl.SelectSingleNode("rotationSpeed")))
+        If rs IsNot Nothing AndAlso rs.Length > 0 AndAlso rs(0) > 0.0F Then
+            hullRate = rs(0)
+            hullRateFromFile = True
+        End If
+
+        Dim sl = TankVisual.Floats(TankVisual.TextOf(chassisEl.SelectSingleNode("speedLimits")))
+        If sl IsNot Nothing AndAlso sl.Length > 0 Then
+            fwdLimit = sl(0)
+            If sl.Length > 1 Then revLimit = sl(1)
+        End If
+
+        ' AND WHAT IT MEANS FOR A TURN, because degrees a second on its own
+        ' invites the comparison to be done in someone's head and done wrong.
+        ' radius = v / omega, with omega in radians - the same arithmetic
+        ' BrainSim does with its constant, so the two are directly comparable.
+        Dim omega = hullRate * CSng(Math.PI) / 180.0F
+        Dim radius = If(omega > 0.0F AndAlso fwdLimit > 0.0F, fwdLimit / omega, 0.0F)
+        LogThis("tank:   hull: traverse {0:0.0} deg/s{1}, speed {2:0.0} fwd / " &
+                "{3:0.0} rev m/s -> tightest circle {4:0.0} m at full speed " &
+                "(BrainSim uses 25.8 deg/s for every tank)",
+                hullRate, If(hullRateFromFile, "", " (ABSENT from the file)"),
+                fwdLimit, revLimit, radius)
+    End Sub
 
     Private Sub ReadAimLimits(turretEl As XmlElement, gunEl As XmlElement)
         If gunEl IsNot Nothing Then
