@@ -37,6 +37,11 @@ Module BrainGun
     Private Structure Shot
         Public from_ As Vector3
         Public to_ As Vector3
+        ''' <summary>Metres to the impact, and metres a second the shell covers.
+        ''' Per shot, because the guns on one roster range 1115 to 1400 m/s and a
+        ''' shared constant would make every tracer the same lie.</summary>
+        Public dist As Single
+        Public speed As Single
         Public age As Single
         Public hit As Boolean
     End Structure
@@ -51,11 +56,14 @@ Module BrainGun
     Private shader As BrainShader
     Private vao, vbo, verts As Integer
 
-    ''' <summary>Placeholder tracer lifetime. nuTerra work is bringing the real
-    ''' animated shot and impact from the nuTerra source; this exists so the
-    ''' AIMING can be tested and watched before those land, and should be the
-    ''' first thing deleted when they do.</summary>
-    Private Const LIFE As Single = 0.45F
+    ''' <summary>How long an impact mark stays after the shell arrives. The
+    ''' flight itself is timed by the shell, not by this.</summary>
+    Private Const DWELL As Single = 0.35F
+
+    ''' <summary>Length of the visible streak behind the shell, metres. A shell
+    ''' is not 12 m long; this is the eye's persistence, which is what a tracer
+    ''' actually is.</summary>
+    Private Const TRACER As Single = 12.0F
 
     Public Sub Init()
         shader = New BrainShader("line")
@@ -176,7 +184,18 @@ Module BrainGun
 
         Dim mz As Vector3 = Vector3.Zero
         Dim md As Vector3 = Vector3.Zero
-        If Not TankBarrel.MeasureMuzzle(g, m, mz, md) Then
+        ' MuzzleFor, NOT MeasureMuzzle. nuTerra work's own correction, and it
+        ' matters on every tank on this roster: a gun whose visual names
+        ' HP_gunFire carries the game's own muzzle point and it WINS - measuring
+        ' vertices is only the fallback for a gun without one. All four tanks
+        ' they loaded name it, so calling MeasureMuzzle directly took the
+        ' fallback path for every gun and never once used the real data.
+        '
+        ' The two paths also differ in a way that would have been silent: the
+        ' named node goes through the UNFLIPPED matrix, because node positions
+        ' live in the visual's frame while only vertex streams are Z-reversed.
+        ' MuzzleFor keeps that straight; picking a path by hand would not have.
+        If Not TankBarrel.MuzzleFor(b.vehicle, g, m, mz, md) Then
             say_barrel(hull, b, False)
             Return False
         End If
@@ -198,8 +217,23 @@ Module BrainGun
         If saidBarrel.Contains(hull) Then Return
         saidBarrel.Add(hull)
         If ok Then
-            LogThis("brain: hull {0} ({1}) - barrel MEASURED, shots leave the muzzle",
-                    hull, b.tag)
+            ' THE GUN, AS THE GAME STATES IT. Printed once per hull because it is
+            ' a fact about the roster, and printed at all because these numbers
+            ' were placeholders until nuTerra work read the real ones: shell
+            ' speed was one global 180 m/s for every gun, recoil travel a fixed
+            ' 0.40 m for every barrel.
+            Dim v = b.vehicle
+            If v Is Nothing Then
+                LogThis("brain: hull {0} ({1}) - muzzle found", hull, b.tag)
+            Else
+                LogThis("brain: hull {0} ({1}) - muzzle found. {2} at {3:0} m/s, " &
+                        "pierce {4:0}, reach {5:0} m, recoil {6:0.00} m{7}",
+                        hull, b.tag,
+                        If(v.shellName = "", "shell", v.shellName),
+                        v.shellSpeedMps, v.shellPiercing, v.shellMaxDistanceM,
+                        v.recoilTravelM,
+                        If(v.muzzleBrake = "", "", ", brake " & v.muzzleBrake))
+            End If
         Else
             LogThis("brain: hull {0} ({1}) - no measurable barrel bone, falling back to " &
                     "the hull box and the commanded angles", hull, b.tag)
@@ -247,7 +281,14 @@ Module BrainGun
         Dim eye As Vector3 = Vector3.Zero, dir As Vector3 = Vector3.Zero
         barrel(me_, b, eye, dir)
 
-        Dim range = BrainTune.Get_("gunrange", 400.0F)
+        ' THE SHELL'S OWN MAX DISTANCE when it states one - 720 m on every
+        ' shell measured - rather than a number I picked. tune=gunrange= still
+        ' overrides, for keeping a test inside the visible area.
+        Dim range = BrainTune.Get_("gunrange", 0.0F)
+        If range <= 0.0F Then
+            range = If(b.vehicle Is Nothing OrElse b.vehicle.shellMaxDistanceM <= 1.0F,
+                       400.0F, b.vehicle.shellMaxDistanceM)
+        End If
         Dim who = -1, team = 0
         Dim d2 = New Vector2(dir.X, dir.Z)
         Dim flatLen = Math.Max(0.0001F, d2.Length)
@@ -258,7 +299,18 @@ Module BrainGun
         Dim dist = If(landed, t / flatLen, range)
         Dim endPt = eye + dir * dist
 
-        shots.Add(New Shot With {.from_ = eye, .to_ = endPt, .age = 0.0F, .hit = landed})
+        ' THE GUN'S OWN SHELL SPEED. It was a single global 180 m/s for every
+        ' gun in nuTerra until nuTerra work read the real ones off the shells:
+        ' 1115 to 1400 m/s on this roster, so anything built on 180 was out by
+        ' six to eight times. Nothing here used it before - the shot was
+        ' instantaneous - which is why the error never showed and why using it
+        ' now is what makes the shot ANIMATED rather than a line that appears.
+        Dim mps = 0.0F
+        If b.vehicle IsNot Nothing Then mps = b.vehicle.shellSpeedMps
+        If mps <= 1.0F Then mps = BrainTune.Get_("shellmps", 1200.0F)
+
+        shots.Add(New Shot With {.from_ = eye, .to_ = endPt, .dist = dist,
+                                 .speed = mps, .age = 0.0F, .hit = landed})
         reload_(me_) = BrainTune.Get_("reload", 3.0F)
         Fired += 1
         If Fired <= 8 Then
@@ -278,7 +330,11 @@ Module BrainGun
         For i = shots.Count - 1 To 0 Step -1
             Dim s = shots(i)
             s.age += dt
-            If s.age > LIFE Then
+            ' FLIGHT TIME PLUS DWELL, not a fixed life. A 4 m point-blank shot
+            ' and a 400 m one are 0.003 s and 0.33 s of flight at 1200 m/s, and
+            ' giving both the same lifetime would either strobe the near one or
+            ' delete the far one before it arrived.
+            If s.age > (s.dist / Math.Max(1.0F, s.speed)) + DWELL Then
                 shots.RemoveAt(i)
             Else
                 shots(i) = s
@@ -326,10 +382,24 @@ Module BrainGun
     Private Sub build()
         Dim v As New List(Of Single)
         For Each s In shots
-            seg(v, s.from_, s.to_)
+            Dim run = Math.Max(0.0001F, s.dist)
+            Dim u = (s.to_ - s.from_) / run
+            Dim head = Math.Min(s.dist, s.age * s.speed)
+
+            If head < s.dist Then
+                ' IN FLIGHT. A streak from where the eye still remembers the
+                ' shell to where it is now, travelling at the gun's own muzzle
+                ' velocity - so a 400 m shot visibly crosses the ground and a
+                ' point-blank one is over before the frame ends, which is the
+                ' truth about tank gunnery.
+                Dim tail = Math.Max(0.0F, head - TRACER)
+                seg(v, s.from_ + u * tail, s.from_ + u * head)
+                Continue For
+            End If
+
+            ' ARRIVED. The cross marks where, sized to read from the 300 m zoom
+            ' this app is usually driven at.
             If Not s.hit Then Continue For
-            ' A cross at the impact, sized so it reads from the 300 m zoom the
-            ' app is usually driven at.
             Dim r = 2.0F
             seg(v, s.to_ - New Vector3(r, 0.0F, 0.0F), s.to_ + New Vector3(r, 0.0F, 0.0F))
             seg(v, s.to_ - New Vector3(0.0F, 0.0F, r), s.to_ + New Vector3(0.0F, 0.0F, r))
