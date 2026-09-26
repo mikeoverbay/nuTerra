@@ -76,6 +76,10 @@ Module BrainTrap
     Private Class Pending
         Public leftAt, rightAt, sawFrom As Vector2
         Public sawHeading As Single
+        ''' <summary>A PLACE TO DRIVE TO, on the open side. Recorded while the
+        ''' rays can still see it - see open_spot.</summary>
+        Public openAt As Vector2
+        Public haveOpen As Boolean
     End Class
 
     Private ReadOnly held As New Dictionary(Of Integer, Pending)
@@ -119,6 +123,13 @@ Module BrainTrap
     ''' got clear of the place. Per hull, like everything else here.
     ''' </summary>
     Private ReadOnly sealedAt As New Dictionary(Of Integer, Vector2)
+    ''' <summary>The go-around point that went with each seal, and how many
+    ''' ticks the board has been asked about it. The count exists because a
+    ''' latch that only clears by DISTANCE can hold the board for ever if the
+    ''' hull does not move - which is exactly what happened when this rung drove
+    ''' Turn To at zero throttle.</summary>
+    Private ReadOnly sealedTo As New Dictionary(Of Integer, Vector2)
+    Private ReadOnly sealedFor As New Dictionary(Of Integer, Integer)
 
     ''' <summary>
     ''' TRUE WHILE THIS HULL SHOULD TURN TOWARD THE OPEN SIDE.
@@ -143,11 +154,110 @@ Module BrainTrap
         Dim was As Vector2 = Nothing
         If Not sealedAt.TryGetValue(me_, was) Then Return False
         If (pos - was).Length > BrainTune.Get_("trapaway", 25.0F) Then
-            sealedAt.Remove(me_)
-            LogThis("brain: hull {0} is clear of the dead end it sealed - back to the " &
-                    "objective.", me_)
+            drop(me_, "is clear of the dead end it sealed")
             Return False
         End If
+
+        ' AND A HARD CEILING ON HOW LONG IT MAY HOLD THE BOARD.
+        '
+        ' Distance alone is not a release: a rung that does not move the hull
+        ' keeps its own precondition true for ever. That is not hypothetical -
+        ' this rung first drove Turn To, which is `thr = 0.0F`, so the tank
+        ' pivoted on the spot and could never reach the 25 m that would have
+        ' freed it. The ceiling means the worst case is a few seconds lost, not
+        ' a run.
+        Dim n = 0
+        sealedFor.TryGetValue(me_, n)
+        n += 1
+        sealedFor(me_) = n
+        If n > CInt(BrainTune.Get_("trapfor", 600.0F)) Then
+            drop(me_, "has held the turn-out for " & n & " ticks without getting clear")
+            Return False
+        End If
+        Return True
+    End Function
+
+    Private Sub drop(hull As Integer, why As String)
+        sealedAt.Remove(hull)
+        sealedTo.Remove(hull)
+        sealedFor.Remove(hull)
+        LogThis("brain: hull {0} {1} - back to the objective.", hull, why)
+    End Sub
+
+    ''' <summary>
+    ''' THE BEARING TO A PLACE, not to the most open direction.
+    '''
+    ''' "we turn to the lonest ray to find the edge but never places a point
+    ''' next to it to go around?" - the owner, 2026-09-25, reading the board.
+    ''' Exactly right, and it was worse than that: the rung drove Turn To, which
+    ''' commands zero throttle, so it found the edge and then pivoted at it for
+    ''' ever.
+    '''
+    ''' A bearing is not a plan. This returns a bearing toward a POINT recorded
+    ''' on the open side when the dead end was found, so Drive Heading has
+    ''' somewhere to go and the hull leaves the pocket instead of admiring it.
+    '''
+    ''' Relative to the nose, because every bearing on this board is.
+    ''' Nothing when there is no latch or no spot, so the Gate above declines
+    ''' and the objective gets its tick back.
+    ''' </summary>
+    Public Function PastEdge(pos As Vector2, headingRad As Single) As Object
+        Dim me_ = BrainRadar.HULL
+        Dim p As Vector2 = Nothing
+        If Not sealedTo.TryGetValue(me_, p) Then Return Nothing
+        Dim d = p - pos
+        If d.Length < 0.5F Then Return Nothing
+        Dim b = CSng(Math.Atan2(d.X, d.Y)) - headingRad
+        While b > Math.PI
+            b -= CSng(Math.PI * 2.0)
+        End While
+        While b < -Math.PI
+            b += CSng(Math.PI * 2.0)
+        End While
+        Return CObj(b)
+    End Function
+
+    ''' <summary>
+    ''' THE DEEPEST RAY OVER THE WHOLE SCAN, as a place short of what it hit.
+    '''
+    ''' Over ALL of it, not the forward hemisphere, and that is the point.
+    ''' deeper_side() - the board's existing pick - only considers rays with
+    ''' `front` set, and front is |angle| &lt;= 90 deg. But this rule only fires
+    ''' when 160 degrees of that hemisphere is ALREADY SOLID, so asking it for a
+    ''' heading is asking for the least-bad direction out of a set just proved to
+    ''' be all wall. The way out of a pocket is past the beam edge, often behind,
+    ''' and a forward-only measurement cannot say so.
+    '''
+    ''' SHORT OF THE HIT by a standoff, because the ray's own end is the
+    ''' obstacle. A point two metres before it is open ground by construction -
+    ''' the ray got there.
+    ''' </summary>
+    Private Function open_spot(hits As BrainRadar.Hit(), pos As Vector2,
+                               headingRad As Single, ByRef spot As Vector2) As Boolean
+        If hits Is Nothing Then Return False
+        Dim best = -1.0F
+        Dim bestA = 0.0F
+        For Each hh In hits
+            ' Our own chords are not walls for detection and they are not
+            ' openings either - a ray that stops on one tells us nothing about
+            ' the world, so it cannot be the deepest.
+            If ours.Contains(hh.row * BrainNav.CellCols + hh.col) Then Continue For
+            Dim reach = If(hh.found, hh.drive, BrainRadar.REACH_M)
+            If reach > best Then
+                best = reach
+                bestA = hh.angle
+            End If
+        Next
+        Dim stand = BrainTune.Get_("trapstand", 3.0F)
+        If best < stand + 2.0F Then Return False
+        Dim go = best - stand
+        ' NOSE-RELATIVE TO WORLD. Hit.angle is "relative to the nose, radians" -
+        ' its own comment - so it has to be turned into the world frame before it
+        ' can name a place. Using it raw put the point wherever the tank would
+        ' have been looking if it were facing north, which is a bug that would
+        ' have read as the go-around driving somewhere arbitrary.
+        Dim a = bestA + headingRad
+        spot = pos + New Vector2(CSng(Math.Sin(a)), CSng(Math.Cos(a))) * go
         Return True
     End Function
     Private shader As BrainShader
@@ -232,6 +342,7 @@ Module BrainTrap
         mine.rightAt = hiP
         mine.sawFrom = pos
         mine.sawHeading = headingRad
+        mine.haveOpen = open_spot(hits, pos, headingRad, mine.openAt)
 
         If first Then
             Flags += 1
@@ -295,7 +406,31 @@ Module BrainTrap
                 "{2:0.0}) to ({3:0.0}, {4:0.0}), hull {5:0.0} m clear. {6} cell(s) " &
                 "stamped this run; Reset re-reads the bake and they go.",
                 cells, leftAt.X, leftAt.Y, rightAt.X, rightAt.Y, d, Stamped, me_)
-        If cells > 0 Then sealedAt(me_) = pos
+        If cells > 0 Then
+            sealedAt(me_) = pos
+            sealedFor(me_) = 0
+            If mine.haveOpen Then
+                sealedTo(me_) = mine.openAt
+                ' HOW FAR, AND WHICH WAY. Without this the go-around is a bearing
+                ' in a log and there is no way to tell a real way out from a spot
+                ' six metres away still inside the pocket - which is the
+                ' difference between this rule working and it looking like it
+                ' works.
+                Dim toSpot = mine.openAt - pos
+                LogThis("brain: hull {0} go-around point ({1:0.0}, {2:0.0}) - {3:0.0} m " &
+                        "off at {4:0} deg from the nose, {5:0.0} m from where the chord " &
+                        "went down.",
+                        me_, mine.openAt.X, mine.openAt.Y, toSpot.Length,
+                        MathHelper.RadiansToDegrees(
+                            CSng(Math.Atan2(toSpot.X, toSpot.Y)) - mine.sawHeading),
+                        (mine.openAt - mine.sawFrom).Length)
+            Else
+                sealedTo.Remove(me_)
+                LogThis("brain: hull {0} sealed a dead end and has NOWHERE to go - no ray " &
+                        "in the whole scan reaches past the standoff. Backing is the only " &
+                        "move left.", me_)
+            End If
+        End If
         Return cells > 0
     End Function
 
@@ -306,6 +441,8 @@ Module BrainTrap
         marks.Clear()
         ours.Clear()
         sealedAt.Clear()
+        sealedTo.Clear()
+        sealedFor.Clear()
         verts = 0
         Stamped = 0
         Flags = 0

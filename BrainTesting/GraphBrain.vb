@@ -1003,6 +1003,8 @@ Public Class GraphBrain
                 v = best_progress()
             Case "Deepest Ray"
                 v = CObj(deeper_side())
+            Case "Past The Edge"
+                v = BrainTrap.PastEdge(h.pos, h.headingRad)
             Case "Confirm"
                 v = vote(pulled(id, "door"))
             Case "Commit"

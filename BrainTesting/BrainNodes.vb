@@ -192,6 +192,7 @@ Module BrainNodes
         New Kind("test", "Backed Enough", {}, {"True"}, {"seconds"}, {1.2F}),
         New Kind("test", "No Goal", {}, {"True"}),
         New Kind("test", "No Way Out", {}, {"True"}),
+        New Kind("pick", "Past The Edge", {}, {"bearing"}),
         New Kind("test", "Too Few Rays", {"hits"}, {"True"}),
         New Kind("test", "Hit Count", {"hits"}, {"True"}, {"count"}, {3.0F}),
         New Kind("test", "Has Door", {"door"}, {"True"}),
@@ -298,6 +299,7 @@ Module BrainNodes
             Case "Arrived" : Return "close enough to the goal to call it done"
             Case "No Goal" : Return "nothing to drive toward"
             Case "No Way Out" : Return "just sealed a dead end here - turn to the open side"
+            Case "Past The Edge" : Return "bearing to a PLACE on the open side, past the wall"
             Case "Is Wedged" : Return "asked to move, went nowhere, for most of a second"
             Case "Not Moving" : Return "asked to move and went nowhere, right now"
             Case "Too Few Rays" : Return "the scan came back with almost nothing"
@@ -1160,13 +1162,27 @@ Module BrainNodes
             ' the Round The End rung further down.
             Dim tSealed = spawn("No Way Out", 420.0F, 655.0F)
             Dim gSealed = spawn("Gate", 650.0F, 655.0F)
-            Dim aSealed = spawn("Turn To", 900.0F, 655.0F)
+            ' DRIVE HEADING, NOT TURN TO. Turn To is `thr = 0.0F` - it pivots
+            ' and never moves - and this rung's own precondition only clears
+            ' when the hull gets 25 m away, so pairing the two was a deadlock:
+            ' the tank found the edge and spun at it for ever. "we turn to the
+            ' lonest ray to find the edge but never places a point next to it to
+            ' go around?" - the owner, reading the board and spotting it before
+            ' the run did. A bearing is not a plan.
+            '
+            ' Throttle left unwired, which means "pick its own" - the same way
+            ' the existing Round The End rung drives.
+            Dim aSealed = spawn("Drive Heading", 900.0F, 655.0F)
+            Dim pPast = spawn("Past The Edge", 420.0F, 720.0F)
             join_pins(pCommit, "b", gSealed, "in")
             join_pins(tSealed, "True", gSealed, "True")
             join_pins(gSealed, "out", aSealed, "in")
-            ' The SAME Deepest Ray the old rung used - one measurement, two
-            ' readers, so they cannot disagree about which side is open.
-            join_pins(pDeep, "bearing", aSealed, "bearing")
+            ' A PLACE, recorded when the dead end was found, on the open side
+            ' of the WHOLE scan rather than of the forward hemisphere. Deepest
+            ' Ray cannot serve here: it only looks at rays with `front` set,
+            ' |angle| <= 90 deg, and this rung only fires when 160 degrees of
+            ' that is already solid wall. The way out is past the beam edge.
+            join_pins(pPast, "bearing", aSealed, "bearing")
             join_pins(pCommit, "c", pGo, "in")
         Else
             join_pins(pCommit, "b", pGo, "in")
