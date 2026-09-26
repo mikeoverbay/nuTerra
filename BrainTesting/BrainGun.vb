@@ -94,15 +94,34 @@ Module BrainGun
         If atHull < 0 Then Return False
 
         Dim tgt = BrainTanks.Bodies(atHull)
-        Dim eye = muzzle(mine)
+        Dim eye As Vector3 = Vector3.Zero, look As Vector3 = Vector3.Zero
+        barrel(me_, mine, eye, look)
         ' CENTRE OF THE HULL BOX, not the ground under it. Aiming at the
         ' contact point would put every shot into the dirt at the target's
         ' tracks, and half the box height is the honest middle of what there is
         ' to hit.
         Dim aimAt = New Vector3(tgt.spawn.X, tgt.y + tgt.half.Y, tgt.spawn.Y)
 
+        ' ---- INTO THE VEHICLE'S FRAME, WHICH IS MIRRORED -------------------
+        '
+        ' TankRoster.MirrorX is True: "BigWorld's X runs opposite to the world
+        ' frame every consumer uses", so the hull's world matrix carries a -1 X
+        ' scale and a local yaw of theta DRAWS as -theta in the world.
+        '
+        ' turretYawDeg lives in the VEHICLE's frame, because that is the frame
+        ' PartLocal composes in and the frame yawMin/yawMax and PitchRangeAt are
+        ' declared in. So a world-relative bearing has to be flipped on the way
+        ' in. Without this the turret points at the MIRROR of the target - and it
+        ' did, invisibly, because the shot direction was derived from the same
+        ' wrong assumption as the aim, so the two agreed and every shot "hit".
+        ' Measuring the real barrel is what exposed it: every shot missed.
+        '
+        ' PITCH IS NOT AFFECTED. Mirroring X leaves the YZ plane alone, and a
+        ' rotation about X lives entirely in YZ, so the gun's elevation sign
+        ' survives the reflection unchanged.
+        Dim mirror = If(TankRoster.MirrorX, -1.0F, 1.0F)
         Dim flat = New Vector2(aimAt.X - eye.X, aimAt.Z - eye.Z)
-        tDeg = MathHelper.RadiansToDegrees(
+        tDeg = mirror * MathHelper.RadiansToDegrees(
             wrap180r(CSng(Math.Atan2(flat.X, flat.Y)) - mine.headingRad))
         Dim run = Math.Max(0.001F, flat.Length)
         gDeg = MathHelper.RadiansToDegrees(CSng(Math.Atan2(aimAt.Y - eye.Y, run)))
@@ -110,40 +129,84 @@ Module BrainGun
     End Function
 
     ''' <summary>
-    ''' Where this hull's gun muzzle is, in the world.
+    ''' WHERE THE BARREL ENDS AND WHICH WAY IT POINTS, both measured.
     '''
-    ''' THE GUN PART'S ORIGIN, through the matrix the gun is drawn with - so it
-    ''' rises, yaws and pitches with the barrel rather than sitting at a guessed
-    ''' fraction of the hull box, which is what this used to do.
+    ''' TankBarrel.MeasureMuzzle walks the barrel bone's own vertices through the
+    ''' very matrix the gun is drawn with, so the shot leaves exactly where the
+    ''' barrel appears. nuTerra work's argument for why this cannot be
+    ''' approximated is the right one: guns differ in length and are not all
+    ''' authored down the same axis, so any assumed barrel length misses, and the
+    ''' sign of a picked axis is a coin flip per vehicle.
     '''
-    ''' STILL THE BREECH AND NOT THE TIP. The barrel's LENGTH is not in the part
-    ''' offset, and it cannot be guessed: nuTerra work's point is that guns differ
-    ''' in length and are not all authored down the same axis, so any assumed
-    ''' length misses. Their measured_muzzle walks the barrel bone's own vertices
-    ''' through this same matrix, which is the right answer, and they are putting
-    ''' it on the seam. Until then a shot leaves the breech rather than the
-    ''' muzzle: a few metres short along a line that is already correct, which
-    ''' changes nothing about where it lands.
+    ''' THE DIRECTION IS THE BETTER HALF. It comes back as the muzzle minus the
+    ''' mid-barrel hub - a difference of two MEASURED points - rather than an
+    ''' axis someone chose a sign for. It arrives un-normalised, so it is
+    ''' normalised here.
+    '''
+    ''' FALSE IS A REAL ANSWER and must be tested: a gun with no measurable
+    ''' barrel bone leaves both outputs untouched. They are seeded with the
+    ''' fallback FIRST - hull-box height, direction from the commanded angles -
+    ''' so a refusal degrades to the old approximation rather than firing from
+    ''' an uninitialised vector.
     ''' </summary>
-    Private Function muzzle(b As BrainTanks.Body) As Vector3
-        If b.vehicle IsNot Nothing Then
-            Dim g = b.vehicle.GunPart
-            If g IsNot Nothing Then
-                ' THE GUN PART'S OWN ORIGIN, through the very matrix it is drawn
-                ' with. Not a guess at a height: this is where the breech
-                ' actually is, yawed and pitched with the turret, so it tracks
-                ' as the gun moves instead of sitting at a fixed fraction of a
-                ' box.
-                Dim m = b.vehicle.PartLocal(g, b.turretYawDeg, b.gunPitchDeg) *
-                        BrainTanks.WorldOf(b)
-                Return New Vector3(m.M41, m.M42, m.M43)
-            End If
+    Private Function barrel(hull As Integer, b As BrainTanks.Body,
+                            ByRef from_ As Vector3, ByRef dir As Vector3) As Boolean
+        ' ---- THE FALLBACK, SEEDED BEFORE ANYTHING CAN DECLINE ---------------
+        from_ = New Vector3(b.spawn.X,
+                            b.y + b.half.Y * BrainTune.Get_("gunh", 1.8F),
+                            b.spawn.Y)
+        ' Back OUT of the vehicle's mirrored frame for a world direction - see
+        ' the note in Aim. Only reached when a gun has no measurable barrel.
+        Dim mirror = If(TankRoster.MirrorX, -1.0F, 1.0F)
+        Dim wy = b.headingRad + MathHelper.DegreesToRadians(mirror * b.turretYawDeg)
+        Dim wp = MathHelper.DegreesToRadians(b.gunPitchDeg)
+        Dim flat = CSng(Math.Cos(wp))
+        dir = New Vector3(CSng(Math.Sin(wy)) * flat, CSng(Math.Sin(wp)),
+                          CSng(Math.Cos(wy)) * flat)
+
+        If b.vehicle Is Nothing Then Return False
+        Dim g = b.vehicle.GunPart
+        If g Is Nothing Then Return False
+
+        ' The gun's own draw matrix. PartLocal composes the gun through the
+        ' TURRET's pivot, so this is the barrel where it actually is, not where
+        ' a second derivation would put it.
+        Dim m = b.vehicle.PartLocal(g, b.turretYawDeg, b.gunPitchDeg) *
+                BrainTanks.WorldOf(b)
+
+        Dim mz As Vector3 = Vector3.Zero
+        Dim md As Vector3 = Vector3.Zero
+        If Not TankBarrel.MeasureMuzzle(g, m, mz, md) Then
+            say_barrel(hull, b, False)
+            Return False
         End If
-        ' No vehicle, no gun part: the hull box, as before.
-        Return New Vector3(b.spawn.X,
-                           b.y + b.half.Y * BrainTune.Get_("gunh", 1.8F),
-                           b.spawn.Y)
+        If md.LengthSquared < 0.000001F Then
+            say_barrel(hull, b, False)
+            Return False
+        End If
+
+        from_ = mz
+        dir = Vector3.Normalize(md)
+        say_barrel(hull, b, True)
+        Return True
     End Function
+
+    ''' <summary>Once per hull, because "this vehicle has no measurable barrel"
+    ''' is a fact about the roster worth knowing and a fact about every frame
+    ''' worth knowing once.</summary>
+    Private Sub say_barrel(hull As Integer, b As BrainTanks.Body, ok As Boolean)
+        If saidBarrel.Contains(hull) Then Return
+        saidBarrel.Add(hull)
+        If ok Then
+            LogThis("brain: hull {0} ({1}) - barrel MEASURED, shots leave the muzzle",
+                    hull, b.tag)
+        Else
+            LogThis("brain: hull {0} ({1}) - no measurable barrel bone, falling back to " &
+                    "the hull box and the commanded angles", hull, b.tag)
+        End If
+    End Sub
+
+    Private ReadOnly saidBarrel As New HashSet(Of Integer)
 
     ''' <summary>
     ''' LAID AND LOADED? Fires if so, and reports it.
@@ -176,15 +239,13 @@ Module BrainGun
     Public Sub Fire(me_ As Integer, atHull As Integer)
         If BrainTanks.Bodies Is Nothing OrElse me_ >= BrainTanks.Bodies.Count Then Return
         Dim b = BrainTanks.Bodies(me_)
-        Dim eye = muzzle(b)
 
-        ' The line the gun is actually pointing along - turret yaw is
-        ' hull-relative, so the world bearing is the sum.
-        Dim wy = b.headingRad + MathHelper.DegreesToRadians(b.turretYawDeg)
-        Dim wp = MathHelper.DegreesToRadians(b.gunPitchDeg)
-        Dim flat = CSng(Math.Cos(wp))
-        Dim dir = New Vector3(CSng(Math.Sin(wy)) * flat, CSng(Math.Sin(wp)),
-                              CSng(Math.Cos(wy)) * flat)
+        ' MEASURED, not derived. The muzzle and the line both come off the
+        ' barrel bone through the gun's own draw matrix, so the shot leaves where
+        ' the barrel appears and travels the way it is pointing - no assumed
+        ' length, no picked axis sign.
+        Dim eye As Vector3 = Vector3.Zero, dir As Vector3 = Vector3.Zero
+        barrel(me_, b, eye, dir)
 
         Dim range = BrainTune.Get_("gunrange", 400.0F)
         Dim who = -1, team = 0
