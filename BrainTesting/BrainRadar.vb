@@ -241,6 +241,19 @@ Module BrainRadar
         Public drive As Single
 
         ''' <summary>
+        ''' THE HULL THIS RAY STOPPED ON, or -1 for the world.
+        '''
+        ''' A teammate is not a wall and the difference matters in both
+        ''' directions. It moves, so a plan that waits is worth something where
+        ''' waiting for a building is not - and it must never be treated as
+        ''' terrain by anything that writes to the map, because a no-way-out
+        ''' chord drawn across two tanks jammed nose to nose would leave a
+        ''' permanent phantom wall across open ground after they had driven off.
+        ''' </summary>
+        Public mate As Integer
+        Public mateTeam As Integer
+
+        ''' <summary>
         ''' THE CHORD TO THE NEXT RAY'S ENDPOINT, and whether the hull fits
         ''' through it.
         '''
@@ -482,6 +495,25 @@ Module BrainRadar
                 CSng(Math.Sqrt(CDbl(driveD2))) * BrainNav.CellSize)
             If Not driveOpen AndAlso driveD2 = 0 Then h.drive = 0.0F
             If bodyR <= 0.0F Then h.drive = h.dist
+
+            ' ---- ANOTHER TANK, IF ONE IS NEARER THAN THE WORLD ----------
+            '
+            ' After the grid walk and before the endpoint is worked out, so a
+            ' hull standing in front of a wall shortens the ray rather than
+            ' being hidden behind it. dist AND drive both move: a tank is as
+            ' solid to the body as it is to the line, which is the whole point
+            ' of the sim refusing to drive into one.
+            h.mate = -1
+            h.mateTeam = 0
+            Dim mHull = -1, mTeam = 0
+            Dim mt = BrainMates.Along(HULL, pos, New Vector2(dx, dz), h.dist, mHull, mTeam)
+            If mt >= 0.0F Then
+                h.dist = mt
+                h.drive = Math.Min(h.drive, mt)
+                h.found = True
+                h.mate = mHull
+                h.mateTeam = mTeam
+            End If
 
             h.at = New Vector2(pos.X + dx * h.dist, pos.Y + dz * h.dist)
             ' The walk already knows which cell it stopped in - re-deriving it

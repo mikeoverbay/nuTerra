@@ -161,6 +161,11 @@ Module BrainSim
     ''' distance the tanks moved come from the same number. Reset by Start.</summary>
     Private runSeconds As Double = 0.0
 
+    ''' <summary>Moves refused because another hull was there. Counted always,
+    ''' printed six times - the owner's rule about the output window is a count
+    ''' and not a list, and the first few are what say whether it works.</summary>
+    Public bumps As Integer = 0
+
     Public Sub Start()
         If BrainTanks.Bodies Is Nothing OrElse BrainTanks.Bodies.Count = 0 Then
             LogThis("brain: no hulls - the sim has nothing to run")
@@ -168,6 +173,7 @@ Module BrainSim
         End If
         Frame = 0
         runSeconds = 0.0
+        bumps = 0
         ReDim speeds(BrainTanks.Bodies.Count - 1)
         ' READ ONCE A RUN, not per tick: a rate that changed underneath a
         ' plan would make the brain's own turn estimates disagree with the
@@ -462,12 +468,37 @@ Module BrainSim
                 ' would let it move a metre forward, which on these hulls is an
                 ' 8.5 m circle for a 3.4 m tank - and near any wall there is no
                 ' such circle, so the hull could not move at all.
-                If BrainNav.Standable(want.X, want.Y, inp.hulls(i).DriveRadius) Then
+                ' ---- AND ANOTHER TANK IS AS SOLID AS A WALL ----------------
+                '
+                ' Until this line existed, nothing in the app knew about another
+                ' hull: Standable reads the baked grid, so five tanks drove
+                ' through one another and stacked on the same square. Two tanks
+                ' cannot collide if neither can stop the other, and a collision
+                ' nobody can have is a collision nobody can detect.
+                '
+                ' Hull boxes, both turned - see BrainMates. tune=tankhit=0 puts
+                ' the old pass-through back for comparing against runs recorded
+                ' before it.
+                Dim intoHull = -1
+                Dim mateInWay = BrainMates.Blocked(i, want, b.headingRad, intoHull)
+                If BrainNav.Standable(want.X, want.Y, inp.hulls(i).DriveRadius) AndAlso
+                   Not mateInWay Then
                     b.spawn = want
                     ' It moved. Whatever was refusing has stopped.
                     RefusedRun = 0
                 Else
                     speeds(i) = 0.0F
+                    If mateInWay Then
+                        ' NAMED, and counted like any other refusal so a tank
+                        ' held up by a crewmate shows in the same place a tank
+                        ' held up by a building does.
+                        bumps += 1
+                        If bumps <= 6 Then
+                            LogThis("brain: hull {0} would drive into hull {1} at " &
+                                    "({2:0.0}, {3:0.0}) - refused. Tank on tank.",
+                                    i, intoHull, want.X, want.Y)
+                        End If
+                    End If
                     say_refused(inp.hulls(i), want, dt)
                 End If
             End If

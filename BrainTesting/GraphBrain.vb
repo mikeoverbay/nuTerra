@@ -420,6 +420,13 @@ Public Class GraphBrain
 
         hits = BrainRadar.Scan(h.pos, h.headingRad, h.DriveRadius)
 
+        ' ---- WHO ELSE IS OUT THERE ------------------------------------------
+        '
+        ' "i want to test them seeing each other with rays." The tagging happens
+        ' in the scan; this is the half that says so, because a field nothing
+        ' reads is indistinguishable from a field nothing sets.
+        mate_report()
+
         ' ---- HAVE WE GOT AWAY FROM THE LAST ONE --------------------------
         '
         ' The escalation is per TRAP, not per run. Without this, one awkward
@@ -1184,6 +1191,56 @@ Public Class GraphBrain
         If badR AndAlso Not badL Then Return 1.0F
         Return 0.0F
     End Function
+
+    ''' <summary>
+    ''' WHAT THIS HULL CAN SEE OF THE OTHERS, in one line when it changes.
+    '''
+    ''' ON CHANGE, not every tick and not a fixed count. A tank creeping up on a
+    ''' crewmate produces the same line sixty times a second, and a flat cap
+    ''' stops reporting exactly when the interesting part - first contact, then
+    ''' losing sight - starts happening. Reporting when the hull being seen
+    ''' changes, or the ray count moves by more than two, gives one line per
+    ''' event and silence in between.
+    '''
+    ''' Per brain instance, so with a crew each tank reports its own view rather
+    ''' than five of them sharing one counter.
+    ''' </summary>
+    Private Sub mate_report()
+        If hits Is Nothing Then Return
+        Dim n = 0, who = -1, team = 0
+        Dim near = Single.MaxValue, atDeg = 0.0F
+        For Each q In hits
+            If q.mate < 0 Then Continue For
+            n += 1
+            If q.dist < near Then
+                near = q.dist
+                who = q.mate
+                team = q.mateTeam
+                atDeg = MathHelper.RadiansToDegrees(q.angle)
+            End If
+        Next
+
+        If n = 0 Then
+            If sawMate >= 0 Then
+                LogThis("brain: hull {0} has LOST sight of hull {1}", BrainRadar.HULL, sawMate)
+                sawMate = -1
+                sawRays = 0
+            End If
+            Return
+        End If
+
+        If who = sawMate AndAlso Math.Abs(n - sawRays) <= 2 Then Return
+        Dim first = (sawMate <> who)
+        sawMate = who
+        sawRays = n
+        LogThis("brain: hull {0} {1} hull {2} (team {3}) - {4} of {5} rays on its hull " &
+                "box, nearest {6:0.0} m at {7:0} deg off the nose",
+                BrainRadar.HULL, If(first, "SEES", "still sees"), who, team,
+                n, BrainRadar.RAYS, near, atDeg)
+    End Sub
+
+    Private sawMate As Integer = -1
+    Private sawRays As Integer = 0
 
     Private Function deeper_side() As Single
         Dim best = -1.0F, at = 0.0F
