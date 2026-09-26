@@ -207,14 +207,7 @@ Module BrainTrap
         If Not sealedTo.TryGetValue(me_, p) Then Return Nothing
         Dim d = p - pos
         If d.Length < 0.5F Then Return Nothing
-        Dim b = CSng(Math.Atan2(d.X, d.Y)) - headingRad
-        While b > Math.PI
-            b -= CSng(Math.PI * 2.0)
-        End While
-        While b < -Math.PI
-            b += CSng(Math.PI * 2.0)
-        End While
-        Return CObj(b)
+        Return CObj(wrap(CSng(Math.Atan2(d.X, d.Y)) - headingRad))
     End Function
 
     ''' <summary>
@@ -369,14 +362,42 @@ Module BrainTrap
     ''' <summary>Returns True only when cells were actually written, because
     ''' the caller has to throw away everything it decided against the old map
     ''' and must not do that on a refusal or with stamping switched off.</summary>
-    Public Function Free(pos As Vector2, radius As Single) As Boolean
+    Public Function Free(hits As BrainRadar.Hit(), pos As Vector2,
+                        headingRad As Single, radius As Single) As Boolean
         Dim me_ = BrainRadar.HULL
         Dim mine As Pending = Nothing
         If Not held.TryGetValue(me_, mine) Then Return False
         held.Remove(me_)
 
+        ' ---- THE LINE IS MEASURED FROM HERE, NOT FROM WHERE IT WAS SEEN ----
+        '
+        ' "draw the baked line after it backs up, not before and force it to re
+        '  eval the hits" - the owner, 2026-09-25, and it is the better way
+        ' round. The chord captured while nose-in is the mouth as seen from
+        ' INSIDE, a couple of metres from the wall, where the two extreme rays
+        ' are whatever happened to be either side of the hull. Backed out, the
+        ' whole mouth is in view and its real edges can be measured.
+        '
+        ' The scan runs every tick unconditionally, so "re eval the hits" is
+        ' simply using the ones from this tick. The remembered pair stays as the
+        ' fallback for the case where the reverse has taken the hull so far out
+        ' that nothing reads as blocked any more - a chord is still wanted then,
+        ' and the view from inside is the only one there was.
         Dim leftAt = mine.leftAt, rightAt = mine.rightAt
-        Dim wide = radius + BrainTune.Get_("trapclear", 1.0F)
+        Dim fresh = span_now(hits, leftAt, rightAt)
+        If mine.haveOpen Then
+            ' And the way out is re-measured too, for the same reason: from out
+            ' here the open side is a fact about the world rather than a guess
+            ' made from inside a pocket.
+            Dim spot As Vector2 = Nothing
+            If open_spot(hits, pos, headingRad, spot) Then mine.openAt = spot
+        End If
+        ' A WIDER STANDOFF NOW THE CHORD IS MEASURED FROM HERE. Seen from
+        ' inside, the mouth was always well ahead of the hull; measured from
+        ' where the hull is standing it can pass much closer - the first
+        ' backed-out chord cleared by 3.7 m against a 2.9 m requirement, which is
+        ' too little margin on the one mistake this feature can make.
+        Dim wide = radius + BrainTune.Get_("trapclear", 4.0F)
         Dim d = seg_dist(pos, leftAt, rightAt)
         If d < wide Then
             ' REFUSED, AND SAID OUT LOUD. This is the MarkBlocked failure the
@@ -401,6 +422,10 @@ Module BrainTrap
         End If
 
         Dim cells = stamp_line(leftAt, rightAt)
+        LogThis("brain: hull {0} chord measured {1} - ({2:0.0}, {3:0.0}) to ({4:0.0}, " &
+                "{5:0.0}), {6:0.0} m across",
+                me_, If(fresh, "FROM HERE, backed out", "from the remembered view inside"),
+                leftAt.X, leftAt.Y, rightAt.X, rightAt.Y, (rightAt - leftAt).Length)
         Stamped += cells
         LogThis("brain: hull {7} no-way-out chord DRAWN - {0} cell(s) from ({1:0.0}, " &
                 "{2:0.0}) to ({3:0.0}, {4:0.0}), hull {5:0.0} m clear. {6} cell(s) " &
@@ -421,8 +446,8 @@ Module BrainTrap
                         "off at {4:0} deg from the nose, {5:0.0} m from where the chord " &
                         "went down.",
                         me_, mine.openAt.X, mine.openAt.Y, toSpot.Length,
-                        MathHelper.RadiansToDegrees(
-                            CSng(Math.Atan2(toSpot.X, toSpot.Y)) - mine.sawHeading),
+                        MathHelper.RadiansToDegrees(wrap(
+                            CSng(Math.Atan2(toSpot.X, toSpot.Y)) - mine.sawHeading)),
                         (mine.openAt - mine.sawFrom).Length)
             Else
                 sealedTo.Remove(me_)
@@ -447,6 +472,43 @@ Module BrainTrap
         Stamped = 0
         Flags = 0
     End Sub
+
+    ''' <summary>
+    ''' THE BLOCKED SPAN IN FRONT, AS SEEN RIGHT NOW.
+    '''
+    ''' The extremes of what is blocked across the forward arc, from wherever the
+    ''' hull is standing when it is asked. Not the same question Look asks: Look
+    ''' needs EVERY ray blocked before it will believe in a dead end, because
+    ''' one gap is a way out. This only needs the edges of what IS blocked, so it
+    ''' works from outside the pocket where most of the arc is open sky.
+    '''
+    ''' False when there is too little blocked to call it a mouth, which leaves
+    ''' the caller with the view it remembered from inside.
+    ''' </summary>
+    Private Function span_now(hits As BrainRadar.Hit(), ByRef loP As Vector2,
+                              ByRef hiP As Vector2) As Boolean
+        If hits Is Nothing Then Return False
+        Dim arc = MathHelper.DegreesToRadians(ARC_DEG)
+        Dim far_ = BrainTune.Get_("trapm", BrainRadar.REACH_M)
+        Dim loA = Single.MaxValue, hiA = Single.MinValue
+        Dim n = 0
+        For Each hh In hits
+            If Math.Abs(hh.angle) > arc Then Continue For
+            If Not hh.found OrElse hh.dist > far_ Then Continue For
+            If ours.Contains(hh.row * BrainNav.CellCols + hh.col) Then Continue For
+            n += 1
+            If hh.angle < loA Then
+                loA = hh.angle
+                loP = hh.at
+            End If
+            If hh.angle > hiA Then
+                hiA = hh.angle
+                hiP = hh.at
+            End If
+        Next
+        If n < CInt(BrainTune.Get_("trapspan", 6.0F)) Then Return False
+        Return (hiP - loP).Length > BrainTune.Get_("trapwide", 4.0F)
+    End Function
 
     ''' <summary>
     ''' Stamp every cell the line passes through, at half-cell steps.
@@ -561,6 +623,22 @@ Module BrainTrap
     ''' arithmetic: a chord that is far from the hull in the middle can still
     ''' pass close to it at one end, so the nearest point on the segment is the
     ''' only honest measure.</summary>
+    ''' <summary>Into -pi..pi. The go-around log printed "-201 deg" for a
+    ''' bearing of +159 because it subtracted two angles and showed the result -
+    ''' the returned bearing was always wrapped, so this was a display fault
+    ''' only, but a reader cannot tell those apart and -201 reads as broken.
+    ''' One wrap now, used by both.</summary>
+    Private Function wrap(a As Single) As Single
+        Dim x = a
+        While x > Math.PI
+            x -= CSng(Math.PI * 2.0)
+        End While
+        While x < -Math.PI
+            x += CSng(Math.PI * 2.0)
+        End While
+        Return x
+    End Function
+
     Private Function seg_dist(p As Vector2, a As Vector2, b As Vector2) As Single
         Dim ab = b - a
         Dim L2 = ab.LengthSquared

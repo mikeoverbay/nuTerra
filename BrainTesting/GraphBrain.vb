@@ -635,7 +635,7 @@ Public Class GraphBrain
                 If was = GSt.Backing AndAlso k <> "Set Backing" Then
                     ' AND IF IT WROTE, REPLAN. The wall it just drew is a fact
                     ' the plan in hand was chosen without.
-                    If BrainTrap.Free(h.pos, h.DriveRadius) Then MapChanged()
+                    If BrainTrap.Free(hits, h.pos, h.headingRad, h.DriveRadius) Then MapChanged()
                 End If
                 state = CType([Enum].Parse(GetType(GSt), k.Substring(4)), GSt)
                 why = "state " & k.Substring(4).ToLowerInvariant()
