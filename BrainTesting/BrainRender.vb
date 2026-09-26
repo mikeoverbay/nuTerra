@@ -38,6 +38,7 @@ Module BrainRender
         BrainCourse.Init()
         BrainPath.Init()
         BrainRoadMarks.Init()
+        BrainTrap.Init()
 
         ' The camera asks the same sampler the hulls and the nav grid ask, so
         ' the point it looks at is on the surface they all agree about.

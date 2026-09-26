@@ -156,12 +156,18 @@ Module BrainSim
 
     Private speeds() As Single
 
+    ''' <summary>Seconds of SIM time this run, accumulated from the clamped dt
+    ''' the hulls were actually integrated with - so the log's clock and the
+    ''' distance the tanks moved come from the same number. Reset by Start.</summary>
+    Private runSeconds As Double = 0.0
+
     Public Sub Start()
         If BrainTanks.Bodies Is Nothing OrElse BrainTanks.Bodies.Count = 0 Then
             LogThis("brain: no hulls - the sim has nothing to run")
             Return
         End If
         Frame = 0
+        runSeconds = 0.0
         ReDim speeds(BrainTanks.Bodies.Count - 1)
         ' READ ONCE A RUN, not per tick: a rate that changed underneath a
         ' plan would make the brain's own turn estimates disagree with the
@@ -336,7 +342,26 @@ Module BrainSim
 
         LastWhy = outp.why
         Apply(inp, outp, dt)
-        BrainLog.Note(inp, outp, Frame * CDbl(dt))
+        ' ---- THE CLOCK, ACCUMULATED ----------------------------------------
+        '
+        ' This was Frame * dt: the frame count times THIS frame's dt. dt is the
+        ' real frame time and it wobbles, so the whole history rescaled every
+        ' frame - at frame 8,000 a dt of 16.5 ms reported 132 s and 21 ms
+        ' reported 168 s, and the column marched back and forth across that
+        ' range. Measured on one run: 19,308 of tank 4's 48,699 rows, 40%, had
+        ' a timestamp earlier than the row before it.
+        '
+        ' It is not a cosmetic column. Every time series anyone plots from this
+        ' file - and every one read in this session - had its x-axis scrambled,
+        ' and a sampled read of it looks like a coherent sequence of events
+        ' that never happened in that order. The owner caught it by watching
+        ' the tank and disbelieving the numbers, which is the right way round
+        ' but should not have been necessary.
+        '
+        ' Row ORDER was always correct, being append-only, so conclusions drawn
+        ' from the sequence survive; conclusions drawn from the times do not.
+        runSeconds += dt
+        BrainLog.Note(inp, outp, runSeconds)
         ' SCORED AS IT HAPPENS. A goal that respawns on arrival cannot be
         ' scored at the whistle - by then the distance is to a goal the run
         ' never saw the start of.

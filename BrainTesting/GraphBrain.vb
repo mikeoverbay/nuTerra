@@ -268,6 +268,48 @@ Public Class GraphBrain
     ''' What is NOT cleared: the goal, which Reset deals with, and the board,
     ''' which is the design and has nothing to do with a run.
     ''' </summary>
+    ''' <summary>
+    ''' THE MAP UNDER US CHANGED - throw away everything chosen against the old
+    ''' one.
+    '''
+    ''' "brain beaks after drawing the blockers, we should fall right back in to
+    ''' our rule patterns. In stead, we drive in to the wall again." - the owner,
+    ''' 2026-09-25, and he is describing a stale commitment, not a broken board.
+    '''
+    ''' ResetState's own comment already names the mechanism: "PlanOn left the
+    ''' first ticks executing a route computed for the old position". Same fault
+    ''' from the other direction - the position is fine and the MAP moved, but a
+    ''' route chosen before a wall existed is equally worthless, and the board
+    ''' will keep driving it because a commitment is exactly what it is for.
+    '''
+    ''' The rays need nothing: BrainRadar.Scan runs every tick unconditionally
+    ''' ("EVERY TICK, because the aim point cannot move if nothing is looking at
+    ''' it"), so the very next scan sees the new cells. It is only the decisions
+    ''' that are stale.
+    '''
+    ''' NOT ResetState, which is a run reset and belongs to the Reset button.
+    ''' This is narrower on purpose: drop the plan, the held way and the
+    ''' stick-to-last-aim bonus, clear the counters that would otherwise carry a
+    ''' failed escape into the fresh attempt, and leave `state` alone because the
+    ''' act that called this is about to set it.
+    ''' </summary>
+    Public Sub MapChanged()
+        PlanOn = False
+        holding = False
+        haveLast = False
+        votes = 0
+        wedgedFor = 0.0F
+        stuckFor = 0.0F
+        backingFor = 0.0F
+        ' The sim's refusal run, which is the counter that actually stops a tank
+        ' dead: Drive Heading commands zero throttle past three refusals, and it
+        ' only clears when a hull MOVES. Carrying it past a fresh wall means the
+        ' tank cannot take the first step that would clear it.
+        BrainSim.Refused = False
+        BrainSim.RefusedRun = 0
+        why = "map changed - replanning"
+    End Sub
+
     Public Sub ResetState()
         state = GSt.Seek
         wedgedFor = 0.0F
@@ -586,6 +628,15 @@ Public Class GraphBrain
                 Return False
             Case "Set Seek", "Set Turning", "Set Follow", "Set Door", "Set Backing"
                 Dim was = state
+                ' LEAVING Backing IS THE MOMENT THE CHORD CAN BE DRAWN. The
+                ' hull has reversed out, so it is now on the outside of the
+                ' mouth it was looking into when the arc closed. BrainTrap
+                ' measures that for itself and refuses if it disagrees.
+                If was = GSt.Backing AndAlso k <> "Set Backing" Then
+                    ' AND IF IT WROTE, REPLAN. The wall it just drew is a fact
+                    ' the plan in hand was chosen without.
+                    If BrainTrap.Free(h.pos, h.DriveRadius) Then MapChanged()
+                End If
                 state = CType([Enum].Parse(GetType(GSt), k.Substring(4)), GSt)
                 why = "state " & k.Substring(4).ToLowerInvariant()
                 ' ---- ARRIVING IN Backing SETS THE DISTANCE TO GO ----------
@@ -2015,6 +2066,19 @@ Public Class GraphBrain
                 End If
             Next
         Next
+
+        ' ---- NO WAY OUT ----------------------------------------------------
+        '
+        ' HERE, because `got` is the only place in the app that knows "there is
+        ' no path" - it is the walk's own verdict over every candidate end. The
+        ' other half of the rule, a solid arc across the nose, is read off the
+        ' same scan this walk was built from, so both halves describe one
+        ' instant rather than two.
+        '
+        ' INFORMS ONLY. It records a chord and returns; it does not act, does
+        ' not touch the board, and does not write to the map. The writing
+        ' happens on the way out of the backing state - see BrainTrap.
+        BrainTrap.Look(hits, h.pos, h.headingRad, Not got)
 
         If turnSay < 6 Then
             turnSay += 1

@@ -138,7 +138,15 @@ Module BrainLog
 
                 Dim tgt = If(outp.target IsNot Nothing AndAlso i < outp.target.Length,
                              outp.target(i), New Vector2(0.0F, 0.0F))
-                Dim row = If(outp.row IsNot Nothing AndAlso i < outp.row.Length, outp.row(i), 0)
+                ' wp_at / wp_of, FILLED AT LAST. These columns have existed
+                ' since this writer was written and have read "0/0" on every row
+                ' of every run, because outp.row is the brain's own progress
+                ' field and no brain here sets it. The follower knows, so the
+                ' follower is asked: -1 is off the road and seeking the base,
+                ' -2 is a hull that was never given one. No column added - that
+                ' header is a contract shared with TankLog.
+                Dim wpAt = BrainPath.WpAt(i)
+                Dim wpOf = BrainPath.WpOf(i)
 
                 writer.WriteLine(String.Format(
                     Globalization.CultureInfo.InvariantCulture,
@@ -148,7 +156,7 @@ Module BrainLog
                     t_s, If(changed, "EVENT", "SAMPLE"), hull.id, hull.team,
                     hull.pos.X, hull.pos.Y,
                     MathHelper.RadiansToDegrees(hull.headingRad), hull.speed,
-                    travelled(hull.id), csv(why), hull.id, row, 0))
+                    travelled(hull.id), csv(why), hull.id, wpAt, wpOf))
             Next
             writer.Flush()
         Catch ex As Exception

@@ -101,6 +101,29 @@ Module BrainPath
         ''' it was measured from, and whether the stall has been reported. A
         ''' follower that has stopped following is the failure this whole
         ''' module can have, and it used to be invisible.</summary>
+        ''' <summary>0 = following the course, 1 = seeking the base. The course
+        ''' is a path; the base is a POINT this hull was assigned and seeks. See
+        ''' Tick on why those are two different things and why the base is not
+        ''' simply a last waypoint.</summary>
+        Public phase As Integer
+        ''' <summary>The end point this hull is assigned - the enemy base. Held
+        ''' here rather than looked up per tick so nothing can disagree about
+        ''' which base a lane is driving at.</summary>
+        Public dest As Vector2
+        ''' <summary>WHERE THIS HULL IS STEERING. Worked out by Tick, handed to
+        ''' the board by Aim. Under a vector walk it is a point ON the course a
+        ''' turning-circle ahead of the hull, which is never a waypoint - see
+        ''' walk_along.</summary>
+        Public lookAt As Vector2
+        ''' <summary>Cross-track error: how far the hull is off its own path,
+        ''' metres. The one number that answers "is this tank following its
+        ''' course" without needing a picture.</summary>
+        Public off As Single
+        ''' <summary>Metres of course still ahead, measured along the road from
+        ''' where the hull actually is. This is progress under a walk, where a
+        ''' waypoint index creeps and cannot say whether anything is
+        ''' happening.</summary>
+        Public left As Single
         Public stalled As Single
         Public was As Vector2
         Public said As Boolean
@@ -372,15 +395,18 @@ Module BrainPath
         ' THE ENEMY BASE, as the last waypoint, when the road does not already
         ' finish inside the zone. Same zone Tick arrives on, read once here so
         ' the two cannot drift apart.
-        Dim enemy = If(team = 2, BrainTanks.Base1, BrainTanks.Base2)
-        Dim zone = BrainTune.Get_("basem", 25.0F)
+        ' THE END POINT IS ASSIGNED, NOT APPENDED.
+        '
+        ' An earlier pass added the base to pts as a final waypoint, which put
+        ' back the hookup leg Path Studio's _road_only() deliberately strips
+        ' ("THE HOOKS PROVE REACHABILITY; THEY ARE NOT THE ROAD") and fed it
+        ' through the smoother as though the maze had solved it. The course is
+        ' the maze road and only that; the base is a point this hull seeks once
+        ' it runs off the end. See Tick.
+        ln.dest = If(team = 2, BrainTanks.Base1, BrainTanks.Base2)
         If ln.pts.Count > 0 Then
-            ' BEFORE THE APPEND, or the road's own end is lost: every lane
-            ' would then report the base as its end and five markers would
-            ' stack on one point.
             ln.tip = ln.pts(ln.pts.Count - 1)
-            ln.tail = (ln.tip - enemy).Length
-            If ln.tail > zone Then ln.pts.Add(enemy)
+            ln.tail = (ln.tip - ln.dest).Length
         End If
 
         ' SMOOTHED BEFORE ANYTHING READS IT, and after the order is final -
@@ -388,6 +414,16 @@ Module BrainPath
         ' string in the direction it is not driven.
         smooth_road(ln)
         ln.ready = ln.pts.Count >= 2
+        ' A TARGET BEFORE THE FIRST TICK. Aim can be called by the crew before
+        ' Tick has run once, and a lookAt of (0,0) would send the hull at the
+        ' middle of the map for one frame.
+        If ln.ready Then
+            ln.lookAt = ln.pts(0)
+            ln.left = 0.0F
+            For k = 0 To ln.pts.Count - 2
+                ln.left += (ln.pts(k + 1) - ln.pts(k)).Length
+            Next
+        End If
         lanes(hull) = ln
     End Sub
 
@@ -520,8 +556,9 @@ Module BrainPath
             len_ += (d.pts(i + 1) - d.pts(i)).Length
         Next
         Dim need = BrainSim.TOP_SPEED / Math.Max(0.001F, BrainSim.TURN_RATE)
-        LogThis("brain: road {0} stopped {1:0} m short of the enemy base, so the base " &
-                "is now its last waypoint. Longest gap between waypoints {2:0} m, " &
+        LogThis("brain: road {0} ends {1:0} m short of the enemy base - Path Studio " &
+                "strips the base hookups on purpose, so the hull SEEKS that last " &
+                "{1:0} m with no road under it. Longest gap between waypoints {2:0} m, " &
                 "{3} corner cut(s) refused - the goal rides up to that far ahead.",
                 d.roadId, d.tail, d.longest, d.refused)
         LogThis("brain: hull {0} drives road {1} - {2} waypoint(s), {3:0} m of road, " &
@@ -750,55 +787,143 @@ Module BrainPath
     End Function
 
     ''' <summary>
+    ''' VECTOR TARGET WALK - steer at a point ON the path ahead of the hull,
+    ''' never at a waypoint.
+    '''
+    ''' "all tanks overshoot the tier targets. we dont turn in to the paths. we
+    ''' fly by and try to find the next point.. we need a fix for this. vector
+    ''' target walk?" - the owner, 2026-09-25, who diagnosed it and named the
+    ''' fix in one line.
+    '''
+    ''' WHY CHASING A WAYPOINT CANNOT WORK. The goal was pts(at): a point that
+    ''' sits still until the hull passes it. So the hull aims at a spot it is
+    ''' already level with, arrives, and only THEN is handed the next one - by
+    ''' which time the corner is behind it. It flies past, discovers a bearing
+    ''' 100-odd degrees off, and flies a fifty metre loop to come back. On the
+    ''' tape, road 8's hull: at 17.8 s it is steering -67 deg at waypoint 14,
+    ''' at 18.2 s the goal steps to 19 and the demand flips to +108 deg. That
+    ''' 175 degree reversal is not a decision, it is the consequence of asking
+    ''' a moving vehicle to hit a stationary dot.
+    '''
+    ''' WHAT THIS DOES INSTEAD. Two steps, every tick:
+    '''
+    '''   1. Put the hull ON the path - the nearest point along it, searched
+    '''      forward only so progress cannot slide backwards.
+    '''   2. Walk FORWARD along the path from there by the lookahead, and aim
+    '''      at that. Around a bend the lookahead point is already past the
+    '''      corner, so the steering is turning into it while the hull is still
+    '''      on the straight. That is the whole trick, and it is why the tank
+    '''      corners instead of discovering corners.
+    '''
+    ''' THE LOOKAHEAD IS THE HULL'S OWN TURNING CIRCLE, not a tuned distance.
+    ''' TOP_SPEED / TURN_RATE is 26.7 m, the tightest arc this hull can
+    ''' actually fly, and you cannot usefully aim closer than you can turn -
+    ''' aim inside your own circle and the geometry demands an arc the tank has
+    ''' no way to produce, which is the bug restated. Deriving it means one
+    ''' number governs both, so changing tune=turnrate= moves the aim with it
+    ''' and they cannot drift apart. tune=aimk= scales it, tune=aimmin= floors
+    ''' it for a hull crawling out of a stall.
+    '''
+    ''' tune=aimwalk=0 RESTORES THE OLD POINT-CHASING, deliberately kept: the
+    ''' owner asked for the fix and also asked not to lose the failure -
+    ''' "dont destroy why it gets losts. I want to test" - and an A/B on one
+    ''' binary is worth more than a paragraph describing what used to happen.
+    ''' See KNOWN_BUG_road8.md.
+    ''' </summary>
+    Private Sub walk_along(ln As Lane, here As Vector2)
+        Dim n = ln.pts.Count
+        If n < 2 Then
+            ln.lookAt = ln.pts(0)
+            ln.left = 0.0F
+            Return
+        End If
+
+        ' ---- 1. WHERE THE HULL IS ON THE PATH -------------------------------
+        '
+        ' FORWARD ONLY, from the segment it was last on. A road that passes
+        ' near itself would otherwise let a nearest-point search snap the hull
+        ' back to a stretch it drove a minute ago, and it would do it silently.
+        Dim win = CInt(BrainTune.Get_("aimwin", 60.0F))
+        Dim bestI = ln.at, bestT = 0.0F, bestD = Single.MaxValue
+        Dim hi = Math.Min(n - 2, ln.at + win)
+        For i = ln.at To hi
+            Dim a = ln.pts(i)
+            Dim ab = ln.pts(i + 1) - a
+            Dim L2 = ab.LengthSquared
+            Dim tt = 0.0F
+            If L2 > 0.000001F Then
+                tt = Math.Max(0.0F, Math.Min(1.0F, Vector2.Dot(here - a, ab) / L2))
+            End If
+            Dim d = ((a + ab * tt) - here).Length
+            If d < bestD Then
+                bestD = d
+                bestI = i
+                bestT = tt
+            End If
+        Next
+        ln.at = bestI
+        ln.off = bestD
+
+        ' ---- 2. WALK FORWARD BY THE LOOKAHEAD -------------------------------
+        Dim look = Math.Max(BrainTune.Get_("aimmin", 8.0F),
+                            (BrainSim.TOP_SPEED / Math.Max(0.001F, BrainSim.TURN_RATE)) *
+                            BrainTune.Get_("aimk", 1.0F))
+        Dim from_ = ln.pts(bestI) + (ln.pts(bestI + 1) - ln.pts(bestI)) * bestT
+        Dim need = look
+        Dim j = bestI
+        Dim cur = from_
+        ln.lookAt = ln.pts(n - 1)
+        While j < n - 1
+            Dim seg = ln.pts(j + 1) - cur
+            Dim sl = seg.Length
+            If sl >= need Then
+                ln.lookAt = cur + seg * (need / Math.Max(0.0001F, sl))
+                Exit While
+            End If
+            need -= sl
+            j += 1
+            cur = ln.pts(j)
+        End While
+
+        ' HOW MUCH PATH IS LEFT, from the hull's own position on it. This is
+        ' the progress measure the stall check uses and the end-of-course test
+        ' reads: a distance along the road, which does not care how far off to
+        ' one side the hull has been pushed.
+        Dim rest = (ln.pts(bestI + 1) - from_).Length
+        For i = bestI + 1 To n - 2
+            rest += (ln.pts(i + 1) - ln.pts(i)).Length
+        Next
+        ln.left = rest
+    End Sub
+
+    ''' <summary>
     ''' Advance every hull along its own road. Called once a frame, before the
     ''' brains.
     '''
-    ''' ADVANCING AND AIMING ARE NOW TWO JOBS, and splitting them is what let
-    ''' five tanks drive. Walking the index is a fact about a hull and its
-    ''' road; writing BrainGoal is an act, and there is only one BrainGoal for
-    ''' five tanks that each need their own. So this advances all of them and
-    ''' aims none, and BrainCrew calls Aim(hull) as it seats each brain. The
-    ''' last aim standing is the watched hull's, which is the goal that gets
-    ''' drawn and scored.
+    ''' TWO PHASES, AND THE SECOND ONE IS NOT A PATH.
     '''
-    ''' It still aims the watched hull at the end, for the case where no crew
-    ''' is installed at all - and because with the sim stopped nothing else
-    ''' would, so TAB while paused would move the camera and leave the goal
-    ''' cross on the tank you just stopped looking at.
+    ''' "I do not want the start and end connections done in path studio. I
+    ''' want our tanks to be assigned those and have them seek them. I want
+    ''' path studio to run the maze to get from point to point and than smooth
+    ''' the course out." - the owner, 2026-09-25.
     '''
-    ''' REACHED *OR* PASSED, and the second half of that is not a refinement -
-    ''' without it the follower deadlocks against the hull's own turning
-    ''' circle.
+    ''' Path Studio already holds up its end of that and always did. Its
+    ''' _road_only() strips the two hookup legs off every sweep and stamps
+    ''' base_hooks_removed, with the reason in its own words: "THE HOOKS PROVE
+    ''' REACHABILITY; THEY ARE NOT THE ROAD." So a road in the graph is the
+    ''' maze solution between two points and nothing else, which is why they
+    ''' stop 12 to 407 m short of the bases at both ends. That is the design,
+    ''' not a defect.
     '''
-    ''' The rule used to be "within 10 m" alone. A hull at 12 m/s turning at
-    ''' 0.45 rad/s needs 26.7 m of radius, so it cannot place itself inside a
-    ''' 10 m disc it is driving past - it misses by a metre or two, the index
-    ''' does not move, and the only way back to a goal it has already overshot
-    ''' is a full loop. Measured on road 17: the range to goal cycled 11 m out
-    ''' to 130 m and back, over and over, and half of every one of those loops
-    ''' is the tank driving SOUTH - back toward its own base. That is what
-    ''' "this tank is trying to get back to base" looks like from the outside,
-    ''' and the tank was doing exactly what it was told.
+    ''' So: phase 0 FOLLOWS the course - see walk_along, which is where the
+    ''' steering target comes from. Phase 1 SEEKS the base: one assigned point,
+    ''' no path, no waypoints, the brain crossing open ground exactly as it
+    ''' does on the opening leg to the road's start. Both ends of the run are a
+    ''' seek and the course between them is purely what the maze solved.
     '''
-    ''' So a waypoint also counts as done when it is BEHIND THE NOSE: the
-    ''' bearing to it has a negative component along the hull's heading. That
-    ''' is the geometric statement of "we have driven past this".
-    '''
-    ''' CAPPED AT THREE TIMES THE REACH, because behind-the-nose on its own is
-    ''' too strong. A hull swung round during a go-around has half the road
-    ''' behind it for a second or two, and an uncapped test would tick off
-    ''' every waypoint it had not reached yet and jump the goal to the far
-    ''' end. Within 30 m and behind is an overshoot; 200 m and behind is a
-    ''' tank facing the wrong way, which is the brain's problem and not a
-    ''' reason to abandon the road.
-    '''
-    ''' AND IT STOPS AT THE FAR BASE. "it doesn't stop at when it gets to
-    ''' base" then "25m rad i think zone" - the owner, 2026-09-25. The base is
-    ''' the last waypoint now (see build_lane), so the zone is a zone round the
-    ''' base rather than round wherever the road happened to give out.
-    '''
-    ''' ONCE, latched. Without the flag the arrival would re-fire every tick.
-    ''' Reset unlatches it.
+    ''' THE BASE ZONE ends the run. "25m rad i think zone" - and it is a zone
+    ''' around the base, because the base is the thing being sought rather than
+    ''' a waypoint that happened to be near one.
     ''' </summary>
     Public Sub Tick()
         If Not ON_ OrElse lanes Is Nothing Then Return
@@ -807,6 +932,7 @@ Module BrainPath
         Dim reach = BrainTune.Get_("waypm", 10.0F)
         Dim zone = BrainTune.Get_("basem", 25.0F)
         Dim behind = reach * BrainTune.Get_("waypast", 3.0F)
+        Dim walking = BrainTune.Get_("aimwalk", 1.0F) > 0.5F
 
         For i = 0 To lanes.Length - 1
             Dim ln = lanes(i)
@@ -819,68 +945,98 @@ Module BrainPath
             Dim hdg = BrainTanks.Bodies(i).headingRad
             Dim nose = New Vector2(CSng(Math.Sin(hdg)), CSng(Math.Cos(hdg)))
 
+            Dim was_left = ln.left
             Dim moved = False
-            While ln.at < ln.pts.Count - 1
-                Dim toWp = ln.pts(ln.at) - here
-                Dim gap = toWp.Length
-                Dim done = gap < reach OrElse
-                           (gap < behind AndAlso Vector2.Dot(toWp, nose) < 0.0F)
-                If Not done Then Exit While
-                ln.at += 1
-                moved = True
-            End While
+
+            If ln.phase = 0 Then
+                If walking Then
+                    walk_along(ln, here)
+                    ' PROGRESS IS PATH REMAINING, not a waypoint index. Under a
+                    ' walk the index creeps forward continuously, so it can no
+                    ' longer say whether the hull is getting anywhere; metres
+                    ' of road still to go can.
+                    moved = (was_left - ln.left) > 1.0F
+                    If ln.left <= reach Then
+                        ln.phase = 1
+                        moved = True
+                        LogThis("brain: hull {0} is off the end of road {1} at ({2:0.0}, " &
+                                "{3:0.0}) - now SEEKING the base {4:0} m away across open " &
+                                "ground, no road from here.",
+                                i, ln.roadId, here.X, here.Y, (ln.dest - here).Length)
+                    End If
+                Else
+                    ' THE OLD RULE, kept for tune=aimwalk=0. Reached or passed:
+                    ' a waypoint counts as done when it is inside the reach, or
+                    ' behind the nose and within three times it. See
+                    ' KNOWN_BUG_road8.md for what this does to a corner.
+                    While ln.at < ln.pts.Count - 1
+                        Dim toWp = ln.pts(ln.at) - here
+                        Dim gap = toWp.Length
+                        Dim done = gap < reach OrElse
+                                   (gap < behind AndAlso Vector2.Dot(toWp, nose) < 0.0F)
+                        If Not done Then Exit While
+                        ln.at += 1
+                        moved = True
+                    End While
+                    ln.lookAt = ln.pts(ln.at)
+                    Dim toEnd = ln.pts(ln.pts.Count - 1) - here
+                    If ln.at >= ln.pts.Count - 1 AndAlso
+                       (toEnd.Length < reach OrElse
+                        (toEnd.Length < behind AndAlso Vector2.Dot(toEnd, nose) < 0.0F)) Then
+                        ln.phase = 1
+                        moved = True
+                        LogThis("brain: hull {0} is off the end of road {1} at ({2:0.0}, " &
+                                "{3:0.0}) - now SEEKING the base {4:0} m away.",
+                                i, ln.roadId, here.X, here.Y, (ln.dest - here).Length)
+                    End If
+                End If
+            Else
+                ln.lookAt = ln.dest
+                moved = (ln.gap0 - (ln.dest - here).Length) > 1.0F
+            End If
 
             ' A FOLLOWER THAT HAS STOPPED FOLLOWING SAYS SO.
             '
-            ' This was diagnosed from a range-to-goal series in a log, by hand,
+            ' Diagnosed once from a range-to-goal series in a log, by hand,
             ' working backwards from a shape that turned out to be a hull
-            ' orbiting a waypoint it could not reach. That should not have
-            ' needed doing twice, so the condition is now a line of its own:
-            ' the index has not moved while the hull has driven a long way,
-            ' which is the definition of not following.
+            ' orbiting a waypoint it could not reach. That should not need
+            ' doing twice, so the condition is a line of its own.
             '
-            ' EVERY LANE, not just the watched one. Five tanks means four of
-            ' them are off screen at any moment, and the whole reason to run
-            ' five is to find the one that got stuck where nobody was looking.
+            ' SCALE-FREE: how far it has driven against how far it had to go,
+            ' because a flat metre count calls a long leg a stall.
+            '
+            ' EVERY LANE, not just the watched one. Five tanks means four are
+            ' off screen at any moment, and the whole reason to run five is to
+            ' find the one that got stuck where nobody was looking.
             If moved Then
                 ln.stalled = 0.0F
                 ln.said = False
-                ln.gap0 = (ln.pts(ln.at) - here).Length
+                ln.gap0 = If(ln.phase = 0, ln.left, (ln.dest - here).Length)
             Else
                 ln.stalled += (here - ln.was).Length
-                ' SCALE-FREE, and the first version was not. A flat 250 m bar
-                ' called it a stall every time a tank crossed the appended
-                ' base leg, which is 252 m of open ground by construction -
-                ' three false alarms in the first five-tank run, on tanks that
-                ' went on to arrive. The honest question is not "how far has
-                ' it driven" but "how far has it driven COMPARED TO how far it
-                ' had to go", so the bar is a multiple of the gap it set out
-                ' to cross, floored so a two-metre hop cannot trip on noise.
                 Dim bar = Math.Max(BrainTune.Get_("waystall", 250.0F),
                                    ln.gap0 * BrainTune.Get_("waylax", 2.5F))
                 If ln.stalled > bar AndAlso Not ln.said Then
                     ln.said = True
-                    Dim toWp = ln.pts(ln.at) - here
-                    LogThis("brain: hull {0} has driven {1:0} m to cover {2:0} m and " &
-                            "still not passed waypoint {3}/{4} at ({5:0.0}, {6:0.0}) - " &
-                            "it is {7:0.0} m away, {8} the nose. The follower is not " &
-                            "following.",
-                            i, ln.stalled, ln.gap0, ln.at, ln.pts.Count - 1,
-                            ln.pts(ln.at).X, ln.pts(ln.at).Y, toWp.Length,
-                            If(Vector2.Dot(toWp, nose) < 0.0F, "behind", "ahead of"))
+                    LogThis("brain: hull {0} has driven {1:0} m and made no ground on " &
+                            "{2} - {3:0} m still to go, {4:0.0} m off its path, aiming " &
+                            "at ({5:0.0}, {6:0.0}). The follower is not following.",
+                            i, ln.stalled,
+                            If(ln.phase = 0, "road " & ln.roadId, "the base"),
+                            If(ln.phase = 0, ln.left, (ln.dest - here).Length),
+                            ln.off, ln.lookAt.X, ln.lookAt.Y)
                 End If
             End If
             ln.was = here
 
-            ' THE BASE ZONE. The last waypoint is the far base, and a tank that
-            ' has to touch a node to the metre is a tank that circles it - the
-            ' zone is the arrival, not the point.
-            If ln.at >= ln.pts.Count - 1 AndAlso (ln.pts(ln.at) - here).Length <= zone Then
+            ' ARRIVED. A tank that has to touch the base to the metre is a tank
+            ' that circles it, so the zone is the arrival and not the point.
+            If ln.phase = 1 AndAlso (ln.dest - here).Length <= zone Then
                 ln.finished = True
                 LogThis("brain: hull {0} road {1} COMPLETE - inside the {2:0} m base " &
                         "zone at ({3:0.0}, {4:0.0}), {5:0.0} m from the base.",
                         i, ln.roadId, zone, here.X, here.Y,
-                        (ln.pts(ln.at) - here).Length)
+                        (ln.dest - here).Length)
             End If
         Next
 
@@ -891,18 +1047,23 @@ Module BrainPath
     End Sub
 
     ''' <summary>
-    ''' EXPRESS ONE HULL'S LANE AS THE GOAL. Called by BrainCrew as it seats
-    ''' each brain, because five tanks need five goals and BrainGoal holds one.
+    ''' EXPRESS ONE HULL'S STEERING TARGET AS THE GOAL. Called by BrainCrew as
+    ''' it seats each brain, because five tanks need five goals and BrainGoal
+    ''' holds one.
     '''
-    ''' A hull with no road, or one that has arrived, gets NO GOAL rather than
-    ''' a stale one - the board's first rung is No Goal -> Stop, so that is how
-    ''' a finished tank parks itself and how a hull the fan could not reach a
-    ''' road for stays put instead of driving at whatever the last tank was
-    ''' aiming at.
+    ''' Whatever Tick worked out - the walked point on the course, or the base.
+    ''' From the board's side there is no difference at all, which is the
+    ''' point: a point on a road and a point across open country are the same
+    ''' problem to a brain, and that is what lets the course carry no
+    ''' connections and the follower carry no steering.
+    '''
+    ''' A hull that has arrived gets NO GOAL rather than a stale one - the
+    ''' board's first rung is No Goal -> Stop, so that is how a finished tank
+    ''' parks itself and how a hull the fan found no road for stays put instead
+    ''' of driving at whatever the last tank was aiming at.
     '''
     ''' Silent when road following is off: the goal then belongs to whoever
-    ''' placed it by hand, and a follower that is not running has no business
-    ''' clearing it.
+    ''' placed it by hand.
     ''' </summary>
     Public Sub Aim(hull As Integer)
         If Not ON_ OrElse lanes Is Nothing Then Return
@@ -913,7 +1074,7 @@ Module BrainPath
             Return
         End If
         BrainGoal.Follow = False
-        BrainGoal.Target = ln.pts(ln.at)
+        BrainGoal.Target = ln.lookAt
         BrainGoal.HasTarget = True
     End Sub
 
@@ -931,7 +1092,8 @@ Module BrainPath
         Public team As Integer
         ''' <summary>Where the hull joins the road.</summary>
         Public a As Vector2
-        ''' <summary>The road's own far end - NOT the appended base.</summary>
+        ''' <summary>The road's own far end - the base is NOT part of the
+        ''' course, it is sought afterwards.</summary>
         Public b As Vector2
     End Structure
 
@@ -945,6 +1107,46 @@ Module BrainPath
                                    .a = ln.pts(0), .b = ln.tip})
         Next
         Return got
+    End Function
+
+    ''' <summary>
+    ''' WHERE ALONG ITS COURSE A HULL IS, FOR THE BLACK BOX.
+    '''
+    ''' The tape has carried wp_at and wp_of since it was written and nothing
+    ''' ever filled them: every row of every run reads "0/0". So the one
+    ''' question the file exists to answer about a follower - is this tank
+    ''' actually on its assigned path - was the one thing it could not answer,
+    ''' and hull 2 wandering 95 m off road 8 had to be reconstructed by eye
+    ''' from an x,z track.
+    '''
+    ''' -1 MEANS OFF THE ROAD AND SEEKING THE BASE. An encoding inside the
+    ''' existing column rather than a new one, because that header is a
+    ''' contract shared with Tank AI work's TankLog character for character -
+    ''' two runs stop being comparable the moment one file grows a column the
+    ''' other has not got. -2 means this hull was never given a road.
+    '''
+    ''' THE FOLLOWER'S NUMBER, NOT THE BRAIN'S BELIEF. BrainOutput.row is
+    ''' documented as the brain's own idea of its progress and that is right
+    ''' for a card, but "is it following the path" is a question about the
+    ''' world, and asking the thing being tested to grade itself would answer
+    ''' it with whatever it believes.
+    ''' </summary>
+    Public Function WpAt(hull As Integer) As Integer
+        If lanes Is Nothing OrElse hull < 0 OrElse hull >= lanes.Length Then Return -2
+        Dim ln = lanes(hull)
+        If ln Is Nothing OrElse Not ln.ready Then Return -2
+        If ln.phase <> 0 Then Return -1
+        Return ln.at
+    End Function
+
+    ''' <summary>How many waypoints the course has, so wp_at reads as a
+    ''' fraction rather than a bare number that means nothing without knowing
+    ''' how long the road was that day.</summary>
+    Public Function WpOf(hull As Integer) As Integer
+        If lanes Is Nothing OrElse hull < 0 OrElse hull >= lanes.Length Then Return 0
+        Dim ln = lanes(hull)
+        If ln Is Nothing OrElse Not ln.ready Then Return 0
+        Return ln.pts.Count - 1
     End Function
 
     ''' <summary>Which road a hull drew, or -1. For the log line that names a
@@ -996,6 +1198,11 @@ Module BrainPath
             If ln.finished Then wasDone += 1
             ln.at = 0
             ln.finished = False
+            ' BACK TO THE COURSE. A lane left in phase 1 would rewind its
+            ' waypoint index and then ignore it, seeking the base from the
+            ' start line.
+            ln.phase = 0
+            If ln.ready Then ln.lookAt = ln.pts(0)
             ln.stalled = 0.0F
             ln.said = False
             If BrainTanks.Bodies IsNot Nothing AndAlso
@@ -1058,8 +1265,14 @@ Module BrainPath
             If BrainTanks.Bodies IsNot Nothing AndAlso
                ln.hull < BrainTanks.Bodies.Count Then
                 ln.was = BrainTanks.Bodies(ln.hull).spawn
-                If ln.ready AndAlso ln.at < ln.pts.Count Then
-                    ln.gap0 = (ln.pts(ln.at) - ln.was).Length
+                If ln.ready Then
+                    ' PHASE IS LEFT ALONE - Rearm clears the latch and lets the
+                    ' hull's position decide, so a tank standing at the base
+                    ' re-arrives and stops rather than being sent back onto its
+                    ' road.
+                    Dim aimAt = If(ln.phase = 0 AndAlso ln.at < ln.pts.Count,
+                                   ln.pts(ln.at), ln.dest)
+                    ln.gap0 = (aimAt - ln.was).Length
                 End If
             End If
         Next
