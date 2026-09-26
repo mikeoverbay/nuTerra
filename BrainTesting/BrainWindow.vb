@@ -590,6 +590,21 @@ Public Class BrainWindow
         Dim up = New Vector3(view.M12, view.M22, view.M32)
         BrainText.SetCamera(right, up)
         BrainTankState.Draw(vp, right, up, SCR_WIDTH, SCR_HEIGHT)
+
+        ' ---- THE BADGE OVER EVERY TANK -------------------------------------
+        '
+        ' BETWEEN SetCamera AND Render3D, and it has to be both. SetCamera
+        ' above hands BrainText the camera basis a billboard is built along;
+        ' Render3D below is what flushes and clears the world buffer these
+        ' quads go into. Either side of that pair and the labels face the wrong
+        ' way or never reach the screen.
+        '
+        ' Worth recording: Text3D, SetCamera and Render3D were already a
+        ' complete billboard pipeline with NO CALLER - the world buffer was
+        ' flushed empty every frame since it was written. This is the caller,
+        ' not a new mechanism.
+        BrainTankTags.Draw()
+
         BrainText.Render3D(vp)
 
         ' THE SCOPE, LAST, in its own ortho pass over everything. It is an
@@ -682,6 +697,14 @@ Public Class BrainWindow
            k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Q) Then
             Close()
             Return
+        End If
+
+        ' I - THE TANK BADGES. Off is the point: ten labels is the right
+        ' amount when you are working out which tank did what, and the wrong
+        ' amount when you are looking at the rays.
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.I) Then
+            BrainTankTags.SHOW = Not BrainTankTags.SHOW
+            LogThis("brain: tank badges {0}", If(BrainTankTags.SHOW, "on", "off"))
         End If
 
         ' TAB - FOLLOW THE NEXT TANK. SHIFT+TAB goes back.
