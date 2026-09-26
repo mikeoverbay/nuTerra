@@ -427,6 +427,24 @@ Public Class GraphBrain
         ' reads is indistinguishable from a field nothing sets.
         mate_report()
 
+        ' ---- LAY THE GUN, WHATEVER THE DRIVER IS DOING ----------------------
+        '
+        ' Beside the board, not on it. The graph's priorities exist so exactly
+        ' one rung acts per tick, and a gun has no business competing with a
+        ' steering decision - a real tank lays while it drives, and a turret that
+        ' only tracked on ticks the driver had nothing to say would stutter for
+        ' reasons that are not about aiming.
+        Dim tWant As Single = Single.NaN, gWant As Single = Single.NaN
+        Dim atHull = -1
+        If BrainGun.Aim(me_, tWant, gWant, atHull) Then
+            o.turretDeg(me_) = tWant
+            o.gunDeg(me_) = gWant
+            If GUNS_FREE AndAlso BrainGun.MayFire(me_, tWant, gWant) Then
+                o.fire(me_) = True
+                BrainGun.Fire(me_, atHull)
+            End If
+        End If
+
         ' ---- HAVE WE GOT AWAY FROM THE LAST ONE --------------------------
         '
         ' The escalation is per TRAP, not per run. Without this, one awkward
@@ -1238,6 +1256,10 @@ Public Class GraphBrain
                 BrainRadar.HULL, If(first, "SEES", "still sees"), who, team,
                 n, BrainRadar.RAYS, near, atDeg)
     End Sub
+
+    ''' <summary>Weapons free. tune=hold=1 parks the guns, so a driving test is
+    ''' not also a shooting test.</summary>
+    Private ReadOnly GUNS_FREE As Boolean = Not BrainTune.On_("hold", False)
 
     Private sawMate As Integer = -1
     Private sawRays As Integer = 0

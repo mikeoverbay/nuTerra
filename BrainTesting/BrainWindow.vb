@@ -617,6 +617,11 @@ Public Class BrainWindow
         ' standing on the ground rather than painted over the view.
         BrainTrap.Draw(vp)
 
+        ' AND THE SHOTS. Placeholder tracers until nuTerra work's animated
+        ' shot and impact land - see BrainGun.Draw, which is written to be
+        ' deleted whole.
+        BrainGun.Draw(vp)
+
         BrainText.Render3D(vp)
 
         ' THE SCOPE, LAST, in its own ortho pass over everything. It is an

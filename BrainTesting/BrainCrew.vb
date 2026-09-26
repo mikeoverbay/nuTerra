@@ -195,6 +195,11 @@ Public Class BrainCrew
         If one.target IsNot Nothing AndAlso s < one.target.Length Then o.target(s) = one.target(s)
         If one.row IsNot Nothing AndAlso s < one.row.Length Then o.row(s) = one.row(s)
         If one.why IsNot Nothing AndAlso s < one.why.Length Then o.why(s) = one.why(s)
+        ' The lay travels with the rest of the row, or four of five tanks would
+        ' drive with their guns left where the last brain to run put them.
+        If one.turretDeg IsNot Nothing AndAlso s < one.turretDeg.Length Then o.turretDeg(s) = one.turretDeg(s)
+        If one.gunDeg IsNot Nothing AndAlso s < one.gunDeg.Length Then o.gunDeg(s) = one.gunDeg(s)
+        If one.fire IsNot Nothing AndAlso s < one.fire.Length Then o.fire(s) = one.fire(s)
     End Sub
 
     ''' <summary>Put every member's own state back, for Reset. Each mind is

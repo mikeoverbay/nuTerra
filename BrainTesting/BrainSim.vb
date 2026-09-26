@@ -187,6 +187,7 @@ Module BrainSim
         ' inherits the first one's tally and the comparison is a fiction.
         BrainReport.Reset()
         BrainTrail.Reset()
+        BrainGun.Reset()
         ' AND THE ROAD'S ARRIVAL LATCH - but NOT its waypoint index.
         '
         ' This called BrainPath.Reset and that sent a finished tank home:
@@ -348,6 +349,9 @@ Module BrainSim
 
         LastWhy = outp.why
         Apply(inp, outp, dt)
+        ' Tracers age and reload clocks run on the SAME clamped dt the hulls
+        ' moved on, so a shot and the tank that fired it agree about a second.
+        BrainGun.Tick(dt)
         ' ---- THE CLOCK, ACCUMULATED ----------------------------------------
         '
         ' This was Frame * dt: the frame count times THIS frame's dt. dt is the
@@ -503,10 +507,77 @@ Module BrainSim
                 End If
             End If
 
+            ' ---- THE TURRET AND THE GUN, AT THE DECLARED RATES ---------
+            '
+            ' Body has carried turretYawDeg and gunPitchDeg since it was written
+            ' with the note "The brain moves these; the world only carries
+            ' them", and until now no brain could: BrainOutput had no field for
+            ' them. The rates and limits were already on every hull, read from
+            ' the vehicle's own definition and never used by anything.
+            '
+            ' SLEWED, NOT SET. Snapping the turret to the commanded angle would
+            ' hide the only thing worth watching - whether a tank can bring its
+            ' gun round before the other one does.
+            lay(b, inp.hulls(i), get_lay(outp.turretDeg, i), get_lay(outp.gunDeg, i), dt)
+
             b.y = BrainNav.Ground(b.spawn.X, b.spawn.Y)
             BrainTanks.Bodies(i) = b
         Next
     End Sub
+
+    ''' <summary>
+    ''' Move one hull's turret and gun toward what the brain asked for.
+    '''
+    ''' A FULL TURRET TAKES THE SHORT WAY ROUND; a limited one is clamped to its
+    ''' arc. Those are different problems and one formula cannot do both: a
+    ''' casemate whose arc runs -10 to +10 must never be told the shortest path
+    ''' to 170 degrees is through its own stop, and a 360 turret must never crawl
+    ''' 350 degrees the long way because the numbers happened not to wrap.
+    '''
+    ''' An undeclared rate falls back to something sane rather than to zero. A
+    ''' zero rate reads as a turret that cannot move, which is indistinguishable
+    ''' from this code not working.
+    ''' </summary>
+    Private Sub lay(ByRef b As BrainTanks.Body, h As BrainHull,
+                    wantT As Single, wantG As Single, dt As Single)
+        If Not Single.IsNaN(wantT) Then
+            Dim stepT = Math.Max(0.0F, h.yawRateDegS) * dt
+            If stepT <= 0.0F Then stepT = 30.0F * dt
+            If (h.yawMaxDeg - h.yawMinDeg) >= 359.0F Then
+                Dim d = BrainGun.wrap180(wantT - b.turretYawDeg)
+                b.turretYawDeg = BrainGun.wrap180(
+                    b.turretYawDeg + Math.Max(-stepT, Math.Min(stepT, d)))
+            Else
+                Dim w = Math.Max(h.yawMinDeg, Math.Min(h.yawMaxDeg, wantT))
+                Dim d = w - b.turretYawDeg
+                b.turretYawDeg += Math.Max(-stepT, Math.Min(stepT, d))
+            End If
+        End If
+
+        If Not Single.IsNaN(wantG) Then
+            Dim stepG = Math.Max(0.0F, h.pitchRateDegS) * dt
+            If stepG <= 0.0F Then stepG = 15.0F * dt
+            ' The range comes from PitchRangeAt, sampled at the turret's CURRENT
+            ' yaw by Gather - a gun that can depress over the engine deck
+            ' usually cannot over the bow.
+            Dim lo = h.pitchLowDeg, hi = h.pitchHighDeg
+            If hi < lo Then
+                Dim tmp = lo
+                lo = hi
+                hi = tmp
+            End If
+            Dim w = Math.Max(lo, Math.Min(hi, wantG))
+            Dim d = w - b.gunPitchDeg
+            b.gunPitchDeg += Math.Max(-stepG, Math.Min(stepG, d))
+        End If
+    End Sub
+
+    ''' <summary>A lay command, or NaN for "no command". Distinct from get_at,
+    ''' which returns 0 for a missing throttle - and 0 is a real lay.</summary>
+    Private Function get_lay(a As Single(), i As Integer) As Single
+        If a Is Nothing OrElse i >= a.Length Then Return Single.NaN
+        Return a(i)
+    End Function
 
     Private Function get_at(a As Single(), i As Integer) As Single
         If a Is Nothing OrElse i >= a.Length Then Return 0.0F

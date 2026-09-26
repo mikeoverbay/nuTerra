@@ -153,6 +153,20 @@ Public Structure BrainOutput
     Public steer As Single()
 
     ''' <summary>
+    ''' WHERE THE TURRET AND GUN SHOULD POINT, hull-relative degrees, and
+    ''' whether to fire.
+    '''
+    ''' NaN MEANS "LEAVE IT ALONE", not zero. Zero is a real command - turret
+    ''' dead ahead - so a brain that simply does not lay its gun would snap
+    ''' every turret to centre on its first tick, and a turret that returns to
+    ''' centre whenever nothing is worth shooting at is a turret that is never
+    ''' laid when something is. ForHulls fills these with NaN for that reason.
+    ''' </summary>
+    Public turretDeg As Single()
+    Public gunDeg As Single()
+    Public fire As Boolean()
+
+    ''' <summary>
     ''' What the CARD shows each hull heading to, and which row of its path it
     ''' is on.
     '''
@@ -175,6 +189,14 @@ Public Structure BrainOutput
         Dim o As New BrainOutput
         ReDim o.throttle(Math.Max(n - 1, 0))
         ReDim o.steer(Math.Max(n - 1, 0))
+        ReDim o.turretDeg(Math.Max(n - 1, 0))
+        ReDim o.gunDeg(Math.Max(n - 1, 0))
+        ReDim o.fire(Math.Max(n - 1, 0))
+        ' NO COMMAND, not "point forward" - see the fields.
+        For k = 0 To n - 1
+            o.turretDeg(k) = Single.NaN
+            o.gunDeg(k) = Single.NaN
+        Next
         ReDim o.target(Math.Max(n - 1, 0))
         ReDim o.row(Math.Max(n - 1, 0))
         ReDim o.why(Math.Max(n - 1, 0))
