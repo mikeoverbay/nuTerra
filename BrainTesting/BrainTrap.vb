@@ -109,6 +109,47 @@ Module BrainTrap
     ''' already carries row and col so the test is one lookup per ray.
     ''' </summary>
     Private ReadOnly ours As New HashSet(Of Integer)
+
+    ''' <summary>
+    ''' WHERE EACH HULL SEALED A DEAD END, AND THEREFORE WANTS TO TURN.
+    '''
+    ''' The held chord is gone the instant it is written, so it cannot be what
+    ''' the board tests to decide "turn away from this". This is the latch that
+    ''' outlives the write: set on a successful stamp, cleared once the hull has
+    ''' got clear of the place. Per hull, like everything else here.
+    ''' </summary>
+    Private ReadOnly sealedAt As New Dictionary(Of Integer, Vector2)
+
+    ''' <summary>
+    ''' TRUE WHILE THIS HULL SHOULD TURN TOWARD THE OPEN SIDE.
+    '''
+    ''' "everything in front is a wall and junk. we used to find the side with a
+    ''' angle that was on the correct side of our nose" - the owner,
+    ''' 2026-09-25. The board still has that rung: Deepest Ray feeding Turn To.
+    ''' It had simply become unreachable, sitting below both the committed
+    ''' backing state and the objective, so a tank that spent 75% of its ticks
+    ''' backing never once got to it.
+    '''
+    ''' This is the test that lets it back in, and it is deliberately narrow: it
+    ''' is only true just after this hull proved a dead end and sealed it, and
+    ''' only until it is clear of the spot. A broad "am I stuck" test at that
+    ''' priority would outrank the objective across the whole map.
+    '''
+    ''' CLEARED BY DISTANCE, on read, because the position is what the caller
+    ''' has and a metre count is the honest measure of "somewhere else".
+    ''' </summary>
+    Public Function TurnOut(pos As Vector2) As Boolean
+        Dim me_ = BrainRadar.HULL
+        Dim was As Vector2 = Nothing
+        If Not sealedAt.TryGetValue(me_, was) Then Return False
+        If (pos - was).Length > BrainTune.Get_("trapaway", 25.0F) Then
+            sealedAt.Remove(me_)
+            LogThis("brain: hull {0} is clear of the dead end it sealed - back to the " &
+                    "objective.", me_)
+            Return False
+        End If
+        Return True
+    End Function
     Private shader As BrainShader
     Private vao, vbo, verts As Integer
 
@@ -254,6 +295,7 @@ Module BrainTrap
                 "{2:0.0}) to ({3:0.0}, {4:0.0}), hull {5:0.0} m clear. {6} cell(s) " &
                 "stamped this run; Reset re-reads the bake and they go.",
                 cells, leftAt.X, leftAt.Y, rightAt.X, rightAt.Y, d, Stamped, me_)
+        If cells > 0 Then sealedAt(me_) = pos
         Return cells > 0
     End Function
 
@@ -263,6 +305,7 @@ Module BrainTrap
         held.Clear()
         marks.Clear()
         ours.Clear()
+        sealedAt.Clear()
         verts = 0
         Stamped = 0
         Flags = 0

@@ -191,6 +191,7 @@ Module BrainNodes
         New Kind("test", "Not Moving", {}, {"True"}),
         New Kind("test", "Backed Enough", {}, {"True"}, {"seconds"}, {1.2F}),
         New Kind("test", "No Goal", {}, {"True"}),
+        New Kind("test", "No Way Out", {}, {"True"}),
         New Kind("test", "Too Few Rays", {"hits"}, {"True"}),
         New Kind("test", "Hit Count", {"hits"}, {"True"}, {"count"}, {3.0F}),
         New Kind("test", "Has Door", {"door"}, {"True"}),
@@ -296,6 +297,7 @@ Module BrainNodes
             Case "Way Out" : Return "a bearing that OPENS UP from up the road, or nothing"
             Case "Arrived" : Return "close enough to the goal to call it done"
             Case "No Goal" : Return "nothing to drive toward"
+            Case "No Way Out" : Return "just sealed a dead end here - turn to the open side"
             Case "Is Wedged" : Return "asked to move, went nowhere, for most of a second"
             Case "Not Moving" : Return "asked to move and went nowhere, right now"
             Case "Too Few Rays" : Return "the scan came back with almost nothing"
@@ -1122,7 +1124,53 @@ Module BrainNodes
         ' unbounded state rung did.
         Dim pCommit = spawn("Priority", 430.0F, 200.0F)
         join_pins(p1, "d", pCommit, "in")
-        join_pins(pCommit, "b", pGo, "in")
+        ' ---- SEALED A DEAD END -> TURN TO THE OPEN SIDE ------------------
+        '
+        ' "everything in front is a wall and junk. we used to find the side with
+        '  a angle that was on the correct side of our nose" - the owner,
+        ' 2026-09-25.
+        '
+        ' The rung he remembers is still here and still correct: Deepest Ray
+        ' feeding Turn To, "the bearing of the furthest ray in front". It had
+        ' become UNREACHABLE. Priority stops at the first child that acts, and
+        ' that pair sits under pStuck2, which is under pGo, which is under
+        ' pCommit - so a hull in a committed reverse never got near it. Measured
+        ' on road 28's trap: 75% of its rows backing, Seek entered eleven times,
+        ' the walk barely running and the side never chosen.
+        '
+        ' So it goes back above the objective, on pCommit's free "c" pin, with
+        ' pGo pushed down to "d". Reading top to bottom the committed states
+        ' still win - a live reverse is not interrupted, which matters because
+        ' you need the room before you can turn - and then, before the objective
+        ' gets a say, a hull that has just proved and sealed a dead end turns
+        ' toward the open side instead of driving at a goal behind the wall it
+        ' drew.
+        '
+        ' NARROW ON PURPOSE. No Way Out is true only just after THIS hull
+        ' stamped a chord, and only until it is 25 m clear. A broader "am I
+        ' stuck" test at this priority would outrank the objective across the
+        ' whole map, which is the exact mistake recorded above: "The OBJECTIVE
+        ' was the lowest priority thing on the board, so any marginal reason to
+        ' reverse outranked actually going somewhere."
+        '
+        ' tune=trapturn=0 leaves the board as it was, so this is one argument to
+        ' A/B rather than a rebuild.
+        If BrainTune.On_("trapturn", True) Then
+            ' tSealed / gSealed / aSealed - tWay and gWay are already taken by
+            ' the Round The End rung further down.
+            Dim tSealed = spawn("No Way Out", 420.0F, 655.0F)
+            Dim gSealed = spawn("Gate", 650.0F, 655.0F)
+            Dim aSealed = spawn("Turn To", 900.0F, 655.0F)
+            join_pins(pCommit, "b", gSealed, "in")
+            join_pins(tSealed, "True", gSealed, "True")
+            join_pins(gSealed, "out", aSealed, "in")
+            ' The SAME Deepest Ray the old rung used - one measurement, two
+            ' readers, so they cannot disagree about which side is open.
+            join_pins(pDeep, "bearing", aSealed, "bearing")
+            join_pins(pCommit, "c", pGo, "in")
+        Else
+            join_pins(pCommit, "b", pGo, "in")
+        End If
         join_pins(pGo, "d", pStuck2, "in")
         join_pins(pStuck2, "a", gStuck2, "in")
         join_pins(tStuck2, "True", gStuck2, "True")

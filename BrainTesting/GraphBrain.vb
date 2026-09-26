@@ -919,6 +919,8 @@ Public Class GraphBrain
                 v = CObj(front_count() < 4)
             Case "No Goal"
                 v = CObj(Not BrainGoal.HasTarget)
+            Case "No Way Out"
+                v = CObj(BrainTrap.TurnOut(h.pos))
             Case "Has Door"
                 v = CObj(pulled(id, "door") IsNot Nothing)
             Case "Can Pivot To"
