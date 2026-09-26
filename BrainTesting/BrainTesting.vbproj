@@ -127,6 +127,18 @@
     <Compile Include="../nuTerra/OpenGL/GLTexture.vb" Link="linked/GLTexture.vb" />
     <Compile Include="../nuTerra/Tanks/TankRoster.vb" Link="linked/TankRoster.vb" />
     <Compile Include="../nuTerra/Tanks/TankBlast.vb" Link="linked/TankBlast.vb" />
+    <!-- THE SHOT ANIMATION, geometry and timing only. nuTerra work verified this
+         set against this vbproj: TankShotPool now declares HitKind and ShotHit
+         itself so TankShots.vb - whose Cast reaches MapFlightBake through
+         map_scene - stays unlinked. TankTrail and TankPuffs have ZERO GL
+         references and expose Collect(buf, ByRef at, ...) which fills a float
+         buffer for the caller to draw, which is this app's own idiom. TankAtlas
+         holds its texture behind a lazy property, so linking it does not create
+         one unless something asks for a textured puff. No stubs needed. -->
+    <Compile Include="../nuTerra/Tanks/TankShotPool.vb" Link="linked/TankShotPool.vb" />
+    <Compile Include="../nuTerra/Tanks/TankTrail.vb" Link="linked/TankTrail.vb" />
+    <Compile Include="../nuTerra/Tanks/TankPuffs.vb" Link="linked/TankPuffs.vb" />
+    <Compile Include="../nuTerra/Tanks/TankAtlas.vb" Link="linked/TankAtlas.vb" />
     <Compile Include="../nuTerra/Tanks/TankVisual.vb" Link="linked/TankVisual.vb" />
     <Compile Include="../nuTerra/Tanks/TankVehicle.vb" Link="linked/TankVehicle.vb" />
     <Compile Include="../nuTerra/Tanks/TankFiles.vb" Link="linked/TankFiles.vb" />

@@ -31,24 +31,35 @@ Imports OpenTK.Mathematics
 ''' </summary>
 Module BrainGun
 
-    ''' <summary>One shot in flight or fading. Kept in world terms so the draw
-    ''' needs nothing from the tank that fired it - a tank may have moved,
-    ''' turned, or been given a different target by the time its shot lands.</summary>
-    Private Structure Shot
-        Public from_ As Vector3
-        Public to_ As Vector3
-        ''' <summary>Metres to the impact, and metres a second the shell covers.
-        ''' Per shot, because the guns on one roster range 1115 to 1400 m/s and a
-        ''' shared constant would make every tracer the same lie.</summary>
-        Public dist As Single
-        Public speed As Single
-        Public age As Single
-        Public hit As Boolean
-    End Structure
+    ''' <summary>
+    ''' nuTerra'S OWN SHOT POOL, one per hull, eight slots each.
+    '''
+    ''' This replaced a Shot structure of my own. Not because mine did not work -
+    ''' it drew a travelling tracer at the right speed - but because theirs
+    ''' already carries everything the animation needs and carries it CORRECTLY
+    ''' in a way mine did not: the muzzle position and the forward are STAMPED AT
+    ''' FIRE TIME and never read back, so the flame belongs to the barrel that
+    ''' produced it rather than to wherever that barrel has swung to two frames
+    ''' later. A gun that fires while traversing is exactly the case this harness
+    ''' produces, and mine would have dragged the flame round with the turret.
+    '''
+    ''' It also holds the hit rather than applying it at fire time, "a burst that
+    ''' goes off the instant the gun fires beats its own round to the target",
+    ''' and it keeps the per-gun timings per shot so a round outlives a vehicle
+    ''' swap mid-flight.
+    '''
+    ''' GEOMETRY AND TIMING, DRAWN HERE. That was the split agreed with nuTerra
+    ''' work: their state, this app's idiom. curPos and prevPos are the segment
+    ''' the round flew this step - a line, ready made - and flashPhase and
+    ''' lightPhase are normalised lifetimes, so a fading line and a shrinking
+    ''' star is all the drawing this needs. No framebuffer, no blend state, no
+    ''' textures: TankAtlas is linked but its texture sits behind a lazy property
+    ''' and nothing here asks for it.
+    ''' </summary>
+    Private ReadOnly pools As New Dictionary(Of Integer, TankShotPool)
 
-    Private ReadOnly shots As New List(Of Shot)
-    ''' <summary>Seconds until each hull may fire again. Per hull, because a
-    ''' crew of five firing off one clock would volley.</summary>
+    ''' <summary>Seconds until each hull may fire again. Per hull, because a crew
+    ''' of five firing off one clock would volley.</summary>
     Private ReadOnly reload_ As New Dictionary(Of Integer, Single)
 
     Public Fired As Integer = 0
@@ -302,15 +313,26 @@ Module BrainGun
         ' THE GUN'S OWN SHELL SPEED. It was a single global 180 m/s for every
         ' gun in nuTerra until nuTerra work read the real ones off the shells:
         ' 1115 to 1400 m/s on this roster, so anything built on 180 was out by
-        ' six to eight times. Nothing here used it before - the shot was
-        ' instantaneous - which is why the error never showed and why using it
-        ' now is what makes the shot ANIMATED rather than a line that appears.
+        ' six to eight times. TankShot.speed still DEFAULTS to 180, so passing
+        ' the real one is not optional here.
         Dim mps = 0.0F
         If b.vehicle IsNot Nothing Then mps = b.vehicle.shellSpeedMps
         If mps <= 1.0F Then mps = BrainTune.Get_("shellmps", 1200.0F)
 
-        shots.Add(New Shot With {.from_ = eye, .to_ = endPt, .dist = dist,
-                                 .speed = mps, .age = 0.0F, .hit = landed})
+        ' THE TERMINUS, as the pool wants it. The normal faces back down the
+        ' shot: this app resolves impacts against a hull BOX rather than a
+        ' surface, so there is no true face normal to report, and the incoming
+        ' direction reversed is the honest approximation of one. `tank` stays
+        ' Nothing - it wants a TankInstance and this harness drives
+        ' BrainTanks.Body, and nothing in the animation reads it.
+        Dim h As New ShotHit With {
+            .kind = If(landed, HitKind.Tank, HitKind.NoHit),
+            .point = endPt,
+            .normal = -dir,
+            .range = dist}
+
+        Dim spec = TankBlast.Lookup(If(b.vehicle Is Nothing, "", b.vehicle.recoilEffectName))
+        pool(me_).Fire(eye, dir, spec, h, mps)
         reload_(me_) = BrainTune.Get_("reload", 3.0F)
         Fired += 1
         If Fired <= 8 Then
@@ -327,18 +349,8 @@ Module BrainGun
     ''' tick from the sim, with the same clamped dt the hulls move on so a shot
     ''' and the tank that fired it agree about how long a second is.</summary>
     Public Sub Tick(dt As Single)
-        For i = shots.Count - 1 To 0 Step -1
-            Dim s = shots(i)
-            s.age += dt
-            ' FLIGHT TIME PLUS DWELL, not a fixed life. A 4 m point-blank shot
-            ' and a 400 m one are 0.003 s and 0.33 s of flight at 1200 m/s, and
-            ' giving both the same lifetime would either strobe the near one or
-            ' delete the far one before it arrived.
-            If s.age > (s.dist / Math.Max(1.0F, s.speed)) + DWELL Then
-                shots.RemoveAt(i)
-            Else
-                shots(i) = s
-            End If
+        For Each kv In pools
+            kv.Value.Update(dt)
         Next
         verts = 0
         Dim keys = New List(Of Integer)(reload_.Keys)
@@ -347,8 +359,18 @@ Module BrainGun
         Next
     End Sub
 
+    ''' <summary>One hull's pool, made on demand. Per hull because eight slots
+    ''' shared by a crew of five would drop rounds.</summary>
+    Private Function pool(hull As Integer) As TankShotPool
+        Dim p As TankShotPool = Nothing
+        If pools.TryGetValue(hull, p) Then Return p
+        p = New TankShotPool()
+        pools(hull) = p
+        Return p
+    End Function
+
     Public Sub Reset()
-        shots.Clear()
+        pools.Clear()
         reload_.Clear()
         Fired = 0
         verts = 0
@@ -365,7 +387,7 @@ Module BrainGun
     ''' owns no textures, no flipbooks and no particle state to unpick.
     ''' </summary>
     Public Sub Draw(ByRef viewProj As Matrix4)
-        If shots.Count = 0 Then Return
+        If pools.Count = 0 Then Return
         If shader Is Nothing OrElse Not shader.Ready Then Return
         If verts = 0 Then build()
         If verts = 0 Then Return
@@ -381,30 +403,39 @@ Module BrainGun
 
     Private Sub build()
         Dim v As New List(Of Single)
-        For Each s In shots
-            Dim run = Math.Max(0.0001F, s.dist)
-            Dim u = (s.to_ - s.from_) / run
-            Dim head = Math.Min(s.dist, s.age * s.speed)
+        For Each kv In pools
+            For Each s In kv.Value.shots
+                If Not s.active Then Continue For
 
-            If head < s.dist Then
-                ' IN FLIGHT. A streak from where the eye still remembers the
-                ' shell to where it is now, travelling at the gun's own muzzle
-                ' velocity - so a 400 m shot visibly crosses the ground and a
-                ' point-blank one is over before the frame ends, which is the
-                ' truth about tank gunnery.
-                Dim tail = Math.Max(0.0F, head - TRACER)
-                seg(v, s.from_ + u * tail, s.from_ + u * head)
-                Continue For
-            End If
+                ' THE ROUND'S OWN SEGMENT. prevPos to curPos is the distance it
+                ' covered this step, which at 1115 to 1400 m/s and a sixtieth of
+                ' a second is 19 to 23 m - a tracer length, for free, and true
+                ' rather than chosen.
+                If s.inFlight Then seg(v, s.prevPos, s.curPos)
 
-            ' ARRIVED. The cross marks where, sized to read from the 300 m zoom
-            ' this app is usually driven at.
-            If Not s.hit Then Continue For
-            Dim r = 2.0F
-            seg(v, s.to_ - New Vector3(r, 0.0F, 0.0F), s.to_ + New Vector3(r, 0.0F, 0.0F))
-            seg(v, s.to_ - New Vector3(0.0F, 0.0F, r), s.to_ + New Vector3(0.0F, 0.0F, r))
-            seg(v, s.to_ - New Vector3(0.0F, r, 0.0F), s.to_ + New Vector3(0.0F, r, 0.0F))
+                ' THE MUZZLE FLASH, as a star that shrinks. flashPhase runs 1 to
+                ' 0 over the flame's own life from gun_effects.xml, and this
+                ' shader carries one colour per draw - so the fade is GEOMETRY,
+                ' not alpha. Scaled by the gun's own flame length, so a 150 mm
+                ' flashes bigger than a 100 mm because the file says it does.
+                If s.flashPhase > 0.0F Then
+                    Dim r = s.length * s.flashPhase
+                    star(v, s.pos, r)
+                    ' A stub along the barrel, so the flash reads as coming OUT
+                    ' of the gun rather than sitting on it.
+                    seg(v, s.pos, s.pos + s.fwd * (r * 2.0F))
+                End If
+
+                ' AND THE IMPACT, once the round has actually arrived - which is
+                ' the point of the pool holding its hit instead of applying it at
+                ' fire time.
+                If s.hitDelivered AndAlso s.hit.kind <> HitKind.NoHit Then
+                    Dim r = 2.0F
+                    star(v, s.hit.point, r)
+                End If
+            Next
         Next
+
         Dim arr = v.ToArray()
         GL.BindVertexArray(vao)
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo)
@@ -413,6 +444,14 @@ Module BrainGun
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, False, 12, 0)
         GL.BindVertexArray(0)
         verts = arr.Length \ 3
+    End Sub
+
+    ''' <summary>Three axis-aligned bars through a point. Reads as a spark from
+    ''' any angle, which a single cross does not.</summary>
+    Private Sub star(v As List(Of Single), p As Vector3, r As Single)
+        seg(v, p - New Vector3(r, 0.0F, 0.0F), p + New Vector3(r, 0.0F, 0.0F))
+        seg(v, p - New Vector3(0.0F, r, 0.0F), p + New Vector3(0.0F, r, 0.0F))
+        seg(v, p - New Vector3(0.0F, 0.0F, r), p + New Vector3(0.0F, 0.0F, r))
     End Sub
 
     Private Sub seg(v As List(Of Single), a As Vector3, b As Vector3)

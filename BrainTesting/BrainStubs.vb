@@ -39,10 +39,20 @@ End Class
 Public Class TankRecoil
 End Class
 
-''' <summary>Stands in for nuTerra/Tanks/TankShotPool.vb. No shells, no
-''' shooting - the AI question is "can it get there", not "can it hit".</summary>
-Public Class TankShotPool
-End Class
+''' THE TankShotPool STUB IS GONE. It said "No shells, no shooting - the AI
+''' question is 'can it get there', not 'can it hit'", which was true right up
+''' until the owner asked for guns on 2026-09-25. The real
+''' nuTerra/Tanks/TankShotPool.vb is linked now, along with TankTrail, TankPuffs
+''' and TankAtlas - a set nuTerra work verified against this vbproj so no stub is
+''' needed for any of them. TankShots.vb stays unlinked: its Cast reaches
+''' MapFlightBake through map_scene, and HitKind and ShotHit were moved into
+''' TankShotPool precisely so that file could stay out.
+'''
+''' The TankRecoil stub above STAYS. Nothing here needs the recoil cycle, and an
+''' empty class is enough to satisfy a reference by NAME - but only by name: a
+''' member this stub lacks is a build break, which is how nuTerra work lost a
+''' compile reaching for TankRecoil.MAX_TRAVEL_M. The constant they meant is
+''' TankVehicle.RECOIL_TRAVEL_FALLBACK_M.
 
 ''' <summary>
 ''' Stands in for nuTerra/TextureEngine/TextureMgr.vb - 856 lines of DDS
