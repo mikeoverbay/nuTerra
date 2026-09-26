@@ -77,7 +77,7 @@ Module BrainTankTags
                                   b.y + b.half.Y * 2.0F + BrainTune.Get_("taglift", 2.0F),
                                   b.spawn.Y)
 
-            Dim m = Math.Max(lo, Math.Min(hi, (at - eye).Length * ang))
+            Dim m = BrainText.Steady(at, eye, ang, lo, hi)
             Dim road = BrainPath.RoadOf(i)
             Dim s = If(road >= 0,
                        String.Format("H{0}  road {1}", i, road),

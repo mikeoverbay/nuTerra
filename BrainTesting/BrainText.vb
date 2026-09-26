@@ -249,6 +249,29 @@ Module BrainText
     End Sub
 
     ''' <summary>
+    ''' THE METRE HEIGHT THAT HOLDS A CONSTANT SIZE ON SCREEN.
+    '''
+    ''' Text3D takes a height in world units, which is right for a label that
+    ''' belongs to an object and wrong for one you have to read: a 1.2 m badge
+    ''' is illegible from the 300 m zoom this app is usually driven at and
+    ''' absurd from 20 m, and those are one scroll wheel apart.
+    '''
+    ''' Height proportional to distance from the eye is exactly what keeps a
+    ''' constant angular size, so `ang` is that angle and nothing here needs to
+    ''' know the field of view. Clamped at both ends so up close the label
+    ''' settles to a plausible physical size instead of growing into the sky,
+    ''' and far off it stops shrinking before it disappears.
+    '''
+    ''' Here rather than in either caller, because the tank badges and the road
+    ''' markers both want it and two copies of one formula is two things to
+    ''' tune when the answer turns out to be wrong.
+    ''' </summary>
+    Public Function Steady(at As Vector3, eye As Vector3, ang As Single,
+                           lo As Single, hi As Single) As Single
+        Return Math.Max(lo, Math.Min(hi, (at - eye).Length * ang))
+    End Function
+
+    ''' <summary>
     ''' World text, facing the camera, centred on `at`.
     '''
     ''' `metres` is the height of a line in world units, so a label keeps its

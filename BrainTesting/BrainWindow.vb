@@ -605,6 +605,12 @@ Public Class BrainWindow
         ' not a new mechanism.
         BrainTankTags.Draw()
 
+        ' AND A POST AT EACH END OF EVERY ROAD, labelled by road id. Same
+        ' window between SetCamera and Render3D for the same reason: its posts
+        ' are lines it draws itself, but its labels go into the world text
+        ' buffer Render3D is about to flush.
+        BrainRoadMarks.Draw(vp)
+
         BrainText.Render3D(vp)
 
         ' THE SCOPE, LAST, in its own ortho pass over everything. It is an
@@ -705,6 +711,14 @@ Public Class BrainWindow
         If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.I) Then
             BrainTankTags.SHOW = Not BrainTankTags.SHOW
             LogThis("brain: tank badges {0}", If(BrainTankTags.SHOW, "on", "off"))
+        End If
+
+        ' O - THE ROAD END POSTS. Separate from I on purpose: the tank
+        ' badges move and the road posts do not, so they are useful at
+        ' different moments and turning one off should not take the other.
+        If k.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.O) Then
+            BrainRoadMarks.SHOW = Not BrainRoadMarks.SHOW
+            LogThis("brain: road end posts {0}", If(BrainRoadMarks.SHOW, "on", "off"))
         End If
 
         ' TAB - FOLLOW THE NEXT TANK. SHIFT+TAB goes back.

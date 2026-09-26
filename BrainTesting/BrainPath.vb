@@ -78,6 +78,15 @@ Module BrainPath
         ''' axis, metres. Kept only so the assignment can be read back in one
         ''' line - it is what "this one runs up the left" means numerically.</summary>
         Public across As Single
+        ''' <summary>The road's OWN far end - its last graph node, captured
+        ''' before the enemy base was appended.
+        '''
+        ''' Kept because after the append every lane on a team ends at exactly
+        ''' the same point, the base, so the last waypoint is no longer a fact
+        ''' about which road this is. This is: the five roads' own ends are 226
+        ''' to 386 m apart along the base line, which is what makes a marker
+        ''' there worth looking at.</summary>
+        Public tip As Vector2
         ''' <summary>How far the ROAD ITSELF stopped short of the enemy base,
         ''' before the base was appended. The number that explains why a tank
         ''' following a flank road used to finish nowhere near it.</summary>
@@ -366,7 +375,11 @@ Module BrainPath
         Dim enemy = If(team = 2, BrainTanks.Base1, BrainTanks.Base2)
         Dim zone = BrainTune.Get_("basem", 25.0F)
         If ln.pts.Count > 0 Then
-            ln.tail = (ln.pts(ln.pts.Count - 1) - enemy).Length
+            ' BEFORE THE APPEND, or the road's own end is lost: every lane
+            ' would then report the base as its end and five markers would
+            ' stack on one point.
+            ln.tip = ln.pts(ln.pts.Count - 1)
+            ln.tail = (ln.tip - enemy).Length
             If ln.tail > zone Then ln.pts.Add(enemy)
         End If
 
@@ -903,6 +916,36 @@ Module BrainPath
         BrainGoal.Target = ln.pts(ln.at)
         BrainGoal.HasTarget = True
     End Sub
+
+    ''' <summary>
+    ''' One road's two ends, as data. BrainRoadMarks draws them.
+    '''
+    ''' PUBLISHED RATHER THAN DRAWN HERE. This module knows where the roads
+    ''' are; what a marker looks like, how big its label is and which of them
+    ''' are worth showing are all somebody else's business, and keeping that
+    ''' somewhere else is what stops this file growing a second job.
+    ''' </summary>
+    Public Structure Mark
+        Public hull As Integer
+        Public road As Integer
+        Public team As Integer
+        ''' <summary>Where the hull joins the road.</summary>
+        Public a As Vector2
+        ''' <summary>The road's own far end - NOT the appended base.</summary>
+        Public b As Vector2
+    End Structure
+
+    Public Function Marks() As List(Of Mark)
+        Dim got As New List(Of Mark)
+        If lanes Is Nothing Then Return got
+        For i = 0 To lanes.Length - 1
+            Dim ln = lanes(i)
+            If ln Is Nothing OrElse Not ln.ready Then Continue For
+            got.Add(New Mark With {.hull = i, .road = ln.roadId, .team = ln.team,
+                                   .a = ln.pts(0), .b = ln.tip})
+        Next
+        Return got
+    End Function
 
     ''' <summary>Which road a hull drew, or -1. For the log line that names a
     ''' tank when the view switches to it.</summary>
