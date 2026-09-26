@@ -40,14 +40,32 @@ Module BrainTankDraw
             ' by a second recipe drifts from the one the rest of the project
             ' draws the moment either changes. Scale for the X mirror, then
             ' heading, then place.
-            Dim world =
-                Matrix4.CreateScale(If(TankRoster.MirrorX, -1.0F, 1.0F), 1.0F, 1.0F) *
-                Matrix4.CreateRotationY(b.headingRad) *
-                Matrix4.CreateTranslation(b.spawn.X, b.y, b.spawn.Y)
+            Dim world = BrainTanks.WorldOf(b)
 
             For Each part In b.vehicle.parts
                 If part.meshes Is Nothing Then Continue For
-                Dim partModel = Matrix4.CreateTranslation(part.offset) * world
+
+                ' ---- THE TURRET AND GUN, POSED -------------------------------
+                '
+                ' This was CreateTranslation(part.offset), which draws every part
+                ' at bind pose - so a turret tracking a target at 83 degrees was
+                ' a correct number attached to a mesh pointing straight ahead.
+                '
+                ' PartLocal IS TankRenderer.part_model, lifted into TankVehicle
+                ' by nuTerra work so there is one copy and the two apps cannot
+                ' drift. It handles what a second recipe here would have got
+                ' wrong: the gun composes through the TURRET's pivot rather than
+                ' its own, because it must yaw with the turret before it pitches,
+                ' and gunPitch is negated inside because that is the sign the
+                ' barrel is actually drawn with.
+                '
+                ' AND THE PIVOT IS TurretPivot, NOT turretPosition. Their warning,
+                ' worth keeping: turretPosition is the raw hull-local number out
+                ' of item_defs, while the renderer rotates about the part's
+                ' ACCUMULATED chassis-space offset - the loader builds
+                ' turretOff = hullOff + turretPosition. Rotating about the raw
+                ' one displaces the turret axis by a whole hull offset.
+                Dim partModel = b.vehicle.PartLocal(part, b.turretYawDeg, b.gunPitchDeg) * world
 
                 For Each m In part.meshes
                     If m.vao Is Nothing Then Continue For

@@ -112,18 +112,34 @@ Module BrainGun
     ''' <summary>
     ''' Where this hull's gun muzzle is, in the world.
     '''
-    ''' APPROXIMATED FOR NOW, and flagged rather than hidden. BrainHull carries
-    ''' muzzleLocal from the vehicle definition, but which frame it is expressed
-    ''' in - hull, turret or gun - is nuTerra's own knowledge and I have asked
-    ''' for it rather than guessed. Until the answer comes back this is the hull
-    ''' box's own geometry: centred, and high enough up the box to be a turret
-    ''' roof rather than a track.
+    ''' THE GUN PART'S ORIGIN, through the matrix the gun is drawn with - so it
+    ''' rises, yaws and pitches with the barrel rather than sitting at a guessed
+    ''' fraction of the hull box, which is what this used to do.
     '''
-    ''' The error this can carry is a metre of height over a shot of tens of
-    ''' metres, which moves the pitch by about a degree. Worth correcting, not
-    ''' worth blocking on.
+    ''' STILL THE BREECH AND NOT THE TIP. The barrel's LENGTH is not in the part
+    ''' offset, and it cannot be guessed: nuTerra work's point is that guns differ
+    ''' in length and are not all authored down the same axis, so any assumed
+    ''' length misses. Their measured_muzzle walks the barrel bone's own vertices
+    ''' through this same matrix, which is the right answer, and they are putting
+    ''' it on the seam. Until then a shot leaves the breech rather than the
+    ''' muzzle: a few metres short along a line that is already correct, which
+    ''' changes nothing about where it lands.
     ''' </summary>
     Private Function muzzle(b As BrainTanks.Body) As Vector3
+        If b.vehicle IsNot Nothing Then
+            Dim g = b.vehicle.GunPart
+            If g IsNot Nothing Then
+                ' THE GUN PART'S OWN ORIGIN, through the very matrix it is drawn
+                ' with. Not a guess at a height: this is where the breech
+                ' actually is, yawed and pitched with the turret, so it tracks
+                ' as the gun moves instead of sitting at a fixed fraction of a
+                ' box.
+                Dim m = b.vehicle.PartLocal(g, b.turretYawDeg, b.gunPitchDeg) *
+                        BrainTanks.WorldOf(b)
+                Return New Vector3(m.M41, m.M42, m.M43)
+            End If
+        End If
+        ' No vehicle, no gun part: the hull box, as before.
         Return New Vector3(b.spawn.X,
                            b.y + b.half.Y * BrainTune.Get_("gunh", 1.8F),
                            b.spawn.Y)

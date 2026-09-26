@@ -52,6 +52,24 @@ Module BrainTanks
     Private Const ROW_N As Integer = 5        ' five abreast
     Private Const SPACING As Single = 14.0F   ' metres between hulls
 
+    ''' <summary>
+    ''' WHERE A HULL SITS, AS A MATRIX. One recipe, because two drift.
+    '''
+    ''' BrainTankDraw's own comment makes the argument: "THE SAME COMposition
+    ''' MapTanks USES, and it has to be: a hull posed by a second recipe drifts
+    ''' from the one the rest of the project draws the moment either changes."
+    ''' That applied to the renderer against MapTanks; it applies again now the
+    ''' GUN needs the same matrix to find where its own barrel is in the world.
+    ''' So the composition lives here, once, and both callers ask.
+    '''
+    ''' Scale for the X mirror, then heading, then place - in that order.
+    ''' </summary>
+    Public Function WorldOf(b As Body) As Matrix4
+        Return Matrix4.CreateScale(If(TankRoster.MirrorX, -1.0F, 1.0F), 1.0F, 1.0F) *
+               Matrix4.CreateRotationY(b.headingRad) *
+               Matrix4.CreateTranslation(b.spawn.X, b.y, b.spawn.Y)
+    End Function
+
     ''' <summary>Read scripts/arena_defs/&lt;map&gt;.xml for the bases and any
     ''' declared spawn points. False if the map declares no ctf bases.</summary>
     Public Function ReadArena(map As String) As Boolean
