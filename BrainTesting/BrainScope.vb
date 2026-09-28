@@ -183,16 +183,10 @@ Module BrainScope
         live.Begin(New Vector4(0.0F, 0.0F, 0.0F, 0.0F))
         live.DrawCanvas(chrome)
 
-        ' ---- the corridor planks: ONLY while planking -----------------------
-        If Not BrainRadar.SCANNING AndAlso BrainRadar.LANE_OFF IsNot Nothing Then
-            For i = 0 To BrainRadar.LANE_OFF.Length - 1
-                Dim lx = Mid + XS * BrainRadar.LANE_OFF(i) * Scale
-                Dim y1 = Mid - BrainRadar.LANE_LEN(i) * Scale
-                Dim col = If(BrainRadar.LANE_HIT(i), YELLOW, BLUE)
-                live.Line(lx, Mid, lx, y1, col)
-                If BrainRadar.LANE_HIT(i) Then live.Disc(lx, y1, 2.6F, YELLOW)
-            Next
-        End If
+        ' THE PLANKS ARE GONE, and so is their display. The corridor is one
+        ' line at the hull's width now - see BrainRadar.Corridor - so there is
+        ' no fan of planks to plot, no per-plank contact to colour, and nothing
+        ' here that was hidden behind a gate that was never satisfiable.
 
         ' ---- the returns: ALWAYS ------------------------------------------
         '

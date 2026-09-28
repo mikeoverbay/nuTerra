@@ -1023,10 +1023,17 @@ Module BrainRadar
     Public LANE_ACTIVE As Boolean = False
 
     ''' <summary>What the corridor test found.</summary>
+    ''' <summary>
+    ''' What the corridor found. The plank-era fields are kept so their readers
+    ''' still compile, and they now report nothing because there are no planks -
+    ''' see Corridor. dist and hit are the whole answer: how far the hull can go
+    ''' this way, and whether it stopped short.
+    ''' </summary>
     Public Structure Lane
         Public hit As Boolean
-        Public dist As Single       ' nearest plank return, REACH if none
-        Public leftHit As Boolean   ' which side of the centreline it was on
+        Public dist As Single       ' how far the hull can actually go, REACH if clear
+        Public clear As Boolean     ' nothing in the way for the distance asked
+        Public leftHit As Boolean   ' plank-era, always False now
         Public rightHit As Boolean
         Public planks As Integer
         Public blocked As Integer
@@ -1067,63 +1074,56 @@ Module BrainRadar
     ''' it. It read as flickering ray data and it was the picture showing a
     ''' different question from the one the tank was asking.
     ''' </param>
+    ''' <summary>
+    ''' ONE LINE AT THE HULL'S WIDTH. The plank is gone.
+    '''
+    ''' "remove the plank all together in radar scope as well" - the owner,
+    ''' 2026-09-28.
+    '''
+    ''' WHAT WAS HERE. A fan of parallel planks across the hull's width, each
+    ''' walked cell by cell, reporting which edges were touched, how many planks
+    ''' were shut and how far the nearest contact was. Three-state verdicts came
+    ''' out of it - clear, grazed, blocked - and most of the brain's candidate
+    ''' filtering hung off them.
+    '''
+    ''' WHY A LINE IS BETTER, not merely cheaper. The planks walked
+    ''' BrainNav.BlockedCell and nothing else - the obstacle question alone, by
+    ''' design, because Standable's ground sampling used to cost 5,600 terrain
+    ''' queries a tick. That made the brain's idea of "clear" DIFFERENT from the
+    ''' sim's: BrainSim.Apply refuses a move by Standable, so the tank could be
+    ''' told a corridor was open and then refused every step along it. The slope
+    ''' sampling came out of Standable when the .blk began carrying it in bit 0,
+    ''' so that expense is gone and a line test is now both cheap and EXACTLY the
+    ''' question the world will be asked.
+    '''
+    ''' The graze verdict goes with it. A plank touched down one edge was
+    ''' "amber", and amber carried a 1000 penalty against a score measured in
+    ''' metres - so it could never win anyway. Two states are what there were.
+    '''
+    ''' The Lane shape is kept so its readers still compile: dist is how far the
+    ''' hull can actually go this way, hit says it stopped short. The plank-only
+    ''' fields report nothing because there are no planks.
+    ''' </summary>
     Public Function Corridor(pos As Vector2, headingRad As Single,
                              halfWidth As Single, reach As Single,
                              Optional record As Boolean = True) As Lane
-        Dim lane As Lane
-        Dim dx = CSng(Math.Sin(headingRad)), dz = CSng(Math.Cos(headingRad))
-        Dim px = -dz, pz = dx                      ' unit perpendicular
-        Dim cell = BrainNav.CellSize
-        ' A PLANK AND A HALF PROUD OF THE FENDER, not one.
-        '
-        ' "widen side clearance 1/2 square" - the owner, 2026-09-19. The spec
-        ' this was built to was his too - "we want to be one plk left and
-        ' right of fenders and fill all between" - so this is that, plus half
-        ' a cell each side: 0.25 m a side on a 0.5 m grid, 0.5 m on the lane.
-        '
-        ' IT WIDENS THE QUESTION, NOT THE TANK. Every corridor caller passes
-        ' its own halfWidth and the hull is unchanged; what moves is how much
-        ' room the brain insists on having beside itself before it calls a
-        ' lane clear. BrainNav.Standable - the test the SIM refuses moves on -
-        ' does not go through here, so the hull can still fit where it always
-        ' could. This only makes the planning fussier than the physics, which
-        ' is the correct direction for the two to differ in.
-        '
-        ' n follows from edge, so a wider lane is also a lane with more planks
-        ' in it - the plank spacing stays at one per cell rather than being
-        ' stretched over a wider span, which would have quietly coarsened the
-        ' test while appearing to tighten it.
-        Dim edge = halfWidth + cell * BrainTune.Get_("edgecells", 1.5F)
-        Dim n = CInt(Math.Ceiling(edge * 2.0F / cell)) + 1
-        If n < 3 Then n = 3
+        Dim o As New Lane
+        Dim u = New Vector2(CSng(Math.Sin(headingRad)), CSng(Math.Cos(headingRad)))
+        Dim r = Math.Max(0.1F, halfWidth)
+        Dim step_ = Math.Max(0.1F, BrainNav.CellSize)
+        Dim gone = 0.0F
 
-        lane.dist = reach
-        lane.planks = n
-        If record Then LANE_ACTIVE = False
-        If record AndAlso (LANE_OFF Is Nothing OrElse LANE_OFF.Length <> n) Then
-            ReDim LANE_OFF(n - 1)
-            ReDim LANE_LEN(n - 1)
-            ReDim LANE_HIT(n - 1)
-        End If
-        For i = 0 To n - 1
-            Dim off = -edge + (2.0F * edge) * i / (n - 1)
-            Dim ax = pos.X + px * off, az = pos.Y + pz * off
-            Dim d = trace_cells(ax, az, ax + dx * reach, az + dz * reach)
-            If record Then
-                LANE_OFF(i) = off
-                LANE_LEN(i) = If(d >= 0.0F, d, reach)
-                LANE_HIT(i) = (d >= 0.0F)
-            End If
-            If d >= 0.0F Then
-                lane.hit = True
-                If record Then LANE_ACTIVE = True
-                lane.blocked += 1
-                If d < lane.dist Then lane.dist = d
-                If off < -cell * 0.5F Then lane.leftHit = True
-                If off > cell * 0.5F Then lane.rightHit = True
-            End If
-        Next
-        Return lane
+        While gone < reach
+            Dim nd = Math.Min(reach, gone + step_)
+            Dim p = pos + u * nd
+            If Not BrainNav.Standable(p.X, p.Y, r) Then Exit While
+            gone = nd
+        End While
+
+        o.dist = gone
+        o.hit = gone < reach - 0.001F
+        o.clear = Not o.hit
+        Return o
     End Function
 
     ''' <summary>
