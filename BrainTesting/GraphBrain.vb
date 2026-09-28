@@ -1293,6 +1293,7 @@ Public Class GraphBrain
                 If(covers, "BEHIND", "clear of"))
     End Sub
 
+    Private arcSay As Integer = 0
     Private saidWall As Single = 0.0F
 
     Private sawMate As Integer = -1
@@ -2258,6 +2259,37 @@ Public Class GraphBrain
             '
             ' The bearing is identical either way - direction does not change
             ' with range - so it costs nothing and buys a shorter commitment.
+            ' ---- CAN WE ACTUALLY ARC TO IT? ------------------------------
+            '
+            ' "is it unable to turn to get to the white dot? is that a trap? If
+            '  it can't make the turn, it should piviot" - the owner, 2026-09-28.
+            '
+            ' A point at bearing b and distance d needs an arc of radius
+            ' d / (2 sin b). The hull's tightest arc is v / TURN_RATE - 26.7 m at
+            ' full speed, and it shrinks with speed because the turn rate is
+            ' fixed. So a white aim ten metres off at sixty degrees needs a 5.8 m
+            ' arc, which this tank cannot fly at any speed above 2.6 m/s. It
+            ' drives PAST it, the aim goes behind, and the walk picks again -
+            ' which from outside looks exactly like finding a target and changing
+            ' its mind.
+            '
+            ' MEASURED FIRST, not fixed. This says whether that is what is
+            ' happening before anything is built on the assumption that it is.
+            Dim arcB = Math.Abs(wrap_pi(bestB))
+            Dim arcD = (bestAim - h.pos).Length
+            Dim needR = If(Math.Sin(arcB) < 0.02F, 99999.0F,
+                           arcD / (2.0F * CSng(Math.Sin(arcB))))
+            Dim haveR = Math.Abs(h.speed) / Math.Max(0.001F, BrainSim.TURN_RATE)
+            If needR < haveR AndAlso arcSay < 10 Then
+                arcSay += 1
+                LogThis("brain: hull {0} CANNOT ARC to its pick - {1:0.0} m at {2:0} deg " &
+                        "needs a {3:0.0} m radius, and at {4:0.0} m/s the tightest this " &
+                        "hull can fly is {5:0.0} m. It will drive past it. Pivot speed " &
+                        "would be {6:0.0} m/s.",
+                        BrainRadar.HULL, arcD, MathHelper.RadiansToDegrees(bestB),
+                        needR, h.speed, haveR, needR * BrainSim.TURN_RATE)
+            End If
+
             Dim half_ = h.pos + (bestAim - h.pos) *
                         BrainTune.Get_("aimfrac", 0.5F)
             planPoint = half_
@@ -2483,9 +2515,95 @@ Public Class GraphBrain
     ''' speed_for_squares is left in the file - it is what Can Pivot To
     ''' reasons with - but it no longer touches the throttle.
     ''' </summary>
+    ''' <summary>
+    ''' CAN WE TURN TO THE DOT, OR DO WE PIVOT?
+    '''
+    ''' "when it is moving forward, it ignores that a way out white dot was
+    ''' found. Dots out should trigger a redirection in logic. Can we turn to
+    ''' dot or do we pivit" - the owner, 2026-09-28.
+    '''
+    ''' THIS FUNCTION TOOK THE BEARING AND THREW IT AWAY - the whole body was
+    ''' `Return throttle_for(room)`. So the throttle was decided by how much
+    ''' clear road was ahead and never by whether the tank could turn to what it
+    ''' had chosen. That is precisely the ignoring described: the walk finds a
+    ''' white dot, the hull drives at whatever speed the road allows, and the arc
+    ''' it would need is nobody's business.
+    '''
+    ''' THE ARITHMETIC. A point d away at bearing b needs an arc of radius
+    ''' d / (2 sin b). This sim turns at a fixed rate whatever the speed -
+    ''' headingRad += str * TURN_RATE * dt - so the tightest arc available is
+    ''' v / TURN_RATE, and it SHRINKS AS YOU SLOW. 26.7 m at 12 m/s, 11 m at
+    ''' 5 m/s, 3.3 m at 1.5.
+    '''
+    ''' So the answer to "can we turn to it" is a speed, not a yes or no. Cap the
+    ''' throttle at the speed that makes the arc flyable and the tank turns into
+    ''' the dot while still moving - which is what a real tank does and what
+    ''' keeps it out of the reverse-and-retry loop.
+    '''
+    ''' AND PIVOT IS THE FLOOR, not the first answer. If the arc is so tight that
+    ''' the flyable speed is below a walking pace, no amount of slowing helps and
+    ''' the hull must turn on the spot: throttle zero. The steer is computed
+    ''' separately and the sim rotates at full rate at any speed including none,
+    ''' so zero throttle with lock on IS the pivot - nothing else is needed to
+    ''' express it.
+    '''
+    ''' Measured before this existed: "CANNOT ARC to its pick - 17.8 m at -30 deg
+    ''' needs a 18.0 m radius, and at 12.0 m/s the tightest this hull can fly is
+    ''' 26.7 m. It will drive past it."
+    ''' </summary>
     Private Function throttle_for_turn(bearing As Single, room As Single) As Single
-        Return throttle_for(room)
+        Dim base_ = throttle_for(room)
+        Dim swing = Math.Abs(wrap_pi(bearing))
+
+        ' Straight ahead needs no arc, and sin near zero would divide the
+        ' radius to infinity anyway.
+        If swing < BrainTune.Get_("arcmin", 0.05F) Then Return base_
+
+        ' ONLY WHEN THERE IS A DOT TO TURN TO.
+        '
+        ' The first version fell back to `room` - the clear road ahead - when no
+        ' plan was running, and that is not the distance to anything. It read
+        ' "30.0 m at 146 deg needs a 26.6 m arc, capping 12.0 to 12.0 m/s": an
+        ' arc requirement invented toward nothing, doing no work while logging
+        ' as though it were. The owner's rule is about a dot that was FOUND -
+        ' "Dots out should trigger a redirection" - so with no dot there is
+        ' nothing to redirect toward and the clearance rule alone is right.
+        If Not PlanOn Then Return base_
+        Dim d = (planPoint - h.pos).Length
+        If d < 0.5F Then Return base_
+
+        Dim needR = d / (2.0F * CSng(Math.Sin(swing)))
+        Dim vOk = needR * BrainSim.TURN_RATE
+        Dim vNow = base_ * BrainSim.TOP_SPEED
+        If vNow <= vOk Then Return base_          ' already slow enough to fly it
+
+        Dim capped = vOk / BrainSim.TOP_SPEED
+        Dim floorFrac = BrainTune.Get_("pivotms", 1.5F) /
+                        Math.Max(0.001F, BrainSim.TOP_SPEED)
+
+        If capped < floorFrac Then
+            If turnSay2 < 8 Then
+                turnSay2 += 1
+                LogThis("brain: hull {0} PIVOTS - {1:0.0} m at {2:0} deg needs a " &
+                        "{3:0.0} m arc, flyable only at {4:0.0} m/s. Too tight to drive; " &
+                        "turning on the spot.",
+                        BrainRadar.HULL, d, MathHelper.RadiansToDegrees(bearing),
+                        needR, vOk)
+            End If
+            Return 0.0F
+        End If
+
+        If turnSay2 < 8 Then
+            turnSay2 += 1
+            LogThis("brain: hull {0} SLOWS TO TURN - {1:0.0} m at {2:0} deg needs a " &
+                    "{3:0.0} m arc; capping {4:0.0} to {5:0.0} m/s so it can be flown.",
+                    BrainRadar.HULL, d, MathHelper.RadiansToDegrees(bearing),
+                    needR, vNow, vOk)
+        End If
+        Return Math.Min(base_, capped)
     End Function
+
+    Private turnSay2 As Integer = 0
 
     ''' <summary>
     ''' FULL LOCK, BECAUSE LOCK IS THE RATE AND SPEED IS THE RADIUS.
