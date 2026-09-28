@@ -2168,9 +2168,52 @@ Public Class GraphBrain
                     ' the right way. An aim ninety degrees off projects to
                     ' nothing however distant, and one straight at the goal
                     ' scores its full length.
-                    Dim gv = goal - h.pos
-                    Dim gl = Math.Max(0.001F, gv.Length)
-                    off = -Vector2.Dot(aim - h.pos, gv / gl)
+                    ' ---- METRES TO THE GOAL THROUGH THE WALLS ------------
+                    '
+                    ' This projected the aim onto the straight line to the goal -
+                    ' "farthest along the goal direction" - and that is the
+                    ' definition of a method with local minima. A pocket mouth
+                    ' always projects further along the goal than going round it
+                    ' does, because the mouth genuinely IS nearer in a straight
+                    ' line. So the tank was not making a mistake when it drove
+                    ' into dead ends; it was correctly following a measure that
+                    ' rewards them.
+                    '
+                    ' Koren and Borenstein wrote the paper on this in 1991 -
+                    ' potential-field and reactive methods have inherent local
+                    ' minima, and no amount of better pattern classification
+                    ' removes them. The two known escapes are Bug algorithms,
+                    ' which get completeness from an explicit leaving condition,
+                    ' and NAVIGATION FUNCTIONS - a potential with no local minima
+                    ' at all, where plain descent is globally correct.
+                    '
+                    ' BrainReach is a navigation function. It floods from the
+                    ' goal across the whole baked grid at the hull's own width
+                    ' and labels every cell with its distance to the goal THROUGH
+                    ' the walls. A pocket mouth scores worse than going round
+                    ' because it IS worse, exactly, in metres. Descending it is
+                    ' not a heuristic.
+                    '
+                    ' bestOff is minimised, and this is already a distance to be
+                    ' minimised, so it drops straight in.
+                    '
+                    ' FALLS BACK TO THE OLD PROJECTION when the field is not
+                    ' built or the aim sits in a cell the flood never reached -
+                    ' an aim outside the map, or genuinely walled off. Unreachable
+                    ' is not the same as far, so it is not scored as merely far.
+                    Dim nav = If(BrainReach.Ready, BrainReach.At(aim), -1.0F)
+                    If nav >= 0.0F Then
+                        off = nav
+                    Else
+                        Dim gv = goal - h.pos
+                        Dim gl = Math.Max(0.001F, gv.Length)
+                        off = -Vector2.Dot(aim - h.pos, gv / gl)
+                        ' An aim the flood could not reach, while the flood
+                        ' exists, is one with no route to the goal from it. Push
+                        ' it below every reachable candidate rather than letting
+                        ' it compete on straight-line looks.
+                        If BrainReach.Ready Then off += BrainTune.Get_("navpen", 5000.0F)
+                    End If
 
                     ' WHITE BEATS AMBER OUTRIGHT, rather than competing with it.
                     ' "we should take that and not the pink blocks" - a clear
@@ -2403,31 +2446,33 @@ Public Class GraphBrain
     '''
     ''' Lane already carried all of this and only `hit` was ever read.
     ''' </summary>
+    ''' <summary>
+    ''' CAN THE HULL GO THIS WAY, THIS FAR? Two answers, not three.
+    '''
+    ''' The plank is gone - "remove the plank all together in radar scope as
+    ''' well" - and with it the graze. Amber meant "one plank edge touched but
+    ''' most of the width still open", which only existed because the corridor
+    ''' was a fan. A line at the hull's width either gets there or it does not.
+    '''
+    ''' NO LOSS, AND ONE FEWER LIE. Amber already could not win: it carried a
+    ''' 1000 penalty against a score measured in metres along the goal, so any
+    ''' white candidate beat every amber one outright. It was a third state that
+    ''' cost a comparison and decided nothing.
+    '''
+    ''' And the answer now means what the WORLD means by it. Corridor walks
+    ''' Standable, which is the test BrainSim.Apply refuses moves with - so the
+    ''' brain can no longer be told a way is open and then refused every step
+    ''' along it.
+    '''
+    ''' atM is how far it actually got, which is what the callers use to decide
+    ''' whether there is room to carry on through.
+    ''' </summary>
     Private Function box_verdict(bearing As Single, metres As Single,
                                  ByRef atM As Single) As Integer
         Dim lane = BrainRadar.Corridor(h.pos, h.headingRad + bearing,
                                        h.DriveRadius, metres, False)
         atM = lane.dist
-        If Not lane.hit Then Return 0
-        ' One edge, and most of the width still open, is something the
-        ' hull passes alongside rather than something in the way.
-        ' A GRAZE HAS TO BE FAR ENOUGH AWAY TO BE A GRAZE.
-        '
-        ' Graze-against-blocked was judged purely on WHICH edges were touched
-        ' and what share of the planks were shut - never on how far away the
-        ' touch was. A graze at twenty metres is fine, because the hull will
-        ' have steered long before it arrives. A graze at a metre and a half
-        ' is a wall, and calling it passable is the same mistake as flooring
-        ' the throttle at CREEP in front of one.
-        '
-        ' Found by the owner watching it stop at an amber cube.
-        Dim tooClose = lane.dist < h.halfZ +
-                       BrainTune.Get_("grazem", 4.0F)
-        Dim bothSides = lane.leftHit AndAlso lane.rightHit
-        Dim mostShut = lane.planks > 0 AndAlso
-                       lane.blocked * 3 > lane.planks
-        If bothSides OrElse mostShut OrElse tooClose Then Return 2
-        Return 1
+        Return If(lane.hit, 2, 0)
     End Function
 
     Private Function box_clear(bearing As Single, metres As Single) As Boolean

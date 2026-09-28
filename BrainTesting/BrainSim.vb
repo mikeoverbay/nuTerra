@@ -174,6 +174,7 @@ Module BrainSim
         Frame = 0
         runSeconds = 0.0
         bumps = 0
+        RearmGoal()
         ReDim speeds(BrainTanks.Bodies.Count - 1)
         ' READ ONCE A RUN, not per tick: a rate that changed underneath a
         ' plan would make the brain's own turn estimates disagree with the
@@ -223,6 +224,70 @@ Module BrainSim
         Running = True
         LogThis("brain: sim started with brain '{0}', {1} hull(s)",
                 Brain.Name, BrainTanks.Bodies.Count)
+    End Sub
+
+    ''' <summary>Metres from the goal that count as there. Wider than the
+    ''' board's own ARRIVE_M of 5, because this ends the run and a tank that has
+    ''' to touch a point to the metre is a tank that circles it - the same
+    ''' argument BrainPath makes for its base zone.</summary>
+    Private arrived As Boolean = False
+
+    ''' <summary>
+    ''' THE GOAL ARRIVAL TOOK AWAY, so it can be given back.
+    '''
+    ''' "i can reset now after goal reached" - "can't!" - the owner, 2026-09-28,
+    ''' and he is right. Arriving clears HasTarget, the board's first rung is
+    ''' No Goal -> Stop, and NOTHING restored it. Reset put the hull back on its
+    ''' spawn and left it with nowhere to go, for good.
+    '''
+    ''' THIS IS THE SAME BUG AS BrainPath's finished LATCH, made again in a new
+    ''' place three hours later: a flag that stops the tank, set once, cleared by
+    ''' nobody. The lesson did not transfer because the state was somewhere else,
+    ''' which is the whole argument for arrival living in ONE place rather than
+    ''' two.
+    ''' </summary>
+    Private goalWas As Vector2
+    Private hadGoal As Boolean = False
+
+    ''' <summary>
+    ''' Give the goal back and unlatch the arrival. Called by Reset and by Start.
+    '''
+    ''' BOTH, because they are different acts that both mean "go again": Reset
+    ''' puts the hull back and Start begins a run from wherever it is, and after
+    ''' an arrival either one would otherwise produce a tank with nothing to do.
+    '''
+    ''' Silent when nothing was ever taken away, so it cannot invent a goal for a
+    ''' run that never had one.
+    ''' </summary>
+    Public Sub RearmGoal()
+        arrived = False
+        If Not hadGoal Then Return
+        BrainGoal.Follow = False
+        BrainGoal.Target = goalWas
+        BrainGoal.HasTarget = True
+        LogThis("brain: goal restored to ({0:0.0}, {1:0.0}) - the arrival that cleared " &
+                "it is unlatched.", goalWas.X, goalWas.Y)
+    End Sub
+
+    Private Sub note_arrival()
+        If arrived OrElse Not BrainGoal.HasTarget Then Return
+        If BrainTanks.Bodies Is Nothing Then Return
+        Dim i = BrainRadar.HULL
+        If i < 0 OrElse i >= BrainTanks.Bodies.Count Then Return
+
+        Dim here = BrainTanks.Bodies(i).spawn
+        Dim d = (BrainGoal.Target - here).Length
+        If d > BrainTune.Get_("goalm", 8.0F) Then Return
+
+        arrived = True
+        goalWas = BrainGoal.Target
+        hadGoal = True
+        BrainGoal.HasTarget = False
+        LogThis("brain: GOAL REACHED - hull {0} is {1:0.0} m from ({2:0.0}, {3:0.0}) " &
+                "after {4:0} s and {5:0} m of track. Goal cleared; the board stops on " &
+                "No Goal.",
+                i, d, BrainGoal.Target.X, BrainGoal.Target.Y,
+                runSeconds, BrainTrail.Metres)
     End Sub
 
     ''' <summary>
@@ -437,6 +502,25 @@ Module BrainSim
                                      speeds(BrainRadar.HULL), dt, me_.spawn)
             BrainTrail.Note(me_.spawn, me_.headingRad)
         End If
+        ' ---- ARRIVED AT THE END GOAL --------------------------------------
+        '
+        ' "we need a end goal reached at the end goal" - the owner, 2026-09-28.
+        '
+        ' Nothing declared it. The board has an Arrived test, but it is wired to
+        ' New Goal, which declines under `pingoal` - the flag every measured run
+        ' sets - so the tank would reach the goal, be told nothing, and drive on
+        ' past it looking for something better. On the last run it touched the
+        ' goal exactly and kept going.
+        '
+        ' IN THE SIM, NOT THE BOARD, because arriving is a fact about the world
+        ' rather than a decision: it is true whichever brain is driving, and a
+        ' brain that failed to notice it would be the thing being measured.
+        '
+        ' THE GOAL IS TAKEN AWAY, not a stop commanded. The board's first rung is
+        ' already No Goal -> Stop, so clearing it is the whole of it - the same
+        ' way BrainPath ends a road. Latched, so it fires once.
+        note_arrival()
+
         Frame += 1
         ' Asked for a fixed number of ticks: stop with the last one still
         ' drawn, rather than running on and overwriting the picture.

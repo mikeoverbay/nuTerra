@@ -900,6 +900,13 @@ Public Class BrainWindow
                 ' the chords the trap rule stamped; both are gone.
                 BrainTrap.Forget()
 
+                ' AND THE GOAL BACK, IF ARRIVING TOOK IT. Reaching the goal
+                ' clears it so the board stops; without this, Reset then hands
+                ' the hull back to its spawn with nowhere to go and the run can
+                ' never be repeated - "i can reset now after goal reached",
+                ' "can't!".
+                BrainSim.RearmGoal()
+
                 ' AND THE ROAD BACK TO ITS FIRST WAYPOINT - "reset does not
                 ' reset the start points the tanks seek".
                 '
