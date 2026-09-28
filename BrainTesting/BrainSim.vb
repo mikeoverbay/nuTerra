@@ -206,11 +206,66 @@ Module BrainSim
                                       (BrainGoal.Target - BrainReport.StartPos).Length,
                                       -1.0F)
         End If
+        ' ---- CAN WE GET THERE AT ALL -----------------------------------
+        '
+        ' "Can you tell me why we can not see that the entire path is blocked or
+        '  can we tell?" - the owner. We can, and this is where it gets asked:
+        ' once per run, against the goal the run is actually about.
+        '
+        ' Every other test in this app is local - forty metres of radar - so
+        ' "blocked ahead" and "blocked everywhere" read identically to the brain.
+        ' A flood fill from the goal over the whole baked grid separates them,
+        ' and leaves a distance-through-the-walls for every cell as a by-product.
+        report_reach()
+
         BrainLog.StartRun(MAP_NAME_NO_PATH, Brain.Name)
         Brain.Start(Gather(0.0F))
         Running = True
         LogThis("brain: sim started with brain '{0}', {1} hull(s)",
                 Brain.Name, BrainTanks.Bodies.Count)
+    End Sub
+
+    ''' <summary>
+    ''' Fill from the goal and say, per driven hull, whether it can be reached.
+    '''
+    ''' THE COMPARISON IS THE POINT. Straight-line range is what the brain steers
+    ''' on, and a route distance far longer than it means the direct line is a
+    ''' wall - which is the difference between "go around" and "there is no way
+    ''' round", and the thing forty metres of radar can never say.
+    ''' </summary>
+    Private Sub report_reach()
+        If Not BrainGoal.HasTarget Then Return
+        If BrainTanks.Bodies Is Nothing OrElse BrainTanks.Bodies.Count = 0 Then Return
+
+        Dim i = Math.Max(0, Math.Min(BrainRadar.HULL, BrainTanks.Bodies.Count - 1))
+        Dim r = BrainTanks.Bodies(i).half.X + 0.3F
+        If Not BrainReach.Build(BrainGoal.Target, r) Then Return
+
+        For k = 0 To BrainTanks.Bodies.Count - 1
+            Dim b = BrainTanks.Bodies(k)
+            ' THE CREW HAS NOT MANNED UP YET. This runs before Brain.Start, so
+            ' Driving is empty and testing it would skip every hull - which it
+            ' did. An empty roster means "we do not know who drives", not "nobody
+            ' does", so fall back to the hull being watched.
+            Dim crew = TryCast(Brain, BrainCrew)
+            If crew IsNot Nothing AndAlso crew.Driving.Count > 0 Then
+                If Not crew.Driving.Contains(k) Then Continue For
+            ElseIf k <> BrainRadar.HULL Then
+                Continue For
+            End If
+            Dim route = BrainReach.At(b.spawn)
+            Dim line = (BrainGoal.Target - b.spawn).Length
+            If route < 0.0F Then
+                LogThis("brain: reach - hull {0} at ({1:0.0}, {2:0.0}) HAS NO ROUTE to the " &
+                        "goal. Not blocked ahead - blocked everywhere. The straight line " &
+                        "is {3:0} m and there is no way round it for a hull this wide.",
+                        k, b.spawn.X, b.spawn.Y, line)
+            Else
+                LogThis("brain: reach - hull {0} can reach the goal: {1:0} m by road " &
+                        "against {2:0} m straight line, a detour of {3:0}%.",
+                        k, route, line, 100.0F * (route - line) / Math.Max(1.0F, line))
+            End If
+        Next
     End Sub
 
     ''' <summary>
