@@ -1261,6 +1261,36 @@ Public Class GraphBrain
     ''' not also a shooting test.</summary>
     Private ReadOnly GUNS_FREE As Boolean = Not BrainTune.On_("hold", False)
 
+    ''' <summary>
+    ''' Say what the widest doorless chain is, when it changes materially.
+    '''
+    ''' The span AND whether it covers the goal bearing, because those are two
+    ''' different facts: a 200 degree wall behind us is not a problem, and a 40
+    ''' degree one straight ahead is.
+    ''' </summary>
+    Private Sub wall_report(goalB As Single)
+        Dim span = BrainWall.Widest(hits)
+        If span < BrainTune.Get_("walldeg", 25.0F) Then
+            If saidWall > 0.0F Then
+                LogThis("brain: hull {0} - the wall is gone, widest doorless chain now " &
+                        "{1:0} deg", BrainRadar.HULL, span)
+                saidWall = 0.0F
+            End If
+            Return
+        End If
+        If Math.Abs(span - saidWall) < 15.0F Then Return
+        saidWall = span
+        Dim covers = BrainWall.Blocks(hits, goalB)
+        LogThis("brain: hull {0} WALL - one connected chain, no doors, {1:0} deg wide " &
+                "from {2:0} to {3:0} deg off the nose over {4} rays. The goal bearing " &
+                "{5:0} deg is {6} it.",
+                BrainRadar.HULL, span, BrainWall.FromDeg, BrainWall.ToDeg, BrainWall.Rays,
+                MathHelper.RadiansToDegrees(goalB),
+                If(covers, "BEHIND", "clear of"))
+    End Sub
+
+    Private saidWall As Single = 0.0F
+
     Private sawMate As Integer = -1
     Private sawRays As Integer = 0
 
@@ -2162,6 +2192,18 @@ Public Class GraphBrain
         ' not touch the board, and does not write to the map. The writing
         ' happens on the way out of the backing state - see BrainTrap.
         BrainTrap.Look(hits, h.pos, h.headingRad, Not got)
+
+        ' ---- AND THE WALL TEST, which asks a different question -------------
+        '
+        ' The trap rule asks HOW MUCH is blocked. This asks whether what is
+        ' blocked is JOINED UP - a run of consecutive rays the hull cannot fit
+        ' between, which is a barrier with no door in it. A scatter of trees
+        ' fails this while filling the arc; a wall whose ends the rays sneak past
+        ' passes it while leaving the arc open.
+        '
+        ' Reported when it CHANGES and only alongside a walk, so it is one line
+        ' per real change of situation rather than sixty a second.
+        wall_report(goalB)
 
         If turnSay < 6 Then
             turnSay += 1
