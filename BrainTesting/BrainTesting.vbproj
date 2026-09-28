@@ -141,6 +141,12 @@
     <Compile Include="../nuTerra/Tanks/TankAtlas.vb" Link="linked/TankAtlas.vb" />
     <Compile Include="../nuTerra/Tanks/TankVisual.vb" Link="linked/TankVisual.vb" />
     <Compile Include="../nuTerra/Tanks/TankVehicle.vb" Link="linked/TankVehicle.vb" />
+    <!-- THE HAVOK COLLISION READER. Exists purely for this project: nuTerra
+         does not reference it at all. The owner moved armour into BrainTesting
+         because the AI is done here first, so the reader compiles here and the
+         nuTerra-side probe was removed. It reaches only TankFiles and LogThis,
+         both already linked. -->
+    <Compile Include="../nuTerra/Tanks/TankHavok.vb" Link="linked/TankHavok.vb" />
     <Compile Include="../nuTerra/Tanks/TankFiles.vb" Link="linked/TankFiles.vb" />
     <Compile Include="../nuTerra/Tanks/TankPrimitives.vb" Link="linked/TankPrimitives.vb" />
     <Compile Include="../nuTerra/Tanks/TankFormats.vb" Link="linked/TankFormats.vb" />

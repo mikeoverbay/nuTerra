@@ -367,6 +367,7 @@ Module BrainTanks
         End If
 
         report_guns()
+        report_armour()
 
         If Not HULL_BOX_TABLE Then Return
         LogThis("brain:  id tm  {0,-32} {1,6} {2,6} {3,6}  {4,7} {5,6} {6,6}   spawn",
@@ -380,6 +381,46 @@ Module BrainTanks
                     pr.X, pr.Y,
                     b.spawn.X, b.spawn.Y)
         Next
+    End Sub
+
+    ''' <summary>
+    ''' WHAT THE ROSTER IS MADE OF, in one line.
+    '''
+    ''' The armour plates and the collision paths land on TankPart at vehicle
+    ''' load - nuTerra work put them there and the owner moved the work into
+    ''' this project, "All tank AI will be done there first". Their own load-time
+    ''' line reports it, but none of their tank: lines reach this app's output at
+    ''' all, so without this there is no way to tell from inside BrainTesting
+    ''' whether the data arrived. A missing log line is not evidence that code
+    ''' did not run.
+    '''
+    ''' A CENSUS, not a table. Four tanks with four parts and up to eleven plates
+    ''' each is 150 numbers; what a harness needs to know at startup is that they
+    ''' are there and roughly what they say.
+    ''' </summary>
+    Private Sub report_armour()
+        Dim plates = 0, withHavok = 0, parts = 0
+        Dim thickest = 0.0F
+        Dim thickWhere = ""
+        For Each b In Bodies
+            If b.vehicle Is Nothing OrElse b.vehicle.parts Is Nothing Then Continue For
+            For Each p In b.vehicle.parts
+                parts += 1
+                If p.havokPath <> "" Then withHavok += 1
+                If p.armorMm Is Nothing Then Continue For
+                plates += p.armorMm.Count
+                For Each kv In p.armorMm
+                    If kv.Value > thickest Then
+                        thickest = kv.Value
+                        thickWhere = b.tag & " " & p.label & " " & kv.Key
+                    End If
+                Next
+            Next
+        Next
+        If parts = 0 Then Return
+        LogThis("brain: armour - {0} plate(s) across {1} part(s) on {2} hull(s); " &
+                "thickest {3:0} mm ({4}); {5} part(s) resolved a .havok",
+                plates, parts, Bodies.Count, thickest, thickWhere, withHavok)
     End Sub
 
     ''' <summary>
