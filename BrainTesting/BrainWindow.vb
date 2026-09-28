@@ -611,12 +611,6 @@ Public Class BrainWindow
         ' buffer Render3D is about to flush.
         BrainRoadMarks.Draw(vp)
 
-        ' AND THE BLOCKERS THE BRAIN ITSELF ADDED. Cyan boxes, 3 m tall, one
-        ' per cell the no-way-out rule stamped. In the world's depth pass, so a
-        ' box behind a building is behind it and the line reads as something
-        ' standing on the ground rather than painted over the view.
-        BrainTrap.Draw(vp)
-
         ' AND THE SHOTS. Placeholder tracers until nuTerra work's animated
         ' shot and impact land - see BrainGun.Draw, which is written to be
         ' deleted whole.
@@ -901,23 +895,9 @@ Public Class BrainWindow
                 ' comment is about.
                 BrainTrail.Reset()
 
-                ' AND THE BAKE ITSELF, IF THE RUN DREW ON IT. "reload the bake
-                ' map at reset" - the owner. BrainTrap stamps blockers across
-                ' the mouths of dead ends, and those are findings about one run,
-                ' not about the map; carrying them into the next run would mean
-                ' every reset started from a slightly different world and two
-                ' runs stopped being comparable.
-                '
-                ' ONLY WHEN SOMETHING WAS STAMPED. LoadMap re-reads a 2800x2800
-                ' grid and most resets have nothing to undo, so the count is the
-                ' gate. Same pair F5 uses: the bake, then the course back on top
-                ' of it, because LoadMap wipes every stamped cell including the
-                ' course's own.
-                If BrainTrap.Stamped > 0 Then
-                    Dim wiped = BrainTrap.Stamped
-                    If BrainNav.LoadMap(STARTUP_MAP) Then BrainCourse.Load(STARTUP_MAP)
-                    LogThis("brain: reset - bake re-read, {0} trap cell(s) gone", wiped)
-                End If
+                ' THE BAKE IS NEVER WRITTEN TO NOW, so Reset has nothing to
+                ' undo and does not re-read it. That reload existed only to wipe
+                ' the chords the trap rule stamped; both are gone.
                 BrainTrap.Forget()
 
                 ' AND THE ROAD BACK TO ITS FIRST WAYPOINT - "reset does not

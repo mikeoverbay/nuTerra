@@ -657,11 +657,9 @@ Public Class GraphBrain
                 ' hull has reversed out, so it is now on the outside of the
                 ' mouth it was looking into when the arc closed. BrainTrap
                 ' measures that for itself and refuses if it disagrees.
-                If was = GSt.Backing AndAlso k <> "Set Backing" Then
-                    ' AND IF IT WROTE, REPLAN. The wall it just drew is a fact
-                    ' the plan in hand was chosen without.
-                    If BrainTrap.Free(hits, h.pos, h.headingRad, h.DriveRadius) Then MapChanged()
-                End If
+                ' NOTHING IS WRITTEN TO THE MAP ANY MORE, so there is nothing
+                ' to replan against on leaving a reverse. BrainTrap.Free and the
+                ' chord it stamped are gone - see that file for why.
                 state = CType([Enum].Parse(GetType(GSt), k.Substring(4)), GSt)
                 why = "state " & k.Substring(4).ToLowerInvariant()
                 ' ---- ARRIVING IN Backing SETS THE DISTANCE TO GO ----------
@@ -1029,7 +1027,13 @@ Public Class GraphBrain
             Case "Deepest Ray"
                 v = CObj(deeper_side())
             Case "Past The Edge"
-                v = BrainTrap.PastEdge(h.pos, h.headingRad)
+                ' NOTHING TO OFFER NOW. This answered with a point on the open
+                ' side, recorded when a dead end was SEALED - and nothing seals
+                ' anything since the map writing was removed. Returning Nothing
+                ' makes the Gate above it decline, which hands the tick back to
+                ' the objective rather than leaving a rung that silently acts on
+                ' a stale bearing.
+                v = Nothing
             Case "Confirm"
                 v = vote(pulled(id, "door"))
             Case "Commit"
@@ -2054,7 +2058,31 @@ Public Class GraphBrain
                 Dim toAim = aim - h.pos
                 If toAim.Length < 1.0F Then Continue For
                 Dim b = wrap_pi(CSng(Math.Atan2(toAim.X, toAim.Y)) - h.headingRad)
-                If Math.Abs(b) > 1.5F Then Continue For
+                ' ---- HOW FAR OFF THE NOSE A CANDIDATE MAY BE ---------------
+                '
+                ' This was a bare 1.5 rad - 86 degrees - and it is the filter
+                ' that discards the most: 414 ends found, 284 ever tried on one
+                ' scenario, and this is most of the 31% that never reach a test.
+                '
+                ' IT IS ALSO WHERE THE WAY OUT OF A POCKET LIVES. Measured twice
+                ' on the same map from two independent directions: the widest
+                ' doorless chain's near end at -140 degrees, and the go-around
+                ' point at 171 degrees behind. Neither could ever become a
+                ' candidate, so a tank in a pocket cannot select its own exit -
+                ' not because it scores badly, but because it is never offered.
+                '
+                ' Tunable, DEFAULT UNCHANGED at 86, so this line changes nothing
+                ' on its own and the experiment is one argument rather than a
+                ' revert. "lets open 86 up to 110 and try it. we will throw that
+                ' back out im sure but i need to see" - the owner, 2026-09-28.
+                '
+                ' The cost of opening it is real and worth stating: a candidate
+                ' at 110 degrees needs the hull to pivot most of a right angle
+                ' before it moves, and can_pivot below is the only thing that
+                ' checks whether it can. In the open that is slower than driving
+                ' at the goal; in a pocket it may be the only thing that works.
+                If Math.Abs(b) > MathHelper.DegreesToRadians(
+                       BrainTune.Get_("aimarc", 86.0F)) Then Continue For
                 ' Nose-in: only a candidate that really turns us is any use.
                 If Math.Abs(b) < minSwing Then Continue For
                 tried += 1

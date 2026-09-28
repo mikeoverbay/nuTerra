@@ -1157,7 +1157,13 @@ Module BrainNodes
         '
         ' tune=trapturn=0 leaves the board as it was, so this is one argument to
         ' A/B rather than a rebuild.
-        If BrainTune.On_("trapturn", True) Then
+        ' OFF BY DEFAULT NOW. This rung turned the hull toward a way out after it
+        ' had SEALED a dead end, and nothing seals anything any more - the map
+        ' writing was removed on the owner's instruction, "This is not the way".
+        ' With no seal the precondition never becomes true, so the rung would sit
+        ' dead on the board pretending to be wired. tune=trapturn=1 restores it
+        ' if the mechanism ever comes back.
+        If BrainTune.On_("trapturn", False) Then
             ' tSealed / gSealed / aSealed - tWay and gWay are already taken by
             ' the Round The End rung further down.
             Dim tSealed = spawn("No Way Out", 420.0F, 655.0F)
