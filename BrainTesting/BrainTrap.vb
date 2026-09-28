@@ -392,21 +392,46 @@ Module BrainTrap
             Dim spot As Vector2 = Nothing
             If open_spot(hits, pos, headingRad, spot) Then mine.openAt = spot
         End If
-        ' A WIDER STANDOFF NOW THE CHORD IS MEASURED FROM HERE. Seen from
-        ' inside, the mouth was always well ahead of the hull; measured from
-        ' where the hull is standing it can pass much closer - the first
-        ' backed-out chord cleared by 3.7 m against a 2.9 m requirement, which is
-        ' too little margin on the one mistake this feature can make.
-        Dim wide = radius + BrainTune.Get_("trapclear", 4.0F)
+        ' ---- IS THE CHORD AHEAD OF THE NOSE? ------------------------------
+        '
+        ' DISTANCE WAS THE WRONG TEST and it had stopped the feature working
+        ' entirely. The guard asked "is the hull far enough from the line" and
+        ' wanted radius + 4 m; on the owner's scenario the answer was 2.3 to
+        ' 5.2 m every time, so seventeen dead ends were found and not one chord
+        ' was ever drawn.
+        '
+        ' The reason is geometric and it is not a tuning problem. The chord runs
+        ' between the extreme blocked rays of a 160 degree arc, so its ends sit
+        ' at about 80 degrees left and right - very nearly BESIDE the hull. A
+        ' line between two points either side of you passes through you. No
+        ' standoff makes that safe, and a bigger one only refuses more.
+        '
+        ' What actually distinguishes a safe chord from a self-enclosing one is
+        ' which SIDE of the hull it lies on. A line ahead of the nose seals what
+        ' is in front; the tank reverses away from it and is free. A line beside
+        ' or behind is the MarkBlocked failure - the tank writes a wall across
+        ' its own exit - and that is what was reverted twice and deleted.
+        '
+        ' So: the chord's midpoint must be AHEAD, and the hull must still clear
+        ' the line by its own footprint so the cell it stands in is not the cell
+        ' being blocked. Two cheap tests, each answering its own question.
+        Dim nose = New Vector2(CSng(Math.Sin(headingRad)), CSng(Math.Cos(headingRad)))
+        Dim mid = (leftAt + rightAt) * 0.5F
+        Dim ahead = Vector2.Dot(mid - pos, nose)
         Dim d = seg_dist(pos, leftAt, rightAt)
-        If d < wide Then
-            ' REFUSED, AND SAID OUT LOUD. This is the MarkBlocked failure the
-            ' two-moment split exists to avoid, caught by the second check. A
-            ' silent refusal would look like the rule not working.
-            LogThis("brain: hull {2} no-way-out chord REFUSED - the hull is {0:0.0} m " &
-                    "from the line and needs {1:0.0} m. Drawing it would wall the tank " &
-                    "in, which is exactly what MarkBlocked was deleted for.",
-                    d, wide, me_)
+        Dim clear_ = radius + BrainTune.Get_("trapclear", 0.5F)
+
+        If ahead <= BrainTune.Get_("trapahead", 1.0F) OrElse d < clear_ Then
+            ' REFUSED, AND SAID OUT LOUD WITH BOTH NUMBERS, because they fail for
+            ' different reasons and a single figure cannot say which.
+            LogThis("brain: hull {0} no-way-out chord REFUSED - midpoint {1:0.0} m " &
+                    "{2} the nose, hull {3:0.0} m off the line (needs {4:0.0}). {5}",
+                    me_, Math.Abs(ahead), If(ahead > 0.0F, "ahead of", "BEHIND"),
+                    d, clear_,
+                    If(ahead <= 0.0F,
+                       "A line behind the nose walls the tank in - that is what " &
+                       "MarkBlocked was deleted for.",
+                       "Too close to write without blocking the cell we stand in."))
             Return False
         End If
 
