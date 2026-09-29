@@ -1293,6 +1293,7 @@ Public Class GraphBrain
                 If(covers, "BEHIND", "clear of"))
     End Sub
 
+    Private gradSay As Integer = 0
     Private arcSay As Integer = 0
     Private saidWall As Single = 0.0F
 
@@ -1981,6 +1982,7 @@ Public Class GraphBrain
         ' side the object is NOT. Both signs are tried - "we try the other
         ' side of that point".
         Dim bestB = 0.0F, bestOff = Single.MaxValue
+        Dim gradWon = False
         Dim bestAim As Vector2 = h.pos
         Dim got = False, tried = 0
         Dim minSwing = If(needTurn, BrainTune.Get_("minswing", 0.35F), 0.0F)
@@ -2009,8 +2011,46 @@ Public Class GraphBrain
         Dim standoff = BrainTune.Get_("standoff", 1.5F)
         If box_verdict(goalB, Math.Min(need, reach), gAt) = 0 AndAlso
            gAt > standoff + 0.5F Then
+            ' ---- STRAIGHT AT THE GOAL IS A CANDIDATE, NOT A TRUMP CARD -----
+            '
+            ' "white dot = priority. What happens making that happen needs to be
+            '  found, I see it show up the the current turning action doesn't act
+            '  on it" - the owner, 2026-09-29. Two faults met here, and together
+            ' they are exactly that.
+            '
+            ' ONE: THE SCORE WAS A SENTINEL. This set bestOff = 0 and every
+            ' go-around then had to beat zero. That worked while candidates were
+            ' scored by a NEGATED projection - a good one scored -30 and beat 0 -
+            ' and it stopped working the moment the score became metres to the
+            ' goal, which is always positive. So no white candidate could win,
+            ' ever, while the direct line was drivable. The dot appears because
+            ' MarkTry draws it before the scoring runs; nothing could then act on
+            ' it. That regression is mine, from wiring in the navigation
+            ' function without putting this branch into the same units.
+            '
+            ' TWO: IT NEVER SET AN AIM. bestAim starts at h.pos and this branch
+            ' left it there, so whenever the direct line won, the plan point was
+            ' computed from the hull's OWN POSITION - a target on top of the
+            ' tank. That is the "0.0 m at 26 deg needs a 0.0 m radius" in the arc
+            ' log and the "MOVE REFUSED at (119.6, 70.1) -> (119.6, 70.1)", a
+            ' refused move of zero length. Older than the score bug and quieter.
+            '
+            ' Both go away by treating it as what it is: one more candidate, with
+            ' a real point to drive to, scored the same way as the rest. And that
+            ' is the whole reason for a navigation function - if the direct line
+            ' leads into a pocket, the field says that point is FAR from the goal
+            ' through the walls, and a go-around that genuinely gets closer beats
+            ' it. A sentinel made that impossible.
+            Dim gRun = Math.Min(gAt, Math.Min(need, reach))
+            Dim gHead = h.headingRad + goalB
+            Dim gAim = h.pos + New Vector2(CSng(Math.Sin(gHead)),
+                                           CSng(Math.Cos(gHead))) * gRun
+            Dim gNav = If(BrainReach.Ready, BrainReach.At(gAim), -1.0F)
             bestB = goalB
-            bestOff = 0.0F
+            bestAim = gAim
+            ' Falls back to zero only when there is no field to measure with,
+            ' which restores the old behaviour rather than inventing a number.
+            bestOff = If(gNav >= 0.0F, gNav, 0.0F)
             got = True
         End If
         ' ---- GO AROUND, ONLY. No door midpoints. -------------------------
@@ -2276,6 +2316,78 @@ Public Class GraphBrain
         ' Reported when it CHANGES and only alongside a walk, so it is one line
         ' per real change of situation rather than sixty a second.
         wall_report(goalB)
+
+        ' ---- AND THE FIELD'S OWN ANSWER: WHICH WAY IS DOWNHILL -------------
+        '
+        ' "I saw a mouse algo that tagged each location as a distance to the
+        '  goal?" - the owner, 2026-09-29. That is the micromouse flood fill, and
+        ' BrainReach already is one: every free cell labelled with its true
+        ' distance to the goal THROUGH the walls. The mouse then does exactly one
+        ' thing - step to the neighbour with a lower number - and it cannot get
+        ' stuck, because every cell but the goal has a strictly lower neighbour.
+        '
+        ' WE HAD THE FIELD AND WERE NOT USING IT AS A POLICY. It only ever ranked
+        ' candidates the RAYS had proposed. So if no chain end happened to lie in
+        ' the downhill direction, the field never got to vote for it - it could
+        ' comment on the choices, never make one. That is the difference between
+        ' a tiebreaker and a navigation function, and it is why the tank still
+        ' stuck after the field went in.
+        '
+        ' So the field proposes too. A ring of samples round the hull, each read
+        ' straight out of the flood, and the lowest reachable one is the mouse's
+        ' move. THE RAYS STILL DISPOSE: every sample goes through the same
+        ' can_pivot and corridor test as any other candidate, so the field says
+        ' WHERE and the rays say HOW - which is the split neither half could do
+        ' alone. The field knows nothing about what is in front of the tank this
+        ' instant; the rays know nothing about which way the goal is.
+        '
+        ' NO BEARING LIMIT ON THESE. The ends loop drops anything past aimarc
+        ' because a go-around that far off the nose is usually a bad idea. A
+        ' downhill sample is not a go-around - it is the direction the goal
+        ' actually lies in - and on this map the way out of a pocket measured
+        ' -140 and 171 degrees twice today. can_pivot is the honest physical
+        ' check and it is applied; an angular cap would just reinstate the blind
+        ' spot the field exists to remove.
+        If BrainReach.Ready Then
+            Dim ring = BrainTune.Get_("gradm", 12.0F)
+            Dim steps = Math.Max(4, CInt(BrainTune.Get_("gradn", 24.0F)))
+            For k = 0 To steps - 1
+                Dim ga = CSng(k * Math.PI * 2.0 / steps)
+                Dim gaim = h.pos + New Vector2(CSng(Math.Sin(ga)),
+                                               CSng(Math.Cos(ga))) * ring
+                ' -1 is "no route to the goal from there", which is not a poor
+                ' score but a different answer. Skipped rather than penalised.
+                Dim gnav = BrainReach.At(gaim)
+                If gnav < 0.0F Then Continue For
+
+                Dim gb = wrap_pi(ga - h.headingRad)
+                tried += 1
+                If Not can_pivot(gb, margin) Then
+                    BrainWalkView.MarkTry(gaim, 2)
+                    Continue For
+                End If
+                Dim gAtM As Single = 0.0F
+                Dim gver = box_verdict(gb, ring, gAtM)
+                BrainWalkView.MarkTry(gaim, gver)
+                If gver = 2 Then Continue For
+
+                If gnav < bestOff Then
+                    bestOff = gnav
+                    bestB = gb
+                    bestAim = gaim
+                    got = True
+                    gradWon = True
+                End If
+            Next
+            If gradWon AndAlso gradSay < 6 Then
+                gradSay += 1
+                LogThis("brain: hull {0} DOWNHILL - steering {1:0} deg to a point " &
+                        "{2:0} m from the goal through the walls, against {3:0} m " &
+                        "from here. The field chose it; the rays cleared it.",
+                        BrainRadar.HULL, MathHelper.RadiansToDegrees(bestB),
+                        bestOff, BrainReach.At(h.pos))
+            End If
+        End If
 
         If turnSay < 6 Then
             turnSay += 1
