@@ -207,6 +207,9 @@ Module BrainNodes
         New Kind("test", "Is Turning", {}, {"True"}),
         New Kind("test", "Is Door", {}, {"True"}),
         New Kind("test", "Is Follow", {}, {"True"}),
+        New Kind("test", "Wall Blocks", {"bearing"}, {"True"}, {"rays"}, {4.0F}),
+        New Kind("test", "Closer Than Hit", {}, {"True"}, {"metres"}, {5.0F}),
+        New Kind("sense", "Wall Side", {}, {"side"}),
         New Kind("pick", "Round The End", {"bearing"}, {"bearing", "True"},
                  {"margin"}, {0.6F}),
         New Kind("pick", "Widest Door", {"doors"}, {"door"}),
@@ -316,6 +319,9 @@ Module BrainNodes
             Case "Is Turning" : Return "swinging onto a new heading"
             Case "Is Door" : Return "lined up on a gap, going through"
             Case "Is Follow" : Return "running along a wall"
+            Case "Wall Blocks" : Return "a doorless run of returns sits across the way we want to go"
+            Case "Closer Than Hit" : Return "closer to the goal THROUGH THE WALLS than where we started following"
+            Case "Wall Side" : Return "which side the wall is on, -1 or +1"
             Case "Round The End" : Return "steer past the EDGE of what is in the way - no door needed"
             Case "Widest Door" : Return "the widest opening we fit through, any direction"
             Case "Best Door" : Return "the gap that GAINS most ground toward the goal"
@@ -966,6 +972,20 @@ Module BrainNodes
     ''' be reached. Drawn, that is one dangling node; in the source it is a
     ''' hundred lines apart and nobody has spotted it in a month.
     ''' </summary>
+    ''' <summary>
+    ''' WHICH STATES ARE LIVE. 0 is the board as it has driven all session; 1
+    ''' adds the wall follower; 2 adds the door state on top.
+    '''
+    ''' A runtime switch rather than three builds, so the arms can be
+    ''' interleaved run for run. Comparing three binaries measured over
+    ''' minutes apart confounds the arm with whatever else the machine was
+    ''' doing, and this board's history is mostly one-run conclusions that did
+    ''' not hold.
+    ''' </summary>
+    Private Function arm_() As Integer
+        Return CInt(BrainTune.Get_("arm", 0.0F))
+    End Function
+
     Public Sub BuildCurrentAI()
         nodes.Clear()
         links.Clear()
@@ -1365,13 +1385,39 @@ Module BrainNodes
         join_pins(p3, "a", gDoor, "in")
         join_pins(tDoor, "True", gDoor, "True")
         join_pins(gDoor, "out", aDoor, "in")
+        ' THE DOOR IT COMMITTED TO. This act's door pin was never wired, so the
+        ' branch would have driven at a default even if it had been reachable -
+        ' and it was not, because nothing on the board set GSt.Door.
+        If arm_() >= 2 Then join_pins(pHold, "door", aDoor, "door")
 
         Dim gFoll = spawn("Gate", 870.0F, 960.0F)
         Dim aWall = spawn("Follow Wall", 1090.0F, 960.0F)
         join_pins(p3, "b", gFoll, "in")
         join_pins(tFoll, "True", gFoll, "True")
-        join_pins(gFoll, "out", aWall, "in")
-        join_pins(corr, "side", aWall, "side")
+        If arm_() >= 1 Then
+            ' THE LEAVING CONDITION FIRST, exactly as the Backing rung above
+            ' does it - "the way ahead will clear now, go back to seeking"
+            ' tried before "keep reversing". A follower with no way out is the
+            ' orbit this board already measured on Round The End: four and a
+            ' half laps, 1616 degrees over 337 metres.
+            Dim pFoll = spawn("Priority", 1090.0F, 900.0F)
+            Dim tLeave = spawn("Closer Than Hit", 1310.0F, 820.0F)
+            Dim gLeave = spawn("Gate", 1530.0F, 880.0F)
+            Dim aFSeek = spawn("Set Seek", 1750.0F, 880.0F)
+            ' The side comes from the WALL now. corr's side pin reads
+            ' leftHit/rightHit, which have both been False on every tick since
+            ' the plank came out, so it fed a constant zero.
+            Dim sWall = spawn("Wall Side", 870.0F, 1030.0F)
+            join_pins(gFoll, "out", pFoll, "in")
+            join_pins(pFoll, "a", gLeave, "in")
+            join_pins(tLeave, "True", gLeave, "True")
+            join_pins(gLeave, "out", aFSeek, "in")
+            join_pins(pFoll, "b", aWall, "in")
+            join_pins(sWall, "side", aWall, "side")
+        Else
+            join_pins(gFoll, "out", aWall, "in")
+            join_pins(corr, "side", aWall, "side")
+        End If
 
         ' ---- the fresh decision ----------------------------------------------
         ' ---- RULE ONE: A PLANK TOUCH STOPS US AND STARTS THE SCAN --------
@@ -1457,8 +1503,21 @@ Module BrainNodes
         join_pins(p4, "b", gDoor2, "in")
         join_pins(pHold, "door", tHasDoor, "door")
         join_pins(tHasDoor, "True", gDoor2, "True")
-        join_pins(gDoor2, "out", aDoor2, "in")
         join_pins(pHold, "door", aDoor2, "door")
+        If arm_() >= 2 Then
+            ' SAY WHICH STATE WE ARE ENTERING, THEN ACT - the shape the wedge
+            ' and rear rungs already use. Whether this earns anything is a real
+            ' question and not a rhetorical one: Commit and pHold already hold
+            ' a door across ticks at the PICK level, so the state may be
+            ' duplicating machinery that works. That is what the arm measures.
+            Dim sqDoor = spawn("Sequence", 1090.0F, 1260.0F)
+            Dim aSetD = spawn("Set Door", 1310.0F, 1200.0F)
+            join_pins(gDoor2, "out", sqDoor, "in")
+            join_pins(sqDoor, "a", aSetD, "in")
+            join_pins(sqDoor, "b", aDoor2, "in")
+        Else
+            join_pins(gDoor2, "out", aDoor2, "in")
+        End If
 
         ' ---- ANY GAP THAT FITS, EVEN A SIDEWAYS ONE --------------------
         '
@@ -1517,7 +1576,25 @@ Module BrainNodes
         Dim gRound = spawn("Gate", 870.0F, 1610.0F)
         Dim aRound = spawn("Drive Heading", 1090.0F, 1610.0F)
         join_pins(goal, "bearing", pRound, "bearing")
-        join_pins(p5, "a", gRound, "in")
+        If arm_() >= 1 Then
+            ' AHEAD OF Round The End, and only when a doorless run actually
+            ' lies across the goal bearing. Round The End aims past an edge and
+            ' re-decides next tick; this commits to the wall and holds until
+            ' the distance through the walls says it has got somewhere. Same
+            ' geometry, opposite treatment of time.
+            Dim pWallTop = spawn("Priority", 650.0F, 1560.0F)
+            Dim tWallB = spawn("Wall Blocks", 430.0F, 1495.0F)
+            Dim gEnter = spawn("Gate", 870.0F, 1495.0F)
+            Dim aSetF = spawn("Set Follow", 1090.0F, 1495.0F)
+            join_pins(goal, "bearing", tWallB, "bearing")
+            join_pins(p5, "a", pWallTop, "in")
+            join_pins(pWallTop, "a", gEnter, "in")
+            join_pins(tWallB, "True", gEnter, "True")
+            join_pins(gEnter, "out", aSetF, "in")
+            join_pins(pWallTop, "b", gRound, "in")
+        Else
+            join_pins(p5, "a", gRound, "in")
+        End If
         join_pins(pRound, "True", gRound, "True")
         join_pins(gRound, "out", aRound, "in")
         join_pins(pRound, "bearing", aRound, "bearing")

@@ -223,6 +223,23 @@ Public Class GraphBrain
     Private backAttempts As Integer = 0
     Private backFrom As Vector2
     Private backWant As Single = 0.0F
+    ''' <summary>
+    ''' WHERE FOLLOWING STARTED, measured through the walls.
+    '''
+    ''' This is the whole of why a wall follower terminates. Bug2 leaves the
+    ''' boundary when it reaches a point closer to the goal than the point it
+    ''' hit the boundary at, and Lumelsky and Stepanov's completeness result is
+    ''' about that LEAVING rule, not about the following. Without it a follower
+    ''' orbits - which this board has already measured once, on Round The End:
+    ''' four and a half laps, 1616 degrees of heading over 337 metres.
+    '''
+    ''' Straight-line range cannot serve as the measure, because going round is
+    ''' usually AWAY in a straight line - that is what going round is. It needs
+    ''' distance through the walls, which is what BrainReach now provides and
+    ''' what this board has never had before.
+    ''' </summary>
+    Private followFromNav As Single = -1.0F
+    Private followSay As Integer = 0
     ''' <summary>Where the last reverse ended. Getting properly clear of it is
     ''' what resets the escalation - otherwise one bad corner early in a run
     ''' leaves every later wobble backing out half the map.</summary>
@@ -691,6 +708,22 @@ Public Class GraphBrain
                     why = String.Format("backing out, attempt {0} - {1:0.0} m",
                                         backAttempts, backWant)
                 End If
+                ' ---- ARRIVING IN Follow SETS THE DISTANCE TO BEAT --------
+                '
+                ' Same shape as Backing above and for the same reason: decided
+                ' once per attempt, not recomputed every tick. A leaving bar
+                ' that moves with the hull is a bar that is always just cleared
+                ' or never cleared, and either way it is not a bar.
+                If state = GSt.Follow AndAlso was <> GSt.Follow Then
+                    followFromNav = nav_here()
+                    If followSay < 6 Then
+                        followSay += 1
+                        LogThis("brain: hull {0} FOLLOWING the wall - {1:0} deg of " &
+                                "doorless returns across the goal. Leaving when the " &
+                                "way through the walls beats {2:0} m.",
+                                BrainRadar.HULL, BrainWall.SpanDeg, followFromNav)
+                    End If
+                End If
             Case "Reverse"
                 ' ---- PUT THE TAIL WHERE THE TROUBLE IS ---------------------
                 '
@@ -787,12 +820,41 @@ Public Class GraphBrain
                                     If(way.fits, "door", "tight door"),
                                     way.chord, MathHelper.RadiansToDegrees(way.bearing))
             Case "Follow Wall"
-                Dim sd = as_num(pulled(id, "side"), 0.0F)
-                ' Steer a little AWAY from the wall it is following, not along
-                ' it: along means into it the moment the wall bends in.
-                steerOut = If(sd < 0.0F, 0.25F, -0.25F)
-                thr = throttle_for(body_ahead())
-                why = "following the wall"
+                ' WHICH WAY ALONG IT, rather than a fixed nudge.
+                '
+                ' This read a side pin off the corridor's leftHit/rightHit,
+                ' which have reported False on every tick since the plank came
+                ' out - so sd was always 0, and `If(sd < 0, ...)` took the else
+                ' branch every time. It steered ONE fixed direction whatever the
+                ' wall did, and drove into the wall whenever the wall was on
+                ' that side. It had also never executed once, because no node on
+                ' the board ever set GSt.Follow, so the gate above never opened.
+                '
+                ' A wall is followed by heading for the END of it that lies
+                ' toward the goal, leaned outward so the corner is cleared and
+                ' not clipped. BrainWall has already measured both ends this
+                ' tick, for nothing - one pass over 120 booleans.
+                Dim sd = as_num(pulled(id, "side"), wall_side())
+                If hits IsNot Nothing Then BrainWall.Widest(hits)
+                Dim gb = goal_bearing()
+                Dim fromB = MathHelper.DegreesToRadians(BrainWall.FromDeg)
+                Dim toB = MathHelper.DegreesToRadians(BrainWall.ToDeg)
+                ' The end to round is the one we must turn least to face.
+                Dim endB = If(Math.Abs(wrap_pi(fromB - gb)) <=
+                              Math.Abs(wrap_pi(toB - gb)), fromB, toB)
+                ' OUTWARD, away from the wall's body: sd says which side the
+                ' wall sits on, so clearing it means leaning the other way.
+                Dim lean = MathHelper.DegreesToRadians(
+                    BrainTune.Get_("followlean", 12.0F))
+                Dim want = wrap_pi(endB - sd * lean)
+                steerOut = turn_to(want)
+                ' throttle_for_turn, not throttle_for: rounding a corner at a
+                ' speed whose turning circle will not fit the corner is how the
+                ' hull used to sail past things it had correctly identified.
+                thr = throttle_for_turn(want, body_ahead())
+                why = String.Format("following the wall on the {0}, rounding {1:0} deg",
+                                    If(sd < 0.0F, "left", "right"),
+                                    MathHelper.RadiansToDegrees(want))
             Case Else
                 ' Not an act - a sense or a test reached through a flow pin by
                 ' mistake. Say so once rather than steering on nothing.
@@ -1009,6 +1071,34 @@ Public Class GraphBrain
             Case "Is Turning" : v = CObj(state = GSt.Turning)
             Case "Is Door" : v = CObj(state = GSt.Door)
             Case "Is Follow" : v = CObj(state = GSt.Follow)
+            Case "Wall Blocks"
+                ' IS THE THING IN THE WAY ACTUALLY IN THE WAY. Not how big the
+                ' wall is - whether it sits between us and the goal. Anything
+                ' else fires on scenery beside the road, which is the fault
+                ' Round The End was already caught orbiting on.
+                If hits Is Nothing Then
+                    v = CObj(False)
+                Else
+                    BrainWall.Widest(hits)
+                    Dim wb = as_num(pulled(id, "bearing"), goal_bearing())
+                    Dim needRays = CInt(BrainNodes.Setting(id, "rays", 4.0F))
+                    v = CObj(BrainWall.Rays >= needRays AndAlso
+                             BrainWall.Blocks(hits, wb))
+                End If
+            Case "Wall Side"
+                v = CObj(wall_side())
+            Case "Closer Than Hit"
+                ' THE LEAVING CONDITION. Measured through the walls, so going
+                ' round counts as progress - which in a straight line it is not.
+                If Not BrainReach.Ready OrElse followFromNav < 0.0F Then
+                    ' No field, no bar. Declining here rather than passing keeps
+                    ' a follower that cannot measure progress from declaring it.
+                    v = CObj(False)
+                Else
+                    Dim nowNav = nav_here()
+                    Dim by = BrainNodes.Setting(id, "metres", 5.0F)
+                    v = CObj(nowNav >= 0.0F AndAlso nowNav <= followFromNav - by)
+                End If
             Case "Round The End"
                 If Not roundDone Then
                     roundDone = True
@@ -1153,6 +1243,60 @@ Public Class GraphBrain
     ''' Below it the caller falls back to the deepest rear ray, which is the
     ''' rule that was there before.
     ''' </summary>
+    ''' <summary>
+    ''' WHICH SIDE THE WALL IS ON: -1 or +1, 0 when there is no wall.
+    '''
+    ''' The midpoint of the doorless chain, not its nearest return. A wall
+    ''' wrapping round the nose has returns on both sides and its nearest one
+    ''' says nothing about which way to lean; the middle of the span does.
+    '''
+    ''' Taken from the span rather than by subtracting the two ends, because a
+    ''' chain straddling the wrap gives the complement - see BrainWall, where
+    ''' the same trap turns a 300 degree wall into a 60 degree doorway.
+    ''' </summary>
+    ''' <summary>
+    ''' THE FIELD READ AT THE HULL, with a short search when the hull's own
+    ''' cell is not in it.
+    '''
+    ''' The flood marks a cell passable only when a whole hull-width square
+    ''' fits, so a tank parked with a fender close to something stands in a
+    ''' cell the field calls unreachable - and reads -1 while sitting in open
+    ''' ground it plainly drove in on. Measured at spawn, entering Follow: the
+    ''' leaving bar was set to -1 m and could never be cleared, so the
+    ''' follower had no way out at all.
+    '''
+    ''' -1 AT THE HULL IS "NO READING", NOT "NO ROUTE", and conflating the two
+    ''' is how a correct leaving condition turns back into an orbit.
+    ''' </summary>
+    Private Function nav_here() As Single
+        If Not BrainReach.Ready Then Return -1.0F
+        Dim d = BrainReach.At(h.pos)
+        If d >= 0.0F Then Return d
+        ' Outward in rings until something reads. Kept short on purpose: a
+        ' hull more than a few metres from any passable cell is genuinely
+        ' stuck rather than unlucky about which cell it parked in.
+        For Each r In New Single() {3.0F, 6.0F, 10.0F}
+            Dim best = -1.0F
+            For k = 0 To 7
+                Dim a = CSng(k * Math.PI / 4.0)
+                Dim p = h.pos + New Vector2(CSng(Math.Sin(a)),
+                                            CSng(Math.Cos(a))) * r
+                Dim v = BrainReach.At(p)
+                If v >= 0.0F AndAlso (best < 0.0F OrElse v < best) Then best = v
+            Next
+            If best >= 0.0F Then Return best
+        Next
+        Return -1.0F
+    End Function
+
+    Private Function wall_side() As Single
+        If BrainWall.Rays <= 1 Then Return 0.0F
+        Dim mid = wrap_pi(MathHelper.DegreesToRadians(
+            BrainWall.FromDeg + BrainWall.SpanDeg * 0.5F))
+        If Math.Abs(mid) < 0.001F Then Return 1.0F
+        Return Math.Sign(mid)
+    End Function
+
     Private Function hit_side() As Single
         If hits Is Nothing Then Return 0.0F
         Dim w = 0.0F, tot = 0.0F
