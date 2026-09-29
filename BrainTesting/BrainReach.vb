@@ -48,7 +48,11 @@ Imports OpenTK.Mathematics
 Module BrainReach
 
     Private dist() As UShort
+    ''' <summary>Coarse grid dimensions, and how many fine cells make one of
+    ''' them. The DILATION still runs on the fine grid - that is what knows the
+    ''' hull's width - and only the FLOOD is coarsened.</summary>
     Private w, h As Integer
+    Private fw, fh, grain As Integer
     Private cell As Single
     Private builtFor As Vector2
     Private have As Boolean = False
@@ -72,11 +76,13 @@ Module BrainReach
     ''' </summary>
     Public Function At(p As Vector2) As Single
         If Not have Then Return -1.0F
-        Dim c = BrainNav.ColOf(p.X), r = BrainNav.RowOf(p.Y)
+        Dim fc = BrainNav.ColOf(p.X), fr = BrainNav.RowOf(p.Y)
+        If fc < 0 OrElse fr < 0 OrElse fc >= fw OrElse fr >= fh Then Return -1.0F
+        Dim c = fc \ grain, r = fr \ grain
         If c < 0 OrElse r < 0 OrElse c >= w OrElse r >= h Then Return -1.0F
         Dim d = dist(r * w + c)
         If d = UShort.MaxValue Then Return -1.0F
-        Return d * cell
+        Return d * cell * grain
     End Function
 
     ''' <summary>True when a hull standing here has no route to the goal at
@@ -97,19 +103,50 @@ Module BrainReach
         If have AndAlso (goal - builtFor).Length < BrainNav.CellSize Then Return True
 
         Dim sw = Stopwatch.StartNew()
-        w = BrainNav.CellCols
-        h = BrainNav.CellRows
+        fw = BrainNav.CellCols
+        fh = BrainNav.CellRows
         cell = Math.Max(0.05F, BrainNav.CellSize)
-        If w <= 0 OrElse h <= 0 Then Return False
+        If fw <= 0 OrElse fh <= 0 Then Return False
 
+        ' ---- COARSE, BECAUSE THIS FIELD IS STRATEGIC --------------------
+        '
+        ' The flood answers "which way is the goal, allowing for walls". The
+        ' rays answer "what is in front of me right now". Only the second needs
+        ' half-metre resolution, and paying for it twice cost 400 ms and 16 MB
+        ' per goal - enough that moving a marker hitched the frame and enough
+        ' that nobody would flood more than one goal.
+        '
+        ' At four fine cells to one, 2800x2800 becomes 700x700: 490,000 cells
+        ' instead of 7,840,000, a sixteenth of the work.
+        '
+        ' THE DILATION STAYS FINE, and that is what makes the sampling safe. The
+        ' fine mask is already grown by the hull's half-width, so a wall one cell
+        ' thick is about four metres thick in the mask - wider than the two-metre
+        ' sample spacing. Sampling the centre of each coarse block therefore
+        ' cannot step over a wall the hull would hit; it is asking "does the hull
+        ' fit HERE", which is the right question at any resolution.
+        grain = Math.Max(1, CInt(BrainTune.Get_("reachstep", 4.0F)))
+        w = (fw + grain - 1) \ grain
+        h = (fh + grain - 1) \ grain
         Dim n = w * h
-        Dim pass = fit_mask(radius)
+        Dim fine = fit_mask(radius)
+
+        ' Downsample by the CENTRE of each block - see above for why that is
+        ' not a gamble.
+        Dim pass(n - 1) As Boolean
+        For r = 0 To h - 1
+            Dim fr = Math.Min(fh - 1, r * grain + grain \ 2)
+            For c = 0 To w - 1
+                Dim fc = Math.Min(fw - 1, c * grain + grain \ 2)
+                pass(r * w + c) = fine(fr * fw + fc)
+            Next
+        Next
         If dist Is Nothing OrElse dist.Length <> n Then ReDim dist(n - 1)
         For i = 0 To n - 1
             dist(i) = UShort.MaxValue
         Next
 
-        Dim gc = BrainNav.ColOf(goal.X), gr = BrainNav.RowOf(goal.Y)
+        Dim gc = BrainNav.ColOf(goal.X) \ grain, gr = BrainNav.RowOf(goal.Y) \ grain
         If gc < 0 OrElse gr < 0 OrElse gc >= w OrElse gr >= h Then
             LogThis("brain: reach - the goal is off the map, nothing to fill")
             have = False
@@ -150,9 +187,10 @@ Module BrainReach
         have = True
         Ms = sw.ElapsedMilliseconds
         LogThis("brain: reach - filled from the goal at ({0:0.0}, {1:0.0}) in {2} ms. " &
-                "{3:N0} of {4:N0} cells can reach it, {5:0}% of the map, for a hull " &
-                "{6:0.0} m wide.",
-                goal.X, goal.Y, Ms, seen, n, 100.0 * seen / n, radius * 2.0F)
+                "{3:N0} of {4:N0} cells at {5:0.0} m can reach it, {6:0}% of the map, " &
+                "for a hull {7:0.0} m wide.",
+                goal.X, goal.Y, Ms, seen, n, cell * grain, 100.0 * seen / n,
+                radius * 2.0F)
         Return True
     End Function
 
@@ -175,38 +213,38 @@ Module BrainReach
     ''' million.
     ''' </summary>
     Private Function fit_mask(radius As Single) As Boolean()
-        Dim n = w * h
+        Dim n = fw * fh
         Dim r = Math.Max(0, CInt(Math.Ceiling(radius / cell)))
         Dim rowBad(n - 1) As Boolean
         Dim bad(n - 1) As Boolean
 
         ' rows
-        For y = 0 To h - 1
-            Dim base_ = y * w
+        For y = 0 To fh - 1
+            Dim base_ = y * fw
             Dim run = 0
             ' one forward sweep carrying "how many cells since the last block"
-            For x = 0 To w - 1
+            For x = 0 To fw - 1
                 If BrainNav.BlockedCell(x, y) Then run = 0 Else run += 1
                 rowBad(base_ + x) = (run <= r)
             Next
             run = 0
-            For x = w - 1 To 0 Step -1
+            For x = fw - 1 To 0 Step -1
                 If BrainNav.BlockedCell(x, y) Then run = 0 Else run += 1
                 If run <= r Then rowBad(base_ + x) = True
             Next
         Next
 
         ' columns, over the row result
-        For x = 0 To w - 1
+        For x = 0 To fw - 1
             Dim run = 0
-            For y = 0 To h - 1
-                If rowBad(y * w + x) Then run = 0 Else run += 1
-                bad(y * w + x) = (run <= r)
+            For y = 0 To fh - 1
+                If rowBad(y * fw + x) Then run = 0 Else run += 1
+                bad(y * fw + x) = (run <= r)
             Next
             run = 0
-            For y = h - 1 To 0 Step -1
-                If rowBad(y * w + x) Then run = 0 Else run += 1
-                If run <= r Then bad(y * w + x) = True
+            For y = fh - 1 To 0 Step -1
+                If rowBad(y * fw + x) Then run = 0 Else run += 1
+                If run <= r Then bad(y * fw + x) = True
             Next
         Next
 
