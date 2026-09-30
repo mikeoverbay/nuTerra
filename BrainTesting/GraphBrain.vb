@@ -394,6 +394,18 @@ Public Class GraphBrain
 
         h = inp.hulls(me_)
         goal = BrainGoal.Target
+        ' ---- THE FIELD FOR *THIS* HULL'S GOAL ----------------------------
+        '
+        ' Five hulls on five roads want five fields, and each moves its own goal
+        ' along its road as it arrives. Selecting here, right beside the goal we
+        ' just took, is what makes At() answer about where WE are going: before
+        ' this, one field was built at Start and every hull past its first
+        ' waypoint read somebody else's destination. A pinned goal hid it
+        ' completely, which is why ten pairs of sweeps never caught it.
+        '
+        ' Cheap because the dilation is shared - see BrainReach.ensure_pass. A
+        ' goal already seen costs a dictionary lookup.
+        BrainReach.Use(goal, h.DriveRadius)
         dt = Math.Max(0.0001F, inp.dt)
         o.target(me_) = goal
 

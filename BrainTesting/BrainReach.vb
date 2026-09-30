@@ -47,77 +47,183 @@ Imports OpenTK.Mathematics
 ''' </summary>
 Module BrainReach
 
-    Private dist() As UShort
-    ''' <summary>Coarse grid dimensions, and how many fine cells make one of
-    ''' them. The DILATION still runs on the fine grid - that is what knows the
-    ''' hull's width - and only the FLOOD is coarsened.</summary>
+    ''' <summary>
+    ''' ONE FIELD PER GOAL, KEPT. Five hulls on five roads want five answers,
+    ''' and each of them moves its goal along its road as it arrives.
+    '''
+    ''' A single field cannot serve that: report_reach built one at Start while
+    ''' BrainGoal.Target is written in six places, so every hull past its first
+    ''' waypoint was reading a field for somebody else's destination. Correct
+    ''' with one pinned goal, which is why the sweeps never caught it.
+    ''' </summary>
+    Private Class Field
+        ''' <summary>Nothing when this goal cannot be flooded at all - a
+        ''' negative result worth keeping, or every tick retries it.</summary>
+        Public dist() As UShort
+        Public reached As Integer
+        Public at As Vector2
+    End Class
+
+    ''' <summary>
+    ''' EVERYTHING THAT DEPENDS ON THE HULL'S WIDTH AND NOT ON THE GOAL.
+    '''
+    ''' Which cells a hull fits in is a function of its radius alone, so the
+    ''' dilated, coarsened passable set is built once per width and every goal
+    ''' floods over the same copy. That is what makes a field per waypoint
+    ''' affordable: of the 205 ms a field used to cost, almost none was the
+    ''' flood - fit_mask runs four sliding passes over the FINE grid, about 31
+    ''' million cell reads, against 490,000 cells touched once by the BFS.
+    ''' Measured after the split: 204 ms for the set, 11 ms for a flood.
+    '''
+    ''' A LEVEL PER WIDTH, not one slot. Five tanks are five different radii, and
+    ''' with a single slot each hull's tick invalidated the last one's set and
+    ''' took the field cache down with it - measured in a five-a-side match as
+    ''' 410 dilations and 410 floods in ninety seconds, with zero cache hits.
+    ''' The fields hang off the level because a field flooded over one passable
+    ''' set says nothing about another.
+    ''' </summary>
+    Private Class Level
+        Public pass_() As Boolean
+        ''' <summary>The bucket's radius, which is the requested one rounded
+        ''' UP - never down. Rounding down would claim a hull fits where it does
+        ''' not, and this answer is used to drive.</summary>
+        Public r As Single
+        Public fields As New Dictionary(Of Integer, Field)
+        Public order As New List(Of Integer)
+    End Class
+
+    Private levels As New Dictionary(Of Integer, Level)
+    Private curL As Level = Nothing
+    Private cur As Field = Nothing
+
     Private w, h As Integer
     Private fw, fh, grain As Integer
     Private cell As Single
-    Private builtFor As Vector2
-    Private have As Boolean = False
 
-    ''' <summary>Cells the fill could touch from the goal. The size of the world
-    ''' that is actually connected to it.</summary>
+    ''' <summary>Cells the selected field could touch from its goal.</summary>
     Public Reached As Integer = 0
     Public Ms As Long = 0
+    ''' <summary>Floods paid for, lookups served from the cache, and passable
+    ''' sets built. A build count that climbs with the frame counter means the
+    ''' key is wrong - which is how the five-hull thrash above was caught.
+    ''' </summary>
+    Public Builds As Integer = 0
+    Public Hits As Integer = 0
+    Public Sets As Integer = 0
 
     Public ReadOnly Property Ready As Boolean
         Get
-            Return have
+            Return cur IsNot Nothing AndAlso cur.dist IsNot Nothing
         End Get
     End Property
 
     ''' <summary>
-    ''' METRES TO THE GOAL THROUGH THE WALLS, or -1 where there is no route.
-    '''
-    ''' -1 is the answer to the owner's question. Not "far", not "blocked ahead":
-    ''' no route exists from this cell to that goal, for a hull this wide.
+    ''' METRES TO THE SELECTED GOAL THROUGH THE WALLS, or -1 where there is no
+    ''' route. Reads whichever field Use last selected.
     ''' </summary>
     Public Function At(p As Vector2) As Single
-        If Not have Then Return -1.0F
+        If cur Is Nothing OrElse cur.dist Is Nothing Then Return -1.0F
         Dim fc = BrainNav.ColOf(p.X), fr = BrainNav.RowOf(p.Y)
         If fc < 0 OrElse fr < 0 OrElse fc >= fw OrElse fr >= fh Then Return -1.0F
         Dim c = fc \ grain, r = fr \ grain
         If c < 0 OrElse r < 0 OrElse c >= w OrElse r >= h Then Return -1.0F
-        Dim d = dist(r * w + c)
+        Dim d = cur.dist(r * w + c)
         If d = UShort.MaxValue Then Return -1.0F
         Return d * cell * grain
     End Function
 
-    ''' <summary>True when a hull standing here has no route to the goal at
-    ''' all.</summary>
+    ''' <summary>True when a hull standing here has no route to the selected
+    ''' goal at all.</summary>
     Public Function Trapped(p As Vector2) As Boolean
-        Return have AndAlso At(p) < 0.0F
+        Return Ready AndAlso At(p) < 0.0F
     End Function
 
     ''' <summary>
-    ''' Build the field for a goal, unless it is already built for that goal.
+    ''' SELECT THE FIELD FOR THIS HULL'S GOAL, flooding it if we have not seen it.
     '''
-    ''' The guard is a cell, not an epsilon: a goal that shuffles half a metre
-    ''' does not change which cells can reach it, and rebuilding on every jitter
-    ''' would put a 50 ms fill inside the frame loop by accident.
+    ''' Called once per hull per tick, before anything reads At - so the answer
+    ''' belongs to the hull that asked rather than to whoever flooded first.
+    '''
+    ''' Keyed by COARSE CELL, not by position: a goal that shuffles half a metre
+    ''' is the same goal, and keying on the Vector2 would flood afresh on every
+    ''' jitter.
     ''' </summary>
-    Public Function Build(goal As Vector2, radius As Single) As Boolean
+    Public Function Use(goal As Vector2, radius As Single) As Boolean
+        cur = Nothing
         If Not BrainNav.Ready Then Return False
-        If have AndAlso (goal - builtFor).Length < BrainNav.CellSize Then Return True
+        If Not ensure_grid() Then Return False
+        curL = ensure_level(radius)
+        If curL Is Nothing Then Return False
 
-        Dim sw = Stopwatch.StartNew()
-        fw = BrainNav.CellCols
-        fh = BrainNav.CellRows
+        Dim gc = BrainNav.ColOf(goal.X) \ grain
+        Dim gr = BrainNav.RowOf(goal.Y) \ grain
+        If gc < 0 OrElse gr < 0 OrElse gc >= w OrElse gr >= h Then Return False
+        Dim key = gr * w + gc
+
+        Dim f As Field = Nothing
+        If curL.fields.TryGetValue(key, f) Then
+            Hits += 1
+            cur = f
+            If f.dist Is Nothing Then Return False
+            Reached = f.reached
+            Return True
+        End If
+
+        f = flood(curL, key, goal)
+        keep(curL, key, f)
+        cur = f
+        If f.dist Is Nothing Then Return False
+        Reached = f.reached
+        Return True
+    End Function
+
+    ''' <summary>The old name, kept because report_reach calls it and means
+    ''' exactly this.</summary>
+    Public Function Build(goal As Vector2, radius As Single) As Boolean
+        Return Use(goal, radius)
+    End Function
+
+    ''' <summary>Grid geometry, and a wipe if the map changed under us.</summary>
+    Private Function ensure_grid() As Boolean
+        Dim nfw = BrainNav.CellCols, nfh = BrainNav.CellRows
+        If nfw <= 0 OrElse nfh <= 0 Then Return False
+        Dim g = Math.Max(1, CInt(BrainTune.Get_("reachstep", 4.0F)))
+        If nfw = fw AndAlso nfh = fh AndAlso g = grain Then Return True
+        ' A different world. Everything flooded over the old one is about it.
+        levels.Clear()
+        curL = Nothing
+        cur = Nothing
+        fw = nfw
+        fh = nfh
+        grain = g
+        w = (fw + grain - 1) \ grain
+        h = (fh + grain - 1) \ grain
         cell = Math.Max(0.05F, BrainNav.CellSize)
-        If fw <= 0 OrElse fh <= 0 Then Return False
+        Return True
+    End Function
+
+    ''' <summary>
+    ''' The level for this hull width, built once.
+    '''
+    ''' BUCKETED, because five tanks differ by centimetres and a dilation each
+    ''' is 204 ms each. Rounded UP to the bucket so the answer stays
+    ''' conservative - a hull is never told it fits somewhere narrower than it
+    ''' is.
+    ''' </summary>
+    Private Function ensure_level(radius As Single) As Level
+        Dim q = Math.Max(0.05F, BrainTune.Get_("reachbucket", 0.25F))
+        Dim bucket = Math.Max(1, CInt(Math.Ceiling(radius / q)))
+        Dim lv As Level = Nothing
+        If levels.TryGetValue(bucket, lv) Then Return lv
+
+        Dim r = bucket * q
+        Dim sw = Stopwatch.StartNew()
 
         ' ---- COARSE, BECAUSE THIS FIELD IS STRATEGIC --------------------
         '
-        ' The flood answers "which way is the goal, allowing for walls". The
-        ' rays answer "what is in front of me right now". Only the second needs
-        ' half-metre resolution, and paying for it twice cost 400 ms and 16 MB
-        ' per goal - enough that moving a marker hitched the frame and enough
-        ' that nobody would flood more than one goal.
-        '
-        ' At four fine cells to one, 2800x2800 becomes 700x700: 490,000 cells
-        ' instead of 7,840,000, a sixteenth of the work.
+        ' The flood answers "which way is the goal, allowing for walls". The rays
+        ' answer "what is in front of me right now". Only the second needs
+        ' half-metre resolution.
         '
         ' THE DILATION STAYS FINE, and that is what makes the sampling safe. The
         ' fine mask is already grown by the hull's half-width, so a wall one cell
@@ -125,82 +231,103 @@ Module BrainReach
         ' sample spacing. Sampling the centre of each coarse block therefore
         ' cannot step over a wall the hull would hit; it is asking "does the hull
         ' fit HERE", which is the right question at any resolution.
-        grain = Math.Max(1, CInt(BrainTune.Get_("reachstep", 4.0F)))
-        w = (fw + grain - 1) \ grain
-        h = (fh + grain - 1) \ grain
+        Dim fine = fit_mask(r)
         Dim n = w * h
-        Dim fine = fit_mask(radius)
-
-        ' Downsample by the CENTRE of each block - see above for why that is
-        ' not a gamble.
-        Dim pass(n - 1) As Boolean
-        For r = 0 To h - 1
-            Dim fr = Math.Min(fh - 1, r * grain + grain \ 2)
+        lv = New Level With {.r = r}
+        ReDim lv.pass_(n - 1)
+        For rr = 0 To h - 1
+            Dim fr = Math.Min(fh - 1, rr * grain + grain \ 2)
             For c = 0 To w - 1
                 Dim fc = Math.Min(fw - 1, c * grain + grain \ 2)
-                pass(r * w + c) = fine(fr * fw + fc)
+                lv.pass_(rr * w + c) = fine(fr * fw + fc)
             Next
         Next
-        If dist Is Nothing OrElse dist.Length <> n Then ReDim dist(n - 1)
-        For i = 0 To n - 1
-            dist(i) = UShort.MaxValue
-        Next
+        levels(bucket) = lv
+        Sets += 1
+        LogThis("brain: reach - passable set for a hull {0:0.0} m wide built in " &
+                "{1} ms, {2} x {3} cells at {4:0.0} m. {5} width(s) held; every " &
+                "goal at this width floods over this copy.",
+                r * 2.0F, sw.ElapsedMilliseconds, w, h, cell * grain, levels.Count)
+        Return lv
+    End Function
 
-        Dim gc = BrainNav.ColOf(goal.X) \ grain, gr = BrainNav.RowOf(goal.Y) \ grain
-        If gc < 0 OrElse gr < 0 OrElse gc >= w OrElse gr >= h Then
-            LogThis("brain: reach - the goal is off the map, nothing to fill")
-            have = False
-            Return False
-        End If
-
-        Dim start_ = gr * w + gc
-        If Not pass(start_) Then
+    ''' <summary>Flood out from one goal. The only per-goal cost.</summary>
+    Private Function flood(lv As Level, key As Integer, goal As Vector2) As Field
+        Dim f As New Field With {.at = goal}
+        If Not lv.pass_(key) Then
             ' THE GOAL ITSELF IS INSIDE SOMETHING. Said plainly, because every
             ' hull will then report "no route" and the cause is the goal, not the
-            ' map and not the driving.
+            ' map and not the driving. Cached as a failure so it is said once
+            ' rather than every tick.
             LogThis("brain: reach - THE GOAL AT ({0:0.0}, {1:0.0}) IS NOT PASSABLE for a " &
                     "hull {2:0.0} m wide. Every route will read as blocked because there " &
-                    "is nowhere to arrive.", goal.X, goal.Y, radius * 2.0F)
-            have = False
-            Return False
+                    "is nowhere to arrive.", goal.X, goal.Y, lv.r * 2.0F)
+            Return f
         End If
 
-        ' ---- the fill -------------------------------------------------------
+        Dim sw = Stopwatch.StartNew()
+        Dim n = w * h
+        Dim d(n - 1) As UShort
+        For i = 0 To n - 1
+            d(i) = UShort.MaxValue
+        Next
+
         Dim q As New Queue(Of Integer)
-        dist(start_) = 0
-        q.Enqueue(start_)
+        d(key) = 0
+        q.Enqueue(key)
         Dim seen = 1
         While q.Count > 0
             Dim i = q.Dequeue()
-            Dim d = dist(i)
-            If d >= UShort.MaxValue - 1 Then Continue While
-            Dim nd = CUShort(d + 1US)
+            Dim dv = d(i)
+            If dv >= UShort.MaxValue - 1 Then Continue While
+            Dim nd = CUShort(dv + 1US)
             Dim c = i Mod w, r = i \ w
-            If c > 0 Then step_(i - 1, nd, pass, q, seen)
-            If c < w - 1 Then step_(i + 1, nd, pass, q, seen)
-            If r > 0 Then step_(i - w, nd, pass, q, seen)
-            If r < h - 1 Then step_(i + w, nd, pass, q, seen)
+            If c > 0 Then step_(lv, d, i - 1, nd, q, seen)
+            If c < w - 1 Then step_(lv, d, i + 1, nd, q, seen)
+            If r > 0 Then step_(lv, d, i - w, nd, q, seen)
+            If r < h - 1 Then step_(lv, d, i + w, nd, q, seen)
         End While
 
-        Reached = seen
-        builtFor = goal
-        have = True
+        f.dist = d
+        f.reached = seen
+        Builds += 1
         Ms = sw.ElapsedMilliseconds
-        LogThis("brain: reach - filled from the goal at ({0:0.0}, {1:0.0}) in {2} ms. " &
-                "{3:N0} of {4:N0} cells at {5:0.0} m can reach it, {6:0}% of the map, " &
-                "for a hull {7:0.0} m wide.",
-                goal.X, goal.Y, Ms, seen, n, cell * grain, 100.0 * seen / n,
-                radius * 2.0F)
-        Return True
+        LogThis("brain: reach - flooded from ({0:0.0}, {1:0.0}) in {2} ms. " &
+                "{3:N0} of {4:N0} cells reach it, {5:0}% of the map. " &
+                "{6} field(s) held at this width, {7} flood(s) paid for, " &
+                "{8} lookup(s) free, {9} set(s) built.",
+                goal.X, goal.Y, Ms, seen, n, 100.0 * seen / n,
+                lv.fields.Count + 1, Builds, Hits, Sets)
+        Return f
     End Function
 
-    Private Sub step_(j As Integer, nd As UShort, pass As Boolean(),
+    Private Sub step_(lv As Level, d() As UShort, j As Integer, nd As UShort,
                       q As Queue(Of Integer), ByRef seen As Integer)
-        If Not pass(j) Then Return
-        If dist(j) <= nd Then Return
-        dist(j) = nd
+        If Not lv.pass_(j) Then Return
+        If d(j) <= nd Then Return
+        d(j) = nd
         seen += 1
         q.Enqueue(j)
+    End Sub
+
+    ''' <summary>
+    ''' Hold the last few fields at this width, oldest out first.
+    '''
+    ''' A cap rather than everything, because a road has many waypoints and
+    ''' nothing needs the field for one we left behind. At about 1 MB each the cap
+    ''' is about tidiness rather than memory - the 0.5 m grid would have made each
+    ''' one 16 MB and this cache impossible, which is what the coarsening bought.
+    ''' </summary>
+    Private Sub keep(lv As Level, key As Integer, f As Field)
+        lv.fields(key) = f
+        lv.order.Add(key)
+        Dim cap = Math.Max(2, CInt(BrainTune.Get_("reachkeep", 12.0F)))
+        While lv.order.Count > cap
+            Dim old = lv.order(0)
+            lv.order.RemoveAt(0)
+            ' Only if it has not been asked for again since.
+            If Not lv.order.Contains(old) Then lv.fields.Remove(old)
+        End While
     End Sub
 
     ''' <summary>
@@ -255,8 +382,18 @@ Module BrainReach
         Return pass
     End Function
 
+    ''' <summary>Drop every field. The passable set survives - it does not
+    ''' depend on any goal, so the next Use pays for a flood and not a
+    ''' dilation.</summary>
+    ''' <summary>Drop every flooded field. The passable sets survive - they
+    ''' depend on the hull's width and not on any goal, so the next Use pays
+    ''' for a flood and not a dilation.</summary>
     Public Sub Forget()
-        have = False
+        For Each lv In levels.Values
+            lv.fields.Clear()
+            lv.order.Clear()
+        Next
+        cur = Nothing
         Reached = 0
     End Sub
 
