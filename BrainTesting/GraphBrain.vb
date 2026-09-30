@@ -568,6 +568,9 @@ Public Class GraphBrain
             End If
         End If
 
+        ' ---- THE FIELD DECIDES, THE RAYS VETO ----------------------------
+        If BrainTune.Get_("navdrive", 0.0F) > 0.0F Then nav_descend()
+
         thr = Math.Max(-1.0F, Math.Min(1.0F, thr))
         steerOut = Math.Max(-1.0F, Math.Min(1.0F, steerOut))
 
@@ -579,7 +582,7 @@ Public Class GraphBrain
         BrainNodes.TraceLogIfChanged()
         BrainReport.LastSteer = steerOut
         BrainReport.Heartbeat(dt, state.ToString(), why, thr, h.speed,
-                              (goal - h.pos).Length, BrainRadar.FitSurface(hits))
+                              (goal - h.pos).Length, BrainRadar.FitSurface(hits), nav_here())
 
         o.throttle(me_) = thr
         o.steer(me_) = steerOut
@@ -1268,6 +1271,72 @@ Public Class GraphBrain
     ''' -1 AT THE HULL IS "NO READING", NOT "NO ROUTE", and conflating the two
     ''' is how a correct leaving condition turns back into an orbit.
     ''' </summary>
+    ''' <summary>
+    ''' STEER DOWNHILL ON THE FIELD. Overrides whatever the board decided.
+    '''
+    ''' One ring of samples, the lowest route distance that the rays will
+    ''' clear, and drive it. That is the whole of micromouse: step to the
+    ''' neighbour with the smaller number. It cannot orbit, because every cell
+    ''' but the goal has a strictly lower neighbour - which is exactly the
+    ''' property the board threw away by ranking the field against rungs that
+    ''' steer at the raw goal bearing.
+    '''
+    ''' THE RAYS KEEP THEIR VETO and only their veto. can_pivot and the
+    ''' corridor still refuse a direction the hull cannot take; they no longer
+    ''' get to PROPOSE one. The field knows nothing about what is in front of
+    ''' the tank this instant, and the rays know nothing about which way the
+    ''' goal is - so this is the only division of the two that lets each
+    ''' answer the question it can actually answer.
+    '''
+    ''' Declines - leaving the board's decision alone - when the field is not
+    ''' built, or when nothing downhill survives the veto. A goal no tank can
+    ''' stand in never builds a field at all, so on those this does nothing.
+    ''' </summary>
+    Private Sub nav_descend()
+        If Not BrainReach.Ready Then Return
+        Dim hereNav = nav_here()
+        If hereNav < 0.0F Then Return
+
+        Dim ring = BrainTune.Get_("navring", 14.0F)
+        Dim steps = Math.Max(8, CInt(BrainTune.Get_("navn", 32.0F)))
+        Dim bestNav = hereNav
+        Dim bestRel As Single = 0.0F
+        Dim found = False
+        For k = 0 To steps - 1
+            Dim a = CSng(k * Math.PI * 2.0 / steps)
+            Dim p = h.pos + New Vector2(CSng(Math.Sin(a)),
+                                        CSng(Math.Cos(a))) * ring
+            Dim v = BrainReach.At(p)
+            ' -1 is "no route from there", a different answer from "far".
+            If v < 0.0F OrElse v >= bestNav Then Continue For
+            Dim rel = wrap_pi(a - h.headingRad)
+            If Not can_pivot(rel, BrainTune.Get_("pivmargin", 0.3F)) Then Continue For
+            Dim atM As Single = 0.0F
+            If box_verdict(rel, ring, atM) = 2 Then Continue For
+            bestNav = v
+            bestRel = rel
+            found = True
+        Next
+        If Not found Then Return
+
+        ' Steer and throttle from the SAME bearing, so the speed suits the turn
+        ' - a heading this far off the nose taken at cruising speed needs a
+        ' turning circle the pocket does not have.
+        steerOut = steer_to_clear(bestRel, body_ahead(), 0.0F)
+        thr = throttle_for_turn(bestRel, body_ahead())
+        why = String.Format("field: {0:0} deg, route {1:0} m from {2:0} m",
+                            MathHelper.RadiansToDegrees(bestRel), bestNav, hereNav)
+        If navSay < 8 Then
+            navSay += 1
+            LogThis("brain: hull {0} FIELD DRIVE - {1:0} deg, route {2:0} m against " &
+                    "{3:0} m here, thr {4:0.00}. The field decided; the rays only vetoed.",
+                    BrainRadar.HULL, MathHelper.RadiansToDegrees(bestRel),
+                    bestNav, hereNav, thr)
+        End If
+    End Sub
+
+    Private navSay As Integer = 0
+
     Private Function nav_here() As Single
         If Not BrainReach.Ready Then Return -1.0F
         Dim d = BrainReach.At(h.pos)
@@ -1932,6 +2001,21 @@ Public Class GraphBrain
                                  CSng(Math.Cos(h.headingRad)))
         If PlanOn AndAlso Vector2.Dot(planPoint - h.pos, fwdNow) <= 0.0F Then
             ' Abeam or behind: we are past whatever we were going round.
+            '
+            ' THIS CANNOT TELL "behind me because I drove past it" from "behind
+            ' me because I must turn round and go back", and in a wrap-around
+            ' corner every way out is the second kind - measured in the trap at
+            ' (-188.6, -204.6), the field voted 164, -162, 111, 174, -145, 172,
+            ' never once inside ninety degrees, so every plan holding one was
+            ' dropped on the next tick.
+            '
+            ' Distinguishing them by whether the hull ever CLOSED on the point
+            ' was tried and is not the answer: it held correctly and made things
+            ' worse, 1509 degrees of commanded swing going to 1680. The orbit was
+            ' not a commitment failure. See navdrive - obeying the field solves
+            ' that trap outright, and this line then has nothing to get wrong,
+            ' because the field never proposes a point it has not measured a
+            ' route to.
             PlanOn = False
         End If
 

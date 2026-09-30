@@ -361,7 +361,8 @@ Module BrainReport
     ''' </summary>
     Public Sub Heartbeat(dt As Single, state As String, why As String,
                          throttle As Single, speed As Single, rangeM As Single,
-                         surf As BrainRadar.Surface)
+                         surf As BrainRadar.Surface,
+                         Optional navM As Single = -1.0F)
         LastWhy = why
         LastThrottle = throttle
         LastSpeed = speed
@@ -370,7 +371,12 @@ Module BrainReport
         If beat < 1.0F Then Return
         beat = 0.0F
         LogThis("brain: " & MotionBox())
+        ' ROUTE DISTANCE BESIDE STRAIGHT-LINE RANGE, because in a pocket they
+        ' disagree by a factor of five and only one of them says whether the
+        ' hull is getting anywhere. "nav -1" means the field is not built - on
+        ' a goal no tank can stand in, it never is.
         LogThis("brain: [{0}] {1} | thr {2:0.00} speed {3:0.0} range {4:0.0} " &
+                "nav {22:0.0} " &
                 "| surf: {5} (valid {6}, one {7}, turns {8}, face {9:0} deg) " &
                 "| probes {10} (dbl {11}) rear-trig {12}{13} doors {14} " &
                 "| gap {19:0.0} @ {20:0} deg vs ahead {21:0.0} " &
@@ -383,7 +389,7 @@ Module BrainReport
                 If(RearTrigs > 0, String.Format(" (last {0:0} deg)", RearLastDeg), ""),
                 Doors, BrainSim.TickMs, BrainNav.GroundMs,
                 BrainNav.GroundMisses, BrainNav.CellTests,
-                BestScore, BestDeg, AheadScore)
+                BestScore, BestDeg, AheadScore, navM)
     End Sub
 
     ''' <summary>
