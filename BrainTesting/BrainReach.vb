@@ -110,6 +110,13 @@ Module BrainReach
     Public Builds As Integer = 0
     Public Hits As Integer = 0
     Public Sets As Integer = 0
+    ''' <summary>WHY A LOOKUP CAME BACK WITH NOTHING, counted by reason. A -1
+    ''' from At() is indistinguishable from "no route" without these, and
+    ''' guessing which branch fired cost half an hour once.</summary>
+    Public NoNav As Integer = 0
+    Public NoGrid As Integer = 0
+    Public OffMap As Integer = 0
+    Private sayNoNav, sayNoGrid, sayOffMap As Integer
 
     Public ReadOnly Property Ready As Boolean
         Get
@@ -150,14 +157,38 @@ Module BrainReach
     ''' </summary>
     Public Function Use(goal As Vector2, radius As Single) As Boolean
         cur = Nothing
-        If Not BrainNav.Ready Then Return False
-        If Not ensure_grid() Then Return False
+        If Not BrainNav.Ready Then
+            NoNav += 1
+            If sayNoNav < 2 Then
+                sayNoNav += 1
+                LogThis("brain: reach - asked for a field before BrainNav was ready.")
+            End If
+            Return False
+        End If
+        If Not ensure_grid() Then
+            NoGrid += 1
+            If sayNoGrid < 2 Then
+                sayNoGrid += 1
+                LogThis("brain: reach - no grid: {0} x {1} cells.",
+                        BrainNav.CellCols, BrainNav.CellRows)
+            End If
+            Return False
+        End If
         curL = ensure_level(radius)
         If curL Is Nothing Then Return False
 
         Dim gc = BrainNav.ColOf(goal.X) \ grain
         Dim gr = BrainNav.RowOf(goal.Y) \ grain
-        If gc < 0 OrElse gr < 0 OrElse gc >= w OrElse gr >= h Then Return False
+        If gc < 0 OrElse gr < 0 OrElse gc >= w OrElse gr >= h Then
+            OffMap += 1
+            If sayOffMap < 3 Then
+                sayOffMap += 1
+                LogThis("brain: reach - the goal ({0:0.0}, {1:0.0}) is off the grid: " &
+                        "coarse cell {2},{3} of {4} x {5}.",
+                        goal.X, goal.Y, gc, gr, w, h)
+            End If
+            Return False
+        End If
         Dim key = gr * w + gc
 
         Dim f As Field = Nothing
