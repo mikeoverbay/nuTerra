@@ -339,6 +339,10 @@ Public Class MapTanks
                     .fireIn = 0.21F * i,
                     .shells = magazine_size(v),
                     .turretYaw = yaw0, .gunPitch = pitch0}
+                ' THIS GUN'S OWN RECOIL TRAVEL, not the shared 0.40. Set here
+                ' rather than in TankRecoil's initialiser because the vehicle is
+                ' only known now, and TankInstance.recoil is ReadOnly.
+                If v.recoilTravelM > 0.0F Then born.recoil.travel_m = v.recoilTravelM
                 instances.Add(born)
 
                 LogThis("tank: team {0} slot {1,2} {2}/{3} at ({4:0.0}, {5:0.0}, {6:0.0}) obstacle {7:0.00} m armour {8}",
@@ -1423,25 +1427,14 @@ Public Class MapTanks
     ''' DEPRESSION. Converting once, here, keeps every number above and in the
     ''' def file meaning what it says.
     ''' </summary>
+    ' THE COMPOSITION MOVED TO TankVehicle.PartLocal, 2026-09-25, and this
+    ' calls it. Brain Testing links TankVehicle and not this file, and two
+    ' copies of a tank's pose is the thing DrawDepth below exists to prevent.
+    ' The TANK_AIM check stays HERE because it is this app's render toggle.
     Private Function part_model(inst As TankInstance, part As TankPart,
                                 world As Matrix4) As Matrix4
         If Not TANK_AIM Then Return Matrix4.CreateTranslation(part.offset) * world
-
-        Dim ya = MathHelper.DegreesToRadians(inst.turretYaw)
-        If part.label = "turret" Then
-            Return Matrix4.CreateRotationY(ya) *
-                   Matrix4.CreateTranslation(part.offset) * world
-        End If
-
-        If part.label = "gun" Then
-            Dim tOff = turret_offset(inst)
-            Return Matrix4.CreateRotationX(MathHelper.DegreesToRadians(-inst.gunPitch)) *
-                   Matrix4.CreateTranslation(part.offset - tOff) *
-                   Matrix4.CreateRotationY(ya) *
-                   Matrix4.CreateTranslation(tOff) * world
-        End If
-
-        Return Matrix4.CreateTranslation(part.offset) * world
+        Return inst.vehicle.PartLocal(part, inst.turretYaw, inst.gunPitch) * world
     End Function
 
     ''' <summary>A vehicle's place in the world. One definition, because the
@@ -1513,11 +1506,9 @@ Public Class MapTanks
                Matrix4.CreateTranslation(wp)
     End Function
 
+    ' Kept as a name this file already uses; the value is TankVehicle's now.
     Private Function turret_offset(inst As TankInstance) As Vector3
-        For Each p In inst.vehicle.parts
-            If p.label = "turret" Then Return p.offset
-        Next
-        Return Vector3.Zero
+        Return inst.vehicle.TurretPivot
     End Function
 
     ''' <summary>
@@ -1545,16 +1536,10 @@ Public Class MapTanks
         Dim world = world_matrix(inst, inst.livePosition)
         Dim model = part_model(inst, gunPart, world)
 
+        ' THE ORDER AND THE FLIP ASYMMETRY MOVED TO TankBarrel.MuzzleFor,
+        ' 2026-09-25, so the brain fires from the same point this draws from.
         Dim muzzle As Vector3, dir As Vector3
-        If inst.vehicle.hasMuzzle Then
-            ' THE GAME'S OWN MUZZLE, and through the UNFLIPPED matrix. The node
-            ' tree is in the visual's frame; only the vertex streams are stored
-            ' Z-reversed, so pushing a node position through FlipSkinnedZ puts
-            ' the blast at the breech.
-            Dim m0 = inst.vehicle.muzzleLocal
-            muzzle = Vector3.TransformPosition(m0, model)
-            dir = Vector3.TransformPosition(m0 + Vector3.UnitZ, model) - muzzle
-        ElseIf Not measured_muzzle(inst, gunPart, model, muzzle, dir) Then
+        If Not TankBarrel.MuzzleFor(inst.vehicle, gunPart, model, muzzle, dir) Then
             Return
         End If
 
@@ -1567,7 +1552,13 @@ Public Class MapTanks
         ' one. They are not linked and must not be: a round from one vehicle
         ' lands on another, and TEPY makes the same split for the same reason -
         ' one shot can produce no impact at all, or later more than one.
-        inst.shots.Fire(muzzle, dir, inst.vehicle.blast, hit, TANK_SHELL_MPS)
+        ' THE GUN'S OWN SHELL SPEED, with the global as the fallback. 1115 m/s
+        ' on a 122 mm against the 180 this used for every gun on the roster -
+        ' so a round now crosses the map in the time it should, and two guns
+        ' no longer send their tracers at the same speed.
+        Dim mps = If(inst.vehicle.shellSpeedMps > 0.0F,
+                     inst.vehicle.shellSpeedMps, TANK_SHELL_MPS)
+        inst.shots.Fire(muzzle, dir, inst.vehicle.blast, hit, mps)
 
         ' THE FIRST FEW IN FULL, then a tally. Thirty guns at a round every two
         ' seconds is fifteen lines a second forever, which buries the load log
@@ -1600,27 +1591,6 @@ Public Class MapTanks
     ''' - and goes through the FLIPPED matrix, because unlike the node tree the
     ''' vertex data is stored Z-reversed.
     ''' </summary>
-    Private Function measured_muzzle(inst As TankInstance, gunPart As TankPart,
-                                     model As Matrix4, ByRef muzzle As Vector3,
-                                     ByRef dir As Vector3) As Boolean
-        If FlipSkinnedZ Then model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * model
-        For Each m In gunPart.meshes
-            If m.layout Is Nothing OrElse m.layout.offBoneIdx < 0 Then Continue For
-            Dim plan = resolve_recoil(gunPart, m)
-            If plan Is Nothing OrElse plan.barrel < 0 Then Continue For
-            If m.boneHubs Is Nothing OrElse m.boneTipZ Is Nothing Then Continue For
-            If plan.barrel >= m.boneHubs.Length Then Continue For
-            Dim hub = m.boneHubs(plan.barrel)
-            If Single.IsNaN(hub.X) Then Continue For
-
-            Dim back = Vector3.TransformPosition(New Vector3(hub.X, hub.Y, hub.Z), model)
-            muzzle = Vector3.TransformPosition(
-                New Vector3(hub.X, hub.Y, m.boneTipZ(plan.barrel)), model)
-            dir = muzzle - back
-            Return True
-        Next
-        Return False
-    End Function
 
     ''' <summary>Base dwell at the end of a traverse. Staggered per tank on
     ''' top of this, so a line of them does not pause as one.</summary>
@@ -1998,7 +1968,7 @@ Public Class MapTanks
             Return
         End If
 
-        Dim r = resolve_recoil(part, m)
+        Dim r = TankBarrel.PlanFor(part, m)
         If r Is Nothing Then
             GL.Uniform1(shader("u_recoil_on"), 0)
             Return
@@ -2012,15 +1982,7 @@ Public Class MapTanks
 
     ''' <summary>What one gun mesh needs: which slots are barrel, and which way
     ''' back is.</summary>
-    Private Class RecoilPlan
-        Public slots(63) As Integer
-        Public dir As Single = 1.0F
-        ''' <summary>The barrel's palette slot. The muzzle is the far end of
-        ''' this bone's own vertices.</summary>
-        Public barrel As Integer = -1
-    End Class
 
-    Private ReadOnly recoil_plans As New Dictionary(Of TankMesh, RecoilPlan)
 
     ''' <summary>The impacts in flight, and the pass that draws them and
     ''' every tank's own muzzle flames. Owned here because the shots are fired
@@ -2035,91 +1997,9 @@ Public Class MapTanks
         fx.Draw(instances)
     End Sub
 
-    ''' <summary>
-    ''' Classify this gun's palette once, and work out which way the barrel
-    ''' retracts.
-    '''
-    ''' THE DIRECTION IS MEASURED, NOT ASSUMED. A fixed axis sign is wrong on
-    ''' half the corpus - the muzzle sits at +Z on some guns and -Z on others,
-    ''' and getting it backwards pushes the barrel further OUT of the mantlet
-    ''' instead of into it, which reads as the gun growing rather than as a
-    ''' sign error. ComputeBoneHubs already leaves a weighted centroid per
-    ''' palette slot, so the barrel bone's own hub says which end it is on:
-    ''' recoil is back toward the origin, so the sign is the opposite of the
-    ''' hub's. Nothing here has to know a convention.
-    '''
-    ''' Where the names give nothing - a palette with no G_ bone at all - the
-    ''' hubs answer that too: the bone whose vertices sit furthest out along Z
-    ''' IS the barrel, whatever it is called. TEPY needed exactly this for
-    ''' A100_T49, which inverts the naming convention outright.
-    ''' </summary>
-    Private Function resolve_recoil(part As TankPart, m As TankMesh) As RecoilPlan
-        Dim plan As RecoilPlan = Nothing
-        If recoil_plans.TryGetValue(m, plan) Then Return plan
-
-        plan = New RecoilPlan
-        recoil_plans(m) = plan
-
-        Dim palette = part.PaletteFor(m)
-        plan.slots = TankRecoil.ClassifyPalette(palette)
-
-        ' The barrel is the flagged bone reaching furthest along Z. On a twin
-        ' gun both barrels are flagged and either answers the direction, since
-        ' they point the same way.
-        Dim best = -1
-        Dim bestZ = 0.0F
-        For i = 0 To 63
-            If plan.slots(i) = 0 Then Continue For
-            Dim z = hub_z(m, i)
-            If Single.IsNaN(z) Then Continue For
-            If best < 0 OrElse Math.Abs(z) > Math.Abs(bestZ) Then best = i : bestZ = z
-        Next
-
-        ' No G_ bone in the palette: fall back to geometry alone.
-        If best < 0 Then
-            For i = 0 To 63
-                Dim z = hub_z(m, i)
-                If Single.IsNaN(z) Then Continue For
-                If best < 0 OrElse Math.Abs(z) > Math.Abs(bestZ) Then best = i : bestZ = z
-            Next
-            If best >= 0 Then
-                plan.slots(best) = 1
-                LogThis("tank: gun [{0}] has no G_ bone - slot {1} taken as the barrel on its hub alone (z {2:0.00})",
-                        m.name, best, bestZ)
-            End If
-        End If
-
-        If best < 0 Then
-            recoil_plans(m) = Nothing
-            Return Nothing
-        End If
-
-        plan.dir = If(bestZ >= 0.0F, -1.0F, 1.0F)
-        plan.barrel = best
-
-        ' Logged once per mesh, because "which bone is the barrel" is the whole
-        ' question and a wrong answer is only visible as the wrong part sliding.
-        Dim names As New List(Of String)
-        If palette IsNot Nothing Then
-            For i = 0 To Math.Min(palette.Count, 64) - 1
-                names.Add(String.Format("{0}{1}", palette(i),
-                                        If(plan.slots(i) <> 0, "*", "")))
-            Next
-        End If
-        LogThis("tank: gun [{0}] barrel slot {1} (byte {2}) hub z {3:0.00}, back is {4}Z  [{5}]",
-                m.name, best, best * 3, bestZ, If(plan.dir < 0, "-", "+"),
-                String.Join(" ", names))
-        Return plan
-    End Function
 
     ''' <summary>A palette slot's centroid Z, or NaN when nothing is bound to
     ''' it.</summary>
-    Private Function hub_z(m As TankMesh, slot As Integer) As Single
-        If m.boneHubs Is Nothing OrElse slot < 0 OrElse slot >= m.boneHubs.Length Then
-            Return Single.NaN
-        End If
-        Return m.boneHubs(slot).Z
-    End Function
 
 
     ''' <summary>How much clear ground a tank needs, metres from its centre.

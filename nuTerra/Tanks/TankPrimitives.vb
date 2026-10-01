@@ -28,6 +28,23 @@ Public Class TankMesh
     Public groups As New List(Of Group)
     Public hasUV2 As Boolean
 
+    ''' <summary>
+    ''' Which of this mesh's palette slots is the barrel, worked out once.
+    '''
+    ''' ON THE MESH rather than in a dictionary beside it, because that is
+    ''' where the lifetime belongs. TankRenderer cached these in a field on
+    ''' itself; moving that cache to a module, so Brain Testing could reach
+    ''' it, would have held every mesh of every vehicle alive across every
+    ''' map load. Here it dies with the mesh.
+    '''
+    ''' barrelPlanDone separates 'not worked out yet' from 'worked out, and
+    ''' there is no barrel'. A gun with no usable bone answers Nothing, and
+    ''' without the flag that answer would be re-derived and re-logged on
+    ''' every frame that asks.
+    ''' </summary>
+    Public barrelPlan As TankBarrel.BarrelPlan
+    Public barrelPlanDone As Boolean
+
     Public vao As GLVertexArray
     Public vbo As GLBuffer
     Public ibo As GLBuffer

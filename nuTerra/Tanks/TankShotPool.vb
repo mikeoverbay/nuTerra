@@ -1,6 +1,36 @@
 ﻿Imports OpenTK.Mathematics
 
 ''' <summary>
+''' MOVED HERE FROM TankShots.vb, 2026-09-25, so that this file can be
+''' compiled on its own.
+'''
+''' Brain Testing draws shots in its own idiom - lines and boxes through one
+''' line shader - and asked for the geometry and timing rather than a port of
+''' nuTerra's FX pass. That means linking THIS file, and this file names
+''' ShotHit. TankShots.vb cannot be linked: its Cast walks MapFlightBake
+''' through map_scene, and neither is in that project.
+'''
+''' So the two pure declarations live here and the cast stayed where it was.
+''' Nothing else moved, and TankShots.vb still uses these by name.
+''' </summary>
+''' <summary>Where a shot stopped, and on what.</summary>
+Public Enum HitKind
+    NoHit = 0
+    Ground = 1
+    Scenery = 2
+    Tank = 3
+End Enum
+
+''' <summary>One shot's terminus: where, what, and which way the surface faces.</summary>
+Public Structure ShotHit
+    Public kind As HitKind
+    Public point As Vector3
+    Public normal As Vector3
+    Public range As Single
+    Public tank As TankInstance      ' only for HitKind.Tank
+End Structure
+
+''' <summary>
 ''' One firing event, with everything its animation needs carried on it.
 '''
 ''' CAPTURED AT FIRE TIME, not read back from the gun. The muzzle position and

@@ -1,21 +1,11 @@
 ﻿Imports OpenTK.Mathematics
 
-''' <summary>Where a shot stopped, and on what.</summary>
-Public Enum HitKind
-    NoHit = 0
-    Ground = 1
-    Scenery = 2
-    Tank = 3
-End Enum
-
-''' <summary>One shot's terminus: where, what, and which way the surface faces.</summary>
-Public Structure ShotHit
-    Public kind As HitKind
-    Public point As Vector3
-    Public normal As Vector3
-    Public range As Single
-    Public tank As TankInstance      ' only for HitKind.Tank
-End Structure
+''' HitKind AND ShotHit MOVED TO TankShotPool.vb on 2026-09-25, and the reason
+''' is linkage, not tidiness. Brain Testing wants the per-shot animation state
+''' out of TankShotPool and will draw it itself; TankShotPool names ShotHit, so
+''' the type had to be reachable from a file that app can compile. This one
+''' cannot be: Cast below needs MapFlightBake and map_scene, neither of which it
+''' links, so the two pure declarations went and the cast stayed.
 
 ''' <summary>
 ''' Where the guns are pointing, what they hit, and the short-lived effects at
