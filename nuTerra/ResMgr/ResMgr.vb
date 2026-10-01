@@ -188,6 +188,28 @@ NotInheritable Class ResMgr
         Return PkgEntry.FromFile(Path.Combine(RES_MODS_PATH, lowered_fn.Replace("/", "\")), filename)
     End Function
 
+    ''' <summary>
+    ''' Every indexed path containing a fragment, for answering "is this even
+    ''' shipped". Diagnostic: the armour hunt on 2026-09-26 needed to tell
+    ''' "ResMgr does not index it" from "the game does not ship it", and a
+    ''' failed Lookup cannot distinguish those two.
+    ''' </summary>
+    Public Shared Function FindAll(fragment As String, limit As Integer) As List(Of String)
+        Dim hits As New List(Of String)
+        Dim f = fragment.ToLowerInvariant()
+        For Each k In FILENAME_TO_ZIP_ENTRY.Keys
+            If k.ToLowerInvariant().Contains(f) Then
+                hits.Add(k)
+                If hits.Count >= limit Then Exit For
+            End If
+        Next
+        Return hits
+    End Function
+
+    Public Shared Function CountIndexed() As Integer
+        Return FILENAME_TO_ZIP_ENTRY.Count
+    End Function
+
     Public Shared Function Lookup(filename As String) As PkgEntry
         Dim lowered_fn = filename.ToLower.Replace("\", "/")
 

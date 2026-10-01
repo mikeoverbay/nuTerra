@@ -60,6 +60,32 @@ Public Module TankFiles
         Return ResMgr.Lookup(path)
     End Function
 
+    ''' <summary>
+    ''' Every indexed vehicle-package path containing a fragment.
+    '''
+    ''' Diagnostic, added during the armour hunt on 2026-09-26. ResMgr has its
+    ''' own FindAll and it answered "nothing under collision/" - but ResMgr
+    ''' SKIPS every vehicles_ package by design, so that was the wrong index to
+    ''' ask and the answer meant nothing. This asks the right one.
+    ''' </summary>
+    Public Function FindAll(fragment As String, limit As Integer) As List(Of String)
+        If Not indexed Then BuildIndex()
+        Dim hits As New List(Of String)
+        Dim f = fragment.Replace("\", "/").ToLowerInvariant()
+        For Each k In index.Keys
+            If k.Contains(f) Then
+                hits.Add(k)
+                If hits.Count >= limit Then Exit For
+            End If
+        Next
+        Return hits
+    End Function
+
+    Public Function CountIndexed() As Integer
+        If Not indexed Then BuildIndex()
+        Return index.Count
+    End Function
+
     ''' <summary>Only the vehicle packages; Nothing without falling back to the core.</summary>
     Public Function LookupOwn(path As String) As PkgEntry
         If Not indexed Then BuildIndex()

@@ -16,6 +16,39 @@ Public Class TankPart
     Public visualPath As String
     Public offset As Vector3          ' part origin relative to the chassis origin, BigWorld axes
     Public meshes As New List(Of TankMesh)
+    ''' <summary>
+    ''' THIS PART'S ARMOUR, millimetres, keyed by plate name.
+    '''
+    ''' armor_1, armor_2, ... on hull, turret and gun; leftTrack and rightTrack
+    ''' on the chassis; the gun also carries a plate literally called `gun`.
+    ''' Read off the module the most costly rule chose, like every other
+    ''' per-module number in this file.
+    '''
+    ''' DATA RATHER THAN A LOG LINE, which is the whole reason it is here. The
+    ''' owner, 2026-09-28: "I wanted this integrated in to braintesting. Not
+    ''' nuTerra. All tank AI will be done there first." Brain Testing compiles
+    ''' THIS file, so a field on TankPart reaches it; the probe that printed the
+    ''' same numbers into nuTerra's log reached nobody.
+    '''
+    ''' THE NUMBERING IS SPARSE - the 121's hull has no armor_7 and no armor_9 -
+    ''' so this is a dictionary, not an array. Do not index it 1..N.
+    '''
+    ''' Thickness is half the answer. WHICH TRIANGLE IS WHICH PLATE is in the
+    ''' part's .havok, as an hknpMaterial named for the plate - see havokPath
+    ''' and TankHavok.
+    ''' </summary>
+    Public ReadOnly armorMm As New Dictionary(Of String, Single)
+
+    ''' <summary>
+    ''' This part's collision geometry: collision_client/&lt;part&gt;.havok.
+    '''
+    ''' NOT the path item_defs states. hitTester names a .model under collision/
+    ''' and collision_client/ and NEITHER EXISTS - what ships is one .havok per
+    ''' part, client side only. Derived by swapping the extension, and left empty
+    ''' when even that is not in the vehicle packages.
+    ''' </summary>
+    Public havokPath As String = ""
+
     ''' <summary>Mean road-wheel radius, computed once from the rig.</summary>
     Public meanRoadRadius As Single
     Public visual As TankVisual
@@ -305,6 +338,152 @@ Public Class TankVehicle
         End Get
     End Property
     Public hullPosition As Vector3
+    ''' <summary>
+    ''' THE TURRET AND GUN PARTS, AND THE MATRIX THAT POSES THEM. One copy.
+    '''
+    ''' Added 2026-09-25 for Brain Testing, which links THIS file and does not
+    ''' link TankRenderer, where the pose lived and still ran. The precedent is
+    ''' DrawDepth, written inside the renderer at the Shader IDE session's
+    ''' request for the same reason: "One place computes a tank's pose;
+    ''' everything that draws it asks here." A second copy of the composition
+    ''' drifts from the tank it belongs to the moment one of them changes.
+    '''
+    ''' THE PIVOT IS THE PART'S OWN offset, NOT turretPosition. Those two
+    ''' differ and the difference is a whole hull offset: turretPosition is the
+    ''' raw hull-local number out of item_defs, while part.offset is the
+    ''' ACCUMULATED chassis-space origin - see the loader below, which builds it
+    ''' as hullOff + turretPosition and then gunOff as turretOff +
+    ''' gunPosition. Rotating about turretPosition puts the turret's axis
+    ''' wherever the hull happens to sit above the chassis. Ask TurretPivot.
+    ''' </summary>
+    Public Function PartByLabel(want As String) As TankPart
+        If parts Is Nothing Then Return Nothing
+        For Each p In parts
+            If p.label = want Then Return p
+        Next
+        Return Nothing
+    End Function
+
+    Public ReadOnly Property TurretPart As TankPart
+        Get
+            Return PartByLabel("turret")
+        End Get
+    End Property
+
+    Public ReadOnly Property GunPart As TankPart
+        Get
+            Return PartByLabel("gun")
+        End Get
+    End Property
+
+    ''' <summary>The point the turret yaws about, chassis space. Vector3.Zero
+    ''' on a turretless vehicle, which is what the renderer has always done
+    ''' rather than refuse to draw it.</summary>
+    Public ReadOnly Property TurretPivot As Vector3
+        Get
+            Dim t = TurretPart
+            Return If(t Is Nothing, Vector3.Zero, t.offset)
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' Where a part sits relative to the vehicle, with the turret yawed and the
+    ''' gun pitched. Multiply by the vehicle's world matrix to draw it.
+    '''
+    ''' Degrees in, to match turretYaw and gunPitch on TankInstance. The gun's
+    ''' pitch is NEGATED here and that is not a tidy-up to make later: the
+    ''' sign convention is the one the barrel is actually drawn with.
+    '''
+    ''' The gun composes through the TURRET's pivot, not its own - it has to
+    ''' yaw with the turret before it pitches, so the translation is
+    ''' part.offset MINUS the turret pivot, pitched, then yawed, then put back.
+    '''
+    ''' NO TANK_AIM TEST IN HERE. That global is a nuTerra render toggle, and a
+    ''' shared function that silently returned bind pose because another app's
+    ''' switch was off would be a trap. Pass 0, 0 for bind pose; the renderer
+    ''' keeps its own check.
+    ''' </summary>
+    Public Function PartLocal(part As TankPart, turretYaw As Single,
+                              gunPitch As Single) As Matrix4
+        If part Is Nothing Then Return Matrix4.Identity
+        Dim ya = MathHelper.DegreesToRadians(turretYaw)
+
+        If part.label = "turret" Then
+            Return Matrix4.CreateRotationY(ya) *
+                   Matrix4.CreateTranslation(part.offset)
+        End If
+
+        If part.label = "gun" Then
+            Dim tOff = TurretPivot
+            Return Matrix4.CreateRotationX(MathHelper.DegreesToRadians(-gunPitch)) *
+                   Matrix4.CreateTranslation(part.offset - tOff) *
+                   Matrix4.CreateRotationY(ya) *
+                   Matrix4.CreateTranslation(tOff)
+        End If
+
+        Return Matrix4.CreateTranslation(part.offset)
+    End Function
+
+    ''' <summary>
+    ''' THE BARREL AND ITS AMMUNITION, off the gun the most costly rule chose.
+    '''
+    ''' The owner, 2026-09-25: "get the specs on barrels and such using most
+    ''' costly rule." Priciest already picked the chassis, then the turret,
+    ''' then the gun inside it - what was missing is that almost nothing was
+    ''' READ off that gun. Two numbers were hardcoded and both were wrong:
+    '''
+    '''   shell speed     one global 180 m/s for the whole roster. The real
+    '''                   figures are 1115 m/s on the 122 mm and 1400 on the
+    '''                   100 mm - out by six to eight times.
+    '''   recoil travel   a fixed 0.40 m for every gun. The guns
+    '''                   state 0.42 and 0.22, so one was near enough and the
+    '''                   other was double.
+    '''
+    ''' Measured before any of this was written, by dumping the chosen gun's
+    ''' own XML - see DumpGunSpec. The item_defs are packed binary and the
+    ''' first attempt to read them printed nothing at all, so nothing here is
+    ''' from a remembered schema.
+    ''' </summary>
+    ''' <summary>
+    ''' Recoil travel for a gun whose file states no amplitude, metres.
+    '''
+    ''' HERE, NOT IN TankRecoil, and the distinction is sharper than it looks:
+    ''' Brain Testing compiles this file and STUBS TankRecoil in BrainStubs.vb.
+    ''' Naming the CLASS is fine - TankInstance.recoil does it and their stub
+    ''' supplies one - but naming a MEMBER their stub lacks breaks their build,
+    ''' which is exactly what TankRecoil.MAX_TRAVEL_M did here for one compile.
+    ''' That constant now forwards to this one.
+    '''
+    ''' The value is TEPY's 0.40 - what reads as a recoil at 60 fps without the
+    ''' barrel appearing to leave the mantlet. Real guns state 0.22 to 0.50, so
+    ''' it lands mid-range by luck rather than by derivation.
+    ''' </summary>
+    Public Const RECOIL_TRAVEL_FALLBACK_M As Single = 0.40F
+
+    Public gunPriceCredits As Single       ' what made this the priciest gun
+    Public gunImpulse As Single            ' <impulse>, the shove on the hull
+    Public recoilTravelM As Single         ' <recoil><amplitude>, metres
+    Public recoilEffectName As String = ""  ' <recoil><recoilEffect>
+    Public muzzleBrake As String = ""      ' <muzzleBrake>, HORIZONTAL etc
+
+    ''' <summary>
+    ''' The shell this gun actually loads, and what it does.
+    '''
+    ''' WHICH SHELL IS A CHOICE, and it is defaultPortion's, not price's. A
+    ''' gun lists three and none of them carries a &lt;price&gt;, so the most
+    ''' costly rule has nothing to compare - it picked the GUN and stops there.
+    ''' defaultPortion is the game's own answer to 'what is in the racks': 0.9
+    ''' on the 122 mm's AP and 1.0 on the 100 mm's, with the HEAT and HE at 0.
+    ''' Taking the largest portion is therefore what the tank fires, which is
+    ''' the question being asked. Naming it here so it can be overruled without
+    ''' anyone having to rediscover that shells have no price.
+    ''' </summary>
+    Public shellName As String = ""
+    Public shellSpeedMps As Single         ' <speed>, 900..1400 typically
+    Public shellGravity As Single          ' <gravity>, 9.81 on every one seen
+    Public shellMaxDistanceM As Single     ' <maxDistance>, 720 on every one seen
+    Public shellPiercing As Single         ' <piercingPower>, first of the pair
+
     Public turretPosition As Vector3   ' hull-local
     Public gunPosition As Vector3      ' turret-local
 
@@ -549,6 +728,8 @@ Public Class TankVehicle
         v.ReadHullTraverse(chassisEl)
         v.ReadAimLimits(turretEl, gunEl)
         v.ReadGunTiming(nation, gunEl)
+        v.ReadBarrelSpec(nation, gunEl)
+        If TANK_GUN_SPEC_DUMP Then DumpGunSpec(nation, gunEl)
         v.blast = TankBlast.Lookup(TankVisual.TextOf(
             If(gunEl Is Nothing, Nothing, gunEl.SelectSingleNode("effects"))))
 
@@ -560,6 +741,14 @@ Public Class TankVehicle
         progress?.Invoke(0.75F)
         v.AddPart("gun", ModelOf(gunEl), gunOff)
         progress?.Invoke(1.0F)
+
+        ' THE ARMOUR, onto the parts. One place, right after the parts exist,
+        ' so every consumer reads it off the part rather than re-walking
+        ' item_defs with its own idea of which module was chosen.
+        v.ReadArmor("chassis", chassisEl)
+        v.ReadArmor("hull", TryCast(root.SelectSingleNode("hull"), XmlElement))
+        v.ReadArmor("turret", turretEl)
+        v.ReadArmor("gun", gunEl)
 
         For Each p In v.parts
             If p.label <> "gun" OrElse p.visual Is Nothing Then Continue For
@@ -663,6 +852,240 @@ Public Class TankVehicle
     ''' <summary>The gun's shared entry in the nation's components/guns.xml,
     ''' or Nothing. Cached per nation - the file is large and every vehicle
     ''' of a nation asks for it.</summary>
+    ''' <summary>
+    ''' Every field the chosen gun carries, local and shared, said out loud.
+    '''
+    ''' The owner, 2026-09-25: "get the specs on barrels and such using most
+    ''' costly rule." The rule is already here - Priciest picks the chassis,
+    ''' the turret and then the gun inside that turret - but only reload,
+    ''' magazine, aim limits and the blast are READ off it. Shell speed is a
+    ''' single global 180 m/s for every gun on the roster, and calibre is not
+    ''' read at all.
+    '''
+    ''' So this says what is THERE before anything is written against it. The
+    ''' item_defs are packed binary, which is the same reason ReadHullTraverse
+    ''' logs whether or not it found its fields: guessing at a schema you
+    ''' cannot open is how you write a parser for a file that does not exist.
+    ''' Under `gunspec` on the command line; delete the flag when the real
+    ''' fields are being read.
+    ''' </summary>
+    Private Shared Sub DumpGunSpec(nation As String, gunEl As XmlElement)
+        If gunEl Is Nothing Then
+            LogThis("tank: gun spec - no gun element")
+            Return
+        End If
+        LogThis("tank: gun spec for [{0}] of {1}", gunEl.Name, nation)
+        LogThis("tank:   LOCAL has {0} child node(s), {1} of them elements",
+                gunEl.ChildNodes.Count, CountElements(gunEl))
+        LogThis("tank:   LOCAL raw: {0}", Clip(gunEl.OuterXml))
+        DumpNode(gunEl, "     ", 0)
+        Dim sh = SharedGun(nation, gunEl.Name)
+        If sh Is Nothing Then
+            LogThis("tank:   SHARED components/guns.xml has no [{0}]", gunEl.Name)
+        Else
+            LogThis("tank:   SHARED {0} child node(s), {1} element(s)",
+                    sh.ChildNodes.Count, CountElements(sh))
+            LogThis("tank:   SHARED raw: {0}", Clip(sh.OuterXml))
+            DumpNode(sh, "     ", 0)
+        End If
+    End Sub
+
+    ''' <summary>One element and its children, two levels deep. Two, because a
+    ''' gun's shells are a level down and their own fields another - and
+    ''' unbounded recursion on a packed section prints a wall.</summary>
+    Private Shared Function CountElements(el As XmlElement) As Integer
+        Dim n = 0
+        For Each c As XmlNode In el.ChildNodes
+            If c.NodeType = XmlNodeType.Element Then n += 1
+        Next
+        Return n
+    End Function
+
+    Private Shared Function Clip(t As String) As String
+        If t Is Nothing Then Return "(nothing)"
+        t = t.Replace(vbCr, " ").Replace(vbLf, " ")
+        If t.Length > 6000 Then t = t.Substring(0, 6000) & " ...[" & t.Length & " chars]"
+        Return t
+    End Function
+
+    Private Shared Sub DumpNode(el As XmlElement, pad As String, depth As Integer)
+        For Each c As XmlNode In el.ChildNodes
+            If c.NodeType <> XmlNodeType.Element Then Continue For
+            Dim ce = DirectCast(c, XmlElement)
+            Dim kids = 0
+            For Each g As XmlNode In ce.ChildNodes
+                If g.NodeType = XmlNodeType.Element Then kids += 1
+            Next
+            Dim txt = If(ce.InnerText, "").Trim()
+            If txt.Length > 60 Then txt = txt.Substring(0, 60) & "..."
+            If kids = 0 Then
+                LogThis("tank:{0}{1} = {2}", pad, ce.Name, txt)
+            Else
+                LogThis("tank:{0}{1}  ({2} child element(s))", pad, ce.Name, kids)
+                If depth < 2 Then DumpNode(ce, pad & "  ", depth + 1)
+            End If
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' Pull the barrel and ammunition numbers off the chosen gun.
+    '''
+    ''' LOCAL FIRST, THEN SHARED, which is the precedence ReadGunTiming
+    ''' already uses and the one the files are built for: a vehicle's own gun
+    ''' entry overrides, and carries the literal text "shared" where it
+    ''' inherits. reloadTime differs between the two on both tanks measured -
+    ''' 9.4 local against 11 shared - so reading the wrong one is not
+    ''' academic.
+    '''
+    ''' THE SHOTS BLOCK IS ONLY EVER SHARED. Neither vehicle entry carried one,
+    ''' both shared entries did, so the shell is looked up there and there is
+    ''' no local override path to write.
+    '''
+    ''' Every field is optional and a missing one leaves its default. Logged
+    ''' either way, for the same reason ReadHullTraverse logs: a silent absence
+    ''' would not tell you whether the field is missing or the read is wrong.
+    ''' </summary>
+    Private Sub ReadBarrelSpec(nation As String, gunEl As XmlElement)
+        If gunEl Is Nothing Then Return
+        Dim sh = SharedGun(nation, gunEl.Name)
+
+        gunPriceCredits = Num(gunEl, sh, "price", 0.0F)
+        gunImpulse = Num(gunEl, sh, "impulse", 0.0F)
+        recoilTravelM = Num(gunEl, sh, "recoil/amplitude", RECOIL_TRAVEL_FALLBACK_M)
+        recoilEffectName = Txt(gunEl, sh, "recoil/recoilEffect")
+        muzzleBrake = Txt(gunEl, sh, "muzzleBrake")
+
+        ' The shell with the largest defaultPortion - see shellName.
+        Dim shots = If(sh Is Nothing, Nothing, sh.SelectSingleNode("shots"))
+        If shots IsNot Nothing Then
+            Dim best As XmlElement = Nothing
+            Dim bestPortion = Single.NegativeInfinity
+            For Each c As XmlNode In shots.ChildNodes
+                If c.NodeType <> XmlNodeType.Element Then Continue For
+                Dim el = DirectCast(c, XmlElement)
+                Dim p = One(el.SelectSingleNode("defaultPortion"), 0.0F)
+                If best Is Nothing OrElse p > bestPortion Then
+                    best = el : bestPortion = p
+                End If
+            Next
+            If best IsNot Nothing Then
+                shellName = best.Name
+                shellSpeedMps = One(best.SelectSingleNode("speed"), 0.0F)
+                shellGravity = One(best.SelectSingleNode("gravity"), 9.81F)
+                shellMaxDistanceM = One(best.SelectSingleNode("maxDistance"), 0.0F)
+                shellPiercing = One(best.SelectSingleNode("piercingPower"), 0.0F)
+            End If
+        End If
+
+        LogThis("tank:   barrel: price {0:N0}, impulse {1:0.00}, recoil {2:0.00} m" &
+                " [{3}], brake {4}",
+                gunPriceCredits, gunImpulse, recoilTravelM,
+                If(recoilEffectName = "", "-", recoilEffectName),
+                If(muzzleBrake = "", "none", muzzleBrake))
+        If shellName = "" Then
+            LogThis("tank:   shell: none stated - shots fall back to TANK_SHELL_MPS")
+        Else
+            LogThis("tank:   shell [{0}] {1:0} m/s, gravity {2:0.00}, max {3:0} m," &
+                    " piercing {4:0}",
+                    shellName, shellSpeedMps, shellGravity, shellMaxDistanceM,
+                    shellPiercing)
+        End If
+    End Sub
+
+    ''' <summary>A number from the local entry, else the shared one, else the
+    ''' default. Path may be nested, e.g. "recoil/amplitude".</summary>
+    Private Shared Function Num(localEl As XmlElement, sharedEl As XmlElement,
+                                path As String, dflt As Single) As Single
+        Dim v = One(If(localEl Is Nothing, Nothing, localEl.SelectSingleNode(path)),
+                    Single.NaN)
+        If Not Single.IsNaN(v) Then Return v
+        v = One(If(sharedEl Is Nothing, Nothing, sharedEl.SelectSingleNode(path)),
+                Single.NaN)
+        If Not Single.IsNaN(v) Then Return v
+        Return dflt
+    End Function
+
+    Private Shared Function Txt(localEl As XmlElement, sharedEl As XmlElement,
+                                path As String) As String
+        Dim t = TankVisual.TextOf(
+            If(localEl Is Nothing, Nothing, localEl.SelectSingleNode(path)))
+        If t IsNot Nothing AndAlso t.Trim() <> "" Then Return t.Trim()
+        t = TankVisual.TextOf(
+            If(sharedEl Is Nothing, Nothing, sharedEl.SelectSingleNode(path)))
+        Return If(t Is Nothing, "", t.Trim())
+    End Function
+
+    ''' <summary>The FIRST number in a node's text, or the default. piercingPower
+    ''' is a pair ("262 244") and speed is a single, so taking [0] is what the
+    ''' other readers in this file do too.</summary>
+    Private Shared Function One(n As XmlNode, dflt As Single) As Single
+        If n Is Nothing Then Return dflt
+        Dim f = TankVisual.Floats(n.InnerText)
+        If f Is Nothing OrElse f.Length = 0 Then Return dflt
+        Return f(0)
+    End Function
+
+
+    ''' <summary>
+    ''' Put one module's armour plates and collision path onto its part.
+    '''
+    ''' Silent when a module has no &lt;armor&gt; block, because several do not.
+    ''' Finding out which was the probe's job and that is now known, so a
+    ''' normal load has nothing to report.
+    ''' </summary>
+    Private Sub ReadArmor(label As String, el As XmlElement)
+        If el Is Nothing Then Return
+        Dim p = PartByLabel(label)
+        If p Is Nothing Then Return
+
+        Dim arm = el.SelectSingleNode("armor")
+        If arm IsNot Nothing Then
+            For Each c As XmlNode In arm.ChildNodes
+                If c.NodeType <> XmlNodeType.Element Then Continue For
+                Dim mm = OwnNumber(c)
+                If Not Single.IsNaN(mm) Then p.armorMm(c.Name) = mm
+            Next
+        End If
+
+        Dim mp = TankVisual.TextOf(el.SelectSingleNode("hitTester/collisionModelClient"))
+        Dim hv = ""
+        If mp IsNot Nothing AndAlso mp.Trim() <> "" Then
+            hv = mp.Trim().Replace(".model", ".havok")
+            If TankFiles.LookupOwn(hv) IsNot Nothing Then
+                p.havokPath = hv
+            Else
+                hv = ""
+            End If
+        End If
+
+        ' ONE LINE, like the gun timing and barrel lines above it. Enough to see
+        ' the plates were found and the collision file resolved; the exploring
+        ' is done and its probe is gone.
+        LogThis("tank:   armour [{0}] {1} plate(s){2}{3}", label, p.armorMm.Count,
+                If(p.armorMm.Count = 0, "", " " & String.Join(" ", PlateText(p))),
+                If(hv = "", " - no .havok", " + havok"))
+    End Sub
+
+    Private Shared Function PlateText(p As TankPart) As List(Of String)
+        Dim o As New List(Of String)
+        For Each kv In p.armorMm
+            o.Add(String.Format("{0}={1:0.#}", kv.Key, kv.Value))
+        Next
+        Return o
+    End Function
+
+    Private Shared Function OwnNumber(n As XmlNode) As Single
+        Dim sb As New Text.StringBuilder()
+        For Each c As XmlNode In n.ChildNodes
+            If c.NodeType = XmlNodeType.Text OrElse
+               c.NodeType = XmlNodeType.CDATA Then sb.Append(c.Value)
+        Next
+        Dim f = TankVisual.Floats(sb.ToString())
+        If f Is Nothing OrElse f.Length = 0 Then Return Single.NaN
+        Return f(0)
+    End Function
+
+
     Private Shared Function SharedGun(nation As String, name As String) As XmlElement
         Dim root As XmlElement = Nothing
         If Not shared_guns.TryGetValue(nation, root) Then
@@ -848,3 +1271,238 @@ Public Class TankVehicle
         parts.Clear()
     End Sub
 End Class
+
+
+''' <summary>
+''' WHICH BONE IS THE BARREL, AND WHERE ITS MUZZLE IS.
+'''
+''' Lifted out of TankRenderer on 2026-09-25 so Brain Testing can reach it.
+''' The owner: "nuTerra Work: You have permission to help PathFinder add
+''' functionality to the guns as in nuTerra source." PathFinder was firing
+''' from the gun part's ORIGIN, which is the breech - the line was already
+''' right and the shot started a few metres short of the muzzle.
+'''
+''' IN THIS FILE rather than a new one, deliberately. A new .vb would need a
+''' Compile Include adding to BrainTesting.vbproj, and that file is not mine
+''' to edit. TankVehicle.vb is already linked, so this arrives with no change
+''' to their project at all.
+'''
+''' NOTHING HERE IS NEW BEHAVIOUR. It is the code the renderer already ran,
+''' moved, with the renderer now calling in - so a muzzle measured by the
+''' brain and a barrel drawn by nuTerra cannot drift apart.
+''' </summary>
+Public Module TankBarrel
+
+    ''' <summary>
+    ''' Classify this gun's palette once, and work out which way the barrel
+    ''' retracts.
+    '''
+    ''' THE DIRECTION IS MEASURED, NOT ASSUMED. A fixed axis sign is wrong on
+    ''' half the corpus - the muzzle sits at +Z on some guns and -Z on others,
+    ''' and getting it backwards pushes the barrel further OUT of the mantlet
+    ''' instead of into it, which reads as the gun growing rather than as a
+    ''' sign error. ComputeBoneHubs already leaves a weighted centroid per
+    ''' palette slot, so the barrel bone's own hub says which end it is on:
+    ''' recoil is back toward the origin, so the sign is the opposite of the
+    ''' hub's. Nothing here has to know a convention.
+    '''
+    ''' Where the names give nothing - a palette with no G_ bone at all - the
+    ''' hubs answer that too: the bone whose vertices sit furthest out along Z
+    ''' IS the barrel, whatever it is called. TEPY needed exactly this for
+    ''' A100_T49, which inverts the naming convention outright.
+    ''' </summary>
+    Public Function PlanFor(part As TankPart, m As TankMesh) As BarrelPlan
+        If m.barrelPlan IsNot Nothing Then Return m.barrelPlan
+        If m.barrelPlanDone Then Return Nothing
+        m.barrelPlanDone = True
+
+        Dim plan As New BarrelPlan
+        m.barrelPlan = plan
+
+        Dim palette = part.PaletteFor(m)
+        plan.slots = ClassifyPalette(palette)
+
+        ' The barrel is the flagged bone reaching furthest along Z. On a twin
+        ' gun both barrels are flagged and either answers the direction, since
+        ' they point the same way.
+        Dim best = -1
+        Dim bestZ = 0.0F
+        For i = 0 To 63
+            If plan.slots(i) = 0 Then Continue For
+            Dim z = hub_z(m, i)
+            If Single.IsNaN(z) Then Continue For
+            If best < 0 OrElse Math.Abs(z) > Math.Abs(bestZ) Then best = i : bestZ = z
+        Next
+
+        ' No G_ bone in the palette: fall back to geometry alone.
+        If best < 0 Then
+            For i = 0 To 63
+                Dim z = hub_z(m, i)
+                If Single.IsNaN(z) Then Continue For
+                If best < 0 OrElse Math.Abs(z) > Math.Abs(bestZ) Then best = i : bestZ = z
+            Next
+            If best >= 0 Then
+                plan.slots(best) = 1
+                LogThis("tank: gun [{0}] has no G_ bone - slot {1} taken as the barrel on its hub alone (z {2:0.00})",
+                        m.name, best, bestZ)
+            End If
+        End If
+
+        If best < 0 Then
+            m.barrelPlan = Nothing
+            Return Nothing
+        End If
+
+        plan.dir = If(bestZ >= 0.0F, -1.0F, 1.0F)
+        plan.barrel = best
+
+        ' Logged once per mesh, because "which bone is the barrel" is the whole
+        ' question and a wrong answer is only visible as the wrong part sliding.
+        Dim names As New List(Of String)
+        If palette IsNot Nothing Then
+            For i = 0 To Math.Min(palette.Count, 64) - 1
+                names.Add(String.Format("{0}{1}", palette(i),
+                                        If(plan.slots(i) <> 0, "*", "")))
+            Next
+        End If
+        LogThis("tank: gun [{0}] barrel slot {1} (byte {2}) hub z {3:0.00}, back is {4}Z  [{5}]",
+                m.name, best, best * 3, bestZ, If(plan.dir < 0, "-", "+"),
+                String.Join(" ", names))
+        Return plan
+    End Function
+
+    ''' <summary>
+    ''' WHERE THIS GUN'S ROUND LEAVES, and which way. The whole rule, in the
+    ''' order nuTerra fires by - call this rather than MeasureMuzzle.
+    '''
+    ''' TWO SOURCES AND THE ORDER MATTERS. A gun whose visual names
+    ''' HP_gunFire carries the game's own muzzle point, and that wins; only a
+    ''' gun without one falls back to measuring the barrel bone's far end.
+    ''' I handed Brain Testing MeasureMuzzle alone on 2026-09-25, which was
+    ''' half the rule: on any tank that names the hardpoint they would have
+    ''' measured where the game says not to.
+    '''
+    ''' THE NAMED MUZZLE GOES THROUGH THE UNFLIPPED MATRIX AND THE MEASURED
+    ''' ONE DOES NOT. Node positions live in the visual's own frame; only the
+    ''' VERTEX streams are stored Z-reversed. Push a node through
+    ''' FlipSkinnedZ and the blast comes out of the breech. MeasureMuzzle
+    ''' applies the flip itself because it reads vertices; this path must not,
+    ''' and that asymmetry is the whole reason both live behind one call.
+    '''
+    ''' `model` is PartLocal(gunPart, yaw, pitch) times the vehicle's world
+    ''' matrix. False means this gun can offer neither, and then muzzle and dir
+    ''' are untouched - do not fire.
+    '''
+    ''' dir is NOT normalised, in either branch, because the caller normalises
+    ''' once after a length check.
+    ''' </summary>
+    Public Function MuzzleFor(v As TankVehicle, gunPart As TankPart,
+                              model As Matrix4, ByRef muzzle As Vector3,
+                              ByRef dir As Vector3) As Boolean
+        If v Is Nothing OrElse gunPart Is Nothing Then Return False
+        If v.hasMuzzle Then
+            Dim m0 = v.muzzleLocal
+            muzzle = Vector3.TransformPosition(m0, model)
+            dir = Vector3.TransformPosition(m0 + Vector3.UnitZ, model) - muzzle
+            Return True
+        End If
+        Return MeasureMuzzle(gunPart, model, muzzle, dir)
+    End Function
+
+    ''' <summary>A palette slot's centroid Z, or NaN when nothing is bound
+    ''' to it.</summary>
+    Private Function hub_z(m As TankMesh, slot As Integer) As Single
+        If m.boneHubs Is Nothing OrElse slot < 0 OrElse slot >= m.boneHubs.Length Then
+            Return Single.NaN
+        End If
+        Return m.boneHubs(slot).Z
+    End Function
+
+    ''' <summary>
+    ''' THE MUZZLE IS MEASURED, not offset from the joint by a guessed length.
+    '''
+    ''' Every gun is a different length and they are not all authored down the
+    ''' same axis, so the two points that define a shot come from the barrel
+    ''' bone's own vertices: its weighted centroid, about mid-barrel, and the
+    ''' furthest its vertices reach along Z, which is the muzzle. Both go
+    ''' through the SAME matrix the gun is drawn with, so the ray leaves where
+    ''' the barrel is on screen and the direction is the difference of two
+    ''' measured points rather than an axis someone had to pick a sign for.
+    '''
+    ''' `model` is what TankVehicle.PartLocal returned for the GUN part, times
+    ''' the vehicle's world matrix. Pass the gun part, not the turret.
+    '''
+    ''' False when this gun has no measurable barrel bone, and then muzzle and
+    ''' dir are left untouched - the renderer falls back to the joint, and a
+    ''' caller that ignores the result fires from whatever it initialised.
+    ''' </summary>
+    Public Function MeasureMuzzle(gunPart As TankPart, model As Matrix4,
+                           ByRef muzzle As Vector3,
+                           ByRef dir As Vector3) As Boolean
+        If TankRoster.FlipSkinnedZ Then model = Matrix4.CreateScale(1.0F, 1.0F, -1.0F) * model
+        For Each m In gunPart.meshes
+            If m.layout Is Nothing OrElse m.layout.offBoneIdx < 0 Then Continue For
+            Dim plan = PlanFor(gunPart, m)
+            If plan Is Nothing OrElse plan.barrel < 0 Then Continue For
+            If m.boneHubs Is Nothing OrElse m.boneTipZ Is Nothing Then Continue For
+            If plan.barrel >= m.boneHubs.Length Then Continue For
+            Dim hub = m.boneHubs(plan.barrel)
+            If Single.IsNaN(hub.X) Then Continue For
+
+            Dim back = Vector3.TransformPosition(New Vector3(hub.X, hub.Y, hub.Z), model)
+            muzzle = Vector3.TransformPosition(
+                New Vector3(hub.X, hub.Y, m.boneTipZ(plan.barrel)), model)
+            dir = muzzle - back
+            Return True
+        Next
+        Return False
+    End Function
+
+    Public Class BarrelPlan
+        Public slots(63) As Integer
+        Public dir As Single = 1.0F
+        ''' <summary>The barrel's palette slot. The muzzle is the far end of
+        ''' this bone's own vertices.</summary>
+        Public barrel As Integer = -1
+    End Class
+
+    ''' <summary>
+    ''' Which palette slots are barrel, from the bone names.
+    '''
+    ''' MOVED HERE FROM TankRecoil, which now forwards. Recoil and muzzle
+    ''' measurement both need it and TankRecoil is not a file Brain Testing
+    ''' compiles. Pure string work with no dependencies, so it costs that
+    ''' project nothing to carry.
+    ''' </summary>
+    Public Function ClassifyPalette(palette As List(Of String)) As Integer()
+        Dim flags(63) As Integer
+        If palette Is Nothing Then Return flags
+
+        For i = 0 To Math.Min(palette.Count, 64) - 1
+            Dim n = If(palette(i), "").ToLowerInvariant()
+            If n = "" Then Continue For
+
+            ' Mechanisms first, so G_Cover_ and G_Pusher_ never reach the G_
+            ' test below. These carry their own animation in the engine and
+            ' recoiling them is as wrong as recoiling the mount.
+            If n.Contains("cover") OrElse n.Contains("close") OrElse
+               n.Contains("pusher") OrElse n.Contains("ejector") OrElse
+               n.Contains("breech") OrElse n.Contains("loader") OrElse
+               n.Contains("feed") OrElse n.Contains("rotate") OrElse
+               n.Contains("spring") OrElse n.Contains("valve") OrElse
+               n.Contains("cap_") Then Continue For
+
+            ' Rigid mounts. statik is the German spelling and join_ a typo of
+            ' joint - both are real bone names in the corpus, not defensiveness.
+            If n.Contains("static") OrElse n.Contains("statik") OrElse
+               n.Contains("joint") OrElse n.StartsWith("join_") Then Continue For
+
+            ' Gun_ is the assembly, G_ is the barrel. Order matters: Gun_ also
+            ' starts with G, so it has to be rejected first.
+            If n.StartsWith("gun_") Then Continue For
+            If n.StartsWith("g_") Then flags(i) = 1
+        Next
+        Return flags
+    End Function
+
+End Module
