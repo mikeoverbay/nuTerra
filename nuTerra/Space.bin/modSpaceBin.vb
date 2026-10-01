@@ -130,6 +130,193 @@ Module modSpaceBin
         Next
     End Sub
 
+    ''' <summary>
+    ''' WHAT SPACE.BIN SAYS A MODEL IS, beside what the name guessed.
+    '''
+    ''' The owner, 2026-09-20, on models marked as blockers that should not
+    ''' be: "can drive over tag in visual?" There is a tag. It is not in the
+    ''' visual - it is here, and there are two of them:
+    '''
+    '''   model_info_items(k).type   0 static, 1 falling, 2 fragile. Falling
+    '''                              and fragile are things the game itself
+    '''                              knocks down, so they cannot be blockers.
+    '''   models_colliders(k)        bsp_section_name_fnv 0 means the model
+    '''                              has NO collision hull at all.
+    '''   bsp_material_kinds         one row per collision part, naming the
+    '''                              material through cBSMA - d_wood0_1,
+    '''                              n_metal3_2, s_wall_0 - plus a flag word.
+    '''                              The prefix is the interesting half: d
+    '''                              destructible, n non-destructible, s
+    '''                              static structure.
+    '''
+    ''' WITH THE PLACEMENT COUNT, which is the number that decides whether a
+    ''' misclassification matters. One branch pile keyed as a blocker is a
+    ''' curiosity; 491 of them is a field a tank drives around.
+    '''
+    ''' Under `kinddump`, beside the bake, so it sits next to _kinds.csv -
+    ''' the guess and the ground truth in one folder. Reading only the
+    ''' classifier is how a sidewalk came to stop a tank.
+    ''' </summary>
+    Private Sub DumpModelTypes()
+        Dim rows As New List(Of String)
+        Dim notes As New List(Of String)
+        Dim placed(3) As Integer      ' placements by space.bin type, 3 = unknown
+        Dim no_hull = 0               ' placements of models with no collision at all
+
+        ' THE TABLE LENGTHS FIRST, and written even when the walk below fails.
+        ' The first cut of this dump threw inside the loop and wrote nothing at
+        ' all, and the one LogThis that would have said so starts with a tag
+        ' LOG_KEEP does not keep - so the failure was indistinguishable from
+        ' the dump never being called. A diagnostic that can vanish silently is
+        ' not a diagnostic.
+        Try
+            notes.Add(String.Format("# colliders {0}  model_info {1}  bsp_kinds {2}  materials {3}",
+                      cBSMO.models_colliders.count, cBSMO.model_info_items.count,
+                      cBSMO.bsp_material_kinds.count,
+                      If(cBSMA.MaterialItem Is Nothing, 0, cBSMA.MaterialItem.Length)))
+        Catch ex As Exception
+            notes.Add("# table counts unreadable - " & ex.Message)
+        End Try
+
+        ' PLACEMENTS FROM MODEL_INDEX_LIST, not MODEL_BATCH_LIST, which does
+        ' not exist yet at this point in the load - the batching runs after the
+        ' tables are freed, so a dump that wants both has to count its own.
+        Dim placements As New Dictionary(Of Integer, Integer)
+        If MODEL_INDEX_LIST IsNot Nothing Then
+            For i = 0 To MODEL_INDEX_LIST.Length - 1
+                Dim id = MODEL_INDEX_LIST(i).model_index
+                If placements.ContainsKey(id) Then
+                    placements(id) += 1
+                Else
+                    placements(id) = 1
+                End If
+            Next
+        End If
+
+        Dim TYPE_NAMES() As String = {"static", "falling", "fragile"}
+        For Each kv In placements
+            Dim k = kv.Key
+            Dim n = kv.Value
+            Try
+                If k < 0 OrElse k >= cBSMO.models_colliders.count Then Continue For
+                Dim col = cBSMO.models_colliders.data(k)
+
+                Dim path = col.primitive_name
+                Dim hull = Not String.IsNullOrEmpty(path)
+                If Not hull Then
+                    no_hull += n
+                    ' Fall back to the drawn name so the row is still readable.
+                    Try
+                        path = MAP_MODELS(k).modelLods(0).render_sets(0).verts_name
+                    Catch
+                        path = "(unnamed)"
+                    End Try
+                End If
+
+                ' NOT THE SAME LENGTH AS models_colliders, necessarily. Every
+                ' other table in this file is indexed by the model id and this
+                ' one is read that way too, but nothing guarantees it, so the
+                ' type is "unknown" rather than an exception that loses the
+                ' whole file.
+                Dim t = -1
+                If k < cBSMO.model_info_items.count Then
+                    t = CInt(cBSMO.model_info_items.data(k).type)
+                End If
+                If t >= 0 AndAlso t <= 2 Then placed(t) += n Else placed(3) += n
+
+                ' Every collision part of this model. The range is INCLUSIVE -
+                ' the same convention lod_renders and shaderPropBegin use in
+                ' this file - and guarded, because a model with no hull leaves
+                ' the pair at whatever it happened to hold.
+                Dim parts As New List(Of String)
+                If hull AndAlso cBSMO.bsp_material_kinds.count > 0 AndAlso
+                   col.bsp_material_kind_end >= col.bsp_material_kind_begin Then
+                    For i = col.bsp_material_kind_begin To col.bsp_material_kind_end
+                        If i >= cBSMO.bsp_material_kinds.count Then Exit For
+                        Dim bmk = cBSMO.bsp_material_kinds.data(i)
+                        Dim id = ""
+                        Try
+                            If cBSMA.MaterialItem IsNot Nothing AndAlso
+                               bmk.material_index < cBSMA.MaterialItem.Length Then
+                                id = cBSMA.MaterialItem(bmk.material_index).identifier
+                            End If
+                        Catch
+                        End Try
+                        If String.IsNullOrEmpty(id) Then id = "?" & bmk.material_index
+                        parts.Add(String.Format("{0}|{1}", id, bmk.flags))
+                    Next
+                End If
+
+                ' EVERYTHING HERE COMES FROM ModelKind, AND NOTHING FROM
+                ' MapFlightBake. BrainTesting links this file and does not link
+                ' MapFlightBake; the first cut of this dump named
+                ' MapFlightBake.KIND_NAMES and KIND_MASK and broke that build,
+                ' because linking MapFlightBake cascades into GLFramebuffer and
+                ' the rest of the renderer. A file that two projects compile can
+                ' only reach things both of them have.
+                '
+                ' ModelKind.classify AND NOT MapFlightBake.kind_of, which is
+                ' the same answer through a wrapper that also files the name in
+                ' kind_seen. Going through the wrapper put every BSP section
+                ' name into the OTHER dump and doubled _kinds.csv from 212 rows
+                ' to 425 - a diagnostic quietly changing another diagnostic's
+                ' output. classify is the classification; kind_of is the
+                ' classification plus bookkeeping this dump has no business
+                ' adding to. The lowercase-and-slashes normalising is what
+                ' kind_of did before calling it.
+
+                ' THE HULL'S OWN SIZE, from the same row. A tag saying
+                ' "fragile" does not say "a tank drives over it" - a house on
+                ' this map is fragile and 8 m tall. Height is what separates a
+                ' flowerpot from it, and space.bin states the height here so
+                ' nothing has to infer it from a name.
+                Dim lowpath = path.Replace("\"c, "/"c).ToLowerInvariant()
+                Dim hy = col.collision_bounds_max.Y - col.collision_bounds_min.Y
+                Dim hx = col.collision_bounds_max.X - col.collision_bounds_min.X
+                Dim hz = col.collision_bounds_max.Z - col.collision_bounds_min.Z
+
+                rows.Add(String.Format("{0},{1},{2},{3},{4:0.##},{5:0.##},{6:0.##},{7},{8},{9}",
+                         k, n,
+                         If(t >= 0 AndAlso t <= 2, TYPE_NAMES(t), "type" & t),
+                         If(hull, "hull", "NO_HULL"),
+                         hy, hx, hz,
+                         ModelKind.KIND_NAMES(
+                             ModelKind.classify(lowpath) And ModelKind.KIND_MASK),
+                         ModelKind.KIND_NAMES(
+                             ModelKind.resolve(lowpath, MODEL_HIT_TYPE(k), hy) And
+                             ModelKind.KIND_MASK),
+                         path.Replace(","c, "_"c)))
+            Catch ex As Exception
+                notes.Add(String.Format("# model {0} failed - {1}: {2}",
+                          k, ex.GetType().Name, ex.Message.Replace(","c, "_"c)))
+            End Try
+        Next
+        rows.Sort()
+
+        Try
+            Dim dir = IO.Path.Combine(IO.Path.GetTempPath(), "nuTerra", "flight")
+            IO.Directory.CreateDirectory(dir)
+            Dim p = IO.Path.Combine(dir, MAP_NAME_NO_PATH & "_modeltypes.csv")
+            Dim sb As New Text.StringBuilder()
+            For Each nline In notes
+                sb.AppendLine(nline)
+            Next
+            sb.AppendLine("model_id,placements,spacebin_type,hull,h_y,h_x,h_z,name_kind,kind,path")
+            For Each r In rows
+                sb.AppendLine(r)
+            Next
+            IO.File.WriteAllText(p, sb.ToString())
+
+            LogThis("model types: {0} model(s) - {1} static, {2} falling, {3} fragile, " &
+                    "{4} unknown placement(s), {5} placement(s) with no collision hull, " &
+                    "{6} note(s) -> {7}",
+                    rows.Count, placed(0), placed(1), placed(2), placed(3), no_hull,
+                    notes.Count, p)
+        Catch ex As Exception
+            LogThis("model types: write failed - {0}", ex.Message)
+        End Try
+    End Sub
+
     Public Function ReadSpaceBinData(ByRef ms As MemoryStream) As Boolean
 
 
@@ -254,6 +441,9 @@ Module modSpaceBin
         'build the model information
         materials = New Dictionary(Of UInt32, Material)
         ReDim MAP_MODELS(cBSMO.models_colliders.count - 1)
+        ' Distilled here, in the one window where the tables are still loaded.
+        ReDim MODEL_HIT_TYPE(cBSMO.models_colliders.count - 1)
+        ReDim MODEL_HULL_H(cBSMO.models_colliders.count - 1)
         For k = 0 To cBSMO.models_colliders.count - 1
             With MAP_MODELS(k)
                 Dim lod0_offset = cBSMO.models_loddings.data(k).lod_begin
@@ -273,6 +463,19 @@ Module modSpaceBin
 
                 ReDim .modelLods(lod_count - 1)
                 .visibilityBounds = cBSMO.models_visibility_bounds.data(k)
+
+                ' NOT FIELDS ON mdl_ - see MODEL_HIT_TYPE for why adding one
+                ' there breaks a second project's build.
+                MODEL_HIT_TYPE(k) = ModelKind.HIT_UNKNOWN
+                If k < cBSMO.model_info_items.count Then
+                    Dim t = cBSMO.model_info_items.data(k).type
+                    If t <= 2UI Then MODEL_HIT_TYPE(k) = CByte(t)
+                End If
+                Dim mcol = cBSMO.models_colliders.data(k)
+                If mcol.bsp_section_name_fnv <> 0 Then
+                    MODEL_HULL_H(k) = mcol.collision_bounds_max.Y -
+                                      mcol.collision_bounds_min.Y
+                End If
 
                 For i = 0 To lod_count - 1
                     .modelLods(i) = New base_model_holder_
@@ -336,6 +539,13 @@ Module modSpaceBin
         ' j entries were filled (0..j-1), so the length is j - resizing to
         ' j - 1 silently dropped the last accepted instance on every map.
         Array.Resize(MODEL_INDEX_LIST, j)
+
+        ' BEFORE CleanUp, which nulls cBSMO. The first cut of this called it
+        ' beside the other end-of-load reports and every single model threw a
+        ' NullReferenceException - the tables it reads had been freed forty
+        ' lines earlier. Placed here rather than moving the free, because
+        ' something downstream may depend on that memory going back.
+        If KIND_DUMP Then DumpModelTypes()
 
         ReadSpaceBinData = True
         GoTo CleanUp

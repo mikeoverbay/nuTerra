@@ -33,6 +33,41 @@ Public NotInheritable Class ModelKind
         "water", "other"}
 
     ''' <summary>
+    ''' The bits one of the eight keys occupies: three, so &H7.
+    '''
+    ''' HERE RATHER THAN IN MapFlightBake, which is where it used to live and
+    ''' which now forwards to this. Eight kinds need three bits - that is a
+    ''' fact about the numbering above, not about the bake's key byte, and a
+    ''' mask that lives apart from the numbers it masks cannot be kept honest
+    ''' when one of them changes.
+    '''
+    ''' The practical reason is the same one TreeTrunks.vb gives for declaring
+    ''' its own radius: Brain Testing links THIS file and does not link
+    ''' MapFlightBake, so anything a linker of this file needs has to be
+    ''' reachable from it. On 2026-09-21 a dump in modSpaceBin.vb reached for
+    ''' MapFlightBake.KIND_MASK and broke that build - modSpaceBin is linked
+    ''' too, and pulling MapFlightBake in cascades to GLFramebuffer. Reported
+    ''' by PathFinder, whose read of it was exactly right.
+    ''' </summary>
+    Public Const KIND_MASK As Byte = &H7
+
+    ''' <summary>
+    ''' THE TALLEST THING A TANK DRIVES OVER, metres. One definition.
+    '''
+    ''' It existed twice until 2026-09-24: TankNavLimits.MAX_OBSTACLE and
+    ''' MapFlightBake.OBSTACLE_MIN_H, both 1.0, joined by a comment reading
+    ''' "Matches the bake's own OBSTACLE_MIN_H so 'blocked' means one thing
+    ''' across the app". That is a promise a human keeps, which is the kind
+    ''' DIRECTIVES rule 13 is about - and the kind that let 0.7 survive in two
+    ''' places for three days. Both now forward here.
+    '''
+    ''' HERE rather than with either of them because this file is the one every
+    ''' build compiles: Brain Testing links ModelKind and links neither TankNav
+    ''' nor MapFlightBake, and the classifier below needs the number.
+    ''' </summary>
+    Public Const DRIVE_OVER_MAX_H As Single = 1.0F
+
+    ''' <summary>
     ''' The colour each kind is drawn in, written into the meta so every renderer
     ''' reads ONE table.
     '''
@@ -57,7 +92,140 @@ Public NotInheritable Class ModelKind
         New Byte() {50, 110, 200},    ' water
         New Byte() {200, 200, 200}}   ' other
 
+    ''' <summary>What the game does to a model when it is hit, as space.bin's
+    ''' model_info_items states it. HIT_UNKNOWN is this app's own, for a model
+    ''' the space did not describe.</summary>
+    Public Const HIT_STATIC As Byte = 0
+    Public Const HIT_FALLING As Byte = 1
+    Public Const HIT_FRAGILE As Byte = 2
+    Public Const HIT_UNKNOWN As Byte = 255
+
+    ''' <summary>
+    ''' How tall a DESTRUCTIBLE thing may be and still be driven through.
+    '''
+    ''' A CHOSEN NUMBER, not a derived one, and worth saying so plainly. It is
+    ''' the same 3.5 m as MapFlightBake.MIN_CLEARANCE by coincidence of value
+    ''' and not of meaning - that one is the gap a hull needs to pass UNDER an
+    ''' arch - so the two are deliberately separate constants. Tying them
+    ''' together would be a false derivation that the next person has to unpick.
+    '''
+    ''' Measured on monastery, against the models the name cannot key at all.
+    ''' Under the line, and now crushable: field junk 2.05, washing lines 2.15,
+    ''' cafe tables 2.95, a bicycle 2.04, jug scatters 2.81, benches 1.92,
+    ''' furniture 1.51, baskets 1.77, milk cans 1.49, flowerbeds 1.74, crates
+    ''' 2.47, a boat 2.10, a Dodge 2.19, a Gaz 1.76. Over it, and still
+    ''' blocking: a crypt 6.64, a pier 4.58, scaffolding 8.38.
+    '''
+    ''' THE MARGINAL PAIR IS A WELL AT 3.19 AND A FOUNTAIN AT 2.98, both stone
+    ''' and both now crushable. 7 square metres each, and named here rather
+    ''' than buried so the owner can overrule them without re-deriving which
+    ''' they were.
+    '''
+    ''' Safe in the direction it is used because MODEL_HULL_H is the whole
+    ''' model's bounding box, an UPPER bound on any real height: under the line
+    ''' can only admit things genuinely shorter.
+    ''' </summary>
+    Public Const CRUSH_MAX_H As Single = 3.5F
+
+    ''' <summary>
+    ''' The kind, with the space's own verdict allowed to break a tie the NAME
+    ''' cannot. Use this rather than classify wherever the facts are to hand.
+    '''
+    ''' The owner, 2026-09-23, relayed through PathFinder: "get nuterra to fix
+    ''' the filtering of blockers, that's its job." The case he picked was
+    ''' hd_env_UNI_622_FieldJunk - 35 instances, a 3.3 x 2.9 m pile 1.25 m high
+    ''' that stopped a run three metres short of its goal. It matches no
+    ''' keyword, so it fell to OTHER, and OTHER is not crushable.
+    '''
+    ''' ONLY WHEN THE NAME SAYS NOTHING. A name that keys building, rock, fence,
+    ''' tree or prop keeps that answer untouched - which is what keeps the
+    ''' Basilica blocking, because it is FRAGILE too. The space marks a thing
+    ''' destructible if a shell can destroy it, and a 30 m basilica qualifies;
+    ''' destructible is not drivable, and a rule that read the tag alone would
+    ''' have opened every house on the map. The tag only decides cases the
+    ''' keyword race was going to lose anyway.
+    '''
+    ''' WHY THIS BEATS MORE KEYWORDS. 132 of monastery's 246 built models key as
+    ''' OTHER - over half have no kind at all - and each keyword added to win
+    ''' one of them is a substring that can lose somewhere else. "StreetLamp"
+    ''' contains "tree" and cost the lamp posts; "GatesAndFences" cost the
+    ''' vineyard. The space.bin tag is not a guess about a string, so it does
+    ''' not have that failure mode.
+    '''
+    ''' FALLING IS UNCONDITIONAL, fragile is not. Falling means the thing topples
+    ''' when struck - on this map that is every pole and street lamp, 104
+    ''' placements, nothing else - and a hull pushes those over whatever their
+    ''' height. Fragile only means it can be broken, so it is held to
+    ''' CRUSH_MAX_H.
+    '''
+    ''' PURE, and it has to stay that way: Brain Testing links this file and not
+    ''' the space.bin reader's callers, so the facts arrive as arguments rather
+    ''' than being looked up here.
+    ''' </summary>
+    ''' <summary>
+    ''' THE COLLISION HULL OVERRIDES THE NAME, AND EVERYTHING ELSE.
+    '''
+    ''' The owner, 2026-09-24: "We want to remove what we can drive over." The
+    ''' object that finally showed what that meant was
+    ''' hd_env441_flora_debris_01, which stopped six runs at (81.50, 39.50):
+    ''' leaf litter, 4.37 x 4.72 m wide and a COLLISION HULL 0.18 m TALL, that
+    ''' the bake measured at 2.61 m on one texel out of the nine in the cell.
+    '''
+    ''' THE BAKE RASTERISES WHAT YOU SEE; THE GAME COLLIDES WITH THE HULL. When
+    ''' those two disagree the hull wins, because it is what the engine itself
+    ''' drives a tank through. A visual mesh can carry a standing branch, a
+    ''' tent pole or a flower basket that no collision geometry backs, and
+    ''' top-minus-floor cannot tell that from a wall.
+    '''
+    ''' Sound because MODEL_HULL_H is the whole model's bounding box - an UPPER
+    ''' bound - so 'no taller than flat_h' cannot be true of a model with a real
+    ''' obstacle in it anywhere.
+    '''
+    ''' Measured on monastery: 18 models, 872 texels, 25 square metres. Small
+    ''' area and the wrong metric for it - these are 5- and 20-texel spikes
+    ''' standing in open ground, and one of them cost six runs in seven minutes.
+    ''' A cliff blocks where a driver expects a cliff; this does not.
+    '''
+    ''' BEFORE the name test, unlike the destructible rule below, because a name
+    ''' keying rock or building does not make a 0.2 m thing climbable. hull_h = 0
+    ''' means no hull was stated, and then nothing here applies.
+    ''' </summary>
+    Public Shared Function resolve(p As String, hit As Byte, hull_h As Single) As Byte
+        If hull_h > 0.0F AndAlso hull_h <= DRIVE_OVER_MAX_H Then Return KIND_PROP
+
+        Dim k = classify(p)
+        If k <> KIND_OTHER Then Return k
+        If hit = HIT_FALLING Then Return KIND_PROP
+        ' hull_h = 0 is 'no collision hull stated', not 'flat' - a model whose
+        ' height is unknown keeps the blocking answer rather than guessing.
+        If hit = HIT_FRAGILE AndAlso hull_h > 0.0F AndAlso hull_h < CRUSH_MAX_H Then
+            Return KIND_PROP
+        End If
+        Return k
+    End Function
+
     Public Shared Function classify(p As String) As Byte
+
+        ' FIRST OF ALL, because a particle model's path carries the name of
+        ' whatever it burns on and every other test below would match that
+        ' instead. Measured on monastery: 20 placements of pure effect
+        ' geometry were baked as world collision, and the largest of them -
+        ' a 21 m fire column - keyed BUILDING, because its path is
+        ' particles/.../19_monastery/bld_19_01_Vhouse_05/Fire_monastery_big.
+        ' A fire does not stop a tank. Between them the smoke and fire
+        ' models blocked 64 square metres of ground.
+        '
+        ' PROP RATHER THAN A NEW KIND, and that is a compromise worth naming.
+        ' The honest key would be "does not collide", which the byte has no
+        ' room for and the format does not define; prop is the nearest kind
+        ' that is already crushable everywhere, so an effect stops blocking
+        ' without inventing a key every consumer would have to learn. The
+        ' cost is that Brain Testing draws a fire in the prop colour.
+        '
+        ' Anchored on the FOLDER, not a word: these all live under
+        ' particles/content_deferred/GFX_models. Nothing else on any map
+        ' reaches that path, so this cannot catch real geometry.
+        If has(p, "particles/content_deferred") Then Return KIND_PROP
 
         ' BEFORE THE FENCE TEST, and it has to be, because the fence test
         ' matches the FOLDER and not just the file. The owner, 2026-09-13:

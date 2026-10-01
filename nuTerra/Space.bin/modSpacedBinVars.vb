@@ -438,6 +438,40 @@ Module modSpacedBinVars
 #End Region
 
 #Region "BSMO"
+    ''' <summary>
+    ''' WHAT THE GAME DOES TO EACH MODEL WHEN IT IS HIT, kept after the table
+    ''' that said so is freed. Indexed by model id, the same index MAP_MODELS
+    ''' uses. Values are ModelKind.HIT_STATIC / HIT_FALLING / HIT_FRAGILE, or
+    ''' HIT_UNKNOWN where the space did not say.
+    '''
+    ''' KEPT BECAUSE cBSMO IS NOT. The type lives in cBSMO.model_info_items,
+    ''' and ReadSpaceBinData's CleanUp frees that table long before the kind
+    ''' classifier runs - so a classifier that wants to know whether the game
+    ''' knocks a thing over has to be handed it here or cannot ask at all.
+    ''' Two arrays of 376 entries against a 376-model map.
+    '''
+    ''' DECLARED IN A LINKED FILE ON PURPOSE. The obvious home is two more
+    ''' fields on mdl_ in MapLoader.vb, and that is a trap: Brain Testing does
+    ''' not link MapLoader, it keeps its own hand copy of mdl_, and the linked
+    ''' space.bin reader fills that copy BY NAME. A field added there has to be
+    ''' added to another project's file too or its build breaks - which is
+    ''' exactly how this session broke it on 2026-09-21. Here, both projects get
+    ''' the data by compiling the file that produces it.
+    ''' </summary>
+    Public MODEL_HIT_TYPE() As Byte
+
+    ''' <summary>
+    ''' Each model's collision hull height, metres, from
+    ''' models_colliders.collision_bounds. Zero where the model has no hull.
+    '''
+    ''' IT IS THE WHOLE MODEL'S BOX, not one object's height, and that matters:
+    ''' hd_env_EU_026_ClayJug_Group_01 measures 2.81 m because the box spans a
+    ''' scatter of jugs, and mle_19_02_Canisters01 measures 2.05 m for objects
+    ''' half a metre tall. So it is only safe as an UPPER bound - 'this model is
+    ''' no taller than' - which is the direction a crushable test needs.
+    ''' </summary>
+    Public MODEL_HULL_H() As Single
+
     Public cBSMO As cBSMO_
     Public Structure cBSMO_
         Public models_loddings As BWArray(Of ModelLoddingItem_v0_9_12)

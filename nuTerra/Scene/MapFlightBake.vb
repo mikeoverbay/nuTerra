@@ -55,7 +55,9 @@ Public Class MapFlightBake
     ''' obstacle in the exported mask. The mask is for eyeballing only - the
     ''' planner gets top and floor and should threshold them itself, so it can
     ''' change its mind about what a 1 m kerb means without a re-bake.</summary>
-    Public Const OBSTACLE_MIN_H As Single = 1.0F
+    ''' Forwards to ModelKind.DRIVE_OVER_MAX_H - see there for why the value
+    ''' moved out of this file and TankNav both.
+    Public Const OBSTACLE_MIN_H As Single = ModelKind.DRIVE_OVER_MAX_H
 
     ''' <summary>Bake and export on every map load. On while the planner is
     ''' being written offline; turn it off once the algorithm moves in here and
@@ -76,7 +78,18 @@ Public Class MapFlightBake
     ''' 2 - the SOLID bit in the key byte and the per-object id layer, together,
     ''' because both change what the bake contains and one bump covers both.
     ''' </summary>
-    Public Const BAKE_VERSION As Integer = 7
+    ''' 8: the space's falling/fragile verdict now keys models the name could
+    ''' not, so texels that read OTHER read PROP instead - and PROP is
+    ''' crushable. Same layers, same encoding; a v7 bake on disk is simply
+    ''' wrong about what blocks, and nothing in the file's SHAPE would have
+    ''' revealed it. That is what this number is for.
+    ''' 9: a crushable model no longer stamps the solid bit, so a canopy over a
+    ''' fence or a prop stops blocking. Same layers; a v8 bake is wrong about
+    ''' roughly 9,000 square metres of bush and tree.
+    ''' 10: a model whose own collision hull is no taller than MAX_OBSTACLE can
+    ''' no longer block, whatever its visual mesh rasterises to. A v9 bake keeps
+    ''' 18 phantom blockers standing in open ground on monastery.
+    Public Const BAKE_VERSION As Integer = 10
 
     Public Const BAKE_AT_LOAD As Boolean = True
 
@@ -293,9 +306,27 @@ Public Class MapFlightBake
         Return ModelKind.classify(p)
     End Function
 
-    Public Shared Function kind_of(path As String) As Byte
+    ''' <summary>
+    ''' THE MODEL ID IS OPTIONAL AND WORTH PASSING. With it, the space's own
+    ''' falling/fragile verdict can key a model the name cannot - see
+    ''' ModelKind.resolve. Without it, only the name is consulted, which is the
+    ''' old behaviour and is what a caller holding a bare path gets.
+    '''
+    ''' -1 rather than an overload so the one call site that HAS the id cannot
+    ''' quietly go on not using it.
+    ''' </summary>
+    Public Shared Function kind_of(path As String,
+                                   Optional model_id As Integer = -1) As Byte
         If String.IsNullOrEmpty(path) Then Return KIND_OTHER
-        Dim answer = classify(path.Replace("\\", "/").ToLowerInvariant())
+        Dim low = path.Replace("\\", "/").ToLowerInvariant()
+        Dim answer As Byte
+        If model_id >= 0 AndAlso MODEL_HIT_TYPE IsNot Nothing AndAlso
+           model_id < MODEL_HIT_TYPE.Length Then
+            answer = ModelKind.resolve(low, MODEL_HIT_TYPE(model_id),
+                                       MODEL_HULL_H(model_id))
+        Else
+            answer = classify(low)
+        End If
 
         If KIND_DUMP Then
             SyncLock KIND_DUMP_SYNC
@@ -395,7 +426,11 @@ Public Class MapFlightBake
     ''' not a height. A 67 MB plane to carry one bit a texel would be the
     ''' expensive way to say the same thing.
     ''' </summary>
-    Public Const KIND_MASK As Byte = &H7
+    ''' The value itself now lives in ModelKind, beside the eight keys it
+    ''' selects, and this forwards to it exactly as the KIND_ constants above
+    ''' do. The doc stays here because it describes THIS byte - the kind plus
+    ''' the trunk bit - which is the bake's format and not the numbering's.
+    Public Const KIND_MASK As Byte = ModelKind.KIND_MASK
 
     ''' <summary>
     ''' Bit 4: this is OUTLAND - the scenery ring outside the playable area.
@@ -1216,6 +1251,20 @@ Public Class MapFlightBake
                            OpenGL4.PixelFormat.Red, PixelType.UnsignedByte,
                            mk.Length, mk)
 
+        ' THE MODELS-ONLY KIND PLANE, under `kinddump` only. This is the one
+        ' moment it exists - draw_trees overwrites the texture ten lines later -
+        ' and it is the only way to answer "what model is standing under that
+        ' canopy", which three rounds of reasoning from the other layers could
+        ' not settle on 2026-09-24.
+        If KIND_DUMP Then
+            Try
+                IO.File.WriteAllBytes(bake_stem() & "_modelkind.u8", mk)
+                LogThis("flight bake: models-only kind plane written for diagnosis")
+            Catch ex As Exception
+                LogThis("flight bake: model kind dump failed - {0}", ex.Message)
+            End Try
+        End If
+
         If solid_b Is Nothing Then ReDim solid_b(SIZE * SIZE - 1)
         ' Every texel is assigned, not just the set ones: this array outlives a
         ' map load, and a rebake on a second map would otherwise inherit the
@@ -1244,7 +1293,28 @@ Public Class MapFlightBake
                 ' makes the texel read tree is a SpeedTree that has not been
                 ' drawn yet. Only a model that is ITSELF crushable is exempted,
                 ' and only from its OWN bit.
-                If (mk(src + c) And KIND_MASK) = KIND_TREE Then
+                '
+                ' THAT LAST SENTENCE WAS TRUE OF THE INTENT AND FALSE OF THE
+                ' CODE, for eight days. It said "a model that is ITSELF
+                ' crushable" and the test below asked only whether the model
+                ' keyed TREE - so a FENCE or a PROP, both crushable everywhere
+                ' else in this file, still stamped the solid bit, and any canopy
+                ' closing over one turned it back into a blocker. A stone fence
+                ' is 2.25 m and there are 143 of them through the olive grove.
+                '
+                ' The owner, 2026-09-24: "We want to remove what we can drive
+                ' over." Measured before this line changed: bushes and trees
+                ' still blocked about 9,000 square metres, Olive_bush alone
+                ' 2,910 - the largest blocker on the map that is neither cliff
+                ' nor building, eleven days after he said "all trees and shrubs
+                ' are marked as passible".
+                '
+                ' Crushable() is the one rule, so asking it here means the
+                ' exemption cannot drift from the thing it is meant to mirror.
+                ' It still does NOT relax tree-over-rock or tree-over-wall:
+                ' rock and building are not crushable, so they stamp the bit as
+                ' they always did and the canopy above them still blocks.
+                If Crushable(mk(src + c)) Then
                     solid_b(i) = 0
                     skipped += 1
                 ElseIf (eye_y - d(src + c) * far_d) - floor_m(i) > OBSTACLE_MIN_H Then
@@ -1258,7 +1328,8 @@ Public Class MapFlightBake
         solid_cells = n
         If skipped > 0 Then
             LogThis("flight bake: {0} texel(s) left NOT solid because the model " &
-                    "standing there is itself crushable - a trellis, not a wall", skipped)
+                    "standing there is itself crushable - a trellis or a fence, " &
+                    "not a wall", skipped)
         End If
     End Sub
 

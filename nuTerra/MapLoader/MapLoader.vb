@@ -257,7 +257,8 @@ Module MapLoader
                                 Dim bkind = MapFlightBake.KIND_OTHER
                                 Try
                                     bkind = MapFlightBake.kind_of(
-                                        MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name)
+                                        MAP_MODELS(batch.model_id).modelLods(0).render_sets(0).verts_name,
+                                        batch.model_id)
                                 Catch
                                 End Try
                                 If batch_outland Then
