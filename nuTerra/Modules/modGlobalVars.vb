@@ -1351,7 +1351,18 @@ Module modGlobalVars
     ''' frame long and there is nothing to see. TEPY slows its rounds for the
     ''' same reason. 180 reads as fast and still draws a streak.
     ''' </summary>
+    ''' <summary>
+    ''' Shell speed, m/s. A SINGLE NUMBER FOR EVERY GUN ON THE ROSTER, which
+    ''' is wrong and is known to be: the owner, 2026-09-25, asked for the
+    ''' specs off the most costly gun, and a 90 mm and a 152 mm do not send
+    ''' their rounds at the same speed. Kept as the fallback until the real
+    ''' per-gun field is confirmed present - see TankVehicle.DumpGunSpec.
+    ''' </summary>
     Public TANK_SHELL_MPS As Single = 180.0F
+
+    ''' <summary>Print every field the chosen gun carries, local and shared,
+    ''' at vehicle load. `gunspec` on the command line.</summary>
+    Public TANK_GUN_SPEC_DUMP As Boolean = False
 
     ''' <summary>
     ''' Seconds between shots on the free-running cadence. 0 fires only at

@@ -44,41 +44,25 @@ Public Class TankRecoil
     ''' is the 1.3% of vertices whose WEIGHT is split between the barrel and a
     ''' rigid bone, and it stretches for free if the recoil is weighted.
     ''' </summary>
+    ''' <summary>Forwards to TankBarrel.ClassifyPalette, which is where this
+    ''' moved on 2026-09-25 so Brain Testing could reach it - it compiles
+    ''' TankVehicle.vb and not this file. Same answer, one copy.</summary>
     Public Shared Function ClassifyPalette(palette As List(Of String)) As Integer()
-        Dim flags(63) As Integer
-        If palette Is Nothing Then Return flags
-
-        For i = 0 To Math.Min(palette.Count, 64) - 1
-            Dim n = If(palette(i), "").ToLowerInvariant()
-            If n = "" Then Continue For
-
-            ' Mechanisms first, so G_Cover_ and G_Pusher_ never reach the G_
-            ' test below. These carry their own animation in the engine and
-            ' recoiling them is as wrong as recoiling the mount.
-            If n.Contains("cover") OrElse n.Contains("close") OrElse
-               n.Contains("pusher") OrElse n.Contains("ejector") OrElse
-               n.Contains("breech") OrElse n.Contains("loader") OrElse
-               n.Contains("feed") OrElse n.Contains("rotate") OrElse
-               n.Contains("spring") OrElse n.Contains("valve") OrElse
-               n.Contains("cap_") Then Continue For
-
-            ' Rigid mounts. statik is the German spelling and join_ a typo of
-            ' joint - both are real bone names in the corpus, not defensiveness.
-            If n.Contains("static") OrElse n.Contains("statik") OrElse
-               n.Contains("joint") OrElse n.StartsWith("join_") Then Continue For
-
-            ' Gun_ is the assembly, G_ is the barrel. Order matters: Gun_ also
-            ' starts with G, so it has to be rejected first.
-            If n.StartsWith("gun_") Then Continue For
-            If n.StartsWith("g_") Then flags(i) = 1
-        Next
-        Return flags
+        Return TankBarrel.ClassifyPalette(palette)
     End Function
 
     ''' <summary>How far back the barrel slides. A real 152 mm gun runs 0.6 to
     ''' 0.9 m; TEPY settled on 0.40 m as what reads as a recoil at 60 fps
     ''' without the barrel appearing to fall out of the mantlet.</summary>
-    Public Const MAX_TRAVEL_M As Single = 0.40F
+    ''' <summary>How far back the barrel slides when the gun does not say.
+    '''
+    ''' A FALLBACK NOW, not the value. Every gun states its own
+    ''' recoil/amplitude - 0.42 on the 122 mm, 0.22 on the 100 mm - read into
+    ''' TankVehicle.recoilTravelM on 2026-09-25. This is what a gun with no
+    ''' amplitude gets, and it stays at TEPY's 0.40 because that is the number
+    ''' chosen to read as a recoil at 60 fps without the barrel appearing to
+    ''' leave the mantlet.</summary>
+    Public Const MAX_TRAVEL_M As Single = TankVehicle.RECOIL_TRAVEL_FALLBACK_M
 
     ''' <summary>Back-stroke. Linear - a real gun is an impulse then a
     ''' deceleration, and at 60 ms the difference is not visible.</summary>
@@ -97,6 +81,12 @@ Public Class TankRecoil
     Private t As Single
 
     ''' <summary>Metres back from battery, this frame. Zero at rest.</summary>
+    ''' <summary>This gun's own recoil travel, metres. Set from
+    ''' TankVehicle.recoilTravelM when the vehicle is built; the guns state 0.42
+    ''' and 0.22, so a single constant made every barrel slide the same
+    ''' distance.</summary>
+    Public travel_m As Single = MAX_TRAVEL_M
+
     Public ReadOnly Property offset_m As Single
         Get
             Return m_offset
@@ -140,18 +130,18 @@ Public Class TankRecoil
         Select Case phase
             Case OUT
                 Dim u = Math.Min(1.0F, t / OUT_S)
-                m_offset = MAX_TRAVEL_M * u
+                m_offset = travel_m * u
                 If u >= 1.0F Then phase = DWELL : t = 0.0F
 
             Case DWELL
-                m_offset = MAX_TRAVEL_M
+                m_offset = travel_m
                 If t >= DWELL_S Then phase = HOMING : t = 0.0F
 
             Case HOMING
                 Dim u = Math.Min(1.0F, t / RETURN_S)
                 ' 1 - (1-u)^3: quick off full travel, slow into battery.
                 Dim k = 1.0F - u
-                m_offset = MAX_TRAVEL_M * k * k * k
+                m_offset = travel_m * k * k * k
                 If u >= 1.0F Then phase = IDLE : t = 0.0F : m_offset = 0.0F
         End Select
     End Sub

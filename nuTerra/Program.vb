@@ -98,6 +98,10 @@ Module Program
                         modMapSettings.CLI_FORCED(kv.Substring(0, eq).Trim().ToLowerInvariant()) = v
                     End If
                 End If
+            ElseIf a.Equals("gunspec", StringComparison.OrdinalIgnoreCase) Then
+                ' Every field the chosen gun carries, at load. The most costly
+                ' rule picks the gun; this says what that gun actually holds.
+                TANK_GUN_SPEC_DUMP = True
             ElseIf a.Equals("kinddump", StringComparison.OrdinalIgnoreCase) Then
                 ' Every name the kind classifier saw, and what it answered.
                 KIND_DUMP = True
