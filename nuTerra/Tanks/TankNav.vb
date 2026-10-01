@@ -607,9 +607,11 @@ End Class
 ''' put tanks on cells the pathfinder then refuses to leave.
 ''' </summary>
 Public Module TankNavLimits
-    ''' <summary>Tallest thing a tank may climb. Matches the bake's own
-    ''' OBSTACLE_MIN_H so 'blocked' means one thing across the app.</summary>
-    Public Const MAX_OBSTACLE As Single = 1.0F
+    ''' <summary>Tallest thing a tank may climb. FORWARDS to
+    ''' ModelKind.DRIVE_OVER_MAX_H, which is now the only definition - this and
+    ''' MapFlightBake.OBSTACLE_MIN_H were two copies of 1.0 kept in step by a
+    ''' comment saying they matched.</summary>
+    Public Const MAX_OBSTACLE As Single = ModelKind.DRIVE_OVER_MAX_H
 
     ''' <summary>Steepest ground a tank will take. FORTY degrees.
     '''

@@ -94,11 +94,19 @@ Public Class TankBlk
     ''' BLOCKED WITH KIND TERRAIN AND NO OUTLAND MEANS STEEP - that much is
     ''' sound, because bare ground blocks for no other reason. It is NOT
     ''' complete, and the first draft of this comment claimed it was:
-    ''' measured on monastery at 40 degrees, 59,818 cells block for slope
-    ''' alone and only 28,305 of them - 47.3% - carry kind terrain. The rest
-    ''' carry tree, rock or building, because the cell's kind comes from the
-    ''' texel that decided it and a steep cell with a tree on it reports the
-    ''' tree.
+    ''' measured on monastery at 40 degrees, 60,098 cells block for slope
+    ''' alone and only 28,305 of them - 47.1% - carry kind terrain. The rest
+    ''' carry rock 20,061, tree 10,807, building 855, prop 34, other 32 and
+    ''' fence 4.
+    '''
+    ''' THE MECHANISM, because the loop below is where it hides: when no texel
+    ''' in the cell blocks, pick is set to the TALLEST texel rather than left
+    ''' alone, so a steep cell is labelled by whatever stands highest on it.
+    ''' blk_format.md asserted the opposite on 2026-09-21 - that a slope cell
+    ''' gets no kind at all and the test is therefore exact both ways - and was
+    ''' wrong for three days. The 34 prop cells are what broke it: prop is
+    ''' always crushable, so a blocked prop cell cannot exist under the
+    ''' obstacle rule and can only be a steep cell with a crate on it.
     '''
     ''' THAT COMPLETENESS FIGURE MOVES WITH THE ANGLE. It was 55.2% at thirty
     ''' degrees and this comment kept saying so after the limit went back to
